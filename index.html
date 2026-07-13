@@ -386,7 +386,7 @@ function toggleTheme(){
 (function(){
   let saved='light';try{saved=localStorage.getItem('theme')||sessionStorage.getItem('theme')||'light';}catch(e){}
   document.documentElement.dataset.theme=saved;
-  document.getElementById('theme-btn').textContent=saved==='dark'?'Светло':'Темно';
+  document.getElementById('theme-btn').textContent=saved==='dark'?'☀️':'🌙';
 })();
 
 /* ── Utils ── */
