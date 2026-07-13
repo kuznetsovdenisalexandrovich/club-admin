@@ -379,7 +379,7 @@ function toggleTheme(){
   const html=document.documentElement;
   const isDark=html.dataset.theme==='dark';
   html.dataset.theme=isDark?'light':'dark';
-  document.getElementById('theme-btn').textContent=isDark?'Светло':'Темно';
+  document.getElementById('theme-btn').textContent=isDark?'🌙':'☀️';
   try{localStorage.setItem('theme',html.dataset.theme);sessionStorage.setItem('theme',html.dataset.theme);}catch(e){}
   if(revenueChart) drawChart();
 }
