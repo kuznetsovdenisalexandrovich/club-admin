@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="БП Админка">
+<meta name="theme-color" content="#7c6cf0">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>БП · Админка</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@700;900&family=Manrope:wght@400;500;600;700&display=swap');
@@ -339,10 +345,6 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 
       <div id="popup-rows"></div>
 
-      <!-- История платежей -->
-      <div class="popup-section-title">История платежей</div>
-      <div id="popup-payments" style="border-radius:14px;overflow:hidden;background:var(--stat-bg);border:1px solid var(--border);margin-bottom:16px"></div>
-
       <!-- Действия -->
       <div class="popup-section-title">Действия</div>
       <div id="action-result" class="action-result"></div>
@@ -368,6 +370,10 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       <input class="popup-input" type="number" id="popup-input-revenue" placeholder="Сумма исторических платежей ₽">
       <input class="popup-input" type="text"   id="popup-input-notes"   placeholder="Заметки об участнике...">
       <button class="popup-save" onclick="saveUserPatch()">Сохранить</button>
+
+      <!-- История платежей -->
+      <div class="popup-section-title">История платежей</div>
+      <div id="popup-payments" style="border-radius:14px;overflow:hidden;background:var(--stat-bg);border:1px solid var(--border)"></div>
     </div>
   </div>
 </div>

@@ -1,0 +1,12 @@
+{
+  "name": "Боженька Продаж — Админка",
+  "short_name": "БП Админка",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f1ecfb",
+  "theme_color": "#7c6cf0",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
