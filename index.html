@@ -580,7 +580,7 @@ function renderCampaigns(campaigns){
       } else if(c.status==='live_started'){
         actions=`
           <input class="popup-input" type="text" id="link-input-${c.id}" placeholder="Ссылка на телемост (практика)..." value="${c.meeting_link||''}" style="margin-bottom:0">
-          <input class="popup-input" type="number" id="return-hours-${c.id}" placeholder="Вернуть в меню через N часов (необязательно)" style="margin-bottom:0">
+          <input class="popup-input" type="number" id="return-hours-${c.id}" placeholder="Вернуть в меню через N часов" value="${c.auto_return_hours!=null?c.auto_return_hours:3}" style="margin-bottom:0">
           <button class="action-btn primary" onclick="sendCampaignLink(${c.id})">Отправить ссылку на практику</button>`;
       } else {
         actions=`<div class="pay-meta">Ссылка на практику отправлена: ${c.meeting_link}</div>`;
