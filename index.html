@@ -339,6 +339,10 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 
       <div id="popup-rows"></div>
 
+      <!-- История платежей -->
+      <div class="popup-section-title">История платежей</div>
+      <div id="popup-payments" style="border-radius:14px;overflow:hidden;background:var(--stat-bg);border:1px solid var(--border);margin-bottom:16px"></div>
+
       <!-- Действия -->
       <div class="popup-section-title">Действия</div>
       <div id="action-result" class="action-result"></div>
@@ -493,7 +497,7 @@ function filterPayments(){
       <div class="pay-icon ${ok?'pay-icon-ok':'pay-icon-err'}">${ok?'✓':'✗'}</div>
       <div class="pay-info">
         <div class="pay-name">${p.sub_name||'Платёж'}</div>
-        <div class="pay-meta">${date} · id ${p.telegram_id}</div>
+        <div class="pay-meta">${date} · ${p.client_name||('id '+p.telegram_id)}</div>
       </div>
       <div style='display:flex;align-items:center;gap:8px'><div class="pay-amount" style="color:${ok?'var(--lav-deep)':'var(--red)'}">${fmt(parseFloat(p.actual_amount||0))}</div><button onclick="deletePayment(${p.id},event)" style='background:none;border:none;cursor:pointer;color:var(--text-faint);font-size:14px;padding:2px 4px;border-radius:4px' title='Удалить'>✕</button></div>
     </div>`;
@@ -569,9 +573,29 @@ function openPopup(tid){
   ].map(([l,v])=>`<div class="popup-row"><span class="popup-row-label">${l}</span><span class="popup-row-val">${v}</span></div>`).join('');
   document.getElementById('popup-input-revenue').value=u.manual_revenue||'';
   document.getElementById('popup-input-notes').value=u.notes||'';
+  renderPopupPayments(u.telegram_id);
   document.getElementById('action-result').style.display='none';
   document.getElementById('payload-row').classList.remove('visible');
   document.getElementById('popup-overlay').classList.add('open');
+}
+
+function renderPopupPayments(tid){
+  const el=document.getElementById('popup-payments');
+  const pays=allPayments.filter(p=>p.telegram_id===tid).sort((a,b)=>new Date(b.payment_date)-new Date(a.payment_date));
+  if(!pays.length){ el.innerHTML='<div class="empty">Платежей нет</div>'; return; }
+  el.innerHTML=pays.map(p=>{
+    const ok=isOk(p.status);
+    const d=new Date(p.payment_date);
+    const date=d.toLocaleDateString('ru',{day:'2-digit',month:'short',year:'2-digit'});
+    return `<div class="pay-item">
+      <div class="pay-icon ${ok?'pay-icon-ok':'pay-icon-err'}">${ok?'✓':'✗'}</div>
+      <div class="pay-info">
+        <div class="pay-name">${p.sub_name||'Платёж'}</div>
+        <div class="pay-meta">${date}</div>
+      </div>
+      <div class="pay-amount" style="color:${ok?'var(--lav-deep)':'var(--red)'}">${fmt(parseFloat(p.actual_amount||0))}</div>
+    </div>`;
+  }).join('');
 }
 
 function closePopup(e){
