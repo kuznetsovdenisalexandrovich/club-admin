@@ -277,6 +277,23 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
   </div>
 
   <div class="section">
+    <div class="section-head"><div class="section-title">Уведомления</div></div>
+    <div class="card">
+      <div style="padding:14px 16px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px">
+        <select id="camp-list" class="popup-input" style="margin-bottom:0" onchange="onCampListChange()"></select>
+        <select id="camp-flow" class="popup-input" style="margin-bottom:0;display:none">
+          <option value="lecture">Теория + практика (эфир, потом телемост)</option>
+          <option value="meetup">Просто встреча (сразу телемост)</option>
+        </select>
+        <input class="popup-input" type="text" id="camp-title" placeholder="Заголовок (для себя), напр. Книга «Атомные привычки»" style="margin-bottom:0">
+        <textarea id="camp-text" class="popup-input" rows="3" placeholder="Текст анонса... (не нужен для 'Просто встреча')" style="margin-bottom:0;resize:vertical"></textarea>
+        <button class="popup-save" onclick="createCampaign()">Создать кампанию</button>
+      </div>
+      <div id="campaigns-list"><div class="loading">Загрузка...</div></div>
+    </div>
+  </div>
+
+  <div class="section">
     <div class="section-head">
       <div class="section-title">Участники</div>
       <select id="user-filter" onchange="filterUsers()" style="font-size:11px;font-family:var(--body);padding:4px 8px;border-radius:10px;border:1px solid var(--line);background:var(--input-bg);color:var(--text)">
@@ -306,19 +323,6 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       </div>
       <div id="payments-list"><div class="loading">Загрузка...</div></div>
       <div class="pay-summary" id="pay-summary"></div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-head"><div class="section-title">Уведомления</div></div>
-    <div class="card">
-      <div style="padding:14px 16px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px">
-        <select id="camp-list" class="popup-input" style="margin-bottom:0"></select>
-        <input class="popup-input" type="text" id="camp-title" placeholder="Заголовок (для себя), напр. Книга «Атомные привычки»" style="margin-bottom:0">
-        <textarea id="camp-text" class="popup-input" rows="3" placeholder="Текст анонса..." style="margin-bottom:0;resize:vertical"></textarea>
-        <button class="popup-save" onclick="createCampaign()">Создать кампанию</button>
-      </div>
-      <div id="campaigns-list"><div class="loading">Загрузка...</div></div>
     </div>
   </div>
 </div>
@@ -533,7 +537,15 @@ async function loadNotificationLists(){
   try{
     notificationLists=await fetch(API+'/notification-lists').then(r=>r.json());
     document.getElementById('camp-list').innerHTML=notificationLists.map(l=>`<option value="${l.list_id}">${l.name}</option>`).join('');
+    onCampListChange();
   }catch(e){}
+}
+
+function onCampListChange(){
+  const listId=parseInt(document.getElementById('camp-list').value);
+  const info=notificationLists.find(l=>l.list_id===listId);
+  const flowSel=document.getElementById('camp-flow');
+  flowSel.style.display=(info && info.flow_options.length>1)?'':'none';
 }
 
 async function loadCampaigns(){
@@ -546,22 +558,40 @@ async function loadCampaigns(){
 function renderCampaigns(campaigns){
   const el=document.getElementById('campaigns-list');
   if(!campaigns.length){ el.innerHTML='<div class="empty">Кампаний пока нет</div>'; return; }
-  const statusBadge={draft:'<span class="badge badge-act">черновик</span>',announced:'<span class="badge badge-ok">анонс отправлен</span>',sent:'<span class="badge badge-ok">завершена</span>'};
+  const statusBadge={
+    draft:'<span class="badge badge-act">черновик</span>',
+    announced:'<span class="badge badge-ok">анонс отправлен</span>',
+    live_started:'<span class="badge badge-ok">эфир начался</span>',
+    sent:'<span class="badge badge-ok">завершена</span>',
+  };
   el.innerHTML=campaigns.map(c=>{
     const d=new Date(c.created_at);
     const date=d.toLocaleDateString('ru',{day:'2-digit',month:'short'});
-    const isLive=c.campaign_type==='live';
     let actions='';
-    if(isLive){
+
+    if(c.flow==='lecture'){
       if(c.status==='draft'){
         actions=`<button class="action-btn success" onclick="announceCampaign(${c.id})">Отправить анонс</button>`;
       } else if(c.status==='announced'){
         actions=`
-          <input class="popup-input" type="text" id="link-input-${c.id}" placeholder="Ссылка на телемост..." value="${c.meeting_link||''}" style="margin-bottom:0">
+          <input class="popup-input" type="text" id="vk-input-${c.id}" placeholder="Ссылка на эфир в ВК..." value="${c.vk_stream_link||''}" style="margin-bottom:0">
+          <textarea class="popup-input" id="live-text-${c.id}" rows="2" placeholder="Текст 'эфир начался'..." style="margin-bottom:0;resize:vertical">${c.live_text||''}</textarea>
+          <button class="action-btn primary" onclick="startLiveCampaign(${c.id})">Начать эфир</button>`;
+      } else if(c.status==='live_started'){
+        actions=`
+          <input class="popup-input" type="text" id="link-input-${c.id}" placeholder="Ссылка на телемост (практика)..." value="${c.meeting_link||''}" style="margin-bottom:0">
           <input class="popup-input" type="number" id="return-hours-${c.id}" placeholder="Вернуть в меню через N часов (необязательно)" style="margin-bottom:0">
-          <button class="action-btn primary" onclick="sendCampaignLink(${c.id})">Отправить ссылку</button>`;
+          <button class="action-btn primary" onclick="sendCampaignLink(${c.id})">Отправить ссылку на практику</button>`;
       } else {
-        actions=`<div class="pay-meta">Ссылка была отправлена: ${c.meeting_link}</div>`;
+        actions=`<div class="pay-meta">Ссылка на практику отправлена: ${c.meeting_link}</div>`;
+      }
+    } else if(c.flow==='meetup'){
+      if(c.status!=='sent'){
+        actions=`
+          <input class="popup-input" type="text" id="link-input-${c.id}" placeholder="Ссылка на телемост..." value="${c.meeting_link||''}" style="margin-bottom:0">
+          <button class="action-btn primary" onclick="sendMeetupCampaign(${c.id})">Отправить</button>`;
+      } else {
+        actions=`<div class="pay-meta">Отправлено, ссылка: ${c.meeting_link}</div>`;
       }
     } else {
       if(c.status!=='sent'){
@@ -572,6 +602,7 @@ function renderCampaigns(campaigns){
         actions=`<div class="pay-meta">Отправлено, ссылка: ${c.meeting_link}</div>`;
       }
     }
+
     return `<div class="pay-item" style="flex-direction:column;align-items:stretch;gap:8px">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div class="pay-name">${c.title||'Без названия'}</div>
@@ -588,12 +619,15 @@ async function createCampaign(){
   const list_id=parseInt(document.getElementById('camp-list').value);
   const title=document.getElementById('camp-title').value.trim();
   const announce_text=document.getElementById('camp-text').value.trim();
-  if(!title||!announce_text){ alert('Заполни заголовок и текст анонса'); return; }
+  const flowSel=document.getElementById('camp-flow');
+  const flow=flowSel.style.display!=='none'?flowSel.value:undefined;
+  if(!title){ alert('Заполни заголовок'); return; }
+  if(flow!=='meetup' && !announce_text){ alert('Заполни текст анонса'); return; }
   try{
     await fetch(API+'/campaigns?x_admin_token='+ADMIN_TOKEN,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({list_id,title,announce_text})
+      body:JSON.stringify({list_id,title,announce_text,flow})
     });
     document.getElementById('camp-title').value='';
     document.getElementById('camp-text').value='';
@@ -605,6 +639,39 @@ async function announceCampaign(id){
   if(!confirm('Отправить анонс всем в списке?')) return;
   try{
     const r=await fetch(API+'/campaigns/'+id+'/announce?x_admin_token='+ADMIN_TOKEN,{method:'POST'});
+    if(!r.ok){ alert('Ошибка отправки'); return; }
+    await loadCampaigns();
+  }catch(e){ alert('Ошибка соединения'); }
+}
+
+async function startLiveCampaign(id){
+  const vk_stream_link=document.getElementById('vk-input-'+id).value.trim();
+  const live_text=document.getElementById('live-text-'+id).value.trim();
+  if(!vk_stream_link){ alert('Вставь ссылку на эфир в ВК'); return; }
+  try{
+    await fetch(API+'/campaigns/'+id+'?x_admin_token='+ADMIN_TOKEN,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({vk_stream_link,live_text})
+    });
+    if(!confirm('Начать эфир — разослать ссылки всем в списке?')) return;
+    const r=await fetch(API+'/campaigns/'+id+'/start-live?x_admin_token='+ADMIN_TOKEN,{method:'POST'});
+    if(!r.ok){ alert('Ошибка отправки'); return; }
+    await loadCampaigns();
+  }catch(e){ alert('Ошибка соединения'); }
+}
+
+async function sendMeetupCampaign(id){
+  const link=document.getElementById('link-input-'+id).value.trim();
+  if(!link){ alert('Вставь ссылку на встречу'); return; }
+  try{
+    await fetch(API+'/campaigns/'+id+'?x_admin_token='+ADMIN_TOKEN,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({meeting_link:link})
+    });
+    if(!confirm('Отправить всем в списке?')) return;
+    const r=await fetch(API+'/campaigns/'+id+'/send-meetup?x_admin_token='+ADMIN_TOKEN,{method:'POST'});
     if(!r.ok){ alert('Ошибка отправки'); return; }
     await loadCampaigns();
   }catch(e){ alert('Ошибка соединения'); }
@@ -868,6 +935,14 @@ function pinKey(k) {
     }
   }
 }
+
+// Поддержка ввода пина с физической клавиатуры (для десктопа)
+document.addEventListener('keydown', function(e){
+  if (document.getElementById('pin-screen').classList.contains('hidden')) return;
+  if (e.key >= '0' && e.key <= '9') { pinKey(e.key); }
+  else if (e.key === 'Backspace') { pinKey('del'); }
+  else if (e.key === 'Escape') { pinKey('clear'); }
+});
 
 // Check if already unlocked
 (function(){
