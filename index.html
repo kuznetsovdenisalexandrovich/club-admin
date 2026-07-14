@@ -550,19 +550,35 @@ function renderCampaigns(campaigns){
   el.innerHTML=campaigns.map(c=>{
     const d=new Date(c.created_at);
     const date=d.toLocaleDateString('ru',{day:'2-digit',month:'short'});
+    const isLive=c.campaign_type==='live';
+    let actions='';
+    if(isLive){
+      if(c.status==='draft'){
+        actions=`<button class="action-btn success" onclick="announceCampaign(${c.id})">Отправить анонс</button>`;
+      } else if(c.status==='announced'){
+        actions=`
+          <input class="popup-input" type="text" id="link-input-${c.id}" placeholder="Ссылка на телемост..." value="${c.meeting_link||''}" style="margin-bottom:0">
+          <input class="popup-input" type="number" id="return-hours-${c.id}" placeholder="Вернуть в меню через N часов (необязательно)" style="margin-bottom:0">
+          <button class="action-btn primary" onclick="sendCampaignLink(${c.id})">Отправить ссылку</button>`;
+      } else {
+        actions=`<div class="pay-meta">Ссылка была отправлена: ${c.meeting_link}</div>`;
+      }
+    } else {
+      if(c.status!=='sent'){
+        actions=`
+          <input class="popup-input" type="text" id="link-input-${c.id}" placeholder="Ссылка на материал..." value="${c.meeting_link||''}" style="margin-bottom:0">
+          <button class="action-btn primary" onclick="sendMaterialCampaign(${c.id})">Отправить</button>`;
+      } else {
+        actions=`<div class="pay-meta">Отправлено, ссылка: ${c.meeting_link}</div>`;
+      }
+    }
     return `<div class="pay-item" style="flex-direction:column;align-items:stretch;gap:8px">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div class="pay-name">${c.title||'Без названия'}</div>
         ${statusBadge[c.status]||''}
       </div>
       <div class="pay-meta">${c.list_name} · ${date}</div>
-      ${c.status==='draft'?`<button class="action-btn success" onclick="announceCampaign(${c.id})">Отправить анонс</button>`:''}
-      ${c.status==='announced'?`
-        <input class="popup-input" type="text" id="link-input-${c.id}" placeholder="Ссылка на телемост..." style="margin-bottom:0">
-        <input class="popup-input" type="number" id="return-hours-${c.id}" placeholder="Вернуть в меню через N часов (необязательно)" style="margin-bottom:0">
-        <button class="action-btn primary" onclick="sendCampaignLink(${c.id})">Отправить ссылку</button>
-      `:''}
-      ${c.status==='sent'?`<div class="pay-meta">Ссылка была отправлена: ${c.meeting_link}</div>`:''}
+      ${actions}
       <button class="action-btn danger" onclick="deleteCampaign(${c.id},event)">Удалить</button>
     </div>`;
   }).join('');
@@ -607,6 +623,22 @@ async function sendCampaignLink(id){
     });
     if(!confirm('Разослать ссылку всем в списке?')) return;
     const r=await fetch(API+'/campaigns/'+id+'/send-link?x_admin_token='+ADMIN_TOKEN,{method:'POST'});
+    if(!r.ok){ alert('Ошибка отправки'); return; }
+    await loadCampaigns();
+  }catch(e){ alert('Ошибка соединения'); }
+}
+
+async function sendMaterialCampaign(id){
+  const link=document.getElementById('link-input-'+id).value.trim();
+  if(!link){ alert('Вставь ссылку на материал'); return; }
+  try{
+    await fetch(API+'/campaigns/'+id+'?x_admin_token='+ADMIN_TOKEN,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({meeting_link:link})
+    });
+    if(!confirm('Отправить всем в списке?')) return;
+    const r=await fetch(API+'/campaigns/'+id+'/send-material?x_admin_token='+ADMIN_TOKEN,{method:'POST'});
     if(!r.ok){ alert('Ошибка отправки'); return; }
     await loadCampaigns();
   }catch(e){ alert('Ошибка соединения'); }
