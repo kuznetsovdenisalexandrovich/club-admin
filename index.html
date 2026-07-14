@@ -2,7 +2,7 @@
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="БП Админка">
@@ -308,6 +308,19 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       <div class="pay-summary" id="pay-summary"></div>
     </div>
   </div>
+
+  <div class="section">
+    <div class="section-head"><div class="section-title">Уведомления</div></div>
+    <div class="card">
+      <div style="padding:14px 16px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px">
+        <select id="camp-list" class="popup-input" style="margin-bottom:0"></select>
+        <input class="popup-input" type="text" id="camp-title" placeholder="Заголовок (для себя), напр. Книга «Атомные привычки»" style="margin-bottom:0">
+        <textarea id="camp-text" class="popup-input" rows="3" placeholder="Текст анонса..." style="margin-bottom:0;resize:vertical"></textarea>
+        <button class="popup-save" onclick="createCampaign()">Создать кампанию</button>
+      </div>
+      <div id="campaigns-list"><div class="loading">Загрузка...</div></div>
+    </div>
+  </div>
 </div>
 
 <!-- Popup -->
@@ -417,7 +430,7 @@ async function deletePayment(id, e){
 
 async function loadAll(){
   document.getElementById('last-update').textContent='Обновлено в '+new Date().toLocaleTimeString('ru');
-  await Promise.all([loadStats(),loadUsers(),loadPayments()]);
+  await Promise.all([loadStats(),loadUsers(),loadPayments(),loadNotificationLists(),loadCampaigns()]);
 }
 
 async function loadStats(){
@@ -509,6 +522,98 @@ function filterPayments(){
     </div>`;
   }).join('');
   document.getElementById('pay-summary').textContent=pays.length?`${pays.length} платежей · ${fmt(totalAmt)} · чистыми ${fmt(totalNet)}`:'';
+}
+
+/* ── Campaigns / Уведомления ── */
+let notificationLists=[];
+
+async function loadNotificationLists(){
+  try{
+    notificationLists=await fetch(API+'/notification-lists').then(r=>r.json());
+    document.getElementById('camp-list').innerHTML=notificationLists.map(l=>`<option value="${l.list_id}">${l.name}</option>`).join('');
+  }catch(e){}
+}
+
+async function loadCampaigns(){
+  try{
+    const campaigns=await fetch(API+'/campaigns').then(r=>r.json());
+    renderCampaigns(campaigns);
+  }catch(e){ document.getElementById('campaigns-list').innerHTML='<div class="empty">Ошибка загрузки</div>'; }
+}
+
+function renderCampaigns(campaigns){
+  const el=document.getElementById('campaigns-list');
+  if(!campaigns.length){ el.innerHTML='<div class="empty">Кампаний пока нет</div>'; return; }
+  const statusBadge={draft:'<span class="badge badge-act">черновик</span>',announced:'<span class="badge badge-ok">анонс отправлен</span>',sent:'<span class="badge badge-ok">завершена</span>'};
+  el.innerHTML=campaigns.map(c=>{
+    const d=new Date(c.created_at);
+    const date=d.toLocaleDateString('ru',{day:'2-digit',month:'short'});
+    return `<div class="pay-item" style="flex-direction:column;align-items:stretch;gap:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="pay-name">${c.title||'Без названия'}</div>
+        ${statusBadge[c.status]||''}
+      </div>
+      <div class="pay-meta">${c.list_name} · ${date}</div>
+      ${c.status==='draft'?`<button class="action-btn success" onclick="announceCampaign(${c.id})">Отправить анонс</button>`:''}
+      ${c.status==='announced'?`
+        <input class="popup-input" type="text" id="link-input-${c.id}" placeholder="Ссылка на телемост..." style="margin-bottom:0">
+        <button class="action-btn primary" onclick="sendCampaignLink(${c.id})">Отправить ссылку</button>
+      `:''}
+      ${c.status==='sent'?`<div class="pay-meta">Ссылка была отправлена: ${c.meeting_link}</div>`:''}
+      <button class="action-btn danger" onclick="deleteCampaign(${c.id},event)">Удалить</button>
+    </div>`;
+  }).join('');
+}
+
+async function createCampaign(){
+  const list_id=parseInt(document.getElementById('camp-list').value);
+  const title=document.getElementById('camp-title').value.trim();
+  const announce_text=document.getElementById('camp-text').value.trim();
+  if(!title||!announce_text){ alert('Заполни заголовок и текст анонса'); return; }
+  try{
+    await fetch(API+'/campaigns?x_admin_token='+ADMIN_TOKEN,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({list_id,title,announce_text})
+    });
+    document.getElementById('camp-title').value='';
+    document.getElementById('camp-text').value='';
+    await loadCampaigns();
+  }catch(e){ alert('Ошибка создания кампании'); }
+}
+
+async function announceCampaign(id){
+  if(!confirm('Отправить анонс всем в списке?')) return;
+  try{
+    const r=await fetch(API+'/campaigns/'+id+'/announce?x_admin_token='+ADMIN_TOKEN,{method:'POST'});
+    if(!r.ok){ alert('Ошибка отправки'); return; }
+    await loadCampaigns();
+  }catch(e){ alert('Ошибка соединения'); }
+}
+
+async function sendCampaignLink(id){
+  const link=document.getElementById('link-input-'+id).value.trim();
+  if(!link){ alert('Вставь ссылку на встречу'); return; }
+  try{
+    await fetch(API+'/campaigns/'+id+'?x_admin_token='+ADMIN_TOKEN,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({meeting_link:link})
+    });
+    if(!confirm('Разослать ссылку всем в списке?')) return;
+    const r=await fetch(API+'/campaigns/'+id+'/send-link?x_admin_token='+ADMIN_TOKEN,{method:'POST'});
+    if(!r.ok){ alert('Ошибка отправки'); return; }
+    await loadCampaigns();
+  }catch(e){ alert('Ошибка соединения'); }
+}
+
+async function deleteCampaign(id,e){
+  e.stopPropagation();
+  if(!confirm('Удалить кампанию?')) return;
+  try{
+    await fetch(API+'/campaigns/'+id+'?x_admin_token='+ADMIN_TOKEN,{method:'DELETE'});
+    await loadCampaigns();
+  }catch(e){ alert('Ошибка удаления'); }
 }
 
 /* ── Chart ── */
