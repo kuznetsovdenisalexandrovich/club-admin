@@ -557,6 +557,7 @@ function renderCampaigns(campaigns){
       ${c.status==='draft'?`<button class="action-btn success" onclick="announceCampaign(${c.id})">Отправить анонс</button>`:''}
       ${c.status==='announced'?`
         <input class="popup-input" type="text" id="link-input-${c.id}" placeholder="Ссылка на телемост..." style="margin-bottom:0">
+        <input class="popup-input" type="number" id="return-hours-${c.id}" placeholder="Вернуть в меню через N часов (необязательно)" style="margin-bottom:0">
         <button class="action-btn primary" onclick="sendCampaignLink(${c.id})">Отправить ссылку</button>
       `:''}
       ${c.status==='sent'?`<div class="pay-meta">Ссылка была отправлена: ${c.meeting_link}</div>`:''}
@@ -593,12 +594,14 @@ async function announceCampaign(id){
 
 async function sendCampaignLink(id){
   const link=document.getElementById('link-input-'+id).value.trim();
+  const hoursRaw=document.getElementById('return-hours-'+id).value.trim();
+  const auto_return_hours=hoursRaw?parseInt(hoursRaw):null;
   if(!link){ alert('Вставь ссылку на встречу'); return; }
   try{
     await fetch(API+'/campaigns/'+id+'?x_admin_token='+ADMIN_TOKEN,{
       method:'PATCH',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({meeting_link:link})
+      body:JSON.stringify({meeting_link:link, auto_return_hours})
     });
     if(!confirm('Разослать ссылку всем в списке?')) return;
     const r=await fetch(API+'/campaigns/'+id+'/send-link?x_admin_token='+ADMIN_TOKEN,{method:'POST'});
