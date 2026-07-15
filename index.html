@@ -334,7 +334,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
     <div class="popup-body" style="padding-top:0">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <div class="popup-section-title" style="margin-top:0">Уведомления</div>
-      <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0" onclick="closeCampaignsPopup()">✕</button>
+      <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeCampaignsPopup()"><svg width="14" height="14" viewBox="0 0 14 14" style="display:block"><path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <select id="camp-list" class="popup-input" style="margin-bottom:0" onchange="onCampListChange()"></select>
@@ -342,7 +342,6 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
         <option value="lecture">Теория + практика (эфир, потом телемост)</option>
         <option value="meetup">Просто встреча (сразу телемост)</option>
       </select>
-      <input class="popup-input" type="text" id="camp-title" placeholder="Заголовок (для себя), напр. Книга «Атомные привычки»" style="margin-bottom:0">
       <div class="html-toolbar">
         <button type="button" onclick="applyFormat('camp-text','bold')"><b>B</b></button>
         <button type="button" onclick="applyFormat('camp-text','italic')"><i>I</i></button>
@@ -365,7 +364,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
     <div class="popup-body" style="padding-top:0">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <div class="popup-section-title" style="margin-top:0">Разослать всем участникам</div>
-      <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0" onclick="closeBroadcastPopup()">✕</button>
+      <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeBroadcastPopup()"><svg width="14" height="14" viewBox="0 0 14 14" style="display:block"><path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <div class="html-toolbar">
@@ -702,7 +701,10 @@ function renderCampaigns(campaigns){
 
 async function createCampaign(){
   const list_id=parseInt(document.getElementById('camp-list').value);
-  const title=document.getElementById('camp-title').value.trim();
+  const listInfo=notificationLists.find(l=>l.list_id===list_id);
+  const now=new Date();
+  const stamp=now.toLocaleDateString('ru',{day:'2-digit',month:'2-digit'})+' '+now.toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
+  const title=(listInfo?listInfo.name:'Кампания')+' — '+stamp;
   const announce_text=getRichText('camp-text');
   const flowSel=document.getElementById('camp-flow');
   const flow=flowSel.style.display!=='none'?flowSel.value:undefined;
@@ -710,7 +712,6 @@ async function createCampaign(){
   const isSingleStep = resolvedFlow==='material' || resolvedFlow==='meetup';
   const meeting_link=isSingleStep?document.getElementById('camp-link').value.trim():undefined;
 
-  if(!title){ alert('Заполни заголовок'); return; }
   if(resolvedFlow!=='meetup' && !announce_text){ alert('Заполни текст анонса'); return; }
   if(isSingleStep && !meeting_link){ alert('Вставь ссылку'); return; }
   if(!confirm('Отправить сразу всем в списке?')) return;
@@ -733,7 +734,6 @@ async function createCampaign(){
       if(!r.ok){ alert('Кампания создана, но анонс не отправился — попробуй из списка ниже'); await loadCampaigns(); return; }
     }
 
-    document.getElementById('camp-title').value='';
     document.getElementById('camp-text').innerHTML='';
     document.getElementById('camp-link').value='';
     await loadCampaigns();
