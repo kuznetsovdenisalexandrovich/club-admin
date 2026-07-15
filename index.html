@@ -294,6 +294,22 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
   </div>
 
   <div class="section">
+    <div class="section-head"><div class="section-title">Разослать всем участникам</div></div>
+    <div class="card">
+      <div style="padding:14px 16px;display:flex;flex-direction:column;gap:8px">
+        <textarea id="bcast-text" class="popup-input" rows="3" placeholder="Текст сообщения всему клубу..." style="margin-bottom:0;resize:vertical"></textarea>
+
+        <div id="bcast-buttons"></div>
+        <button class="action-btn" onclick="addBcastButton()">+ Добавить кнопку</button>
+        <div class="pay-meta">Кнопка «Вернуться в главное меню» добавится последней автоматически.</div>
+
+        <input class="popup-input" type="number" id="bcast-return-hours" placeholder="Вернуть в меню через N часов" value="3" style="margin-bottom:0">
+        <button class="popup-save" onclick="sendBroadcastAll()" style="background:var(--red)">Отправить всем в клубе</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
     <div class="section-head">
       <div class="section-title">Участники</div>
       <select id="user-filter" onchange="filterUsers()" style="font-size:11px;font-family:var(--body);padding:4px 8px;border-radius:10px;border:1px solid var(--line);background:var(--input-bg);color:var(--text)">
@@ -708,6 +724,63 @@ async function sendMaterialCampaign(id){
     const r=await fetch(API+'/campaigns/'+id+'/send-material?x_admin_token='+ADMIN_TOKEN,{method:'POST'});
     if(!r.ok){ alert('Ошибка отправки'); return; }
     await loadCampaigns();
+  }catch(e){ alert('Ошибка соединения'); }
+}
+
+/* ── Разослать всем (конструктор кнопок) ── */
+let bcastButtons=[]; // {type, text, url, callback}
+
+function renderBcastButtons(){
+  const el=document.getElementById('bcast-buttons');
+  el.innerHTML=bcastButtons.map((b,i)=>{
+    let extra='';
+    if(b.type==='url'){
+      extra=`<input class="popup-input" type="text" placeholder="Ссылка (url)..." value="${b.url||''}" style="margin-bottom:0" oninput="bcastButtons[${i}].url=this.value">`;
+    } else if(b.type==='callback'){
+      extra=`<input class="popup-input" type="text" placeholder="Callback (что уйдёт боту)..." value="${b.callback||''}" style="margin-bottom:0" oninput="bcastButtons[${i}].callback=this.value">`;
+    }
+    return `<div style="display:flex;flex-direction:column;gap:6px;padding:10px;border:1px solid var(--line);border-radius:12px;margin-bottom:6px">
+      <div style="display:flex;gap:6px">
+        <select style="flex:0 0 110px;font-size:12px;border-radius:10px;border:1px solid var(--line);background:var(--input-bg);color:var(--text)" onchange="bcastButtons[${i}].type=this.value;renderBcastButtons()">
+          <option value="normal" ${b.type==='normal'?'selected':''}>Обычная</option>
+          <option value="url" ${b.type==='url'?'selected':''}>Ссылка</option>
+          <option value="callback" ${b.type==='callback'?'selected':''}>Callback</option>
+        </select>
+        <input class="popup-input" type="text" placeholder="Текст кнопки..." value="${b.text||''}" style="margin-bottom:0;flex:1" oninput="bcastButtons[${i}].text=this.value">
+        <button class="action-btn danger" style="flex:0 0 auto" onclick="removeBcastButton(${i})">✕</button>
+      </div>
+      ${extra}
+    </div>`;
+  }).join('');
+}
+
+function addBcastButton(){
+  bcastButtons.push({type:'normal', text:'', url:'', callback:''});
+  renderBcastButtons();
+}
+
+function removeBcastButton(i){
+  bcastButtons.splice(i,1);
+  renderBcastButtons();
+}
+
+async function sendBroadcastAll(){
+  const message=document.getElementById('bcast-text').value.trim();
+  if(!message){ alert('Напиши текст сообщения'); return; }
+  const hoursRaw=document.getElementById('bcast-return-hours').value.trim();
+  const auto_return_hours=hoursRaw?parseInt(hoursRaw):null;
+  if(!confirm('Разослать это сообщение ВСЕМ участникам клуба? Действие необратимо.')) return;
+  try{
+    const r=await fetch(API+'/broadcast-all?x_admin_token='+ADMIN_TOKEN,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message, buttons:bcastButtons, auto_return_hours})
+    });
+    if(!r.ok){ alert('Ошибка отправки'); return; }
+    alert('Отправлено!');
+    document.getElementById('bcast-text').value='';
+    bcastButtons=[];
+    renderBcastButtons();
   }catch(e){ alert('Ошибка соединения'); }
 }
 
