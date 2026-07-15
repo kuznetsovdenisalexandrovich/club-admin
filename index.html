@@ -312,6 +312,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       <div class="search-wrap">
         <input type="text" id="user-search" placeholder="Поиск по имени, телефону, email, username..." oninput="filterUsers()">
       </div>
+      <div style="padding:0 16px 14px"><button class="action-btn" style="width:100%" onclick="openManualUserPopup()">+ Добавить клиента вручную</button></div>
       <div id="users-list"><div class="loading">Загрузка...</div></div>
     </div>
   </div>
@@ -365,6 +366,27 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       <button class="popup-save" id="camp-submit-btn" onclick="createCampaign()">Создать кампанию</button>
     </div>
     <div id="campaigns-list"><div class="loading">Загрузка...</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Manual User Popup -->
+<div class="popup-overlay" id="manual-user-popup-overlay">
+  <div class="popup" id="manual-user-popup">
+    <div class="popup-handle"></div>
+    <div class="popup-body" style="padding-top:0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="popup-section-title" style="margin-top:0;margin-bottom:0">Добавить клиента вручную</div>
+      <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeManualUserPopup()"><svg width="14" height="14" viewBox="0 0 14 14" style="display:block"><path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <input class="popup-input" type="text" id="manual-user-name" placeholder="Имя" style="margin-bottom:0">
+      <input class="popup-input" type="tel" id="manual-user-phone" placeholder="Телефон" style="margin-bottom:0">
+      <input class="popup-input" type="email" id="manual-user-email" placeholder="Email" style="margin-bottom:0">
+      <input class="popup-input" type="text" id="manual-user-sub" placeholder="Тариф (напр. База - помесячный доступ)" style="margin-bottom:0">
+      <input class="popup-input" type="text" id="manual-user-cost" placeholder="Стоимость (напр. 990)" style="margin-bottom:0">
+      <button class="popup-save" onclick="createManualUser()">Создать клиента</button>
+    </div>
     </div>
   </div>
 </div>
@@ -455,6 +477,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
         <button class="action-btn"         onclick="showPayload('html_relay_test','Тест HTML','<b>жирный</b> <i>курсив</i>...')">Тест HTML</button>
         <button class="action-btn"         onclick="doAction('html_relay_button_test')">Тест HTML+кнопка</button>
         <button class="action-btn"         onclick="doAction('html_relay_broadcast_test')">Тест через broadcast</button>
+        <button class="action-btn success" onclick="recordManualPayment()">Записать оплату</button>
         <button class="action-btn"         onclick="doAction('cleanup_last_message')">Очистить сообщение</button>
         <button class="action-btn"         onclick="doAction('send_menu')">В меню</button>
       </div>
@@ -555,7 +578,7 @@ function filterUsers(){
     const name=u.full_name||u.name||'—';
     const sub=u.username||u.email||u.phone||'—';
     const total=u.total_revenue||0;
-    return `<div class="list-item" onclick="openPopup(${u.telegram_id})">
+    return `<div class="list-item" onclick="openPopup(${u.id})">
       <div class="avatar">${initials(name)}</div>
       <div class="item-info">
         <div class="item-name">${name}</div>
@@ -952,8 +975,8 @@ function drawChart(){
 }
 
 /* ── Popup ── */
-function openPopup(tid){
-  const u=allUsers.find(u=>u.telegram_id===tid);
+function openPopup(uid){
+  const u=allUsers.find(u=>u.id===uid);
   if(!u)return;
   currentUser=u;
   const name=u.full_name||u.name||'—';
@@ -986,15 +1009,19 @@ function openPopup(tid){
   ].map(([l,v])=>`<div class="popup-row"><span class="popup-row-label">${l}</span><span class="popup-row-val">${v}</span></div>`).join('');
   document.getElementById('popup-input-revenue').value=u.manual_revenue||'';
   document.getElementById('popup-input-notes').value=u.notes||'';
-  renderPopupPayments(u.telegram_id);
+  renderPopupPayments(u);
   document.getElementById('action-result').style.display='none';
   document.getElementById('payload-row').classList.remove('visible');
   document.getElementById('popup-overlay').classList.add('open');
 }
 
-function renderPopupPayments(tid){
+function renderPopupPayments(u){
   const el=document.getElementById('popup-payments');
-  const pays=allPayments.filter(p=>p.telegram_id===tid).sort((a,b)=>new Date(b.payment_date)-new Date(a.payment_date));
+  const pays=allPayments.filter(p=>
+    (u.id && p.user_id===u.id) ||
+    (!p.user_id && u.profile_id && p.profile_id===u.profile_id) ||
+    (!p.user_id && !p.profile_id && u.telegram_id && p.telegram_id===u.telegram_id)
+  ).sort((a,b)=>new Date(b.payment_date)-new Date(a.payment_date));
   if(!pays.length){ el.innerHTML='<div class="empty">Платежей нет</div>'; return; }
   el.innerHTML=pays.map(p=>{
     const ok=isOk(p.status);
@@ -1018,6 +1045,33 @@ function closePopup(e){
 
 function openCampaignsPopup(){ document.getElementById('campaigns-popup-overlay').classList.add('open'); }
 function closeCampaignsPopup(){ document.getElementById('campaigns-popup-overlay').classList.remove('open'); }
+
+function openManualUserPopup(){ document.getElementById('manual-user-popup-overlay').classList.add('open'); }
+function closeManualUserPopup(){ document.getElementById('manual-user-popup-overlay').classList.remove('open'); }
+
+async function createManualUser(){
+  const full_name=document.getElementById('manual-user-name').value.trim();
+  const phone=document.getElementById('manual-user-phone').value.trim();
+  const email=document.getElementById('manual-user-email').value.trim();
+  const sub_name=document.getElementById('manual-user-sub').value.trim();
+  const cost=document.getElementById('manual-user-cost').value.trim();
+  if(!phone && !email){ alert('Укажи хотя бы телефон или email'); return; }
+  try{
+    const r=await fetch(API+'/users/manual?x_admin_token='+ADMIN_TOKEN,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({full_name,phone,email,sub_name,cost})
+    });
+    if(!r.ok){ alert('Ошибка создания клиента'); return; }
+    document.getElementById('manual-user-name').value='';
+    document.getElementById('manual-user-phone').value='';
+    document.getElementById('manual-user-email').value='';
+    document.getElementById('manual-user-sub').value='';
+    document.getElementById('manual-user-cost').value='';
+    closeManualUserPopup();
+    await loadUsers();
+  }catch(e){ alert('Ошибка соединения'); }
+}
 
 function openBroadcastPopup(){ document.getElementById('broadcast-popup-overlay').classList.add('open'); }
 function closeBroadcastPopup(){ document.getElementById('broadcast-popup-overlay').classList.remove('open'); }
@@ -1124,6 +1178,23 @@ function getRichText(fieldId){
 }
 
 /* ── Actions ── */
+async function recordManualPayment(){
+  if(!currentUser || !currentUser.id){ alert('Нет данных клиента'); return; }
+  const suggested=currentUser.cost || '';
+  const amount=prompt('Сумма платежа:', suggested);
+  if(amount===null) return;
+  try{
+    const r=await fetch(API+'/users/'+currentUser.id+'/manual-payment?x_admin_token='+ADMIN_TOKEN,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({amount: amount.trim() || null})
+    });
+    if(!r.ok){ alert('Ошибка записи платежа'); return; }
+    alert('Платёж записан!');
+    await loadAll();
+  }catch(e){ alert('Ошибка соединения'); }
+}
+
 async function doAction(action, payload=null){
   if(!currentUser)return;
   showActionResult('⏳ Выполняю...','');
