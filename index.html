@@ -329,7 +329,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
     <div class="popup-section-title" style="margin-top:0">Уведомления</div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <select id="camp-list" class="popup-input" style="margin-bottom:0" onchange="onCampListChange()"></select>
-      <select id="camp-flow" class="popup-input" style="margin-bottom:0;display:none">
+      <select id="camp-flow" class="popup-input" style="margin-bottom:0;display:none" onchange="updateCampFormForFlow()">
         <option value="lecture">Теория + практика (эфир, потом телемост)</option>
         <option value="meetup">Просто встреча (сразу телемост)</option>
       </select>
@@ -340,9 +340,11 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
         <button type="button" onclick="applyFormat('camp-text','u')"><u>U</u></button>
         <button type="button" onclick="applyLinkFormat('camp-text')">🔗</button>
       </div>
-      <textarea id="camp-text" class="popup-input" rows="3" placeholder="Текст анонса... (не нужен для 'Просто встреча'). Поддерживает HTML: <b>жирный</b>, <i>курсив</i>, <u>подчёркнутый</u>, <a href='...'>ссылка</a>" style="margin-bottom:0;resize:vertical"></textarea>
+      <textarea id="camp-text" class="popup-input" rows="3" placeholder="Текст анонса... (для 'Просто встреча' необязателен — если пусто, возьмётся случайная стандартная фраза). Поддерживает HTML: <b>жирный</b>, <i>курсив</i>, <u>подчёркнутый</u>, <a href='...'>ссылка</a>" style="margin-bottom:0;resize:vertical"></textarea>
       <input class="popup-input" type="text" id="camp-image" placeholder="Ссылка на картинку (необязательно)" style="margin-bottom:0">
-      <button class="popup-save" onclick="createCampaign()">Создать кампанию</button>
+      <input class="popup-input" type="text" id="camp-link" placeholder="Ссылка на телемост/материал" style="margin-bottom:0;display:none">
+      <input class="popup-input" type="number" id="camp-return-hours" placeholder="Вернуть в меню через N часов" value="1" style="margin-bottom:0;display:none">
+      <button class="popup-save" id="camp-submit-btn" onclick="createCampaign()">Создать кампанию</button>
     </div>
     <div id="campaigns-list"><div class="loading">Загрузка...</div></div>
     </div>
@@ -599,6 +601,23 @@ function onCampListChange(){
   const info=notificationLists.find(l=>l.list_id===listId);
   const flowSel=document.getElementById('camp-flow');
   flowSel.style.display=(info && info.flow_options.length>1)?'':'none';
+  updateCampFormForFlow();
+}
+
+function getSelectedFlow(){
+  const listId=parseInt(document.getElementById('camp-list').value);
+  const info=notificationLists.find(l=>l.list_id===listId);
+  if(!info) return null;
+  if(info.flow_options.length>1) return document.getElementById('camp-flow').value;
+  return info.flow_options[0];
+}
+
+function updateCampFormForFlow(){
+  const flow=getSelectedFlow();
+  const isSingleStep = flow==='material' || flow==='meetup';
+  document.getElementById('camp-link').style.display = isSingleStep ? '' : 'none';
+  document.getElementById('camp-return-hours').style.display = isSingleStep ? '' : 'none';
+  document.getElementById('camp-submit-btn').textContent = isSingleStep ? 'Отправить' : 'Создать кампанию';
 }
 
 async function loadCampaigns(){
@@ -633,7 +652,7 @@ function renderCampaigns(campaigns){
       } else if(c.status==='live_started'){
         actions=`
           <input class="popup-input" type="text" id="link-input-${c.id}" placeholder="Ссылка на телемост (практика)..." value="${c.meeting_link||''}" style="margin-bottom:0">
-          <input class="popup-input" type="number" id="return-hours-${c.id}" placeholder="Вернуть в меню через N часов" value="${c.auto_return_hours!=null?c.auto_return_hours:3}" style="margin-bottom:0">
+          <input class="popup-input" type="number" id="return-hours-${c.id}" placeholder="Вернуть в меню через N часов" value="${c.auto_return_hours!=null?c.auto_return_hours:1}" style="margin-bottom:0">
           <button class="action-btn primary" onclick="sendCampaignLink(${c.id})">Отправить ссылку на практику</button>`;
       } else {
         actions=`<div class="pay-meta">Ссылка на практику отправлена: ${c.meeting_link}</div>`;
@@ -675,17 +694,36 @@ async function createCampaign(){
   const image_url=document.getElementById('camp-image').value.trim();
   const flowSel=document.getElementById('camp-flow');
   const flow=flowSel.style.display!=='none'?flowSel.value:undefined;
+  const resolvedFlow=getSelectedFlow();
+  const isSingleStep = resolvedFlow==='material' || resolvedFlow==='meetup';
+  const meeting_link=isSingleStep?document.getElementById('camp-link').value.trim():undefined;
+  const hoursRaw=isSingleStep?document.getElementById('camp-return-hours').value.trim():'';
+  const auto_return_hours=hoursRaw?parseInt(hoursRaw):null;
+
   if(!title){ alert('Заполни заголовок'); return; }
-  if(flow!=='meetup' && !announce_text){ alert('Заполни текст анонса'); return; }
+  if(resolvedFlow!=='meetup' && !announce_text){ alert('Заполни текст анонса'); return; }
+  if(isSingleStep && !meeting_link){ alert('Вставь ссылку'); return; }
+  if(isSingleStep && !confirm('Отправить сразу всем в списке?')) return;
+
   try{
-    await fetch(API+'/campaigns?x_admin_token='+ADMIN_TOKEN,{
+    const createRes=await fetch(API+'/campaigns?x_admin_token='+ADMIN_TOKEN,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({list_id,title,announce_text,flow,image_url})
+      body:JSON.stringify({list_id,title,announce_text,flow,image_url,meeting_link,auto_return_hours})
     });
+    if(!createRes.ok){ alert('Ошибка создания кампании'); return; }
+    const created=await createRes.json();
+
+    if(isSingleStep){
+      const sendEndpoint = resolvedFlow==='material' ? 'send-material' : 'send-meetup';
+      const r=await fetch(API+'/campaigns/'+created.id+'/'+sendEndpoint+'?x_admin_token='+ADMIN_TOKEN,{method:'POST'});
+      if(!r.ok){ alert('Кампания создана, но отправка не удалась — попробуй из списка ниже'); await loadCampaigns(); return; }
+    }
+
     document.getElementById('camp-title').value='';
     document.getElementById('camp-text').value='';
     document.getElementById('camp-image').value='';
+    document.getElementById('camp-link').value='';
     await loadCampaigns();
   }catch(e){ alert('Ошибка создания кампании'); }
 }
