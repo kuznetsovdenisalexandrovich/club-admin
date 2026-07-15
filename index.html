@@ -156,6 +156,9 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 .popup-overlay.open{display:flex}
 .popup{background:var(--popup-bg);border-radius:24px 24px 0 0;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;padding:0 0 calc(24px + env(safe-area-inset-bottom));box-shadow:0 -8px 40px rgba(124,108,240,0.2)}
 .popup-handle{width:40px;height:4px;border-radius:2px;background:var(--lav-dim);margin:12px auto 16px}
+.html-toolbar{display:flex;gap:6px}
+.html-toolbar button{width:34px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-family:var(--body);font-size:13px;cursor:pointer}
+.html-toolbar button:active{opacity:.7}
 .popup-header{padding:0 20px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px}
 .popup-avatar{width:52px;height:52px;border-radius:50%;background:var(--lav-dim);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--lav-deep);flex-shrink:0}
 .popup-name{font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.01em}
@@ -277,35 +280,10 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
   </div>
 
   <div class="section">
-    <div class="section-head"><div class="section-title">Уведомления</div></div>
-    <div class="card">
-      <div style="padding:14px 16px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px">
-        <select id="camp-list" class="popup-input" style="margin-bottom:0" onchange="onCampListChange()"></select>
-        <select id="camp-flow" class="popup-input" style="margin-bottom:0;display:none">
-          <option value="lecture">Теория + практика (эфир, потом телемост)</option>
-          <option value="meetup">Просто встреча (сразу телемост)</option>
-        </select>
-        <input class="popup-input" type="text" id="camp-title" placeholder="Заголовок (для себя), напр. Книга «Атомные привычки»" style="margin-bottom:0">
-        <textarea id="camp-text" class="popup-input" rows="3" placeholder="Текст анонса... (не нужен для 'Просто встреча')" style="margin-bottom:0;resize:vertical"></textarea>
-        <button class="popup-save" onclick="createCampaign()">Создать кампанию</button>
-      </div>
-      <div id="campaigns-list"><div class="loading">Загрузка...</div></div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-head"><div class="section-title">Разослать всем участникам</div></div>
-    <div class="card">
-      <div style="padding:14px 16px;display:flex;flex-direction:column;gap:8px">
-        <textarea id="bcast-text" class="popup-input" rows="3" placeholder="Текст сообщения всему клубу..." style="margin-bottom:0;resize:vertical"></textarea>
-
-        <div id="bcast-buttons"></div>
-        <button class="action-btn" onclick="addBcastButton()">+ Добавить кнопку</button>
-        <div class="pay-meta">Кнопка «Вернуться в главное меню» добавится последней автоматически.</div>
-
-        <input class="popup-input" type="number" id="bcast-return-hours" placeholder="Вернуть в меню через N часов" value="3" style="margin-bottom:0">
-        <button class="popup-save" onclick="sendBroadcastAll()" style="background:var(--red)">Отправить всем в клубе</button>
-      </div>
+    <div class="section-head"><div class="section-title">Рассылки</div></div>
+    <div class="card" style="padding:14px 16px;display:flex;gap:10px">
+      <button class="popup-save" style="flex:1;margin-bottom:0" onclick="openCampaignsPopup()">Уведомления</button>
+      <button class="popup-save" style="flex:1;margin-bottom:0" onclick="openBroadcastPopup()">Разослать всем</button>
     </div>
   </div>
 
@@ -343,7 +321,59 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
   </div>
 </div>
 
-<!-- Popup -->
+<!-- Campaigns Popup -->
+<div class="popup-overlay" id="campaigns-popup-overlay" onclick="closeCampaignsPopup(event)">
+  <div class="popup" id="campaigns-popup">
+    <div class="popup-handle"></div>
+    <div class="popup-section-title">Уведомления</div>
+    <div style="padding:0 0 14px;display:flex;flex-direction:column;gap:8px">
+      <select id="camp-list" class="popup-input" style="margin-bottom:0" onchange="onCampListChange()"></select>
+      <select id="camp-flow" class="popup-input" style="margin-bottom:0;display:none">
+        <option value="lecture">Теория + практика (эфир, потом телемост)</option>
+        <option value="meetup">Просто встреча (сразу телемост)</option>
+      </select>
+      <input class="popup-input" type="text" id="camp-title" placeholder="Заголовок (для себя), напр. Книга «Атомные привычки»" style="margin-bottom:0">
+      <div class="html-toolbar">
+        <button type="button" onclick="applyFormat('camp-text','b')"><b>B</b></button>
+        <button type="button" onclick="applyFormat('camp-text','i')"><i>I</i></button>
+        <button type="button" onclick="applyFormat('camp-text','u')"><u>U</u></button>
+        <button type="button" onclick="applyLinkFormat('camp-text')">🔗</button>
+      </div>
+      <textarea id="camp-text" class="popup-input" rows="3" placeholder="Текст анонса... (не нужен для 'Просто встреча'). Поддерживает HTML: <b>жирный</b>, <i>курсив</i>, <u>подчёркнутый</u>, <a href='...'>ссылка</a>" style="margin-bottom:0;resize:vertical"></textarea>
+      <input class="popup-input" type="text" id="camp-image" placeholder="Ссылка на картинку (необязательно)" style="margin-bottom:0">
+      <button class="popup-save" onclick="createCampaign()">Создать кампанию</button>
+    </div>
+    <div id="campaigns-list"><div class="loading">Загрузка...</div></div>
+  </div>
+</div>
+
+<!-- Broadcast-All Popup -->
+<div class="popup-overlay" id="broadcast-popup-overlay" onclick="closeBroadcastPopup(event)">
+  <div class="popup" id="broadcast-popup">
+    <div class="popup-handle"></div>
+    <div class="popup-section-title">Разослать всем участникам</div>
+    <div style="padding:0 0 14px;display:flex;flex-direction:column;gap:8px">
+      <div class="html-toolbar">
+        <button type="button" onclick="applyFormat('bcast-text','b')"><b>B</b></button>
+        <button type="button" onclick="applyFormat('bcast-text','i')"><i>I</i></button>
+        <button type="button" onclick="applyFormat('bcast-text','u')"><u>U</u></button>
+        <button type="button" onclick="applyLinkFormat('bcast-text')">🔗</button>
+      </div>
+      <textarea id="bcast-text" class="popup-input" rows="3" placeholder="Текст сообщения всему клубу... Поддерживает HTML: <b>жирный</b>, <i>курсив</i>, <u>подчёркнутый</u>, <a href='...'>ссылка</a>" style="margin-bottom:0;resize:vertical"></textarea>
+      <input class="popup-input" type="text" id="bcast-image" placeholder="Ссылка на картинку (необязательно)" style="margin-bottom:0">
+
+      <div id="bcast-buttons"></div>
+      <button class="action-btn" onclick="addBcastButton()">+ Добавить кнопку</button>
+      <div class="pay-meta">Кнопка «Вернуться в главное меню» добавится последней автоматически.</div>
+
+      <input class="popup-input" type="number" id="bcast-return-hours" placeholder="Вернуть в меню через N часов" value="3" style="margin-bottom:0">
+      <input class="popup-input" type="tel" id="bcast-test-phone" placeholder="Телефон для теста (+7...), необязательно" style="margin-bottom:0">
+      <button class="action-btn" onclick="sendBroadcastAll(true)">Тест — отправить только себе</button>
+      <button class="popup-save" onclick="sendBroadcastAll(false)">Отправить всем в клубе</button>
+    </div>
+  </div>
+</div>
+
 <div class="popup-overlay" id="popup-overlay" onclick="closePopup(event)">
   <div class="popup" id="popup">
     <div class="popup-handle"></div>
@@ -635,6 +665,7 @@ async function createCampaign(){
   const list_id=parseInt(document.getElementById('camp-list').value);
   const title=document.getElementById('camp-title').value.trim();
   const announce_text=document.getElementById('camp-text').value.trim();
+  const image_url=document.getElementById('camp-image').value.trim();
   const flowSel=document.getElementById('camp-flow');
   const flow=flowSel.style.display!=='none'?flowSel.value:undefined;
   if(!title){ alert('Заполни заголовок'); return; }
@@ -643,10 +674,11 @@ async function createCampaign(){
     await fetch(API+'/campaigns?x_admin_token='+ADMIN_TOKEN,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({list_id,title,announce_text,flow})
+      body:JSON.stringify({list_id,title,announce_text,flow,image_url})
     });
     document.getElementById('camp-title').value='';
     document.getElementById('camp-text').value='';
+    document.getElementById('camp-image').value='';
     await loadCampaigns();
   }catch(e){ alert('Ошибка создания кампании'); }
 }
@@ -764,21 +796,28 @@ function removeBcastButton(i){
   renderBcastButtons();
 }
 
-async function sendBroadcastAll(){
+async function sendBroadcastAll(isTest){
   const message=document.getElementById('bcast-text').value.trim();
   if(!message){ alert('Напиши текст сообщения'); return; }
+  const image_url=document.getElementById('bcast-image').value.trim();
   const hoursRaw=document.getElementById('bcast-return-hours').value.trim();
   const auto_return_hours=hoursRaw?parseInt(hoursRaw):null;
-  if(!confirm('Разослать это сообщение ВСЕМ участникам клуба? Действие необратимо.')) return;
+  const test_phone=document.getElementById('bcast-test-phone').value.trim();
+
+  if(isTest && !test_phone){ alert('Впиши телефон для теста'); return; }
+  if(!isTest && !confirm('Разослать это сообщение ВСЕМ участникам клуба? Действие необратимо.')) return;
+
   try{
     const r=await fetch(API+'/broadcast-all?x_admin_token='+ADMIN_TOKEN,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({message, buttons:bcastButtons, auto_return_hours})
+      body:JSON.stringify({message, buttons:bcastButtons, auto_return_hours, image_url, test_phone: isTest?test_phone:null})
     });
     if(!r.ok){ alert('Ошибка отправки'); return; }
+    if(isTest){ alert('Тест отправлен тебе — проверь Telegram.'); return; }
     alert('Отправлено!');
     document.getElementById('bcast-text').value='';
+    document.getElementById('bcast-image').value='';
     bcastButtons=[];
     renderBcastButtons();
   }catch(e){ alert('Ошибка соединения'); }
@@ -889,6 +928,41 @@ function renderPopupPayments(tid){
 function closePopup(e){
   if(e.target===document.getElementById('popup-overlay'))
     document.getElementById('popup-overlay').classList.remove('open');
+}
+
+function openCampaignsPopup(){ document.getElementById('campaigns-popup-overlay').classList.add('open'); }
+function closeCampaignsPopup(e){
+  if(e.target===document.getElementById('campaigns-popup-overlay'))
+    document.getElementById('campaigns-popup-overlay').classList.remove('open');
+}
+
+function openBroadcastPopup(){ document.getElementById('broadcast-popup-overlay').classList.add('open'); }
+function closeBroadcastPopup(e){
+  if(e.target===document.getElementById('broadcast-popup-overlay'))
+    document.getElementById('broadcast-popup-overlay').classList.remove('open');
+}
+
+/* ── HTML-форматирование текстовых полей ── */
+function applyFormat(textareaId, tag){
+  const el=document.getElementById(textareaId);
+  const start=el.selectionStart, end=el.selectionEnd;
+  const selected=el.value.slice(start,end) || 'текст';
+  const wrapped=`<${tag}>${selected}</${tag}>`;
+  el.value = el.value.slice(0,start) + wrapped + el.value.slice(end);
+  el.focus();
+  el.selectionStart = start + tag.length + 2;
+  el.selectionEnd = el.selectionStart + selected.length;
+}
+
+function applyLinkFormat(textareaId){
+  const url=prompt('Вставь ссылку:');
+  if(!url) return;
+  const el=document.getElementById(textareaId);
+  const start=el.selectionStart, end=el.selectionEnd;
+  const selected=el.value.slice(start,end) || 'текст ссылки';
+  const wrapped=`<a href="${url}">${selected}</a>`;
+  el.value = el.value.slice(0,start) + wrapped + el.value.slice(end);
+  el.focus();
 }
 
 /* ── Actions ── */
