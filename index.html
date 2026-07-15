@@ -159,12 +159,19 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 .html-toolbar{display:flex;gap:6px}
 .html-toolbar button{width:34px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-family:var(--body);font-size:13px;cursor:pointer}
 .html-toolbar button:active{opacity:.7}
-.rich-input{min-height:70px;max-height:220px;overflow-y:auto;white-space:pre-wrap;line-height:1.4}
+.rich-input{min-height:120px;max-height:400px;overflow-y:auto;white-space:pre-wrap;line-height:1.4;resize:vertical}
 .rich-input:empty:before{content:attr(data-placeholder);color:var(--text-faint)}
 .rich-input b,.rich-input strong{font-weight:700}
 .rich-input i,.rich-input em{font-style:italic}
 .rich-input u{text-decoration:underline}
+.rich-input s,.rich-input strike{text-decoration:line-through}
 .rich-input a{color:var(--lav-deep);text-decoration:underline}
+.rich-input blockquote{border-left:3px solid var(--lav-deep);margin:4px 0;padding:2px 0 2px 10px;color:var(--text-faint)}
+.rich-input .tg-spoiler-mark{background:rgba(140,140,140,.35);border-radius:3px;padding:0 2px}
+.emoji-picker{display:none;position:absolute;top:38px;left:0;z-index:20;background:var(--popup-bg);border:1px solid var(--line);border-radius:12px;padding:8px;grid-template-columns:repeat(6,1fr);gap:2px;box-shadow:0 4px 20px rgba(0,0,0,.2);width:220px}
+.emoji-picker.open{display:grid}
+.emoji-picker button{font-size:18px;padding:4px;border:none;background:transparent;cursor:pointer;border-radius:6px;line-height:1}
+.emoji-picker button:hover{background:var(--input-bg)}
 .popup-header{padding:0 20px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px}
 .popup-avatar{width:52px;height:52px;border-radius:50%;background:var(--lav-dim);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--lav-deep);flex-shrink:0}
 .popup-name{font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.01em}
@@ -332,8 +339,8 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
   <div class="popup" id="campaigns-popup">
     <div class="popup-handle"></div>
     <div class="popup-body" style="padding-top:0">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <div class="popup-section-title" style="margin-top:0">Уведомления</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="popup-section-title" style="margin-top:0;margin-bottom:0">Уведомления</div>
       <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeCampaignsPopup()"><svg width="14" height="14" viewBox="0 0 14 14" style="display:block"><path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
@@ -342,11 +349,16 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
         <option value="lecture">Теория + практика (эфир, потом телемост)</option>
         <option value="meetup">Просто встреча (сразу телемост)</option>
       </select>
-      <div class="html-toolbar">
+      <div class="html-toolbar" style="position:relative;flex-wrap:wrap">
         <button type="button" onclick="applyFormat('camp-text','bold')"><b>B</b></button>
         <button type="button" onclick="applyFormat('camp-text','italic')"><i>I</i></button>
         <button type="button" onclick="applyFormat('camp-text','underline')"><u>U</u></button>
+        <button type="button" onclick="applyFormat('camp-text','strikeThrough')"><s>S</s></button>
         <button type="button" onclick="applyLinkFormat('camp-text')">🔗</button>
+        <button type="button" onclick="applyBlockquote('camp-text')">❝</button>
+        <button type="button" onclick="applySpoiler('camp-text')">👁</button>
+        <button type="button" onclick="toggleEmojiPicker('camp-emoji-picker')">😊</button>
+        <div class="emoji-picker" id="camp-emoji-picker"></div>
       </div>
       <div id="camp-text" class="popup-input rich-input" contenteditable="true" data-placeholder="Текст анонса... (для 'Просто встреча' необязателен)"></div>
       <input class="popup-input" type="text" id="camp-link" placeholder="Ссылка на телемост/материал" style="margin-bottom:0;display:none">
@@ -362,16 +374,21 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
   <div class="popup" id="broadcast-popup">
     <div class="popup-handle"></div>
     <div class="popup-body" style="padding-top:0">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <div class="popup-section-title" style="margin-top:0">Разослать всем участникам</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="popup-section-title" style="margin-top:0;margin-bottom:0">Разослать всем участникам</div>
       <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeBroadcastPopup()"><svg width="14" height="14" viewBox="0 0 14 14" style="display:block"><path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
-      <div class="html-toolbar">
+      <div class="html-toolbar" style="position:relative;flex-wrap:wrap">
         <button type="button" onclick="applyFormat('bcast-text','bold')"><b>B</b></button>
         <button type="button" onclick="applyFormat('bcast-text','italic')"><i>I</i></button>
         <button type="button" onclick="applyFormat('bcast-text','underline')"><u>U</u></button>
+        <button type="button" onclick="applyFormat('bcast-text','strikeThrough')"><s>S</s></button>
         <button type="button" onclick="applyLinkFormat('bcast-text')">🔗</button>
+        <button type="button" onclick="applyBlockquote('bcast-text')">❝</button>
+        <button type="button" onclick="applySpoiler('bcast-text')">👁</button>
+        <button type="button" onclick="toggleEmojiPicker('bcast-emoji-picker')">😊</button>
+        <div class="emoji-picker" id="bcast-emoji-picker"></div>
       </div>
       <div id="bcast-text" class="popup-input rich-input" contenteditable="true" data-placeholder="Текст сообщения всему клубу..."></div>
 
@@ -859,6 +876,7 @@ function renderBcastButtons(){
 }
 
 function addBcastButton(){
+  if(bcastButtons.length>=4){ alert('Максимум 4 кнопки'); return; }
   bcastButtons.push({type:'normal', text:'', url:'', callback:''});
   renderBcastButtons();
 }
@@ -1019,6 +1037,52 @@ function applyLinkFormat(fieldId){
   document.execCommand('createLink', false, url);
 }
 
+function applyBlockquote(fieldId){
+  const el=document.getElementById(fieldId);
+  el.focus();
+  document.execCommand('formatBlock', false, 'blockquote');
+}
+
+function applySpoiler(fieldId){
+  const el=document.getElementById(fieldId);
+  el.focus();
+  const sel=window.getSelection();
+  if(!sel.rangeCount || sel.isCollapsed){ alert('Выдели текст, который нужно скрыть спойлером'); return; }
+  const range=sel.getRangeAt(0);
+  const span=document.createElement('span');
+  span.className='tg-spoiler-mark';
+  try{
+    range.surroundContents(span);
+  }catch(e){
+    const contents=range.extractContents();
+    span.appendChild(contents);
+    range.insertNode(span);
+  }
+  sel.removeAllRanges();
+}
+
+const EMOJI_LIST=['😀','😂','😍','🥰','😅','😉','🙌','👍','🔥','❤️','🎉','✨','💪','🙏','😢','😱','🤔','👏','🚀','💯','⭐','🎯','📚','💬','⏰','📅','✅','❌','🎁','🌟'];
+
+function initEmojiPicker(pickerId, fieldId){
+  const picker=document.getElementById(pickerId);
+  if(!picker || picker.dataset.initialized) return;
+  picker.dataset.initialized='1';
+  picker.innerHTML=EMOJI_LIST.map(e=>`<button type="button" onclick="insertEmoji('${fieldId}','${pickerId}','${e}')">${e}</button>`).join('');
+}
+
+function toggleEmojiPicker(pickerId){
+  const fieldId = pickerId==='camp-emoji-picker' ? 'camp-text' : 'bcast-text';
+  initEmojiPicker(pickerId, fieldId);
+  document.getElementById(pickerId).classList.toggle('open');
+}
+
+function insertEmoji(fieldId, pickerId, emoji){
+  const el=document.getElementById(fieldId);
+  el.focus();
+  document.execCommand('insertText', false, emoji);
+  document.getElementById(pickerId).classList.remove('open');
+}
+
 function escapeHtmlText(s){
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
@@ -1033,7 +1097,13 @@ function richNodeToTelegramHtml(node){
       if(tag==='B'||tag==='STRONG'){ out+='<b>'+richNodeToTelegramHtml(child)+'</b>'; }
       else if(tag==='I'||tag==='EM'){ out+='<i>'+richNodeToTelegramHtml(child)+'</i>'; }
       else if(tag==='U'){ out+='<u>'+richNodeToTelegramHtml(child)+'</u>'; }
+      else if(tag==='S'||tag==='STRIKE'||tag==='DEL'){ out+='<s>'+richNodeToTelegramHtml(child)+'</s>'; }
       else if(tag==='A'){ out+='<a href="'+escapeHtmlText(child.getAttribute('href')||'')+'">'+richNodeToTelegramHtml(child)+'</a>'; }
+      else if(tag==='BLOCKQUOTE'){
+        if(out.length && !out.endsWith('\n')) out+='\n';
+        out+='<blockquote>'+richNodeToTelegramHtml(child)+'</blockquote>\n';
+      }
+      else if(tag==='SPAN' && child.classList.contains('tg-spoiler-mark')){ out+='<tg-spoiler>'+richNodeToTelegramHtml(child)+'</tg-spoiler>'; }
       else if(tag==='BR'){ out+='\n'; }
       else if(tag==='DIV'||tag==='P'){
         if(out.length && !out.endsWith('\n')) out+='\n';
