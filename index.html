@@ -325,8 +325,9 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 <div class="popup-overlay" id="campaigns-popup-overlay" onclick="closeCampaignsPopup(event)">
   <div class="popup" id="campaigns-popup">
     <div class="popup-handle"></div>
-    <div class="popup-section-title">Уведомления</div>
-    <div style="padding:0 0 14px;display:flex;flex-direction:column;gap:8px">
+    <div class="popup-body" style="padding-top:0">
+    <div class="popup-section-title" style="margin-top:0">Уведомления</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
       <select id="camp-list" class="popup-input" style="margin-bottom:0" onchange="onCampListChange()"></select>
       <select id="camp-flow" class="popup-input" style="margin-bottom:0;display:none">
         <option value="lecture">Теория + практика (эфир, потом телемост)</option>
@@ -344,6 +345,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       <button class="popup-save" onclick="createCampaign()">Создать кампанию</button>
     </div>
     <div id="campaigns-list"><div class="loading">Загрузка...</div></div>
+    </div>
   </div>
 </div>
 
@@ -351,8 +353,9 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 <div class="popup-overlay" id="broadcast-popup-overlay" onclick="closeBroadcastPopup(event)">
   <div class="popup" id="broadcast-popup">
     <div class="popup-handle"></div>
-    <div class="popup-section-title">Разослать всем участникам</div>
-    <div style="padding:0 0 14px;display:flex;flex-direction:column;gap:8px">
+    <div class="popup-body" style="padding-top:0">
+    <div class="popup-section-title" style="margin-top:0">Разослать всем участникам</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
       <div class="html-toolbar">
         <button type="button" onclick="applyFormat('bcast-text','b')"><b>B</b></button>
         <button type="button" onclick="applyFormat('bcast-text','i')"><i>I</i></button>
@@ -367,7 +370,10 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       <div class="pay-meta">Кнопка «Вернуться в главное меню» добавится последней автоматически.</div>
 
       <input class="popup-input" type="number" id="bcast-return-hours" placeholder="Вернуть в меню через N часов" value="3" style="margin-bottom:0">
-      <button class="popup-save" onclick="sendBroadcastAll()">Отправить всем в клубе</button>
+      <input class="popup-input" type="tel" id="bcast-test-phone" placeholder="Телефон для теста (+7...), необязательно" value="+79885472439" style="margin-bottom:0">
+      <button class="action-btn" onclick="sendBroadcastAll(true)">Тест — отправить только себе</button>
+      <button class="popup-save" onclick="sendBroadcastAll(false)">Отправить всем в клубе</button>
+    </div>
     </div>
   </div>
 </div>
@@ -794,20 +800,25 @@ function removeBcastButton(i){
   renderBcastButtons();
 }
 
-async function sendBroadcastAll(){
+async function sendBroadcastAll(isTest){
   const message=document.getElementById('bcast-text').value.trim();
   if(!message){ alert('Напиши текст сообщения'); return; }
   const image_url=document.getElementById('bcast-image').value.trim();
   const hoursRaw=document.getElementById('bcast-return-hours').value.trim();
   const auto_return_hours=hoursRaw?parseInt(hoursRaw):null;
-  if(!confirm('Разослать это сообщение ВСЕМ участникам клуба? Действие необратимо.')) return;
+  const test_phone=document.getElementById('bcast-test-phone').value.trim();
+
+  if(isTest && !test_phone){ alert('Впиши телефон для теста'); return; }
+  if(!isTest && !confirm('Разослать это сообщение ВСЕМ участникам клуба? Действие необратимо.')) return;
+
   try{
     const r=await fetch(API+'/broadcast-all?x_admin_token='+ADMIN_TOKEN,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({message, buttons:bcastButtons, auto_return_hours, image_url})
+      body:JSON.stringify({message, buttons:bcastButtons, auto_return_hours, image_url, test_phone: isTest?test_phone:null})
     });
     if(!r.ok){ alert('Ошибка отправки'); return; }
+    if(isTest){ alert('Тест отправлен тебе — проверь Telegram.'); return; }
     alert('Отправлено!');
     document.getElementById('bcast-text').value='';
     document.getElementById('bcast-image').value='';
