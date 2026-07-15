@@ -625,7 +625,7 @@ function updateCampFormForFlow(){
   const flow=getSelectedFlow();
   const isSingleStep = flow==='material' || flow==='meetup';
   document.getElementById('camp-link').style.display = isSingleStep ? '' : 'none';
-  document.getElementById('camp-submit-btn').textContent = isSingleStep ? 'Отправить' : 'Создать кампанию';
+  document.getElementById('camp-submit-btn').textContent = isSingleStep ? 'Отправить' : 'Создать и отправить анонс';
 }
 
 async function loadCampaigns(){
@@ -664,7 +664,7 @@ function renderCampaigns(campaigns){
       } else {
         actions=`
           <div class="pay-meta">Ссылка на практику отправлена: ${c.meeting_link}</div>
-          <button class="action-btn" onclick="returnCampaignToMenu(${c.id})">Вернуть всех в меню</button>`;
+          ${c.returned_to_menu?'':'<button class="action-btn" onclick="returnCampaignToMenu('+c.id+')">Вернуть всех в меню</button>'}`;
       }
     } else if(c.flow==='meetup'){
       if(c.status!=='sent'){
@@ -674,7 +674,7 @@ function renderCampaigns(campaigns){
       } else {
         actions=`
           <div class="pay-meta">Отправлено, ссылка: ${c.meeting_link}</div>
-          <button class="action-btn" onclick="returnCampaignToMenu(${c.id})">Вернуть всех в меню</button>`;
+          ${c.returned_to_menu?'':'<button class="action-btn" onclick="returnCampaignToMenu('+c.id+')">Вернуть всех в меню</button>'}`;
       }
     } else {
       if(c.status!=='sent'){
@@ -684,7 +684,7 @@ function renderCampaigns(campaigns){
       } else {
         actions=`
           <div class="pay-meta">Отправлено, ссылка: ${c.meeting_link}</div>
-          <button class="action-btn" onclick="returnCampaignToMenu(${c.id})">Вернуть всех в меню</button>`;
+          ${c.returned_to_menu?'':'<button class="action-btn" onclick="returnCampaignToMenu('+c.id+')">Вернуть всех в меню</button>'}`;
       }
     }
 
@@ -713,7 +713,7 @@ async function createCampaign(){
   if(!title){ alert('Заполни заголовок'); return; }
   if(resolvedFlow!=='meetup' && !announce_text){ alert('Заполни текст анонса'); return; }
   if(isSingleStep && !meeting_link){ alert('Вставь ссылку'); return; }
-  if(isSingleStep && !confirm('Отправить сразу всем в списке?')) return;
+  if(!confirm('Отправить сразу всем в списке?')) return;
 
   try{
     const createRes=await fetch(API+'/campaigns?x_admin_token='+ADMIN_TOKEN,{
@@ -728,6 +728,9 @@ async function createCampaign(){
       const sendEndpoint = resolvedFlow==='material' ? 'send-material' : 'send-meetup';
       const r=await fetch(API+'/campaigns/'+created.id+'/'+sendEndpoint+'?x_admin_token='+ADMIN_TOKEN,{method:'POST'});
       if(!r.ok){ alert('Кампания создана, но отправка не удалась — попробуй из списка ниже'); await loadCampaigns(); return; }
+    } else if(resolvedFlow==='lecture'){
+      const r=await fetch(API+'/campaigns/'+created.id+'/announce?x_admin_token='+ADMIN_TOKEN,{method:'POST'});
+      if(!r.ok){ alert('Кампания создана, но анонс не отправился — попробуй из списка ниже'); await loadCampaigns(); return; }
     }
 
     document.getElementById('camp-title').value='';
@@ -800,6 +803,7 @@ async function returnCampaignToMenu(id){
   try{
     const r=await fetch(API+'/campaigns/'+id+'/return-to-menu?x_admin_token='+ADMIN_TOKEN,{method:'POST'});
     if(!r.ok){ alert('Ошибка отправки'); return; }
+    await loadCampaigns();
   }catch(e){ alert('Ошибка соединения'); }
 }
 
