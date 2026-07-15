@@ -159,6 +159,12 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 .html-toolbar{display:flex;gap:6px}
 .html-toolbar button{width:34px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-family:var(--body);font-size:13px;cursor:pointer}
 .html-toolbar button:active{opacity:.7}
+.rich-input{min-height:70px;max-height:220px;overflow-y:auto;white-space:pre-wrap;line-height:1.4}
+.rich-input:empty:before{content:attr(data-placeholder);color:var(--text-faint)}
+.rich-input b,.rich-input strong{font-weight:700}
+.rich-input i,.rich-input em{font-style:italic}
+.rich-input u{text-decoration:underline}
+.rich-input a{color:var(--lav-deep);text-decoration:underline}
 .popup-header{padding:0 20px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px}
 .popup-avatar{width:52px;height:52px;border-radius:50%;background:var(--lav-dim);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--lav-deep);flex-shrink:0}
 .popup-name{font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.01em}
@@ -335,13 +341,12 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       </select>
       <input class="popup-input" type="text" id="camp-title" placeholder="Заголовок (для себя), напр. Книга «Атомные привычки»" style="margin-bottom:0">
       <div class="html-toolbar">
-        <button type="button" onclick="applyFormat('camp-text','b')"><b>B</b></button>
-        <button type="button" onclick="applyFormat('camp-text','i')"><i>I</i></button>
-        <button type="button" onclick="applyFormat('camp-text','u')"><u>U</u></button>
+        <button type="button" onclick="applyFormat('camp-text','bold')"><b>B</b></button>
+        <button type="button" onclick="applyFormat('camp-text','italic')"><i>I</i></button>
+        <button type="button" onclick="applyFormat('camp-text','underline')"><u>U</u></button>
         <button type="button" onclick="applyLinkFormat('camp-text')">🔗</button>
       </div>
-      <textarea id="camp-text" class="popup-input" rows="3" placeholder="Текст анонса... (для 'Просто встреча' необязателен — если пусто, возьмётся случайная стандартная фраза). Поддерживает HTML: <b>жирный</b>, <i>курсив</i>, <u>подчёркнутый</u>, <a href='...'>ссылка</a>" style="margin-bottom:0;resize:vertical"></textarea>
-      <input class="popup-input" type="text" id="camp-image" placeholder="Ссылка на картинку (необязательно)" style="margin-bottom:0">
+      <div id="camp-text" class="popup-input rich-input" contenteditable="true" data-placeholder="Текст анонса... (для 'Просто встреча' необязателен)"></div>
       <input class="popup-input" type="text" id="camp-link" placeholder="Ссылка на телемост/материал" style="margin-bottom:0;display:none">
       <input class="popup-input" type="number" id="camp-return-hours" placeholder="Вернуть в меню через N часов" value="1" style="margin-bottom:0;display:none">
       <button class="popup-save" id="camp-submit-btn" onclick="createCampaign()">Создать кампанию</button>
@@ -359,13 +364,12 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
     <div class="popup-section-title" style="margin-top:0">Разослать всем участникам</div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <div class="html-toolbar">
-        <button type="button" onclick="applyFormat('bcast-text','b')"><b>B</b></button>
-        <button type="button" onclick="applyFormat('bcast-text','i')"><i>I</i></button>
-        <button type="button" onclick="applyFormat('bcast-text','u')"><u>U</u></button>
+        <button type="button" onclick="applyFormat('bcast-text','bold')"><b>B</b></button>
+        <button type="button" onclick="applyFormat('bcast-text','italic')"><i>I</i></button>
+        <button type="button" onclick="applyFormat('bcast-text','underline')"><u>U</u></button>
         <button type="button" onclick="applyLinkFormat('bcast-text')">🔗</button>
       </div>
-      <textarea id="bcast-text" class="popup-input" rows="3" placeholder="Текст сообщения всему клубу... Поддерживает HTML: <b>жирный</b>, <i>курсив</i>, <u>подчёркнутый</u>, <a href='...'>ссылка</a>" style="margin-bottom:0;resize:vertical"></textarea>
-      <input class="popup-input" type="text" id="bcast-image" placeholder="Ссылка на картинку (необязательно)" style="margin-bottom:0">
+      <div id="bcast-text" class="popup-input rich-input" contenteditable="true" data-placeholder="Текст сообщения всему клубу..."></div>
 
       <div id="bcast-buttons"></div>
       <button class="action-btn" onclick="addBcastButton()">+ Добавить кнопку</button>
@@ -690,8 +694,7 @@ function renderCampaigns(campaigns){
 async function createCampaign(){
   const list_id=parseInt(document.getElementById('camp-list').value);
   const title=document.getElementById('camp-title').value.trim();
-  const announce_text=document.getElementById('camp-text').value.trim();
-  const image_url=document.getElementById('camp-image').value.trim();
+  const announce_text=getRichText('camp-text');
   const flowSel=document.getElementById('camp-flow');
   const flow=flowSel.style.display!=='none'?flowSel.value:undefined;
   const resolvedFlow=getSelectedFlow();
@@ -709,7 +712,7 @@ async function createCampaign(){
     const createRes=await fetch(API+'/campaigns?x_admin_token='+ADMIN_TOKEN,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({list_id,title,announce_text,flow,image_url,meeting_link,auto_return_hours})
+      body:JSON.stringify({list_id,title,announce_text,flow,meeting_link,auto_return_hours})
     });
     if(!createRes.ok){ alert('Ошибка создания кампании'); return; }
     const created=await createRes.json();
@@ -721,8 +724,7 @@ async function createCampaign(){
     }
 
     document.getElementById('camp-title').value='';
-    document.getElementById('camp-text').value='';
-    document.getElementById('camp-image').value='';
+    document.getElementById('camp-text').innerHTML='';
     document.getElementById('camp-link').value='';
     await loadCampaigns();
   }catch(e){ alert('Ошибка создания кампании'); }
@@ -842,9 +844,8 @@ function removeBcastButton(i){
 }
 
 async function sendBroadcastAll(isTest){
-  const message=document.getElementById('bcast-text').value.trim();
+  const message=getRichText('bcast-text');
   if(!message){ alert('Напиши текст сообщения'); return; }
-  const image_url=document.getElementById('bcast-image').value.trim();
   const hoursRaw=document.getElementById('bcast-return-hours').value.trim();
   const auto_return_hours=hoursRaw?parseInt(hoursRaw):null;
   const test_phone=document.getElementById('bcast-test-phone').value.trim();
@@ -856,13 +857,12 @@ async function sendBroadcastAll(isTest){
     const r=await fetch(API+'/broadcast-all?x_admin_token='+ADMIN_TOKEN,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({message, buttons:bcastButtons, auto_return_hours, image_url, test_phone: isTest?test_phone:null})
+      body:JSON.stringify({message, buttons:bcastButtons, auto_return_hours, test_phone: isTest?test_phone:null})
     });
     if(!r.ok){ alert('Ошибка отправки'); return; }
     if(isTest){ alert('Тест отправлен тебе — проверь Telegram.'); return; }
     alert('Отправлено!');
-    document.getElementById('bcast-text').value='';
-    document.getElementById('bcast-image').value='';
+    document.getElementById('bcast-text').innerHTML='';
     bcastButtons=[];
     renderBcastButtons();
   }catch(e){ alert('Ошибка соединения'); }
@@ -988,26 +988,52 @@ function closeBroadcastPopup(e){
 }
 
 /* ── HTML-форматирование текстовых полей ── */
-function applyFormat(textareaId, tag){
-  const el=document.getElementById(textareaId);
-  const start=el.selectionStart, end=el.selectionEnd;
-  const selected=el.value.slice(start,end) || 'текст';
-  const wrapped=`<${tag}>${selected}</${tag}>`;
-  el.value = el.value.slice(0,start) + wrapped + el.value.slice(end);
+function applyFormat(fieldId, command){
+  const el=document.getElementById(fieldId);
   el.focus();
-  el.selectionStart = start + tag.length + 2;
-  el.selectionEnd = el.selectionStart + selected.length;
+  document.execCommand(command, false, null);
 }
 
-function applyLinkFormat(textareaId){
+function applyLinkFormat(fieldId){
   const url=prompt('Вставь ссылку:');
   if(!url) return;
-  const el=document.getElementById(textareaId);
-  const start=el.selectionStart, end=el.selectionEnd;
-  const selected=el.value.slice(start,end) || 'текст ссылки';
-  const wrapped=`<a href="${url}">${selected}</a>`;
-  el.value = el.value.slice(0,start) + wrapped + el.value.slice(end);
+  const el=document.getElementById(fieldId);
   el.focus();
+  document.execCommand('createLink', false, url);
+}
+
+function escapeHtmlText(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function richNodeToTelegramHtml(node){
+  let out='';
+  for(const child of node.childNodes){
+    if(child.nodeType===Node.TEXT_NODE){
+      out+=escapeHtmlText(child.textContent);
+    } else if(child.nodeType===Node.ELEMENT_NODE){
+      const tag=child.tagName;
+      if(tag==='B'||tag==='STRONG'){ out+='<b>'+richNodeToTelegramHtml(child)+'</b>'; }
+      else if(tag==='I'||tag==='EM'){ out+='<i>'+richNodeToTelegramHtml(child)+'</i>'; }
+      else if(tag==='U'){ out+='<u>'+richNodeToTelegramHtml(child)+'</u>'; }
+      else if(tag==='A'){ out+='<a href="'+escapeHtmlText(child.getAttribute('href')||'')+'">'+richNodeToTelegramHtml(child)+'</a>'; }
+      else if(tag==='BR'){ out+='\n'; }
+      else if(tag==='DIV'||tag==='P'){
+        if(out.length && !out.endsWith('\n')) out+='\n';
+        out+=richNodeToTelegramHtml(child)+'\n';
+      } else {
+        out+=richNodeToTelegramHtml(child);
+      }
+    }
+  }
+  return out;
+}
+
+/** Читает контентредактируемое поле и возвращает чистый Telegram-совместимый HTML
+    (только <b>/<i>/<u>/<a>, переносы строк из div/br — что реально видно в поле). */
+function getRichText(fieldId){
+  const el=document.getElementById(fieldId);
+  return richNodeToTelegramHtml(el).replace(/\n{3,}/g,'\n\n').trim();
 }
 
 /* ── Actions ── */
