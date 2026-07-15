@@ -381,10 +381,11 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <input class="popup-input" type="text" id="manual-user-name" placeholder="Имя" style="margin-bottom:0">
+      <input class="popup-input" type="text" id="manual-user-username" placeholder="Username в Telegram (@ник)" style="margin-bottom:0">
       <input class="popup-input" type="tel" id="manual-user-phone" placeholder="Телефон" style="margin-bottom:0">
       <input class="popup-input" type="email" id="manual-user-email" placeholder="Email" style="margin-bottom:0">
-      <input class="popup-input" type="text" id="manual-user-sub" placeholder="Тариф (напр. База - помесячный доступ)" style="margin-bottom:0">
-      <input class="popup-input" type="text" id="manual-user-cost" placeholder="Стоимость (напр. 990)" style="margin-bottom:0">
+      <input class="popup-input" type="text" id="manual-user-sub" placeholder="Тариф" value="База - помесячный доступ к онлайн-клубу" style="margin-bottom:0">
+      <input class="popup-input" type="text" id="manual-user-cost" placeholder="Стоимость" value="990" style="margin-bottom:0">
       <button class="popup-save" onclick="createManualUser()">Создать клиента</button>
     </div>
     </div>
@@ -1051,6 +1052,7 @@ function closeManualUserPopup(){ document.getElementById('manual-user-popup-over
 
 async function createManualUser(){
   const full_name=document.getElementById('manual-user-name').value.trim();
+  const username=document.getElementById('manual-user-username').value.trim();
   const phone=document.getElementById('manual-user-phone').value.trim();
   const email=document.getElementById('manual-user-email').value.trim();
   const sub_name=document.getElementById('manual-user-sub').value.trim();
@@ -1060,14 +1062,13 @@ async function createManualUser(){
     const r=await fetch(API+'/users/manual?x_admin_token='+ADMIN_TOKEN,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({full_name,phone,email,sub_name,cost})
+      body:JSON.stringify({full_name,username,phone,email,sub_name,cost})
     });
     if(!r.ok){ alert('Ошибка создания клиента'); return; }
     document.getElementById('manual-user-name').value='';
+    document.getElementById('manual-user-username').value='';
     document.getElementById('manual-user-phone').value='';
     document.getElementById('manual-user-email').value='';
-    document.getElementById('manual-user-sub').value='';
-    document.getElementById('manual-user-cost').value='';
     closeManualUserPopup();
     await loadUsers();
   }catch(e){ alert('Ошибка соединения'); }
