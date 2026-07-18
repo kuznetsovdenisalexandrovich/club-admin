@@ -381,11 +381,18 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeNewsPopup()"><svg width="14" height="14" viewBox="0 0 14 14" style="display:block"><path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
-      <textarea class="popup-input" id="news-common" rows="3" placeholder="Общий текст для всех участников..." style="margin-bottom:0;resize:vertical"></textarea>
+      <div class="html-toolbar">
+        <button type="button" onclick="applyFormat('news-common','bold')"><b>B</b></button>
+        <button type="button" onclick="applyFormat('news-common','italic')"><i>I</i></button>
+        <button type="button" onclick="applyFormat('news-common','underline')"><u>U</u></button>
+        <button type="button" onclick="applyLinkFormat('news-common')">🔗</button>
+      </div>
+      <div id="news-common" class="popup-input rich-input" contenteditable="true" data-placeholder="Общий текст для всех участников..."></div>
       <div class="pay-meta">Дополнительные блоки — только для тех, кто состоит в конкретном списке уведомлений</div>
       <div id="news-targeted-list"></div>
       <button class="action-btn" onclick="addNewsTargeted()">+ Добавить блок для списка</button>
       <button class="popup-save" onclick="publishNews()">Опубликовать</button>
+      <button class="action-btn danger" onclick="deleteAllNews()">Удалить все новости</button>
     </div>
     </div>
   </div>
@@ -1091,12 +1098,17 @@ function renderNewsTargeted(){
         </select>
         <button class="action-btn danger" style="flex:0 0 auto" onclick="removeNewsTargeted(${i})">✕</button>
       </div>
-      <textarea class="popup-input" rows="2" placeholder="Текст для этого списка..." style="margin-bottom:0;resize:vertical" oninput="newsTargeted[${i}].text=this.value">${t.text}</textarea>
+      <div class="html-toolbar">
+        <button type="button" onclick="applyFormat('news-target-${i}','bold')"><b>B</b></button>
+        <button type="button" onclick="applyFormat('news-target-${i}','italic')"><i>I</i></button>
+        <button type="button" onclick="applyLinkFormat('news-target-${i}')">🔗</button>
+      </div>
+      <div id="news-target-${i}" class="popup-input rich-input" style="min-height:50px" contenteditable="true" data-placeholder="Текст для этого списка..." oninput="newsTargeted[${i}].text=this.innerHTML">${t.text}</div>
     </div>`).join('');
 }
 
 async function publishNews(){
-  const common_text=document.getElementById('news-common').value.trim();
+  const common_text=document.getElementById('news-common').innerHTML.trim();
   if(!common_text){ alert('Напиши общий текст новости'); return; }
   if(!confirm('Опубликовать новость для всех участников?')) return;
   try{
@@ -1107,10 +1119,19 @@ async function publishNews(){
     });
     if(!r.ok){ alert('Ошибка публикации'); return; }
     alert('Опубликовано!');
-    document.getElementById('news-common').value='';
+    document.getElementById('news-common').innerHTML='';
     newsTargeted=[];
     renderNewsTargeted();
     closeNewsPopup();
+  }catch(e){ alert('Ошибка соединения'); }
+}
+
+async function deleteAllNews(){
+  if(!confirm('Удалить ВСЕ новости без возможности восстановить?')) return;
+  try{
+    const r=await fetch(API+'/news/all?x_admin_token='+ADMIN_TOKEN,{method:'DELETE'});
+    if(!r.ok){ alert('Ошибка удаления'); return; }
+    alert('Все новости удалены');
   }catch(e){ alert('Ошибка соединения'); }
 }
 
