@@ -110,6 +110,9 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 .section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 2px;flex-wrap:wrap;gap:6px}
 .section-title{font-family:var(--disp);font-weight:700;font-size:14px;letter-spacing:-.01em}
 .card{background:var(--surface);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:18px;overflow:hidden;box-shadow:var(--shadow)}
+.scroll-row{-webkit-overflow-scrolling:touch;scrollbar-width:none;cursor:grab}
+.scroll-row::-webkit-scrollbar{display:none}
+.scroll-row.dragging{cursor:grabbing;user-select:none}
 .period-tabs{display:flex;gap:6px}
 .ptab{font-size:11px;font-weight:600;padding:5px 10px;border-radius:20px;cursor:pointer;border:none;background:rgba(124,108,240,0.08);color:var(--text-dim);transition:all .15s;font-family:var(--body)}
 .ptab.active{background:var(--lav-dim);color:var(--lav-deep)}
@@ -294,11 +297,11 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 
   <div class="section">
     <div class="section-head"><div class="section-title">Рассылки</div></div>
-    <div class="card" style="padding:14px 16px;display:flex;gap:10px">
-      <button class="popup-save" style="flex:1;margin-bottom:0" onclick="openCampaignsPopup()">Уведомления</button>
-      <button class="popup-save" style="flex:1;margin-bottom:0" onclick="openBroadcastPopup()">Разослать всем</button>
-      <button class="popup-save" style="flex:1;margin-bottom:0" onclick="openNewsPopup()">Новости</button>
-      <button class="popup-save" style="flex:1;margin-bottom:0" onclick="openStreamsPopup()">Потоки</button>
+    <div class="card scroll-row" id="broadcast-row" style="padding:14px 16px;display:flex;gap:10px;overflow-x:auto">
+      <button class="popup-save" style="flex:0 0 auto;min-width:140px;margin-bottom:0" onclick="openCampaignsPopup()">Уведомления</button>
+      <button class="popup-save" style="flex:0 0 auto;min-width:140px;margin-bottom:0" onclick="openBroadcastPopup()">Разослать всем</button>
+      <button class="popup-save" style="flex:0 0 auto;min-width:140px;margin-bottom:0" onclick="openNewsPopup()">Новости</button>
+      <button class="popup-save" style="flex:0 0 auto;min-width:140px;margin-bottom:0" onclick="openStreamsPopup()">Потоки</button>
     </div>
   </div>
 
@@ -1503,6 +1506,25 @@ document.addEventListener('keydown', function(e){
     loadAll();
   }
 })();
+
+// Перетаскивание мышкой для горизонтально прокручиваемых блоков (.scroll-row)
+document.querySelectorAll('.scroll-row').forEach(row => {
+  let isDown = false, startX, scrollLeft;
+  row.addEventListener('mousedown', e => {
+    isDown = true;
+    row.classList.add('dragging');
+    startX = e.pageX - row.offsetLeft;
+    scrollLeft = row.scrollLeft;
+  });
+  window.addEventListener('mouseup', () => { isDown = false; row.classList.remove('dragging'); });
+  row.addEventListener('mouseleave', () => { isDown = false; row.classList.remove('dragging'); });
+  row.addEventListener('mousemove', e => {
+    if (!isDown) return;
+    e.preventDefault();
+    const x = e.pageX - row.offsetLeft;
+    row.scrollLeft = scrollLeft - (x - startX);
+  });
+});
 </script>
 </body>
 </html>
