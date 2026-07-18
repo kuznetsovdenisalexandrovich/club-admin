@@ -1509,6 +1509,15 @@ document.addEventListener('keydown', function(e){
 
 // Перетаскивание мышкой для горизонтально прокручиваемых блоков (.scroll-row)
 document.querySelectorAll('.scroll-row').forEach(row => {
+  // Трекпад: некоторые браузеры шлют горизонтальный свайп как deltaY, а не deltaX —
+  // подхватываем оба варианта, чтобы прокрутка двумя пальцами работала стабильно
+  row.addEventListener('wheel', e => {
+    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    if (delta !== 0) {
+      row.scrollLeft += delta;
+      e.preventDefault();
+    }
+  }, { passive: false });
   let isDown = false, startX, scrollLeft;
   row.addEventListener('mousedown', e => {
     isDown = true;
