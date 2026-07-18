@@ -297,6 +297,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
     <div class="card" style="padding:14px 16px;display:flex;gap:10px">
       <button class="popup-save" style="flex:1;margin-bottom:0" onclick="openCampaignsPopup()">Уведомления</button>
       <button class="popup-save" style="flex:1;margin-bottom:0" onclick="openBroadcastPopup()">Разослать всем</button>
+      <button class="popup-save" style="flex:1;margin-bottom:0" onclick="openNewsPopup()">Новости</button>
     </div>
   </div>
 
@@ -366,6 +367,26 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       <button class="popup-save" id="camp-submit-btn" onclick="createCampaign()">Создать кампанию</button>
     </div>
     <div id="campaigns-list"><div class="loading">Загрузка...</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- News Popup -->
+<div class="popup-overlay" id="news-popup-overlay">
+  <div class="popup" id="news-popup">
+    <div class="popup-handle"></div>
+    <div class="popup-body" style="padding-top:0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="popup-section-title" style="margin-top:0;margin-bottom:0">Новости</div>
+      <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeNewsPopup()"><svg width="14" height="14" viewBox="0 0 14 14" style="display:block"><path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <textarea class="popup-input" id="news-common" rows="3" placeholder="Общий текст для всех участников..." style="margin-bottom:0;resize:vertical"></textarea>
+      <div class="pay-meta">Дополнительные блоки — только для тех, кто состоит в конкретном списке уведомлений</div>
+      <div id="news-targeted-list"></div>
+      <button class="action-btn" onclick="addNewsTargeted()">+ Добавить блок для списка</button>
+      <button class="popup-save" onclick="publishNews()">Опубликовать</button>
+    </div>
     </div>
   </div>
 </div>
@@ -1043,6 +1064,55 @@ function closePopup(e){
 
 function openCampaignsPopup(){ document.getElementById('campaigns-popup-overlay').classList.add('open'); }
 function closeCampaignsPopup(){ document.getElementById('campaigns-popup-overlay').classList.remove('open'); }
+
+let newsTargeted=[];
+
+function openNewsPopup(){
+  document.getElementById('news-popup-overlay').classList.add('open');
+  if(!newsTargeted.length) renderNewsTargeted();
+}
+function closeNewsPopup(){ document.getElementById('news-popup-overlay').classList.remove('open'); }
+
+function addNewsTargeted(){
+  newsTargeted.push({list_id: notificationLists[0]?.list_id || 0, text: ''});
+  renderNewsTargeted();
+}
+function removeNewsTargeted(i){
+  newsTargeted.splice(i,1);
+  renderNewsTargeted();
+}
+function renderNewsTargeted(){
+  const el=document.getElementById('news-targeted-list');
+  el.innerHTML=newsTargeted.map((t,i)=>`
+    <div style="display:flex;flex-direction:column;gap:6px;padding:10px;border:1px solid var(--line);border-radius:12px;margin-bottom:6px">
+      <div style="display:flex;gap:6px">
+        <select style="flex:1;font-size:12px;border-radius:10px;border:1px solid var(--line);background:var(--input-bg);color:var(--text)" onchange="newsTargeted[${i}].list_id=parseInt(this.value)">
+          ${notificationLists.map(l=>`<option value="${l.list_id}" ${l.list_id===t.list_id?'selected':''}>${l.name}</option>`).join('')}
+        </select>
+        <button class="action-btn danger" style="flex:0 0 auto" onclick="removeNewsTargeted(${i})">✕</button>
+      </div>
+      <textarea class="popup-input" rows="2" placeholder="Текст для этого списка..." style="margin-bottom:0;resize:vertical" oninput="newsTargeted[${i}].text=this.value">${t.text}</textarea>
+    </div>`).join('');
+}
+
+async function publishNews(){
+  const common_text=document.getElementById('news-common').value.trim();
+  if(!common_text){ alert('Напиши общий текст новости'); return; }
+  if(!confirm('Опубликовать новость для всех участников?')) return;
+  try{
+    const r=await fetch(API+'/news?x_admin_token='+ADMIN_TOKEN,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({common_text, targeted:newsTargeted.filter(t=>t.text.trim())})
+    });
+    if(!r.ok){ alert('Ошибка публикации'); return; }
+    alert('Опубликовано!');
+    document.getElementById('news-common').value='';
+    newsTargeted=[];
+    renderNewsTargeted();
+    closeNewsPopup();
+  }catch(e){ alert('Ошибка соединения'); }
+}
 
 function openManualUserPopup(){ document.getElementById('manual-user-popup-overlay').classList.add('open'); }
 function closeManualUserPopup(){ document.getElementById('manual-user-popup-overlay').classList.remove('open'); }
