@@ -298,6 +298,8 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       <button class="popup-save" style="flex:1;margin-bottom:0" onclick="openCampaignsPopup()">Уведомления</button>
       <button class="popup-save" style="flex:1;margin-bottom:0" onclick="openBroadcastPopup()">Разослать всем</button>
       <button class="popup-save" style="flex:1;margin-bottom:0" onclick="openNewsPopup()">Новости</button>
+      <button class="popup-save" style="flex:1;margin-bottom:0" onclick="openStreamsPopup()">Потоки</button>
+      <button class="popup-save" style="flex:1;margin-bottom:0" onclick="openStreamsPopup()">Потоки</button>
     </div>
   </div>
 
@@ -371,6 +373,27 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
   </div>
 </div>
 
+<!-- Streams Popup -->
+<div class="popup-overlay" id="streams-popup-overlay">
+  <div class="popup" id="streams-popup">
+    <div class="popup-handle"></div>
+    <div class="popup-body" style="padding-top:0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="popup-section-title" style="margin-top:0;margin-bottom:0">Потоки</div>
+      <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeStreamsPopup()"><svg width="14" height="14" viewBox="0 0 14 14" style="display:block"><path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <input class="popup-input" type="text" id="stream-key" placeholder="Ключ (напр. sales_p03) — совпадает с началом slug'ов" style="margin-bottom:0">
+      <input class="popup-input" type="text" id="stream-title" placeholder="Название потока" style="margin-bottom:0">
+      <textarea class="popup-input" id="stream-desc" rows="3" placeholder="Общее описание потока..." style="margin-bottom:0;resize:vertical"></textarea>
+      <input class="popup-input" type="text" id="stream-image" placeholder="Ссылка на картинку-обложку" style="margin-bottom:0">
+      <button class="popup-save" onclick="saveStream()">Сохранить поток</button>
+    </div>
+    <div id="streams-list" style="margin-top:14px"></div>
+    </div>
+  </div>
+</div>
+
 <!-- News Popup -->
 <div class="popup-overlay" id="news-popup-overlay">
   <div class="popup" id="news-popup">
@@ -394,6 +417,27 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       <button class="popup-save" onclick="publishNews()">Опубликовать</button>
       <button class="action-btn danger" onclick="deleteAllNews()">Удалить все новости</button>
     </div>
+    </div>
+  </div>
+</div>
+
+<!-- Streams Popup -->
+<div class="popup-overlay" id="streams-popup-overlay">
+  <div class="popup" id="streams-popup">
+    <div class="popup-handle"></div>
+    <div class="popup-body" style="padding-top:0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="popup-section-title" style="margin-top:0;margin-bottom:0">Потоки</div>
+      <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeStreamsPopup()"><svg width="14" height="14" viewBox="0 0 14 14" style="display:block"><path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <input class="popup-input" type="text" id="stream-key" placeholder="Ключ потока (напр. sales_p03) — совпадает с началом slug лекций" style="margin-bottom:0">
+      <input class="popup-input" type="text" id="stream-title" placeholder="Название потока" style="margin-bottom:0">
+      <textarea class="popup-input" id="stream-description" rows="2" placeholder="Общее описание потока..." style="margin-bottom:0;resize:vertical"></textarea>
+      <input class="popup-input" type="text" id="stream-image" placeholder="Ссылка на обложку (картинка)" style="margin-bottom:0">
+      <button class="popup-save" onclick="saveStream()">Сохранить поток</button>
+    </div>
+    <div id="streams-list" style="margin-top:14px"></div>
     </div>
   </div>
 </div>
@@ -1074,6 +1118,71 @@ function closeCampaignsPopup(){ document.getElementById('campaigns-popup-overlay
 
 let newsTargeted=[];
 
+function openStreamsPopup(){
+  document.getElementById('streams-popup-overlay').classList.add('open');
+  loadStreamsList();
+}
+function closeStreamsPopup(){ document.getElementById('streams-popup-overlay').classList.remove('open'); }
+
+let loadedStreams=[];
+
+async function loadStreamsList(){
+  const el=document.getElementById('streams-list');
+  el.innerHTML='<div class="loading">Загрузка...</div>';
+  try{
+    loadedStreams=await fetch(API+'/streams').then(r=>r.json());
+    if(!loadedStreams.length){ el.innerHTML='<div class="empty-dict">Потоков пока нет</div>'; return; }
+    el.innerHTML=loadedStreams.map((s,i)=>`
+      <div class="pay-item" style="flex-direction:column;align-items:stretch;gap:6px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="pay-name">${s.title||s.key}</div>
+          <div style="display:flex;gap:6px">
+            <button class="action-btn" onclick="editStream(${i})">Править</button>
+            <button class="action-btn danger" onclick="deleteStream('${s.key}')">Удалить</button>
+          </div>
+        </div>
+        <div class="pay-meta">${s.key}</div>
+      </div>`).join('');
+  }catch(e){ el.innerHTML='<div class="empty-dict">Ошибка загрузки</div>'; }
+}
+
+function editStream(i){
+  const s=loadedStreams[i];
+  document.getElementById('stream-key').value=s.key;
+  document.getElementById('stream-title').value=s.title||'';
+  document.getElementById('stream-desc').value=s.description||'';
+  document.getElementById('stream-image').value=s.image_url||'';
+}
+
+async function saveStream(){
+  const key=document.getElementById('stream-key').value.trim();
+  const title=document.getElementById('stream-title').value.trim();
+  const description=document.getElementById('stream-desc').value.trim();
+  const image_url=document.getElementById('stream-image').value.trim();
+  if(!key){ alert('Укажи ключ потока'); return; }
+  try{
+    const r=await fetch(API+'/streams?x_admin_token='+ADMIN_TOKEN,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({key,title,description,image_url})
+    });
+    if(!r.ok){ alert('Ошибка сохранения'); return; }
+    document.getElementById('stream-key').value='';
+    document.getElementById('stream-title').value='';
+    document.getElementById('stream-desc').value='';
+    document.getElementById('stream-image').value='';
+    loadStreamsList();
+  }catch(e){ alert('Ошибка соединения'); }
+}
+
+async function deleteStream(key){
+  if(!confirm('Удалить поток «'+key+'»? Сами лекции не удалятся, только страница-навигация.')) return;
+  try{
+    await fetch(API+'/streams/'+key+'?x_admin_token='+ADMIN_TOKEN,{method:'DELETE'});
+    loadStreamsList();
+  }catch(e){ alert('Ошибка соединения'); }
+}
+
 function openNewsPopup(){
   document.getElementById('news-popup-overlay').classList.add('open');
   if(!newsTargeted.length) renderNewsTargeted();
@@ -1132,6 +1241,69 @@ async function deleteAllNews(){
     const r=await fetch(API+'/news/all?x_admin_token='+ADMIN_TOKEN,{method:'DELETE'});
     if(!r.ok){ alert('Ошибка удаления'); return; }
     alert('Все новости удалены');
+  }catch(e){ alert('Ошибка соединения'); }
+}
+
+function openStreamsPopup(){
+  document.getElementById('streams-popup-overlay').classList.add('open');
+  loadStreamsList();
+}
+function closeStreamsPopup(){ document.getElementById('streams-popup-overlay').classList.remove('open'); }
+
+async function loadStreamsList(){
+  const el=document.getElementById('streams-list');
+  el.innerHTML='<div class="loading">Загрузка...</div>';
+  try{
+    const streams=await fetch(API+'/streams').then(r=>r.json());
+    if(!streams.length){ el.innerHTML='<div class="pay-meta">Потоков пока нет</div>'; return; }
+    el.innerHTML=streams.map(s=>`
+      <div class="pay-item">
+        <div style="flex:1">
+          <div class="pay-name">${s.title}</div>
+          <div class="pay-meta">${s.stream_key}</div>
+        </div>
+        <button class="action-btn" onclick='editStream(${JSON.stringify(s)})'>Изм.</button>
+        <button class="action-btn danger" onclick="deleteStream('${s.stream_key}')">Удл.</button>
+      </div>`).join('');
+  }catch(e){ el.innerHTML='<div class="pay-meta">Ошибка загрузки</div>'; }
+}
+
+function editStream(s){
+  document.getElementById('stream-key').value=s.stream_key;
+  document.getElementById('stream-key').disabled=true;
+  document.getElementById('stream-title').value=s.title;
+  document.getElementById('stream-description').value=s.description||'';
+  document.getElementById('stream-image').value=s.image_url||'';
+}
+
+async function saveStream(){
+  const stream_key=document.getElementById('stream-key').value.trim();
+  const title=document.getElementById('stream-title').value.trim();
+  const description=document.getElementById('stream-description').value.trim();
+  const image_url=document.getElementById('stream-image').value.trim();
+  if(!stream_key || !title){ alert('Заполни ключ и название'); return; }
+  const isEdit=document.getElementById('stream-key').disabled;
+  try{
+    const r=await fetch(API+'/streams'+(isEdit?'/'+stream_key:'')+'?x_admin_token='+ADMIN_TOKEN,{
+      method:isEdit?'PUT':'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(isEdit?{title,description,image_url}:{stream_key,title,description,image_url})
+    });
+    if(!r.ok){ alert('Ошибка сохранения'); return; }
+    document.getElementById('stream-key').value='';
+    document.getElementById('stream-key').disabled=false;
+    document.getElementById('stream-title').value='';
+    document.getElementById('stream-description').value='';
+    document.getElementById('stream-image').value='';
+    loadStreamsList();
+  }catch(e){ alert('Ошибка соединения'); }
+}
+
+async function deleteStream(key){
+  if(!confirm('Удалить поток "'+key+'"? Сами лекции не удалятся.')) return;
+  try{
+    await fetch(API+'/streams/'+key+'?x_admin_token='+ADMIN_TOKEN,{method:'DELETE'});
+    loadStreamsList();
   }catch(e){ alert('Ошибка соединения'); }
 }
 
