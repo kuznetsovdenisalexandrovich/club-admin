@@ -203,6 +203,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 .action-btn.danger{color:var(--red);border-color:rgba(255,69,58,0.25);background:rgba(255,69,58,0.06)}
 .action-btn.success{color:var(--green);border-color:rgba(62,207,142,0.25);background:rgba(62,207,142,0.06)}
 .action-btn.primary{color:var(--lav-deep);border-color:var(--lav-dim);background:var(--lav-dim)}
+.scroll-btn{flex:0 0 auto;white-space:nowrap;width:auto;padding:12px 20px;margin-bottom:0}
 .action-result{font-size:12px;text-align:center;padding:8px;border-radius:10px;margin-bottom:8px;display:none}
 .action-result.ok{background:rgba(62,207,142,0.12);color:#1a9466}
 .action-result.err{background:rgba(255,69,58,0.10);color:var(--red)}
@@ -298,10 +299,11 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
   <div class="section">
     <div class="section-head"><div class="section-title">Рассылки</div></div>
     <div class="card scroll-row" id="broadcast-row" style="padding:14px 16px;display:flex;gap:10px;overflow-x:auto">
-      <button class="popup-save" style="flex:0 0 auto;min-width:140px;margin-bottom:0" onclick="openCampaignsPopup()">Уведомления</button>
-      <button class="popup-save" style="flex:0 0 auto;min-width:140px;margin-bottom:0" onclick="openBroadcastPopup()">Разослать всем</button>
-      <button class="popup-save" style="flex:0 0 auto;min-width:140px;margin-bottom:0" onclick="openNewsPopup()">Новости</button>
-      <button class="popup-save" style="flex:0 0 auto;min-width:140px;margin-bottom:0" onclick="openStreamsPopup()">Потоки</button>
+      <button class="popup-save scroll-btn" onclick="openCampaignsPopup()">Уведомления</button>
+      <button class="popup-save scroll-btn" onclick="openBroadcastPopup()">Разослать всем</button>
+      <button class="popup-save scroll-btn" onclick="openNewsPopup()">Новости</button>
+      <button class="popup-save scroll-btn" onclick="openStreamsPopup()">Потоки</button>
+      <button class="popup-save scroll-btn" onclick="openSchedulePopup()">Расписание</button>
     </div>
   </div>
 
@@ -419,6 +421,79 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       <button class="popup-save" onclick="saveStream()">Сохранить поток</button>
     </div>
     <div id="streams-list" style="margin-top:14px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Schedule Popup -->
+<div class="popup-overlay" id="schedule-popup-overlay">
+  <div class="popup" id="schedule-popup">
+    <div class="popup-handle"></div>
+    <div class="popup-body" style="padding-top:0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="popup-section-title" style="margin-top:0;margin-bottom:0">Расписание</div>
+      <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeSchedulePopup()"><svg width="14" height="14" viewBox="0 0 14 14" style="display:block"><path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+    </div>
+
+    <div class="period-tabs" style="margin-bottom:12px">
+      <button class="ptab active" id="sched-tab-btn-oneoff" onclick="switchScheduleTab('oneoff')">Разовые</button>
+      <button class="ptab" id="sched-tab-btn-rules" onclick="switchScheduleTab('rules')">Повторяющиеся</button>
+      <button class="ptab" id="sched-tab-btn-teaser" onclick="switchScheduleTab('teaser')">Анонсы</button>
+    </div>
+
+    <!-- Разовые события -->
+    <div id="sched-tab-oneoff">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;gap:8px">
+          <input class="popup-input" type="date" id="sched-event-date" style="margin-bottom:0;flex:1">
+          <input class="popup-input" type="time" id="sched-event-time" style="margin-bottom:0;flex:1">
+        </div>
+        <input class="popup-input" type="text" id="sched-event-title" placeholder="Название события" style="margin-bottom:0">
+        <textarea class="popup-input" id="sched-event-desc" rows="2" placeholder="Описание..." style="margin-bottom:0;resize:vertical"></textarea>
+        <input class="popup-input" type="text" id="sched-event-link" placeholder="Ссылка (необязательно)" style="margin-bottom:0">
+        <button class="popup-save" id="sched-event-submit-btn" onclick="saveOneOffEvent()">Добавить событие</button>
+      </div>
+      <div id="sched-oneoff-list" style="margin-top:14px"></div>
+    </div>
+
+    <!-- Повторяющиеся правила -->
+    <div id="sched-tab-rules" style="display:none">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;gap:8px">
+          <select class="popup-input" id="sched-rule-weekday" style="margin-bottom:0;flex:1">
+            <option value="0">Понедельник</option>
+            <option value="1">Вторник</option>
+            <option value="2">Среда</option>
+            <option value="3">Четверг</option>
+            <option value="4">Пятница</option>
+            <option value="5">Суббота</option>
+            <option value="6">Воскресенье</option>
+          </select>
+          <input class="popup-input" type="time" id="sched-rule-time" style="margin-bottom:0;flex:1">
+        </div>
+        <input class="popup-input" type="text" id="sched-rule-title" placeholder="Название события" style="margin-bottom:0">
+        <textarea class="popup-input" id="sched-rule-desc" rows="2" placeholder="Описание..." style="margin-bottom:0;resize:vertical"></textarea>
+        <input class="popup-input" type="text" id="sched-rule-link" placeholder="Ссылка (необязательно)" style="margin-bottom:0">
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-dim);padding:2px 2px 4px">
+          <input type="checkbox" id="sched-rule-active" checked style="width:16px;height:16px"> Активно
+        </label>
+        <button class="popup-save" id="sched-rule-submit-btn" onclick="saveScheduleRule()">Добавить правило</button>
+      </div>
+      <div id="sched-rules-list" style="margin-top:14px"></div>
+    </div>
+
+    <!-- Анонсы без даты -->
+    <div id="sched-tab-teaser" style="display:none">
+      <div class="pay-meta" style="margin-bottom:8px">Показываются в аппе отдельным блоком под календарём — для создания ощущения предвкушения ("скоро в клубе...")</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <input class="popup-input" type="text" id="sched-teaser-title" placeholder="Название анонса" style="margin-bottom:0">
+        <textarea class="popup-input" id="sched-teaser-desc" rows="2" placeholder="Описание..." style="margin-bottom:0;resize:vertical"></textarea>
+        <input class="popup-input" type="text" id="sched-teaser-link" placeholder="Ссылка (необязательно)" style="margin-bottom:0">
+        <button class="popup-save" id="sched-teaser-submit-btn" onclick="saveTeaser()">Добавить анонс</button>
+      </div>
+      <div id="sched-teaser-list" style="margin-top:14px"></div>
+    </div>
+
     </div>
   </div>
 </div>
@@ -1220,6 +1295,230 @@ async function deleteStream(key){
   try{
     await fetch(API+'/streams/'+key+'?x_admin_token='+ADMIN_TOKEN,{method:'DELETE'});
     loadStreamsList();
+  }catch(e){ alert('Ошибка соединения'); }
+}
+
+/* ── Расписание ── */
+
+let scheduleEvents=[];       // разовые события + анонсы без даты (одна таблица, event_date=null у анонсов)
+let scheduleRules=[];        // повторяющиеся правила
+let editingScheduleEventId=null;
+let editingTeaserId=null;
+let editingScheduleRuleId=null;
+const WEEKDAY_NAMES=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+
+function openSchedulePopup(){
+  document.getElementById('schedule-popup-overlay').classList.add('open');
+  loadScheduleEvents();
+  loadScheduleRules();
+}
+function closeSchedulePopup(){ document.getElementById('schedule-popup-overlay').classList.remove('open'); }
+
+function switchScheduleTab(tab){
+  ['oneoff','rules','teaser'].forEach(t=>{
+    document.getElementById('sched-tab-'+t).style.display = t===tab ? 'block' : 'none';
+    document.getElementById('sched-tab-btn-'+t).classList.toggle('active', t===tab);
+  });
+}
+
+async function loadScheduleEvents(){
+  const oneoffEl=document.getElementById('sched-oneoff-list');
+  const teaserEl=document.getElementById('sched-teaser-list');
+  oneoffEl.innerHTML='<div class="loading">Загрузка...</div>';
+  teaserEl.innerHTML='<div class="loading">Загрузка...</div>';
+  try{
+    scheduleEvents=await fetch(API+'/schedule/events').then(r=>r.json());
+    renderOneOffList();
+    renderTeaserList();
+  }catch(e){
+    oneoffEl.innerHTML='<div class="pay-meta">Ошибка загрузки</div>';
+    teaserEl.innerHTML='<div class="pay-meta">Ошибка загрузки</div>';
+  }
+}
+
+function renderOneOffList(){
+  const el=document.getElementById('sched-oneoff-list');
+  const rows=scheduleEvents.filter(e=>e.event_date);
+  if(!rows.length){ el.innerHTML='<div class="pay-meta">Разовых событий пока нет</div>'; return; }
+  el.innerHTML=rows.map(e=>`
+    <div class="pay-item">
+      <div style="flex:1">
+        <div class="pay-name">${e.title}</div>
+        <div class="pay-meta">${e.event_date}${e.event_time?' · '+e.event_time:''}</div>
+      </div>
+      <button class="action-btn" onclick='editOneOffEvent(${JSON.stringify(e)})'>Изм.</button>
+      <button class="action-btn danger" onclick="deleteScheduleEvent(${e.id})">Удл.</button>
+    </div>`).join('');
+}
+
+function renderTeaserList(){
+  const el=document.getElementById('sched-teaser-list');
+  const rows=scheduleEvents.filter(e=>!e.event_date);
+  if(!rows.length){ el.innerHTML='<div class="pay-meta">Анонсов пока нет</div>'; return; }
+  el.innerHTML=rows.map(e=>`
+    <div class="pay-item">
+      <div style="flex:1">
+        <div class="pay-name">${e.title}</div>
+        <div class="pay-meta">${e.description||''}</div>
+      </div>
+      <button class="action-btn" onclick='editTeaser(${JSON.stringify(e)})'>Изм.</button>
+      <button class="action-btn danger" onclick="deleteScheduleEvent(${e.id})">Удл.</button>
+    </div>`).join('');
+}
+
+function editOneOffEvent(e){
+  editingScheduleEventId=e.id;
+  document.getElementById('sched-event-date').value=e.event_date;
+  document.getElementById('sched-event-time').value=e.event_time||'';
+  document.getElementById('sched-event-title').value=e.title;
+  document.getElementById('sched-event-desc').value=e.description||'';
+  document.getElementById('sched-event-link').value=e.link||'';
+  document.getElementById('sched-event-submit-btn').textContent='Сохранить изменения';
+}
+
+function editTeaser(e){
+  editingTeaserId=e.id;
+  document.getElementById('sched-teaser-title').value=e.title;
+  document.getElementById('sched-teaser-desc').value=e.description||'';
+  document.getElementById('sched-teaser-link').value=e.link||'';
+  document.getElementById('sched-teaser-submit-btn').textContent='Сохранить изменения';
+}
+
+function resetOneOffForm(){
+  editingScheduleEventId=null;
+  document.getElementById('sched-event-date').value='';
+  document.getElementById('sched-event-time').value='';
+  document.getElementById('sched-event-title').value='';
+  document.getElementById('sched-event-desc').value='';
+  document.getElementById('sched-event-link').value='';
+  document.getElementById('sched-event-submit-btn').textContent='Добавить событие';
+}
+
+function resetTeaserForm(){
+  editingTeaserId=null;
+  document.getElementById('sched-teaser-title').value='';
+  document.getElementById('sched-teaser-desc').value='';
+  document.getElementById('sched-teaser-link').value='';
+  document.getElementById('sched-teaser-submit-btn').textContent='Добавить анонс';
+}
+
+async function saveOneOffEvent(){
+  const event_date=document.getElementById('sched-event-date').value;
+  const event_time=document.getElementById('sched-event-time').value;
+  const title=document.getElementById('sched-event-title').value.trim();
+  const description=document.getElementById('sched-event-desc').value.trim();
+  const link=document.getElementById('sched-event-link').value.trim();
+  if(!event_date || !title){ alert('Заполни дату и название'); return; }
+  const isEdit=!!editingScheduleEventId;
+  try{
+    const r=await fetch(API+'/schedule/events'+(isEdit?'/'+editingScheduleEventId:'')+'?x_admin_token='+ADMIN_TOKEN,{
+      method:isEdit?'PUT':'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({event_date,event_time,title,description,link})
+    });
+    if(!r.ok){ alert('Ошибка сохранения'); return; }
+    resetOneOffForm();
+    loadScheduleEvents();
+  }catch(e){ alert('Ошибка соединения'); }
+}
+
+async function saveTeaser(){
+  const title=document.getElementById('sched-teaser-title').value.trim();
+  const description=document.getElementById('sched-teaser-desc').value.trim();
+  const link=document.getElementById('sched-teaser-link').value.trim();
+  if(!title){ alert('Заполни название анонса'); return; }
+  const isEdit=!!editingTeaserId;
+  try{
+    const r=await fetch(API+'/schedule/events'+(isEdit?'/'+editingTeaserId:'')+'?x_admin_token='+ADMIN_TOKEN,{
+      method:isEdit?'PUT':'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({event_date:null,title,description,link})
+    });
+    if(!r.ok){ alert('Ошибка сохранения'); return; }
+    resetTeaserForm();
+    loadScheduleEvents();
+  }catch(e){ alert('Ошибка соединения'); }
+}
+
+async function deleteScheduleEvent(id){
+  if(!confirm('Удалить эту запись?')) return;
+  try{
+    await fetch(API+'/schedule/events/'+id+'?x_admin_token='+ADMIN_TOKEN,{method:'DELETE'});
+    loadScheduleEvents();
+  }catch(e){ alert('Ошибка соединения'); }
+}
+
+async function loadScheduleRules(){
+  const el=document.getElementById('sched-rules-list');
+  el.innerHTML='<div class="loading">Загрузка...</div>';
+  try{
+    scheduleRules=await fetch(API+'/schedule/rules').then(r=>r.json());
+    renderScheduleRulesList();
+  }catch(e){ el.innerHTML='<div class="pay-meta">Ошибка загрузки</div>'; }
+}
+
+function renderScheduleRulesList(){
+  const el=document.getElementById('sched-rules-list');
+  if(!scheduleRules.length){ el.innerHTML='<div class="pay-meta">Повторяющихся правил пока нет</div>'; return; }
+  el.innerHTML=scheduleRules.map(r=>`
+    <div class="pay-item">
+      <div style="flex:1">
+        <div class="pay-name">${r.title} <span class="badge ${r.active?'badge-ok':'badge-err'}">${r.active?'активно':'выкл'}</span></div>
+        <div class="pay-meta">Каждый ${WEEKDAY_NAMES[r.weekday]}${r.event_time?' · '+r.event_time:''}</div>
+      </div>
+      <button class="action-btn" onclick='editScheduleRule(${JSON.stringify(r)})'>Изм.</button>
+      <button class="action-btn danger" onclick="deleteScheduleRule(${r.id})">Удл.</button>
+    </div>`).join('');
+}
+
+function editScheduleRule(r){
+  editingScheduleRuleId=r.id;
+  document.getElementById('sched-rule-weekday').value=r.weekday;
+  document.getElementById('sched-rule-time').value=r.event_time||'';
+  document.getElementById('sched-rule-title').value=r.title;
+  document.getElementById('sched-rule-desc').value=r.description||'';
+  document.getElementById('sched-rule-link').value=r.link||'';
+  document.getElementById('sched-rule-active').checked=r.active;
+  document.getElementById('sched-rule-submit-btn').textContent='Сохранить изменения';
+}
+
+function resetScheduleRuleForm(){
+  editingScheduleRuleId=null;
+  document.getElementById('sched-rule-weekday').value='0';
+  document.getElementById('sched-rule-time').value='';
+  document.getElementById('sched-rule-title').value='';
+  document.getElementById('sched-rule-desc').value='';
+  document.getElementById('sched-rule-link').value='';
+  document.getElementById('sched-rule-active').checked=true;
+  document.getElementById('sched-rule-submit-btn').textContent='Добавить правило';
+}
+
+async function saveScheduleRule(){
+  const weekday=parseInt(document.getElementById('sched-rule-weekday').value);
+  const event_time=document.getElementById('sched-rule-time').value;
+  const title=document.getElementById('sched-rule-title').value.trim();
+  const description=document.getElementById('sched-rule-desc').value.trim();
+  const link=document.getElementById('sched-rule-link').value.trim();
+  const active=document.getElementById('sched-rule-active').checked;
+  if(!title){ alert('Заполни название'); return; }
+  const isEdit=!!editingScheduleRuleId;
+  try{
+    const r=await fetch(API+'/schedule/rules'+(isEdit?'/'+editingScheduleRuleId:'')+'?x_admin_token='+ADMIN_TOKEN,{
+      method:isEdit?'PUT':'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({weekday,event_time,title,description,link,active})
+    });
+    if(!r.ok){ alert('Ошибка сохранения'); return; }
+    resetScheduleRuleForm();
+    loadScheduleRules();
+  }catch(e){ alert('Ошибка соединения'); }
+}
+
+async function deleteScheduleRule(id){
+  if(!confirm('Удалить это правило?')) return;
+  try{
+    await fetch(API+'/schedule/rules/'+id+'?x_admin_token='+ADMIN_TOKEN,{method:'DELETE'});
+    loadScheduleRules();
   }catch(e){ alert('Ошибка соединения'); }
 }
 
