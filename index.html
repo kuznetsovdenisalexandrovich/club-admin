@@ -451,6 +451,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
         <input class="popup-input" type="text" id="sched-event-title" placeholder="Название события" style="margin-bottom:0">
         <textarea class="popup-input" id="sched-event-desc" rows="2" placeholder="Описание..." style="margin-bottom:0;resize:vertical"></textarea>
         <input class="popup-input" type="text" id="sched-event-link" placeholder="Ссылка (необязательно)" style="margin-bottom:0">
+        <input class="popup-input" type="text" id="sched-event-category" list="sched-cat-list" placeholder="Категория (напр. Книжный клуб) — определяет цвет тега" style="margin-bottom:0">
         <button class="popup-save" id="sched-event-submit-btn" onclick="saveOneOffEvent()">Добавить событие</button>
       </div>
       <div id="sched-oneoff-list" style="margin-top:14px"></div>
@@ -474,11 +475,13 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
         <input class="popup-input" type="text" id="sched-rule-title" placeholder="Название события" style="margin-bottom:0">
         <textarea class="popup-input" id="sched-rule-desc" rows="2" placeholder="Описание..." style="margin-bottom:0;resize:vertical"></textarea>
         <input class="popup-input" type="text" id="sched-rule-link" placeholder="Ссылка (необязательно)" style="margin-bottom:0">
+        <input class="popup-input" type="text" id="sched-rule-category" list="sched-cat-list" placeholder="Категория (напр. Пятничные встречи) — определяет цвет тега" style="margin-bottom:0">
         <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-dim);padding:2px 2px 4px">
           <input type="checkbox" id="sched-rule-active" checked style="width:16px;height:16px"> Активно
         </label>
         <button class="popup-save" id="sched-rule-submit-btn" onclick="saveScheduleRule()">Добавить правило</button>
       </div>
+      <datalist id="sched-cat-list"></datalist>
       <div id="sched-rules-list" style="margin-top:14px"></div>
     </div>
 
@@ -1307,6 +1310,25 @@ let editingTeaserId=null;
 let editingScheduleRuleId=null;
 const WEEKDAY_NAMES=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 
+// Единая палитра + хэш-функция — идентична той, что в club-app, чтобы цвета категорий совпадали визуально
+const CATEGORY_PALETTE=['#9b8cf2','#ff8fa3','#3ecf8e','#ffb84d','#6ea8fe','#e8614a','#8fe3c0'];
+function categoryColor(name){
+  if(!name) return '#a7a2bd';
+  let hash=0;
+  for(let i=0;i<name.length;i++) hash=(hash*31+name.charCodeAt(i))>>>0;
+  return CATEGORY_PALETTE[hash%CATEGORY_PALETTE.length];
+}
+function categoryBadge(cat){
+  if(!cat) return '';
+  return ` <span class="badge" style="background:${categoryColor(cat)}22;color:${categoryColor(cat)}">${cat}</span>`;
+}
+function updateCategoryDatalist(){
+  const known=new Set(['Книжный клуб','Продажи практика','Пятничные встречи']);
+  scheduleEvents.forEach(e=>{ if(e.category) known.add(e.category); });
+  scheduleRules.forEach(r=>{ if(r.category) known.add(r.category); });
+  document.getElementById('sched-cat-list').innerHTML=[...known].map(c=>`<option value="${c}">`).join('');
+}
+
 function openSchedulePopup(){
   document.getElementById('schedule-popup-overlay').classList.add('open');
   loadScheduleEvents();
@@ -1330,6 +1352,7 @@ async function loadScheduleEvents(){
     scheduleEvents=await fetch(API+'/schedule/events').then(r=>r.json());
     renderOneOffList();
     renderTeaserList();
+    updateCategoryDatalist();
   }catch(e){
     oneoffEl.innerHTML='<div class="pay-meta">Ошибка загрузки</div>';
     teaserEl.innerHTML='<div class="pay-meta">Ошибка загрузки</div>';
@@ -1343,7 +1366,7 @@ function renderOneOffList(){
   el.innerHTML=rows.map(e=>`
     <div class="pay-item">
       <div style="flex:1">
-        <div class="pay-name">${e.title}</div>
+        <div class="pay-name">${e.title}${categoryBadge(e.category)}</div>
         <div class="pay-meta">${e.event_date}${e.event_time?' · '+e.event_time:''}</div>
       </div>
       <button class="action-btn" onclick='editOneOffEvent(${JSON.stringify(e)})'>Изм.</button>
@@ -1373,6 +1396,7 @@ function editOneOffEvent(e){
   document.getElementById('sched-event-title').value=e.title;
   document.getElementById('sched-event-desc').value=e.description||'';
   document.getElementById('sched-event-link').value=e.link||'';
+  document.getElementById('sched-event-category').value=e.category||'';
   document.getElementById('sched-event-submit-btn').textContent='Сохранить изменения';
 }
 
@@ -1391,6 +1415,7 @@ function resetOneOffForm(){
   document.getElementById('sched-event-title').value='';
   document.getElementById('sched-event-desc').value='';
   document.getElementById('sched-event-link').value='';
+  document.getElementById('sched-event-category').value='';
   document.getElementById('sched-event-submit-btn').textContent='Добавить событие';
 }
 
@@ -1408,13 +1433,14 @@ async function saveOneOffEvent(){
   const title=document.getElementById('sched-event-title').value.trim();
   const description=document.getElementById('sched-event-desc').value.trim();
   const link=document.getElementById('sched-event-link').value.trim();
+  const category=document.getElementById('sched-event-category').value.trim();
   if(!event_date || !title){ alert('Заполни дату и название'); return; }
   const isEdit=!!editingScheduleEventId;
   try{
     const r=await fetch(API+'/schedule/events'+(isEdit?'/'+editingScheduleEventId:'')+'?x_admin_token='+ADMIN_TOKEN,{
       method:isEdit?'PUT':'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({event_date,event_time,title,description,link})
+      body:JSON.stringify({event_date,event_time,title,description,link,category})
     });
     if(!r.ok){ alert('Ошибка сохранения'); return; }
     resetOneOffForm();
@@ -1454,6 +1480,7 @@ async function loadScheduleRules(){
   try{
     scheduleRules=await fetch(API+'/schedule/rules').then(r=>r.json());
     renderScheduleRulesList();
+    updateCategoryDatalist();
   }catch(e){ el.innerHTML='<div class="pay-meta">Ошибка загрузки</div>'; }
 }
 
@@ -1463,7 +1490,7 @@ function renderScheduleRulesList(){
   el.innerHTML=scheduleRules.map(r=>`
     <div class="pay-item">
       <div style="flex:1">
-        <div class="pay-name">${r.title} <span class="badge ${r.active?'badge-ok':'badge-err'}">${r.active?'активно':'выкл'}</span></div>
+        <div class="pay-name">${r.title} <span class="badge ${r.active?'badge-ok':'badge-err'}">${r.active?'активно':'выкл'}</span>${categoryBadge(r.category)}</div>
         <div class="pay-meta">Каждый ${WEEKDAY_NAMES[r.weekday]}${r.event_time?' · '+r.event_time:''}</div>
       </div>
       <button class="action-btn" onclick='editScheduleRule(${JSON.stringify(r)})'>Изм.</button>
@@ -1478,6 +1505,7 @@ function editScheduleRule(r){
   document.getElementById('sched-rule-title').value=r.title;
   document.getElementById('sched-rule-desc').value=r.description||'';
   document.getElementById('sched-rule-link').value=r.link||'';
+  document.getElementById('sched-rule-category').value=r.category||'';
   document.getElementById('sched-rule-active').checked=r.active;
   document.getElementById('sched-rule-submit-btn').textContent='Сохранить изменения';
 }
@@ -1489,6 +1517,7 @@ function resetScheduleRuleForm(){
   document.getElementById('sched-rule-title').value='';
   document.getElementById('sched-rule-desc').value='';
   document.getElementById('sched-rule-link').value='';
+  document.getElementById('sched-rule-category').value='';
   document.getElementById('sched-rule-active').checked=true;
   document.getElementById('sched-rule-submit-btn').textContent='Добавить правило';
 }
@@ -1499,6 +1528,7 @@ async function saveScheduleRule(){
   const title=document.getElementById('sched-rule-title').value.trim();
   const description=document.getElementById('sched-rule-desc').value.trim();
   const link=document.getElementById('sched-rule-link').value.trim();
+  const category=document.getElementById('sched-rule-category').value.trim();
   const active=document.getElementById('sched-rule-active').checked;
   if(!title){ alert('Заполни название'); return; }
   const isEdit=!!editingScheduleRuleId;
@@ -1506,7 +1536,7 @@ async function saveScheduleRule(){
     const r=await fetch(API+'/schedule/rules'+(isEdit?'/'+editingScheduleRuleId:'')+'?x_admin_token='+ADMIN_TOKEN,{
       method:isEdit?'PUT':'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({weekday,event_time,title,description,link,active})
+      body:JSON.stringify({weekday,event_time,title,description,link,category,active})
     });
     if(!r.ok){ alert('Ошибка сохранения'); return; }
     resetScheduleRuleForm();
