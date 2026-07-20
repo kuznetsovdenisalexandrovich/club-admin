@@ -15,46 +15,58 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@700;900&family=Manrope:wght@400;500;600;700&display=swap');
 
-/* ── Темы ── */
+/* ── Светлая тема: Carton warm neumorphism ── */
 [data-theme="light"] {
-  --bg:        #f1ecfb;
-  --bg-b:      #e9effc;
-  --bg-c:      #fbeef6;
-  --surface:   rgba(255,255,255,0.65);
-  --surface2:  rgba(255,255,255,0.85);
-  --border:    rgba(255,255,255,0.6);
-  --line:      rgba(120,110,160,0.13);
-  --text:      #2c2a3d;
-  --text-dim:  #6b6680;
-  --text-faint:#a7a2bd;
-  --card-bg:   rgba(255,255,255,0.55);
-  --input-bg:  rgba(255,255,255,0.5);
-  --popup-bg:  #f4f0fc;
-  --stat-bg:   rgba(255,255,255,0.6);
-  --blob1-op:  0.22;
-  --blob2-op:  0.18;
-  --chart-grid:rgba(124,108,240,0.08);
-  --chart-tick:#a7a2bd;
+  --bg:        #e2dbd2;
+  --bg-b:      #ddd6cc;
+  --bg-c:      #ede6de;
+  --surface:   #e2dbd2;
+  --surface2:  #ddd6cc;
+  --border:    rgba(194,186,176,0);
+  --line:      rgba(100,80,60,0.09);
+  --text:      #3a3028;
+  --text-dim:  #7a6a60;
+  --text-faint:#a89888;
+  --card-bg:   #e2dbd2;
+  --input-bg:  #e2dbd2;
+  --popup-bg:  #e2dbd2;
+  --stat-bg:   #ddd6cc;
+  --blob1-op:  0;
+  --blob2-op:  0;
+  --chart-grid:rgba(194,186,176,0.55);
+  --chart-tick:#a89888;
+  --sh-r:      6px 6px 16px #c2bab0, -6px -6px 16px #faf4ec;
+  --sh-sm:     3px 3px 9px #c2bab0, -3px -3px 9px #faf4ec;
+  --sh-i:      inset 5px 5px 12px #c2bab0, inset -5px -5px 12px #faf4ec;
+  --sh-is:     inset 3px 3px 7px #c2bab0, inset -3px -3px 7px #faf4ec;
+  --shadow:    var(--sh-r);
 }
+
+/* ── Тёмная тема: Club-app glassmorphism ── */
 [data-theme="dark"] {
-  --bg:        #1e1c28;
-  --bg-b:      #221f30;
-  --bg-c:      #261e2e;
-  --surface:   rgba(255,255,255,0.06);
+  --bg:        #0c0a15;
+  --bg-b:      #110f1e;
+  --bg-c:      #0c0a15;
+  --surface:   rgba(255,255,255,0.05);
   --surface2:  rgba(255,255,255,0.09);
-  --border:    rgba(255,255,255,0.10);
-  --line:      rgba(255,255,255,0.08);
-  --text:      #ede9f8;
-  --text-dim:  #9d99b8;
-  --text-faint:#5e5a78;
+  --border:    rgba(255,255,255,0.08);
+  --line:      rgba(255,255,255,0.06);
+  --text:      #f0eefc;
+  --text-dim:  #a29dc2;
+  --text-faint:#655f80;
   --card-bg:   rgba(255,255,255,0.05);
   --input-bg:  rgba(255,255,255,0.07);
-  --popup-bg:  #231f31;
+  --popup-bg:  #110f1e;
   --stat-bg:   rgba(255,255,255,0.07);
-  --blob1-op:  0.15;
-  --blob2-op:  0.10;
+  --blob1-op:  1;
+  --blob2-op:  1;
   --chart-grid:rgba(255,255,255,0.06);
-  --chart-tick:#5e5a78;
+  --chart-tick:#655f80;
+  --sh-r:      0 4px 20px -6px rgba(124,108,240,0.18);
+  --sh-sm:     0 2px 12px -4px rgba(124,108,240,0.14);
+  --sh-i:      inset 0 1px 0 rgba(255,255,255,0.06);
+  --sh-is:     inset 0 1px 0 rgba(255,255,255,0.04);
+  --shadow:    var(--sh-r);
 }
 
 :root {
@@ -62,11 +74,11 @@
   --peach:#ffb199; --mint:#8fe3c0; --coral:#ff8fa3;
   --green:#3ecf8e; --red:#ff453a;
   --disp:'Unbounded',sans-serif; --body:'Manrope',sans-serif;
-  --shadow:0 4px 20px -6px rgba(124,108,240,0.15);
 }
 
+/* ── Reset ── */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html{background:var(--bg);transition:background .3s}
+html{background:var(--bg);transition:background .35s}
 body{
   font-family:var(--body);color:var(--text);min-height:100vh;
   background:
@@ -75,69 +87,100 @@ body{
     var(--bg);
   -webkit-font-smoothing:antialiased;
   padding-bottom:calc(24px + env(safe-area-inset-bottom));
-  transition:background .3s,color .3s;
+  transition:background .35s, color .35s;
 }
-.blob{position:fixed;border-radius:50%;filter:blur(70px);pointer-events:none;z-index:0;transition:opacity .3s}
-.blob-1{width:300px;height:300px;top:-100px;right:-80px;background:var(--lav);opacity:var(--blob1-op)}
-.blob-2{width:250px;height:250px;bottom:15%;left:-100px;background:var(--peach);opacity:var(--blob2-op)}
-.blob-3{width:200px;height:200px;top:40%;right:-60px;background:var(--mint);opacity:var(--blob2-op)}
+
+/* ── Blobs ── */
+.blob{position:fixed;border-radius:50%;filter:blur(70px);pointer-events:none;z-index:0;transition:opacity .35s}
+.blob-1{width:300px;height:300px;top:-100px;right:-80px;background:var(--lav);opacity:var(--blob1-op);animation:blobFloat1 12s ease-in-out infinite}
+.blob-2{width:250px;height:250px;bottom:15%;left:-100px;background:var(--peach);opacity:var(--blob2-op);animation:blobFloat2 9s ease-in-out infinite}
+.blob-3{width:200px;height:200px;top:40%;right:-60px;background:var(--mint);opacity:var(--blob2-op);animation:blobFloat2 15s ease-in-out infinite reverse}
 .shell{position:relative;z-index:1;max-width:480px;margin:0 auto;padding:0 16px}
 
-/* Header */
+/* ── Header ── */
 header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-items:center;justify-content:space-between}
 .brand{display:flex;align-items:center;gap:10px}
-.mark{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--lav),var(--coral));display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:900;font-size:13px;color:white;box-shadow:0 6px 16px -4px rgba(155,140,242,0.45)}
-.brand-name{font-family:var(--disp);font-weight:700;font-size:13px;letter-spacing:-.01em}
-.brand-sub{font-size:11px;color:var(--text-faint);margin-top:1px}
+.mark{
+  width:38px;height:38px;border-radius:11px;
+  background:linear-gradient(135deg,var(--lav),var(--coral));
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--disp);font-weight:900;font-size:13px;color:white;
+  box-shadow:0 6px 16px -4px rgba(155,140,242,0.45);
+  transition:box-shadow .35s, transform .2s;
+}
+.mark:active{transform:scale(0.93)}
+.brand-name{font-family:var(--disp);font-weight:700;font-size:13px;letter-spacing:-.01em;transition:color .35s}
+.brand-sub{font-size:11px;color:var(--text-faint);margin-top:1px;transition:color .35s}
 .header-right{display:flex;gap:8px;align-items:center}
-.icon-btn{width:36px;height:36px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);cursor:pointer;font-size:15px;transition:transform .15s;color:var(--text)}
-.icon-btn:active{transform:scale(0.92)}
-.refresh-btn:active{transform:scale(0.92) rotate(180deg) !important}
-.last-update{font-size:11px;color:var(--text-faint);text-align:center;margin-bottom:16px}
 
-/* KPI */
+.icon-btn{
+  width:36px;height:36px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:15px;color:var(--text);
+  transition:transform .15s, box-shadow .2s, background .35s;
+}
+.icon-btn:active{transform:scale(0.88)!important}
+.refresh-btn:active{transform:scale(0.88) rotate(180deg) !important}
+.last-update{font-size:11px;color:var(--text-faint);text-align:center;margin-bottom:16px;transition:color .35s}
+
+/* ── KPI ── */
 .kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
 .kpi-wide{grid-column:span 2}
-.kpi{background:var(--surface);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:18px;padding:16px;box-shadow:var(--shadow)}
-.kpi-label{font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
-.kpi-val{font-family:var(--disp);font-weight:900;font-size:26px;letter-spacing:-.03em;color:var(--text);line-height:1}
+.kpi{
+  border-radius:18px;padding:16px;
+  transition:transform .2s, box-shadow .35s, background .35s;
+  animation:cardEntrance .5s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+.kpi:nth-child(1){animation-delay:.05s}
+.kpi:nth-child(2){animation-delay:.12s}
+.kpi:nth-child(3){animation-delay:.2s}
+.kpi:hover{transform:translateY(-2px)}
+.kpi-label{font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;transition:color .35s}
+.kpi-val{font-family:var(--disp);font-weight:900;font-size:26px;letter-spacing:-.03em;color:var(--text);line-height:1;transition:color .35s}
 .kpi-val.big{font-size:30px}
-.kpi-sub{font-size:11px;color:var(--text-faint);margin-top:5px}
+.kpi-sub{font-size:11px;color:var(--text-faint);margin-top:5px;transition:color .35s}
 .kpi-accent{color:var(--lav-deep)}
 
-/* Section */
+/* ── Section + Card ── */
 .section{margin-bottom:14px}
 .section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 2px;flex-wrap:wrap;gap:6px}
 .section-title{font-family:var(--disp);font-weight:700;font-size:14px;letter-spacing:-.01em}
-.card{background:var(--surface);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:18px;overflow:hidden;box-shadow:var(--shadow)}
+.card{
+  border-radius:18px;overflow:hidden;
+  transition:box-shadow .35s, background .35s;
+}
+
+/* ── Scroll row ── */
 .scroll-row{-webkit-overflow-scrolling:touch;scrollbar-width:none;cursor:grab}
 .scroll-row::-webkit-scrollbar{display:none}
 .scroll-row.dragging{cursor:grabbing;user-select:none}
+
+/* ── Period tabs ── */
 .period-tabs{display:flex;gap:6px}
-.admcal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.admcal-month-label{font-family:var(--disp);font-weight:700;font-size:13px}
-.admcal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:10px;font-weight:700;color:var(--text-faint);margin-bottom:6px}
-.admcal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
-.admcal-day{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:10px;font-size:11.5px;font-weight:600;color:var(--text-faint);position:relative}
-.admcal-day.in-month{color:var(--text-dim)}
-.admcal-day.has-events{background:var(--input-bg);color:var(--text);cursor:pointer}
-.admcal-day.has-events:active{opacity:.7}
-.admcal-day.today{box-shadow:inset 0 0 0 1.5px var(--lav-deep)}
-.admcal-day-dots{position:absolute;bottom:4px;left:50%;transform:translateX(-50%);display:flex;gap:2px}
-.admcal-day-dot{width:4px;height:4px;border-radius:50%}
-.ptab{font-size:11px;font-weight:600;padding:5px 10px;border-radius:20px;cursor:pointer;border:none;background:rgba(124,108,240,0.08);color:var(--text-dim);transition:all .15s;font-family:var(--body)}
+.ptab{
+  font-size:11px;font-weight:600;padding:5px 10px;border-radius:20px;
+  cursor:pointer;background:rgba(124,108,240,0.08);color:var(--text-dim);
+  font-family:var(--body);border:1px solid transparent;
+  transition:all .2s cubic-bezier(0.34,1.56,0.64,1);
+}
+.ptab:active{transform:scale(0.92)}
 .ptab.active{background:var(--lav-dim);color:var(--lav-deep)}
 .chart-wrap{padding:16px 16px 8px}
 .chart-canvas-wrap{position:relative;height:140px}
 
-/* List */
-.list-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .12s}
+/* ── List items ── */
+.list-item{
+  display:flex;align-items:center;gap:12px;padding:12px 16px;
+  border-bottom:1px solid var(--line);cursor:pointer;
+  transition:background .12s, transform .1s;
+}
 .list-item:last-child{border-bottom:none}
-.list-item:active{background:rgba(155,140,242,0.08)}
+.list-item:hover{background:rgba(155,140,242,0.04)}
+.list-item:active{background:rgba(155,140,242,0.1);transform:scale(0.99)}
 .avatar{width:38px;height:38px;border-radius:50%;flex-shrink:0;background:var(--lav-dim);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--lav-deep)}
 .item-info{flex:1;min-width:0}
-.item-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.item-sub{font-size:11px;color:var(--text-faint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .35s}
+.item-sub{font-size:11px;color:var(--text-faint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .35s}
 .item-right{text-align:right;flex-shrink:0}
 .item-val{font-size:12px;font-weight:700;color:var(--lav-deep)}
 .item-date{font-size:11px;color:var(--text-faint);margin-top:2px}
@@ -146,7 +189,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 .badge-err{background:rgba(248,113,113,0.15);color:#c0392b}
 .badge-act{background:var(--lav-dim);color:var(--lav-deep)}
 
-/* Payments */
+/* ── Payments ── */
 .pay-item{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line)}
 .pay-item:last-child{border-bottom:none}
 .pay-icon{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px}
@@ -157,22 +200,45 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 .pay-meta{font-size:11px;color:var(--text-faint);margin-top:1px}
 .pay-amount{font-size:13px;font-weight:700;flex-shrink:0}
 .filter-row{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)}
-.filter-row input,.filter-row select{font-size:12px;font-family:var(--body);padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);flex:1;min-width:90px}
-.pay-summary{padding:10px 16px;font-size:12px;color:var(--text-faint);text-align:center}
+.filter-row input,.filter-row select{
+  font-size:12px;font-family:var(--body);padding:6px 10px;border-radius:10px;
+  border:1px solid var(--line);background:var(--input-bg);color:var(--text);flex:1;min-width:90px;
+  transition:background .35s, box-shadow .2s, border-color .2s;
+}
+.pay-summary{padding:10px 16px;font-size:12px;color:var(--text-faint);text-align:center;transition:color .35s}
 .search-wrap{padding:12px 16px;border-bottom:1px solid var(--line)}
-.search-wrap input{width:100%;font-size:13px;font-family:var(--body);padding:9px 14px;border-radius:12px;border:1px solid var(--line);background:var(--input-bg);color:var(--text)}
-.search-wrap input::placeholder{color:var(--text-faint)}
+.search-wrap input{
+  width:100%;font-size:13px;font-family:var(--body);padding:9px 14px;
+  border-radius:12px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);
+  transition:background .35s, box-shadow .2s, border-color .2s;
+}
+.search-wrap input::placeholder,.filter-row input::placeholder{color:var(--text-faint)}
 .empty{padding:24px;text-align:center;color:var(--text-faint);font-size:13px}
 .loading{text-align:center;padding:20px;color:var(--text-faint);font-size:13px}
 
-/* Popup */
-.popup-overlay{position:fixed;inset:0;background:rgba(20,18,30,0.5);backdrop-filter:blur(6px);z-index:100;display:none;align-items:flex-end;justify-content:center}
-.popup-overlay.open{display:flex}
-.popup{background:var(--popup-bg);border-radius:24px 24px 0 0;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;padding:0 0 calc(24px + env(safe-area-inset-bottom));box-shadow:0 -8px 40px rgba(124,108,240,0.2)}
+/* ── Popup ── */
+.popup-overlay{
+  position:fixed;inset:0;background:rgba(20,18,30,0.55);
+  backdrop-filter:blur(8px);z-index:100;
+  display:none;align-items:flex-end;justify-content:center;
+}
+.popup-overlay.open{display:flex;animation:overlayFadeIn .22s ease forwards}
+.popup-overlay.open .popup{animation:popupSlideUp .4s cubic-bezier(0.34,1.56,0.64,1) forwards}
+.popup{
+  background:var(--popup-bg);border-radius:24px 24px 0 0;
+  width:100%;max-width:480px;max-height:88vh;overflow-y:auto;
+  padding:0 0 calc(24px + env(safe-area-inset-bottom));
+  box-shadow:0 -8px 40px rgba(124,108,240,0.22);
+  transition:background .35s;
+}
 .popup-handle{width:40px;height:4px;border-radius:2px;background:var(--lav-dim);margin:12px auto 16px}
 .html-toolbar{display:flex;gap:6px}
-.html-toolbar button{width:34px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-family:var(--body);font-size:13px;cursor:pointer}
-.html-toolbar button:active{opacity:.7}
+.html-toolbar button{
+  width:34px;height:30px;border-radius:8px;background:var(--input-bg);color:var(--text);
+  font-family:var(--body);font-size:13px;cursor:pointer;border:1px solid var(--line);
+  transition:transform .12s, background .12s, box-shadow .2s;
+}
+.html-toolbar button:active{transform:scale(0.88);opacity:.75}
 .rich-input{min-height:120px;max-height:400px;overflow-y:auto;white-space:pre-wrap;line-height:1.4;resize:vertical}
 .rich-input:empty:before{content:attr(data-placeholder);color:var(--text-faint)}
 .rich-input b,.rich-input strong{font-weight:700}
@@ -190,53 +256,261 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 .popup-avatar{width:52px;height:52px;border-radius:50%;background:var(--lav-dim);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--lav-deep);flex-shrink:0}
 .popup-name{font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.01em}
 .popup-handle-link{font-size:12px;color:var(--lav-deep);margin-top:3px}
-.popup-close{margin-left:auto;width:32px;height:32px;border-radius:50%;background:var(--lav-dim);border:none;cursor:pointer;font-size:16px;color:var(--lav-deep);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.popup-close{
+  margin-left:auto;width:32px;height:32px;border-radius:50%;
+  background:var(--lav-dim);border:none;cursor:pointer;font-size:16px;
+  color:var(--lav-deep);display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  transition:transform .15s, box-shadow .2s;
+}
+.popup-close:active{transform:scale(0.88)}
 .popup-body{padding:16px 20px}
 .popup-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
-.popup-stat{background:var(--stat-bg);border-radius:14px;padding:12px 14px;border:1px solid var(--border)}
-.popup-stat-label{font-size:11px;color:var(--text-faint);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
-.popup-stat-val{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.02em;color:var(--text)}
+.popup-stat{
+  border-radius:14px;padding:12px 14px;
+  transition:background .35s, box-shadow .35s;
+}
+.popup-stat-label{font-size:11px;color:var(--text-faint);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;transition:color .35s}
+.popup-stat-val{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.02em;color:var(--text);transition:color .35s}
 .popup-stat-val.accent{color:var(--lav-deep)}
 .popup-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
 .popup-row:last-of-type{border-bottom:none}
 .popup-row-label{color:var(--text-faint);font-size:12px}
 .popup-row-val{font-weight:600;text-align:right;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .popup-section-title{font-size:11px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:.07em;margin:16px 0 10px}
-.popup-input{width:100%;font-size:13px;font-family:var(--body);padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);margin-bottom:8px}
+.popup-input{
+  width:100%;font-size:13px;font-family:var(--body);padding:10px 14px;
+  border-radius:12px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);margin-bottom:8px;
+  transition:background .35s, box-shadow .2s, border-color .2s;
+}
 .popup-input::placeholder{color:var(--text-faint)}
-.popup-save{width:100%;padding:12px;border-radius:14px;background:var(--lav-deep);color:white;font-family:var(--disp);font-weight:700;font-size:13px;border:none;cursor:pointer;margin-top:4px;transition:opacity .15s}
-.popup-save:active{opacity:.8}
+.popup-input:focus{outline:none;border-color:rgba(155,140,242,0.4);box-shadow:0 0 0 3px rgba(155,140,242,0.1)}
+.popup-save{
+  width:100%;padding:12px;border-radius:14px;
+  background:linear-gradient(135deg,var(--lav),var(--lav-deep));
+  color:white;font-family:var(--disp);font-weight:700;font-size:13px;
+  border:none;cursor:pointer;margin-top:4px;
+  box-shadow:0 4px 18px -4px rgba(124,108,240,0.5);
+  transition:transform .12s cubic-bezier(0.34,1.56,0.64,1), box-shadow .12s, opacity .15s;
+}
+.popup-save:active{transform:scale(0.97);box-shadow:0 2px 8px -4px rgba(124,108,240,0.4)}
 
-/* Action buttons */
+/* ── Action buttons ── */
 .actions-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
-.action-btn{padding:10px 8px;border-radius:14px;border:1px solid var(--border);background:var(--stat-bg);font-size:12px;font-weight:600;font-family:var(--body);color:var(--text);cursor:pointer;text-align:center;transition:all .15s;line-height:1.3}
-.action-btn:active{opacity:.75;transform:scale(0.97)}
-.action-btn.danger{color:var(--red);border-color:rgba(255,69,58,0.25);background:rgba(255,69,58,0.06)}
-.action-btn.success{color:var(--green);border-color:rgba(62,207,142,0.25);background:rgba(62,207,142,0.06)}
-.action-btn.primary{color:var(--lav-deep);border-color:var(--lav-dim);background:var(--lav-dim)}
+.action-btn{
+  padding:10px 8px;border-radius:14px;
+  font-size:12px;font-weight:600;font-family:var(--body);color:var(--text);
+  cursor:pointer;text-align:center;line-height:1.3;
+  transition:transform .12s cubic-bezier(0.34,1.56,0.64,1), box-shadow .12s, background .35s, opacity .12s;
+}
+.action-btn:active{transform:scale(0.91);opacity:.8}
+.action-btn.danger{color:var(--red);border-color:rgba(255,69,58,0.25);background:rgba(255,69,58,0.06)!important;box-shadow:none!important}
+.action-btn.success{color:var(--green);border-color:rgba(62,207,142,0.25);background:rgba(62,207,142,0.06)!important;box-shadow:none!important}
+.action-btn.primary{color:var(--lav-deep);border-color:rgba(155,140,242,0.3);background:var(--lav-dim)!important;box-shadow:none!important}
 .scroll-btn{flex:0 0 auto;white-space:nowrap;width:auto;padding:12px 20px;margin-bottom:0}
-.action-result{font-size:12px;text-align:center;padding:8px;border-radius:10px;margin-bottom:8px;display:none}
+.action-result{font-size:12px;text-align:center;padding:8px;border-radius:10px;margin-bottom:8px;display:none;animation:resultIn .25s ease}
 .action-result.ok{background:rgba(62,207,142,0.12);color:#1a9466}
 .action-result.err{background:rgba(255,69,58,0.10);color:var(--red)}
 .payload-row{display:none;gap:6px;margin-bottom:8px}
-.payload-row.visible{display:flex}
-.payload-input{flex:1;font-size:12px;font-family:var(--body);padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--input-bg);color:var(--text)}
+.payload-row.visible{display:flex;animation:resultIn .2s ease}
+.payload-input{
+  flex:1;font-size:12px;font-family:var(--body);padding:8px 12px;
+  border-radius:10px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);
+  transition:background .35s, box-shadow .2s;
+}
 .payload-input::placeholder{color:var(--text-faint)}
-.send-payload-btn{padding:8px 14px;border-radius:10px;background:var(--lav-deep);color:white;border:none;font-size:12px;font-weight:600;font-family:var(--body);cursor:pointer;white-space:nowrap}
+.send-payload-btn{
+  padding:8px 14px;border-radius:10px;
+  background:linear-gradient(135deg,var(--lav),var(--lav-deep));
+  color:white;border:none;font-size:12px;font-weight:600;font-family:var(--body);cursor:pointer;white-space:nowrap;
+  transition:transform .12s, opacity .12s;
+}
+.send-payload-btn:active{transform:scale(0.93)}
 
-/* PIN screen */
-.pin-screen{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:24px}
+/* ── PIN screen ── */
+.pin-screen{
+  position:fixed;inset:0;z-index:9999;background:var(--bg);
+  display:flex;align-items:center;justify-content:center;flex-direction:column;gap:24px;
+  transition:background .35s;
+  animation:pinScreenIn .5s cubic-bezier(0.34,1.56,0.64,1) both;
+}
 .pin-screen.hidden{display:none}
-.pin-logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--lav),var(--coral));display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:900;font-size:20px;color:white;box-shadow:0 8px 24px -6px rgba(155,140,242,0.45)}
-.pin-title{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.01em;color:var(--text)}
+.pin-logo{
+  width:56px;height:56px;border-radius:16px;
+  background:linear-gradient(135deg,var(--lav),var(--coral));
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--disp);font-weight:900;font-size:20px;color:white;
+  box-shadow:0 8px 24px -6px rgba(155,140,242,0.45);
+}
+.pin-title{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.01em;color:var(--text);transition:color .35s}
 .pin-dots{display:flex;gap:12px}
 .pin-dot{width:12px;height:12px;border-radius:50%;background:var(--lav-dim);transition:background .15s}
-.pin-dot.filled{background:var(--lav-deep)}
+.pin-dot.filled{background:var(--lav-deep);animation:dotBounce .35s cubic-bezier(0.34,1.56,0.64,1)}
 .pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:240px}
-.pin-btn{height:64px;border-radius:16px;border:1px solid var(--border);background:var(--surface);font-family:var(--disp);font-weight:700;font-size:20px;color:var(--text);cursor:pointer;transition:all .12s;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
-.pin-btn:active{transform:scale(0.94);background:var(--lav-dim)}
+.pin-btn{
+  height:64px;border-radius:16px;
+  font-family:var(--disp);font-weight:700;font-size:20px;color:var(--text);cursor:pointer;
+  transition:transform .12s cubic-bezier(0.34,1.56,0.64,1), background .12s, box-shadow .35s;
+}
+.pin-btn:active{transform:scale(0.88);background:var(--lav-dim)}
 .pin-btn.del{font-size:16px;color:var(--text-faint)}
 .pin-error{font-size:13px;color:var(--red);height:18px;text-align:center}
+.pin-error:not(:empty){animation:shake .3s ease}
+
+/* ── Animations ── */
+@keyframes overlayFadeIn{from{opacity:0}to{opacity:1}}
+@keyframes popupSlideUp{
+  from{transform:translateY(70px) scale(0.99);opacity:0}
+  to{transform:translateY(0) scale(1);opacity:1}
+}
+@keyframes cardEntrance{
+  from{opacity:0;transform:translateY(14px) scale(0.97)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes dotBounce{
+  0%{transform:scale(1)}
+  40%{transform:scale(1.55)}
+  70%{transform:scale(0.87)}
+  100%{transform:scale(1)}
+}
+@keyframes pinScreenIn{
+  from{opacity:0;transform:scale(0.96)}
+  to{opacity:1;transform:scale(1)}
+}
+@keyframes shake{
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-7px)}
+  50%{transform:translateX(7px)}
+  80%{transform:translateX(-4px)}
+}
+@keyframes blobFloat1{
+  0%,100%{transform:translate(0,0) scale(1)}
+  50%{transform:translate(16px,-22px) scale(1.05)}
+}
+@keyframes blobFloat2{
+  0%,100%{transform:translate(0,0) scale(1)}
+  50%{transform:translate(-12px,16px) scale(1.03)}
+}
+@keyframes markGlow{
+  0%,100%{box-shadow:0 6px 16px -4px rgba(155,140,242,0.45)}
+  50%{box-shadow:0 6px 26px -4px rgba(155,140,242,0.72),0 0 34px rgba(232,97,74,0.2)}
+}
+@keyframes resultIn{
+  from{opacity:0;transform:translateY(-6px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+/* ── Тёмная тема: glass-specific ── */
+[data-theme="dark"] .card{
+  background:var(--card-bg);
+  backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+  border:1px solid var(--border);
+  box-shadow:0 4px 20px -6px rgba(124,108,240,0.15);
+}
+[data-theme="dark"] .kpi{
+  background:var(--surface);
+  backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+  border:1px solid var(--border);
+  box-shadow:0 4px 20px -6px rgba(124,108,240,0.15);
+}
+[data-theme="dark"] .icon-btn{
+  background:var(--surface2);
+  border:1px solid var(--border);
+  box-shadow:0 2px 12px -4px rgba(124,108,240,0.14);
+  backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+}
+[data-theme="dark"] .action-btn:not(.danger):not(.success):not(.primary){
+  background:var(--stat-bg);border:1px solid var(--border);
+}
+[data-theme="dark"] .popup-stat{
+  background:var(--stat-bg);border:1px solid var(--border);
+}
+[data-theme="dark"] .mark{animation:markGlow 4s ease-in-out infinite}
+[data-theme="dark"] .pin-btn{
+  background:var(--surface);border:1px solid var(--border);
+  backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+}
+[data-theme="dark"] .ptab{border-color:transparent}
+[data-theme="dark"] .html-toolbar button{background:var(--input-bg);border-color:var(--line)}
+
+/* ── Светлая тема: neumorphic-specific ── */
+[data-theme="light"] .card{
+  background:var(--bg);
+  box-shadow:var(--sh-r);
+  border:none;
+  backdrop-filter:none;-webkit-backdrop-filter:none;
+}
+[data-theme="light"] .kpi{
+  background:var(--bg);
+  box-shadow:var(--sh-r);
+  border:none;
+  backdrop-filter:none;-webkit-backdrop-filter:none;
+}
+[data-theme="light"] .kpi:hover{box-shadow:var(--sh-r), 0 8px 28px rgba(124,108,240,0.1)}
+[data-theme="light"] .icon-btn{
+  background:var(--bg);
+  box-shadow:var(--sh-sm);
+  border:none;
+  backdrop-filter:none;
+}
+[data-theme="light"] .icon-btn:active{box-shadow:var(--sh-is)}
+[data-theme="light"] .action-btn:not(.danger):not(.success):not(.primary){
+  background:var(--bg);
+  box-shadow:var(--sh-sm);
+  border:none;
+}
+[data-theme="light"] .action-btn:not(.danger):not(.success):not(.primary):active{
+  box-shadow:var(--sh-is)!important;opacity:1!important;
+}
+[data-theme="light"] .popup-stat{
+  background:var(--bg);
+  box-shadow:var(--sh-sm);
+  border:none;
+}
+[data-theme="light"] .ptab{
+  background:var(--bg);
+  box-shadow:var(--sh-sm);
+  border:none;
+}
+[data-theme="light"] .ptab.active{
+  background:var(--lav-dim);
+  box-shadow:var(--sh-is);
+}
+[data-theme="light"] .ptab:active{box-shadow:var(--sh-is)}
+[data-theme="light"] .popup-input,
+[data-theme="light"] .filter-row input,
+[data-theme="light"] .filter-row select,
+[data-theme="light"] .search-wrap input,
+[data-theme="light"] .payload-input {
+  background:var(--bg);
+  box-shadow:var(--sh-is);
+  border:none;
+}
+[data-theme="light"] .popup-input:focus,
+[data-theme="light"] .search-wrap input:focus,
+[data-theme="light"] .filter-row input:focus {
+  border:1px solid rgba(155,140,242,0.35);
+  box-shadow:var(--sh-is), 0 0 0 2px rgba(155,140,242,0.1);
+}
+[data-theme="light"] .html-toolbar button{
+  background:var(--bg);box-shadow:var(--sh-sm);border:none;
+}
+[data-theme="light"] .html-toolbar button:active{box-shadow:var(--sh-is)}
+[data-theme="light"] .pin-btn{
+  background:var(--bg);
+  box-shadow:var(--sh-sm);
+  border:none;
+  backdrop-filter:none;-webkit-backdrop-filter:none;
+}
+[data-theme="light"] .pin-btn:active{
+  box-shadow:var(--sh-is);background:var(--lav-dim);
+}
+[data-theme="light"] .popup{
+  box-shadow:0 -8px 30px rgba(100,80,60,0.12), var(--sh-r);
+}
+[data-theme="light"] .popup-handle{background:rgba(160,140,120,0.4)}
+[data-theme="light"] .emoji-picker{
+  background:var(--bg);box-shadow:var(--sh-r);border:none;
+}
 </style>
 </head>
 <body>
@@ -304,23 +578,6 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
           <canvas id="revenueChart" role="img" aria-label="График выручки">Загрузка...</canvas>
         </div>
       </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-head">
-      <div class="section-title">Расписание</div>
-      <button class="action-btn" style="padding:5px 10px;font-size:11px" onclick="openSchedulePopup()">Управлять</button>
-    </div>
-    <div class="card" style="padding:14px">
-      <div class="admcal-header">
-        <button class="action-btn" style="width:28px;height:28px;padding:0;border-radius:50%" onclick="adminCalShiftMonth(-1)">‹</button>
-        <div class="admcal-month-label" id="admcal-month-label">—</div>
-        <button class="action-btn" style="width:28px;height:28px;padding:0;border-radius:50%" onclick="adminCalShiftMonth(1)">›</button>
-      </div>
-      <div class="admcal-weekdays"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
-      <div class="admcal-grid" id="admcal-grid"><div class="loading">Загрузка...</div></div>
-      <div id="admcal-day-details" style="margin-top:10px"></div>
     </div>
   </div>
 
@@ -479,7 +736,6 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
         <input class="popup-input" type="text" id="sched-event-title" placeholder="Название события" style="margin-bottom:0">
         <textarea class="popup-input" id="sched-event-desc" rows="2" placeholder="Описание..." style="margin-bottom:0;resize:vertical"></textarea>
         <input class="popup-input" type="text" id="sched-event-link" placeholder="Ссылка (необязательно)" style="margin-bottom:0">
-        <input class="popup-input" type="text" id="sched-event-category" list="sched-cat-list" placeholder="Категория (напр. Книжный клуб) — определяет цвет тега" style="margin-bottom:0">
         <button class="popup-save" id="sched-event-submit-btn" onclick="saveOneOffEvent()">Добавить событие</button>
       </div>
       <div id="sched-oneoff-list" style="margin-top:14px"></div>
@@ -503,13 +759,11 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
         <input class="popup-input" type="text" id="sched-rule-title" placeholder="Название события" style="margin-bottom:0">
         <textarea class="popup-input" id="sched-rule-desc" rows="2" placeholder="Описание..." style="margin-bottom:0;resize:vertical"></textarea>
         <input class="popup-input" type="text" id="sched-rule-link" placeholder="Ссылка (необязательно)" style="margin-bottom:0">
-        <input class="popup-input" type="text" id="sched-rule-category" list="sched-cat-list" placeholder="Категория (напр. Пятничные встречи) — определяет цвет тега" style="margin-bottom:0">
         <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-dim);padding:2px 2px 4px">
           <input type="checkbox" id="sched-rule-active" checked style="width:16px;height:16px"> Активно
         </label>
         <button class="popup-save" id="sched-rule-submit-btn" onclick="saveScheduleRule()">Добавить правило</button>
       </div>
-      <datalist id="sched-cat-list"></datalist>
       <div id="sched-rules-list" style="margin-top:14px"></div>
     </div>
 
@@ -696,7 +950,7 @@ async function deletePayment(id, e){
 
 async function loadAll(){
   document.getElementById('last-update').textContent='Обновлено в '+new Date().toLocaleTimeString('ru');
-  await Promise.all([loadStats(),loadUsers(),loadPayments(),loadNotificationLists(),loadCampaigns(),loadAdminCalendarMonth()]);
+  await Promise.all([loadStats(),loadUsers(),loadPayments(),loadNotificationLists(),loadCampaigns()]);
 }
 
 async function loadStats(){
@@ -1338,94 +1592,10 @@ let editingTeaserId=null;
 let editingScheduleRuleId=null;
 const WEEKDAY_NAMES=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 
-// Единая палитра + хэш-функция — идентична той, что в club-app, чтобы цвета категорий совпадали визуально
-const CATEGORY_PALETTE=['#9b8cf2','#ff8fa3','#3ecf8e','#ffb84d','#6ea8fe','#e8614a','#8fe3c0'];
-function categoryColor(name){
-  if(!name) return '#a7a2bd';
-  let hash=0;
-  for(let i=0;i<name.length;i++) hash=(hash*31+name.charCodeAt(i))>>>0;
-  return CATEGORY_PALETTE[hash%CATEGORY_PALETTE.length];
-}
-function categoryBadge(cat){
-  if(!cat) return '';
-  return ` <span class="badge" style="background:${categoryColor(cat)}22;color:${categoryColor(cat)}">${cat}</span>`;
-}
-function updateCategoryDatalist(){
-  const known=new Set(['Книжный клуб','Продажи практика','Пятничные встречи']);
-  scheduleEvents.forEach(e=>{ if(e.category) known.add(e.category); });
-  scheduleRules.forEach(r=>{ if(r.category) known.add(r.category); });
-  document.getElementById('sched-cat-list').innerHTML=[...known].map(c=>`<option value="${c}">`).join('');
-}
-
-/* ── Мини-календарь предпросмотра (та же логика рендера, что и в club-app) ── */
-const ADMCAL_MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
-const ADMCAL_MONTHS_GEN=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
-const admToday=new Date();
-let adminCalYear=admToday.getFullYear();
-let adminCalMonth=admToday.getMonth()+1;
-let adminCalDaysData={};
-function admPad2(n){ return n<10 ? '0'+n : ''+n; }
-function admTodayStr(){ return `${admToday.getFullYear()}-${admPad2(admToday.getMonth()+1)}-${admPad2(admToday.getDate())}`; }
-
-function adminCalShiftMonth(delta){
-  adminCalMonth+=delta;
-  if(adminCalMonth<1){ adminCalMonth=12; adminCalYear--; }
-  if(adminCalMonth>12){ adminCalMonth=1; adminCalYear++; }
-  loadAdminCalendarMonth();
-}
-
-async function loadAdminCalendarMonth(){
-  document.getElementById('admcal-month-label').textContent=`${ADMCAL_MONTHS[adminCalMonth-1]} ${adminCalYear}`;
-  document.getElementById('admcal-day-details').innerHTML='';
-  try{
-    const monthParam=`${adminCalYear}-${admPad2(adminCalMonth)}`;
-    const data=await fetch(API+'/schedule?month='+monthParam).then(r=>r.json());
-    adminCalDaysData=data.days||{};
-    renderAdminCalendarGrid();
-  }catch(e){
-    document.getElementById('admcal-grid').innerHTML='<div class="pay-meta">Не удалось загрузить</div>';
-  }
-}
-
-function renderAdminCalendarGrid(){
-  const gridEl=document.getElementById('admcal-grid');
-  const firstOfMonth=new Date(adminCalYear, adminCalMonth-1, 1);
-  const leading=(firstOfMonth.getDay()+6)%7;
-  const daysInMonth=new Date(adminCalYear, adminCalMonth, 0).getDate();
-  const tStr=admTodayStr();
-  let html='';
-  for(let i=0;i<leading;i++) html+='<div class="admcal-day"></div>';
-  for(let d=1;d<=daysInMonth;d++){
-    const dateStr=`${adminCalYear}-${admPad2(adminCalMonth)}-${admPad2(d)}`;
-    const events=adminCalDaysData[dateStr]||[];
-    const hasEvents=events.length>0;
-    const isToday=dateStr===tStr;
-    const cls=['admcal-day','in-month',hasEvents?'has-events':'',isToday?'today':''].filter(Boolean).join(' ');
-    const cats=[...new Set(events.map(e=>e.category||''))].slice(0,3);
-    const dots=cats.map(c=>`<span class="admcal-day-dot" style="background:${categoryColor(c)}"></span>`).join('');
-    html+=`<div class="${cls}" ${hasEvents?`onclick="showAdminDayDetails('${dateStr}')"`:''}>${d}<span class="admcal-day-dots">${dots}</span></div>`;
-  }
-  gridEl.innerHTML=html;
-}
-
-function showAdminDayDetails(dateStr){
-  const events=adminCalDaysData[dateStr]||[];
-  const [y,m,d]=dateStr.split('-').map(Number);
-  const el=document.getElementById('admcal-day-details');
-  el.innerHTML=`<div class="pay-meta" style="margin-bottom:6px">${d} ${ADMCAL_MONTHS_GEN[m-1]}</div>`+events.map(e=>`
-    <div class="pay-item" style="border-left:3px solid ${categoryColor(e.category)}">
-      <div style="flex:1">
-        <div class="pay-name">${e.title}${categoryBadge(e.category)}</div>
-        <div class="pay-meta">${e.time?e.time+' · ':''}${e.source==='rule'?'повторяющееся':'разовое'}</div>
-      </div>
-    </div>`).join('');
-}
-
 function openSchedulePopup(){
   document.getElementById('schedule-popup-overlay').classList.add('open');
   loadScheduleEvents();
   loadScheduleRules();
-  loadAdminCalendarMonth();
 }
 function closeSchedulePopup(){ document.getElementById('schedule-popup-overlay').classList.remove('open'); }
 
@@ -1445,7 +1615,6 @@ async function loadScheduleEvents(){
     scheduleEvents=await fetch(API+'/schedule/events').then(r=>r.json());
     renderOneOffList();
     renderTeaserList();
-    updateCategoryDatalist();
   }catch(e){
     oneoffEl.innerHTML='<div class="pay-meta">Ошибка загрузки</div>';
     teaserEl.innerHTML='<div class="pay-meta">Ошибка загрузки</div>';
@@ -1459,7 +1628,7 @@ function renderOneOffList(){
   el.innerHTML=rows.map(e=>`
     <div class="pay-item">
       <div style="flex:1">
-        <div class="pay-name">${e.title}${categoryBadge(e.category)}</div>
+        <div class="pay-name">${e.title}</div>
         <div class="pay-meta">${e.event_date}${e.event_time?' · '+e.event_time:''}</div>
       </div>
       <button class="action-btn" onclick='editOneOffEvent(${JSON.stringify(e)})'>Изм.</button>
@@ -1489,7 +1658,6 @@ function editOneOffEvent(e){
   document.getElementById('sched-event-title').value=e.title;
   document.getElementById('sched-event-desc').value=e.description||'';
   document.getElementById('sched-event-link').value=e.link||'';
-  document.getElementById('sched-event-category').value=e.category||'';
   document.getElementById('sched-event-submit-btn').textContent='Сохранить изменения';
 }
 
@@ -1508,7 +1676,6 @@ function resetOneOffForm(){
   document.getElementById('sched-event-title').value='';
   document.getElementById('sched-event-desc').value='';
   document.getElementById('sched-event-link').value='';
-  document.getElementById('sched-event-category').value='';
   document.getElementById('sched-event-submit-btn').textContent='Добавить событие';
 }
 
@@ -1526,19 +1693,17 @@ async function saveOneOffEvent(){
   const title=document.getElementById('sched-event-title').value.trim();
   const description=document.getElementById('sched-event-desc').value.trim();
   const link=document.getElementById('sched-event-link').value.trim();
-  const category=document.getElementById('sched-event-category').value.trim();
   if(!event_date || !title){ alert('Заполни дату и название'); return; }
   const isEdit=!!editingScheduleEventId;
   try{
     const r=await fetch(API+'/schedule/events'+(isEdit?'/'+editingScheduleEventId:'')+'?x_admin_token='+ADMIN_TOKEN,{
       method:isEdit?'PUT':'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({event_date,event_time,title,description,link,category})
+      body:JSON.stringify({event_date,event_time,title,description,link})
     });
     if(!r.ok){ alert('Ошибка сохранения'); return; }
     resetOneOffForm();
     loadScheduleEvents();
-    loadAdminCalendarMonth();
   }catch(e){ alert('Ошибка соединения'); }
 }
 
@@ -1565,7 +1730,6 @@ async function deleteScheduleEvent(id){
   try{
     await fetch(API+'/schedule/events/'+id+'?x_admin_token='+ADMIN_TOKEN,{method:'DELETE'});
     loadScheduleEvents();
-    loadAdminCalendarMonth();
   }catch(e){ alert('Ошибка соединения'); }
 }
 
@@ -1575,7 +1739,6 @@ async function loadScheduleRules(){
   try{
     scheduleRules=await fetch(API+'/schedule/rules').then(r=>r.json());
     renderScheduleRulesList();
-    updateCategoryDatalist();
   }catch(e){ el.innerHTML='<div class="pay-meta">Ошибка загрузки</div>'; }
 }
 
@@ -1585,7 +1748,7 @@ function renderScheduleRulesList(){
   el.innerHTML=scheduleRules.map(r=>`
     <div class="pay-item">
       <div style="flex:1">
-        <div class="pay-name">${r.title} <span class="badge ${r.active?'badge-ok':'badge-err'}">${r.active?'активно':'выкл'}</span>${categoryBadge(r.category)}</div>
+        <div class="pay-name">${r.title} <span class="badge ${r.active?'badge-ok':'badge-err'}">${r.active?'активно':'выкл'}</span></div>
         <div class="pay-meta">Каждый ${WEEKDAY_NAMES[r.weekday]}${r.event_time?' · '+r.event_time:''}</div>
       </div>
       <button class="action-btn" onclick='editScheduleRule(${JSON.stringify(r)})'>Изм.</button>
@@ -1600,7 +1763,6 @@ function editScheduleRule(r){
   document.getElementById('sched-rule-title').value=r.title;
   document.getElementById('sched-rule-desc').value=r.description||'';
   document.getElementById('sched-rule-link').value=r.link||'';
-  document.getElementById('sched-rule-category').value=r.category||'';
   document.getElementById('sched-rule-active').checked=r.active;
   document.getElementById('sched-rule-submit-btn').textContent='Сохранить изменения';
 }
@@ -1612,7 +1774,6 @@ function resetScheduleRuleForm(){
   document.getElementById('sched-rule-title').value='';
   document.getElementById('sched-rule-desc').value='';
   document.getElementById('sched-rule-link').value='';
-  document.getElementById('sched-rule-category').value='';
   document.getElementById('sched-rule-active').checked=true;
   document.getElementById('sched-rule-submit-btn').textContent='Добавить правило';
 }
@@ -1623,7 +1784,6 @@ async function saveScheduleRule(){
   const title=document.getElementById('sched-rule-title').value.trim();
   const description=document.getElementById('sched-rule-desc').value.trim();
   const link=document.getElementById('sched-rule-link').value.trim();
-  const category=document.getElementById('sched-rule-category').value.trim();
   const active=document.getElementById('sched-rule-active').checked;
   if(!title){ alert('Заполни название'); return; }
   const isEdit=!!editingScheduleRuleId;
@@ -1631,12 +1791,11 @@ async function saveScheduleRule(){
     const r=await fetch(API+'/schedule/rules'+(isEdit?'/'+editingScheduleRuleId:'')+'?x_admin_token='+ADMIN_TOKEN,{
       method:isEdit?'PUT':'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({weekday,event_time,title,description,link,category,active})
+      body:JSON.stringify({weekday,event_time,title,description,link,active})
     });
     if(!r.ok){ alert('Ошибка сохранения'); return; }
     resetScheduleRuleForm();
     loadScheduleRules();
-    loadAdminCalendarMonth();
   }catch(e){ alert('Ошибка соединения'); }
 }
 
@@ -1645,7 +1804,6 @@ async function deleteScheduleRule(id){
   try{
     await fetch(API+'/schedule/rules/'+id+'?x_admin_token='+ADMIN_TOKEN,{method:'DELETE'});
     loadScheduleRules();
-    loadAdminCalendarMonth();
   }catch(e){ alert('Ошибка соединения'); }
 }
 
@@ -1895,11 +2053,11 @@ function pinKey(k) {
   if (k === 'del') { pinEntered = pinEntered.slice(0,-1); }
   else if (k === 'clear') { pinEntered = ''; }
   else if (pinEntered.length < PIN.length) { pinEntered += k; }
-  
+
   for (let i = 0; i < PIN.length; i++) {
     document.getElementById('d'+i).classList.toggle('filled', i < pinEntered.length);
   }
-  
+
   if (pinEntered.length === PIN.length) {
     if (pinEntered === PIN) {
       try { sessionStorage.setItem('pin_ok','1'); } catch(e) {}
