@@ -481,11 +481,15 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
         <button type="button" onclick="applyLinkFormat('news-common')">🔗</button>
       </div>
       <div id="news-common" class="popup-input rich-input" contenteditable="true" data-placeholder="Общий текст для всех участников..."></div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-dim);padding:2px 2px 4px">
+        <input type="checkbox" id="news-urgent" style="width:16px;height:16px"> Срочная — показать первой в ленте и на экране входа даже неавторизованным
+      </label>
       <div class="pay-meta">Дополнительные блоки — только для тех, кто состоит в конкретном списке уведомлений</div>
       <div id="news-targeted-list"></div>
       <button class="action-btn" onclick="addNewsTargeted()">+ Добавить блок для списка</button>
       <button class="popup-save" onclick="publishNews()">Опубликовать</button>
       <button class="action-btn danger" onclick="deleteAllNews()">Удалить все новости</button>
+      <button class="action-btn" onclick="clearUrgentNews()">Снять флаг "срочная" со всех новостей</button>
     </div>
     </div>
   </div>
@@ -1305,14 +1309,24 @@ async function publishNews(){
     const r=await fetch(API+'/news?x_admin_token='+ADMIN_TOKEN,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({common_text, targeted:newsTargeted.filter(t=>t.text.trim())})
+      body:JSON.stringify({common_text, targeted:newsTargeted.filter(t=>t.text.trim()), urgent:document.getElementById('news-urgent').checked})
     });
     if(!r.ok){ alert('Ошибка публикации'); return; }
     alert('Опубликовано!');
     document.getElementById('news-common').innerHTML='';
+    document.getElementById('news-urgent').checked=false;
     newsTargeted=[];
     renderNewsTargeted();
     closeNewsPopup();
+  }catch(e){ alert('Ошибка соединения'); }
+}
+
+async function clearUrgentNews(){
+  if(!confirm('Снять флаг "срочная" со всех новостей? Сами новости не удаляются.')) return;
+  try{
+    const r=await fetch(API+'/news/urgent?x_admin_token='+ADMIN_TOKEN,{method:'DELETE'});
+    if(!r.ok){ alert('Ошибка'); return; }
+    alert('Флаг "срочная" снят со всех новостей');
   }catch(e){ alert('Ошибка соединения'); }
 }
 
