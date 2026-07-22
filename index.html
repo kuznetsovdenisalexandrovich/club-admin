@@ -395,6 +395,13 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
   </div>
 
   <div class="section">
+    <div class="section-head"><div class="section-title">Вопросы клубу</div></div>
+    <div class="card">
+      <div id="questions-list"><div class="loading">Загрузка...</div></div>
+    </div>
+  </div>
+
+  <div class="section">
     <div class="section-head">
       <div class="section-title">Участники</div>
       <select id="user-filter" onchange="filterUsers()" style="font-size:11px;font-family:var(--body);padding:4px 8px;border-radius:10px;border:1px solid var(--line);background:var(--input-bg);color:var(--text)">
@@ -408,6 +415,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       </div>
       <div style="padding:14px 16px"><button class="action-btn" style="width:100%" onclick="openManualUserPopup()">+ Добавить клиента вручную</button></div>
       <div id="users-list"><div class="loading">Загрузка...</div></div>
+      <div id="users-pagination" style="display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 0"></div>
     </div>
   </div>
 
@@ -424,6 +432,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
         </select>
       </div>
       <div id="payments-list"><div class="loading">Загрузка...</div></div>
+      <div id="payments-pagination" style="display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 0"></div>
       <div class="pay-summary" id="pay-summary"></div>
     </div>
   </div>
@@ -759,7 +768,36 @@ async function deletePayment(id, e){
 
 async function loadAll(){
   document.getElementById('last-update').textContent='Обновлено в '+new Date().toLocaleTimeString('ru');
-  await Promise.all([loadStats(),loadUsers(),loadPayments(),loadNotificationLists(),loadCampaigns(),loadAdminCalendarMonth()]);
+  await Promise.all([loadStats(),loadUsers(),loadPayments(),loadNotificationLists(),loadCampaigns(),loadAdminCalendarMonth(),loadQuestions()]);
+}
+
+async function loadQuestions(){
+  const el=document.getElementById('questions-list');
+  try{
+    const rows=await fetch(API+'/questions?x_admin_token='+ADMIN_TOKEN).then(r=>r.json());
+    if(!rows.length){ el.innerHTML='<div class="empty">Пока нет вопросов</div>'; return; }
+    el.innerHTML=rows.map(q=>{
+      const d=new Date(q.created_at);
+      const date=d.toLocaleDateString('ru',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
+      const who=q.name||('id '+q.telegram_id);
+      return `<div class="pay-item" style="align-items:flex-start">
+        <div class="pay-info">
+          <div class="pay-name">${who}</div>
+          <div class="pay-meta">${date}</div>
+          <div style="font-size:13px;margin-top:6px;white-space:pre-wrap">${q.text}</div>
+        </div>
+        <button class="action-btn" style="flex-shrink:0" onclick="resolveQuestion(${q.id})">Готово</button>
+      </div>`;
+    }).join('');
+  }catch(e){ el.innerHTML='<div class="empty">Ошибка загрузки</div>'; }
+}
+
+async function resolveQuestion(id){
+  try{
+    const r=await fetch(API+'/questions/'+id+'?x_admin_token='+ADMIN_TOKEN,{method:'DELETE'});
+    if(!r.ok){ alert('Ошибка'); return; }
+    loadQuestions();
+  }catch(e){ alert('Ошибка соединения'); }
 }
 
 async function loadStats(){
@@ -772,6 +810,10 @@ async function loadStats(){
   }catch(e){}
 }
 
+const PAGE_SIZE = 10;
+let usersPage = 1;
+let paymentsPage = 1;
+
 async function loadUsers(){
   try{
     allUsers=await fetch(API+'/users/list?limit=500').then(r=>r.json());
@@ -780,7 +822,26 @@ async function loadUsers(){
   }catch(e){ document.getElementById('users-list').innerHTML='<div class="empty">Ошибка загрузки</div>'; }
 }
 
+function renderPaginationControls(containerId, page, totalPages, prevFn, nextFn){
+  const el=document.getElementById(containerId);
+  if(!el) return;
+  if(totalPages<=1){ el.innerHTML=''; return; }
+  el.innerHTML=`
+    <button class="action-btn" ${page<=1?'disabled':''} onclick="${prevFn}()">← Назад</button>
+    <span style="font-size:12px;color:var(--text-dim)">Стр. ${page} из ${totalPages}</span>
+    <button class="action-btn" ${page>=totalPages?'disabled':''} onclick="${nextFn}()">Вперёд →</button>
+  `;
+}
+
+function prevUsersPage(){ if(usersPage>1){ usersPage--; renderUsersList(); } }
+function nextUsersPage(){ usersPage++; renderUsersList(); }
+
 function filterUsers(){
+  usersPage=1;
+  renderUsersList();
+}
+
+function renderUsersList(){
   const q=(document.getElementById('user-search').value||'').toLowerCase();
   const f=document.getElementById('user-filter').value;
   let users=allUsers;
@@ -793,8 +854,12 @@ function filterUsers(){
     (u.username||'').toLowerCase().includes(q)
   );
   const el=document.getElementById('users-list');
-  if(!users.length){el.innerHTML='<div class="empty">Ничего не найдено</div>';return;}
-  el.innerHTML=users.map(u=>{
+  if(!users.length){el.innerHTML='<div class="empty">Ничего не найдено</div>'; document.getElementById('users-pagination').innerHTML=''; return;}
+  const totalPages=Math.ceil(users.length/PAGE_SIZE);
+  if(usersPage>totalPages) usersPage=totalPages;
+  if(usersPage<1) usersPage=1;
+  const pageItems=users.slice((usersPage-1)*PAGE_SIZE, usersPage*PAGE_SIZE);
+  el.innerHTML=pageItems.map(u=>{
     const name=u.full_name||u.name||'—';
     const sub=u.username||u.email||u.phone||'—';
     const total=u.total_revenue||0;
@@ -810,7 +875,11 @@ function filterUsers(){
       </div>
     </div>`;
   }).join('');
+  renderPaginationControls('users-pagination', usersPage, totalPages, 'prevUsersPage', 'nextUsersPage');
 }
+
+function prevPaymentsPage(){ if(paymentsPage>1){ paymentsPage--; renderPaymentsList(); } }
+function nextPaymentsPage(){ paymentsPage++; renderPaymentsList(); }
 
 async function loadPayments(){
   try{
@@ -825,6 +894,11 @@ async function loadPayments(){
 }
 
 function filterPayments(){
+  paymentsPage=1;
+  renderPaymentsList();
+}
+
+function renderPaymentsList(){
   const from=document.getElementById('date-from').value;
   const to=document.getElementById('date-to').value;
   const sf=document.getElementById('pay-status').value;
@@ -836,8 +910,13 @@ function filterPayments(){
   const totalNet=pays.reduce((s,p)=>s+parseFloat(p.actual_amount||0),0);
   const totalAmt=pays.reduce((s,p)=>s+parseFloat(p.amount||0),0);
   const el=document.getElementById('payments-list');
-  if(!pays.length){el.innerHTML='<div class="empty">Нет платежей за период</div>';}
-  else el.innerHTML=pays.map(p=>{
+  if(!pays.length){el.innerHTML='<div class="empty">Нет платежей за период</div>'; document.getElementById('payments-pagination').innerHTML='';}
+  else {
+    const totalPages=Math.ceil(pays.length/PAGE_SIZE);
+    if(paymentsPage>totalPages) paymentsPage=totalPages;
+    if(paymentsPage<1) paymentsPage=1;
+    const pageItems=pays.slice((paymentsPage-1)*PAGE_SIZE, paymentsPage*PAGE_SIZE);
+    el.innerHTML=pageItems.map(p=>{
     const ok=isOk(p.status);
     const d=new Date(p.payment_date);
     const date=d.toLocaleDateString('ru',{day:'2-digit',month:'short'});
@@ -849,7 +928,9 @@ function filterPayments(){
       </div>
       <div style='display:flex;align-items:center;gap:8px'><div class="pay-amount" style="color:${ok?'var(--lav-deep)':'var(--red)'}">${fmt(parseFloat(p.actual_amount||0))}</div><button onclick="deletePayment(${p.id},event)" style='background:none;border:none;cursor:pointer;color:var(--text-faint);font-size:14px;padding:2px 4px;border-radius:4px' title='Удалить'>✕</button></div>
     </div>`;
-  }).join('');
+    }).join('');
+    renderPaginationControls('payments-pagination', paymentsPage, totalPages, 'prevPaymentsPage', 'nextPaymentsPage');
+  }
   document.getElementById('pay-summary').textContent=pays.length?`${pays.length} платежей · ${fmt(totalAmt)} · чистыми ${fmt(totalNet)}`:'';
 }
 
