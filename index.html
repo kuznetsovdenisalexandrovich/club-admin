@@ -391,6 +391,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       <button class="popup-save scroll-btn" onclick="openNewsPopup()">Новости</button>
       <button class="popup-save scroll-btn" onclick="openStreamsPopup()">Потоки</button>
       <button class="popup-save scroll-btn" onclick="openSchedulePopup()">Расписание</button>
+      <button class="popup-save scroll-btn" onclick="openListNotifPopup()">Уведомления по спискам</button>
     </div>
   </div>
 
@@ -654,6 +655,32 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       <button class="action-btn" onclick="sendBroadcastAll(true)">Тест — отправить только себе</button>
       <button class="popup-save" onclick="sendBroadcastAll(false)">Отправить всем в клубе</button>
       <button class="action-btn" onclick="returnBroadcastAllToMenu()">Вернуть всех в меню</button>
+    </div>
+    </div>
+  </div>
+</div>
+
+<div class="popup-overlay" id="listnotif-popup-overlay">
+  <div class="popup" id="listnotif-popup">
+    <div class="popup-handle"></div>
+    <div class="popup-body" style="padding-top:0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="popup-section-title" style="margin-top:0;margin-bottom:0">Уведомления по спискам</div>
+      <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeListNotifPopup()"><svg width="14" height="14" viewBox="0 0 14 14" style="display:block"><path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <select id="listnotif-target" class="popup-input" style="margin-bottom:0">
+        <option value="">Все участники</option>
+      </select>
+      <textarea class="popup-input" id="listnotif-text" rows="4" placeholder="Текст уведомления..." style="margin-bottom:0"></textarea>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-dim);padding:6px 2px">
+        <input type="checkbox" id="listnotif-bot" checked style="width:16px;height:16px"> Отправить в бота
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-dim);padding:0 2px 4px">
+        <input type="checkbox" id="listnotif-app" style="width:16px;height:16px"> Отправить в приложение (push)
+      </label>
+      <button class="popup-save" onclick="sendListNotification()">Отправить</button>
+      <div id="listnotif-result" class="pay-meta"></div>
     </div>
     </div>
   </div>
@@ -942,6 +969,10 @@ async function loadNotificationLists(){
     notificationLists=await fetch(API+'/notification-lists').then(r=>r.json());
     document.getElementById('camp-list').innerHTML=notificationLists.map(l=>`<option value="${l.list_id}">${l.name}</option>`).join('');
     onCampListChange();
+    const listNotifTarget=document.getElementById('listnotif-target');
+    if(listNotifTarget){
+      listNotifTarget.innerHTML='<option value="">Все участники</option>'+notificationLists.map(l=>`<option value="${l.list_id}">${l.name}</option>`).join('');
+    }
   }catch(e){}
 }
 
@@ -1832,6 +1863,41 @@ async function createManualUser(){
 
 function openBroadcastPopup(){ document.getElementById('broadcast-popup-overlay').classList.add('open'); }
 function closeBroadcastPopup(){ document.getElementById('broadcast-popup-overlay').classList.remove('open'); }
+
+function openListNotifPopup(){
+  document.getElementById('listnotif-result').textContent='';
+  document.getElementById('listnotif-popup-overlay').classList.add('open');
+}
+function closeListNotifPopup(){ document.getElementById('listnotif-popup-overlay').classList.remove('open'); }
+
+async function sendListNotification(){
+  const listVal=document.getElementById('listnotif-target').value;
+  const message=document.getElementById('listnotif-text').value.trim();
+  const sendBot=document.getElementById('listnotif-bot').checked;
+  const sendApp=document.getElementById('listnotif-app').checked;
+  const resultEl=document.getElementById('listnotif-result');
+  if(!message){ alert('Напиши текст уведомления'); return; }
+  if(!sendBot && !sendApp){ alert('Выбери хотя бы один канал'); return; }
+  resultEl.textContent='Отправляю...';
+  try{
+    const r=await fetch(API+'/notifications/send?x_admin_token='+ADMIN_TOKEN,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        list_id: listVal ? parseInt(listVal) : null,
+        message,
+        send_bot: sendBot,
+        send_app: sendApp,
+      })
+    });
+    const data=await r.json();
+    if(!r.ok){ resultEl.textContent='Ошибка: '+(data.detail||'неизвестная'); return; }
+    let summary=[];
+    if(data.app) summary.push(`Приложение: ${data.app.sent} из ${data.app.total_subscriptions} подписок (участников со списком: ${data.app.matched_members})`);
+    if(data.bot) summary.push('Бот: отправлено');
+    resultEl.textContent=summary.join(' · ') || 'Готово';
+  }catch(e){ resultEl.textContent='Ошибка соединения'; }
+}
 
 /* ── HTML-форматирование текстовых полей ── */
 function applyFormat(fieldId, command){
