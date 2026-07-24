@@ -274,6 +274,10 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 .action-btn.success{color:var(--green);border-color:rgba(62,207,142,0.25);background:rgba(62,207,142,0.06)}
 .action-btn.primary{color:var(--lav-deep);border-color:var(--lav-dim);background:var(--lav-dim)}
 .scroll-btn{flex:0 0 auto;white-space:nowrap;width:auto;padding:12px 20px;margin-bottom:0}
+/* Замороженная подписка — видно прямо в списке, не открывая карточку */
+.list-item.frozen{background:linear-gradient(180deg,rgba(120,180,255,0.13),rgba(120,180,255,0.05))}
+.list-item.frozen .avatar{background:rgba(120,180,255,0.25);color:#3f7fd4}
+.list-item.frozen .item-sub{color:#3f7fd4;font-weight:600}
 .action-result{font-size:12px;text-align:center;padding:8px;border-radius:10px;margin-bottom:8px;display:none}
 .action-result.ok{background:rgba(62,207,142,0.12);color:#1a9466}
 .action-result.err{background:rgba(255,69,58,0.10);color:var(--red)}
@@ -391,6 +395,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       <button class="popup-save scroll-btn" onclick="openStreamsPopup()">Потоки</button>
       <button class="popup-save scroll-btn" onclick="openSchedulePopup()">Расписание</button>
       <button class="popup-save scroll-btn" onclick="openListNotifPopup()">Уведомления</button>
+      <button class="popup-save scroll-btn" onclick="openSettingsPopup()">Настройки клуба</button>
     </div>
   </div>
 
@@ -398,6 +403,20 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
     <div class="section-head"><div class="section-title">Вопросы клубу</div></div>
     <div class="card">
       <div id="questions-list"><div class="loading">Загрузка...</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head"><div class="section-title">Обращения в поддержку</div></div>
+    <div class="card">
+      <div id="support-list"><div class="loading">Загрузка...</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head"><div class="section-title">Заявки на награды</div></div>
+    <div class="card">
+      <div id="rewards-list"><div class="loading">Загрузка...</div></div>
     </div>
   </div>
 
@@ -735,10 +754,44 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       <input class="popup-input" type="text"   id="popup-input-notes"   placeholder="Заметки об участнике...">
       <button class="popup-save" onclick="saveUserPatch()">Сохранить</button>
 
-      <!-- История платежей -->
-      <div class="popup-section-title">История платежей</div>
+      <!-- Подписка напрямую через Продамус -->
+      <div class="popup-section-title">Подписка (напрямую в Продамус)</div>
+      <div id="sub-action-result" class="action-result"></div>
+      <div class="actions-grid">
+        <button class="action-btn primary" onclick="adminDiscount()">Скидка ₽</button>
+        <button class="action-btn"         onclick="adminShift()">Сдвинуть дату</button>
+        <button class="action-btn"         onclick="adminFreeze()">Пауза</button>
+        <button class="action-btn success" onclick="adminReactivate()">Восстановить</button>
+        <button class="action-btn danger"  onclick="adminCancel()">Остановить подписку</button>
+        <button class="action-btn primary" onclick="openPointsPopup()">Начислить баллы</button>
+      </div>
+
+      <!-- Лента активности -->
+      <div class="popup-section-title">Активность</div>
       <div id="popup-payments" style="border-radius:14px;overflow:hidden;background:var(--stat-bg);border:1px solid var(--border)"></div>
+
+      <div class="popup-section-title">Опасная зона</div>
+      <button class="popup-save" style="background:var(--red);color:#fff" onclick="deleteCurrentUser()">Удалить карточку</button>
     </div>
+  </div>
+</div>
+
+<div class="popup-overlay" id="points-popup-overlay" onclick="if(event.target===this) closePointsPopup()">
+  <div class="popup" style="max-width:420px">
+    <div class="popup-section-title">Начислить баллы</div>
+    <div id="points-popup-value" style="text-align:center;font-size:32px;font-weight:800;margin:8px 0"></div>
+    <input type="range" id="points-slider" min="100" max="5000" step="100" value="500" oninput="updatePointsPopup()" style="width:100%;accent-color:var(--lav-deep)">
+    <input class="popup-input" type="text" id="points-reason" placeholder="За что (попадёт в ленту активности)">
+    <button class="popup-save" onclick="submitPoints()">Начислить</button>
+    <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)" onclick="closePointsPopup()">Отмена</button>
+  </div>
+</div>
+
+<div class="popup-overlay" id="settings-popup-overlay" onclick="if(event.target===this) closeSettingsPopup()">
+  <div class="popup" style="max-width:460px">
+    <div class="popup-section-title">Настройки клуба</div>
+    <div id="settings-body"><div class="loading">Загрузка...</div></div>
+    <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)" onclick="closeSettingsPopup()">Закрыть</button>
   </div>
 </div>
 
@@ -780,6 +833,8 @@ async function deletePayment(id, e){
 }
 
 async function loadAll(){
+  loadSupport();
+  loadRewardRequests();
   document.getElementById('last-update').textContent='Обновлено в '+new Date().toLocaleTimeString('ru');
   await Promise.all([loadStats(),loadUsers(),loadPayments(),loadNotificationLists(),loadCampaigns(),loadAdminCalendarMonth(),loadQuestions()]);
 }
@@ -803,6 +858,92 @@ async function loadQuestions(){
       </div>`;
     }).join('');
   }catch(e){ el.innerHTML='<div class="empty">Ошибка загрузки</div>'; }
+}
+
+/* ── Обращения в поддержку и заявки на награды ── */
+
+async function loadSupport(){
+  const el = document.getElementById('support-list');
+  try{
+    const rows = await fetch(API+'/support?x_admin_token='+ADMIN_TOKEN).then(r=>r.json());
+    if(!rows.length){ el.innerHTML='<div class="empty">Пока тихо</div>'; return; }
+    el.innerHTML = rows.map(q=>`
+      <div class="pay-item">
+        <div class="pay-info">
+          <div class="pay-name">${q.name||'—'} <span style="color:var(--text-dim);font-weight:400">· ${q.telegram_id||'—'}</span></div>
+          <div class="pay-meta" style="white-space:pre-wrap">${q.text}</div>
+        </div>
+        <button class="action-btn success" onclick="resolveSupport(${q.id})">Готово</button>
+      </div>`).join('');
+  }catch(e){ el.innerHTML='<div class="empty">Не удалось загрузить</div>'; }
+}
+
+async function resolveSupport(id){
+  await fetch(API+'/support/'+id+'?x_admin_token='+ADMIN_TOKEN,{method:'DELETE'});
+  loadSupport();
+}
+
+async function loadRewardRequests(){
+  const el = document.getElementById('rewards-list');
+  try{
+    const rows = await fetch(API+'/rewards/requests?x_admin_token='+ADMIN_TOKEN).then(r=>r.json());
+    if(!rows.length){ el.innerHTML='<div class="empty">Заявок нет</div>'; return; }
+    el.innerHTML = rows.map(q=>`
+      <div class="pay-item">
+        <div class="pay-info">
+          <div class="pay-name">${q.title}</div>
+          <div class="pay-meta">${q.cost} баллов · telegram_id ${q.telegram_id||'—'}</div>
+        </div>
+        <button class="action-btn success" onclick="resolveReward(${q.id})">Выдал</button>
+      </div>`).join('');
+  }catch(e){ el.innerHTML='<div class="empty">Не удалось загрузить</div>'; }
+}
+
+async function resolveReward(id){
+  await fetch(API+'/rewards/requests/'+id+'?x_admin_token='+ADMIN_TOKEN,{method:'DELETE'});
+  loadRewardRequests();
+}
+
+/* ── Глобальные настройки клуба ── */
+
+const SETTING_LABELS = {
+  show_requisites:          ['Показывать реквизиты ИП', 'Строка с ИП и ИНН в приложении и на экране входа'],
+  sms_login_enabled:        ['Вход по SMS-коду', 'Выключено — пускаем просто по номеру, пока SMS.RU не одобрил отправку'],
+  allow_direct_phone_login: ['Разрешить вход без кода', 'Страховка: если SMS отвалятся, включи — и все зайдут по номеру'],
+};
+
+function openSettingsPopup(){
+  document.getElementById('settings-popup-overlay').classList.add('open');
+  loadSettings();
+}
+function closeSettingsPopup(){ document.getElementById('settings-popup-overlay').classList.remove('open'); }
+
+async function loadSettings(){
+  const el = document.getElementById('settings-body');
+  try{
+    const s = await fetch(API+'/settings').then(r=>r.json());
+    el.innerHTML = Object.keys(SETTING_LABELS).map(key=>{
+      const [title, hint] = SETTING_LABELS[key];
+      const on = !!s[key];
+      return `<div class="pay-item">
+        <div class="pay-info">
+          <div class="pay-name">${title}</div>
+          <div class="pay-meta">${hint}</div>
+        </div>
+        <button class="action-btn ${on?'success':''}" id="setting-${key}" onclick="toggleSetting('${key}', ${!on})">${on?'Включено':'Выключено'}</button>
+      </div>`;
+    }).join('');
+  }catch(e){ el.innerHTML='<div class="empty">Не удалось загрузить</div>'; }
+}
+
+async function toggleSetting(key, value){
+  try{
+    await fetch(API+'/settings?x_admin_token='+ADMIN_TOKEN,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({[key]: value})
+    });
+    loadSettings();
+  }catch(e){ alert('Не получилось сохранить'); }
 }
 
 async function resolveQuestion(id){
@@ -876,11 +1017,13 @@ function renderUsersList(){
     const name=u.full_name||u.name||'—';
     const sub=u.username||u.email||u.phone||'—';
     const total=u.total_revenue||0;
-    return `<div class="list-item" onclick="openPopup(${u.id})">
-      <div class="avatar">${initials(name)}</div>
+    const frozen=!!u.frozen_until;
+    const cancelled=(u.sub_status||'')==='cancelled';
+    return `<div class="list-item${frozen?' frozen':''}" onclick="openPopup(${u.id})">
+      <div class="avatar">${frozen?'❄':initials(name)}</div>
       <div class="item-info">
-        <div class="item-name">${name}</div>
-        <div class="item-sub">${sub}</div>
+        <div class="item-name">${name}${cancelled?' <span class="badge badge-err">остановлена</span>':''}</div>
+        <div class="item-sub">${frozen?('пауза до '+u.frozen_until):sub}</div>
       </div>
       <div class="item-right">
         <div class="item-val">${total>0?fmt(total):''}</div>
@@ -1299,7 +1442,9 @@ function openPopup(uid){
     ['Email',u.email||'—'],
     ['Username',u.username||'—'],
     ['Тариф',u.sub_name||'—'],
+    ['Баллы',`<b>${u.points||0}</b>`],
     ['Следующий платёж',u.next_payment_date||'—'],
+    ...(u.frozen_until?[['Заморожен до',`<span class="badge badge-err">${u.frozen_until}</span>`]]:[]),
     ['В клубе с',u.first_payment_date||'—'],
     ['Profile ID',u.profile_id||'—'],
     ['Статус',u.is_member?'<span class="badge badge-act">активен</span>':'<span class="badge badge-err">неактивен</span>'],
@@ -1307,10 +1452,182 @@ function openPopup(uid){
   ].map(([l,v])=>`<div class="popup-row"><span class="popup-row-label">${l}</span><span class="popup-row-val">${v}</span></div>`).join('');
   document.getElementById('popup-input-revenue').value=u.manual_revenue||'';
   document.getElementById('popup-input-notes').value=u.notes||'';
-  renderPopupPayments(u);
+  loadActivity(u.telegram_id);
+  document.getElementById('sub-action-result').style.display='none';
   document.getElementById('action-result').style.display='none';
   document.getElementById('payload-row').classList.remove('visible');
   document.getElementById('popup-overlay').classList.add('open');
+}
+
+/* ── Действия с подпиской напрямую через Продамус ──────────────────────────────
+   Раньше это делалось вызовом блоков Salebot, теперь бэкенд ходит в Продамус сам. */
+
+function subResult(text, ok){
+  const el = document.getElementById('sub-action-result');
+  el.textContent = text;
+  el.style.display = 'block';
+  el.style.color = ok ? 'var(--green,#2e9e6b)' : 'var(--red)';
+}
+
+async function subAction(url, body, okText){
+  if(!currentUser || !currentUser.telegram_id){ subResult('У карточки нет telegram_id', false); return; }
+  subResult('Отправляю...', true);
+  try{
+    const r = await fetch(API + url + '?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(Object.assign({telegram_id: currentUser.telegram_id}, body))
+    });
+    const d = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
+    subResult(okText(d), true);
+    await loadUsers();
+    loadActivity(currentUser.telegram_id);
+  }catch(e){
+    subResult(e.message || 'Не получилось', false);
+  }
+}
+
+function adminDiscount(){
+  const v = prompt('Размер скидки в рублях на следующий платёж:');
+  if(!v) return;
+  subAction('/admin/subscription/discount', {amount: parseFloat(v)}, d => `Скидка применена, платёж составит ${d.new_price} ₽`);
+}
+
+function adminShift(){
+  const v = prompt('На сколько дней сдвинуть платёж? (максимум 30)');
+  if(!v) return;
+  const days = parseInt(v, 10);
+  const base = currentUser.next_payment_date;
+  const parts = (base||'').split('.');
+  if(parts.length !== 3){ subResult('У карточки нет даты следующего платежа', false); return; }
+  const target = new Date(parts[2], parts[1]-1, parts[0]);
+  target.setDate(target.getDate() + days);
+  const iso = target.getFullYear() + '-' + String(target.getMonth()+1).padStart(2,'0') + '-' + String(target.getDate()).padStart(2,'0');
+  subAction('/subscription/shift', {date: iso}, d => `Платёж перенесён на ${d.next_payment}`);
+}
+
+function adminFreeze(){
+  const v = prompt('На сколько месяцев поставить паузу? (1-6)');
+  if(!v) return;
+  subAction('/subscription/freeze', {months: parseInt(v,10)}, d => `Пауза до ${d.frozen_until}`);
+}
+
+function adminReactivate(){
+  subAction('/subscription/reactivate', {}, () => 'Подписка восстановлена');
+}
+
+function adminCancel(){
+  if(!confirm('Остановить подписку? Автосписаний не будет, доступ сохранится до конца оплаченного периода.')) return;
+  subAction('/subscription/cancel', {confirm: true, reason: 'Остановлено из дашборда'}, () => 'Подписка остановлена');
+}
+
+/* ── Баллы ── */
+
+function openPointsPopup(){
+  document.getElementById('points-slider').value = 500;
+  document.getElementById('points-reason').value = '';
+  updatePointsPopup();
+  document.getElementById('points-popup-overlay').classList.add('open');
+}
+function closePointsPopup(){ document.getElementById('points-popup-overlay').classList.remove('open'); }
+function updatePointsPopup(){
+  document.getElementById('points-popup-value').textContent = document.getElementById('points-slider').value;
+}
+
+async function submitPoints(){
+  if(!currentUser || !currentUser.telegram_id){ alert('У карточки нет telegram_id'); return; }
+  const delta = parseInt(document.getElementById('points-slider').value, 10);
+  const reason = document.getElementById('points-reason').value.trim();
+  try{
+    const r = await fetch(API + '/users/' + currentUser.telegram_id + '/points?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({delta, reason})
+    });
+    const d = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.detail || 'Не получилось');
+    closePointsPopup();
+    subResult(`Начислено ${delta} баллов, баланс ${d.points}`, true);
+    await loadUsers();
+    loadActivity(currentUser.telegram_id);
+  }catch(e){ alert(e.message || 'Не получилось'); }
+}
+
+/* ── Удаление карточки ── */
+
+async function deleteCurrentUser(){
+  if(!currentUser) return;
+  if(!confirm('Удалить карточку целиком? Действие необратимо.')) return;
+  try{
+    let r = await fetch(API + '/users/' + currentUser.id + '?x_admin_token=' + ADMIN_TOKEN, {method:'DELETE'});
+    let d = await r.json().catch(()=>({}));
+    if(!r.ok){
+      // За карточкой есть успешные платежи — спрашиваем ещё раз, уже честно про историю
+      if(confirm((d.detail || 'Есть платежи') + '. Удалить вместе с историей платежей?')){
+        r = await fetch(API + '/users/' + currentUser.id + '?force=true&x_admin_token=' + ADMIN_TOKEN, {method:'DELETE'});
+        d = await r.json().catch(()=>({}));
+        if(!r.ok) throw new Error(d.detail || 'Не получилось');
+      } else return;
+    }
+    document.getElementById('popup-overlay').classList.remove('open');
+    await loadAll();
+  }catch(e){ alert(e.message || 'Не получилось'); }
+}
+
+/* ── Лента активности: платежи и действия с подпиской вперемешку ── */
+
+const ACTIVITY_LABELS = {
+  discount:'Оплата баллами', discount_admin:'Скидка от Дениса', shift:'Перенос платежа',
+  freeze:'Пауза', cancel:'Остановка подписки', cancel_request:'Задумался об отмене',
+  reactivate:'Восстановление подписки', points_admin:'Начисление баллов',
+};
+const PAYMENT_KIND_LABELS = {
+  first:'первая оплата', first_test:'тест-драйв', return:'возвращение',
+  recurring:'продление', recurring_cheap:'продление за символическую сумму',
+};
+
+async function loadActivity(telegramId){
+  const el = document.getElementById('popup-payments');
+  if(!telegramId){ el.innerHTML='<div class="empty">Нет telegram_id — активность не собрать</div>'; return; }
+  el.innerHTML = '<div class="loading">Загрузка...</div>';
+  try{
+    const d = await fetch(API + '/users/' + telegramId + '/activity?x_admin_token=' + ADMIN_TOKEN).then(r=>r.json());
+    renderActivity(d.items || []);
+  }catch(e){ el.innerHTML='<div class="empty">Не удалось загрузить</div>'; }
+}
+
+function renderActivity(items){
+  const el = document.getElementById('popup-payments');
+  if(!items.length){ el.innerHTML='<div class="empty">Пока ничего не происходило</div>'; return; }
+  el.innerHTML = items.map(it=>{
+    const d = it.at ? new Date(it.at) : null;
+    const date = d ? d.toLocaleDateString('ru',{day:'2-digit',month:'short',year:'2-digit'}) : '—';
+    if(it.type === 'payment'){
+      const kind = PAYMENT_KIND_LABELS[it.kind] || '';
+      return `<div class="pay-item">
+        <div class="pay-icon ${it.ok?'pay-icon-ok':'pay-icon-err'}">${it.ok?'✓':'✗'}</div>
+        <div class="pay-info">
+          <div class="pay-name">${it.title||'Платёж'}</div>
+          <div class="pay-meta">${date}${kind?' · '+kind:''}</div>
+        </div>
+        <div class="pay-amount" style="color:${it.ok?'var(--lav-deep)':'var(--red)'}">${fmt(it.amount||0)}</div>
+      </div>`;
+    }
+    const label = ACTIVITY_LABELS[it.title] || it.title;
+    const p = it.params || {};
+    let detail = '';
+    if(p.points_spent) detail = p.points_spent + ' баллов';
+    else if(p.delta) detail = '+' + p.delta + (p.reason ? ' · ' + p.reason : '');
+    else if(p.date) detail = 'на ' + p.date;
+    else if(p.discount_value) detail = p.discount_value + ' ₽';
+    else if(p.reason) detail = p.reason;
+    return `<div class="pay-item">
+      <div class="pay-icon ${it.ok?'pay-icon-ok':'pay-icon-err'}">${it.ok?'•':'✗'}</div>
+      <div class="pay-info">
+        <div class="pay-name">${label}</div>
+        <div class="pay-meta">${date}${detail?' · '+detail:''}${it.ok?'':' · '+(it.response||'ошибка')}</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function renderPopupPayments(u){
