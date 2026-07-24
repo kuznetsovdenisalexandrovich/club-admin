@@ -282,6 +282,13 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 .switch input:checked + .switch-track{background:var(--lav-deep,#7c6fe0)}
 .switch input:checked + .switch-track::before{transform:translateX(19px)}
 .badge-warn{background:rgba(230,168,23,0.18);color:#b8860b}
+.badge-danger{background:rgba(220,53,69,0.18);color:#dc3545}
+.list-item.stuck-soft{background:linear-gradient(180deg,rgba(230,168,23,0.13),rgba(230,168,23,0.05))}
+.list-item.stuck-hard{background:rgba(220,53,69,0.10);animation:stuckPulse 1.8s ease-in-out infinite}
+@keyframes stuckPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(220,53,69,0.35)}
+  50%{box-shadow:0 0 0 6px rgba(220,53,69,0)}
+}
 /* Замороженная подписка — видно прямо в списке, не открывая карточку */
 .list-item.frozen{background:linear-gradient(180deg,rgba(120,180,255,0.13),rgba(120,180,255,0.05))}
 .list-item.frozen .avatar{background:rgba(120,180,255,0.25);color:#3f7fd4}
@@ -326,6 +333,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       </div>
     </div>
     <div class="header-right">
+      <button class="icon-btn" onclick="openRegistrationReport()" title="Воронка регистрации">🚦</button>
       <button class="icon-btn" onclick="openSettingsPopup()" title="Настройки клуба">⚙️</button>
       <button class="icon-btn" onclick="toggleTheme()" id="theme-btn" title="Тёмная тема">🌙</button>
       <button class="icon-btn refresh-btn" onclick="loadAll()" title="Обновить">↻</button>
@@ -799,6 +807,14 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
   </div>
 </div>
 
+<div class="popup-overlay" id="reg-report-overlay" onclick="if(event.target===this) closeRegistrationReport()">
+  <div class="popup" style="max-width:480px">
+    <div class="popup-section-title">Воронка регистрации</div>
+    <div id="reg-report-body"><div class="loading">Загрузка...</div></div>
+    <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)" onclick="closeRegistrationReport()">Закрыть</button>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 const API        = 'https://club-backend-production-fc7f.up.railway.app';
@@ -865,6 +881,40 @@ async function loadQuestions(){
 }
 
 /* ── Обращения в поддержку и заявки на награды ── */
+
+/* ── Воронка регистрации ── */
+
+function openRegistrationReport(){
+  document.getElementById('reg-report-overlay').classList.add('open');
+  loadRegistrationReport();
+}
+function closeRegistrationReport(){ document.getElementById('reg-report-overlay').classList.remove('open'); }
+
+async function loadRegistrationReport(){
+  const el = document.getElementById('reg-report-body');
+  el.innerHTML = '<div class="loading">Загрузка...</div>';
+  try{
+    const d = await fetch(API+'/admin/registration-report?days=7&x_admin_token='+ADMIN_TOKEN).then(r=>r.json());
+    const rows = d.stuck_people.map(p=>{
+      const badge = p.level==='hard' ? '<span class="badge badge-danger">оплатил и пропал</span>' : '<span class="badge badge-warn">не зашёл в канал/чат</span>';
+      const steps = `канал ${p.channel_joined?'✓':'✗'} · чат ${p.chat_joined?'✓':'✗'} · апп ${p.app_opened?'✓':'✗'}`;
+      return `<div class="pay-item" onclick="closeRegistrationReport();openPopup(${p.user_id})" style="cursor:pointer">
+        <div class="pay-info">
+          <div class="pay-name">${p.name||'—'} ${badge}</div>
+          <div class="pay-meta">${p.hours_since_activation} ч. с оплаты · ${steps}</div>
+        </div>
+      </div>`;
+    }).join('');
+    el.innerHTML = `
+      <div class="popup-stats-row" style="display:flex;gap:10px;margin-bottom:14px">
+        <div class="popup-stat"><div class="popup-stat-label">Оплатили (7 дн.)</div><div class="popup-stat-val">${d.activated_total}</div></div>
+        <div class="popup-stat"><div class="popup-stat-label">Дошли до конца</div><div class="popup-stat-val">${d.completed_total}</div></div>
+        <div class="popup-stat"><div class="popup-stat-label">Зависли сейчас</div><div class="popup-stat-val">${d.stuck_soft_now + d.stuck_hard_now}</div></div>
+      </div>
+      ${rows || '<div class="empty">Сейчас никто не завис</div>'}
+    `;
+  }catch(e){ el.innerHTML = '<div class="empty">Не удалось загрузить</div>'; }
+}
 
 async function loadSupport(){
   const el = document.getElementById('support-list');
@@ -1027,10 +1077,16 @@ function renderUsersList(){
     const frozen=!!u.frozen_until;
     const cancelled=(u.sub_status||'')==='cancelled';
     const flagged=!!u.flagged;
-    return `<div class="list-item${frozen?' frozen':''}" onclick="openPopup(${u.id})">
-      <div class="avatar">${frozen?'❄':initials(name)}</div>
+    const stuckHard=!!u.stuck_hard;
+    const stuckSoft=!!u.stuck_soft && !stuckHard;
+    const itemClass=stuckHard?' stuck-hard':(frozen?' frozen':(stuckSoft?' stuck-soft':''));
+    const avatarMark=stuckHard?'🔴':(frozen?'❄':(stuckSoft?'🟡':initials(name)));
+    const regNote=stuckHard?` <span class="badge badge-danger">оплатил и пропал, ${u.hours_since_activation}ч</span>`
+                 :(stuckSoft?` <span class="badge badge-warn">не зашёл в канал/чат, ${u.hours_since_activation}ч</span>`:'');
+    return `<div class="list-item${itemClass}" onclick="openPopup(${u.id})">
+      <div class="avatar">${avatarMark}</div>
       <div class="item-info">
-        <div class="item-name">${name}${cancelled?' <span class="badge badge-err">остановлена</span>':''}${flagged?' <span class="badge badge-warn" title="'+u.flag_reason+'">⚠ часто пользуется</span>':''}</div>
+        <div class="item-name">${name}${cancelled?' <span class="badge badge-err">остановлена</span>':''}${flagged?' <span class="badge badge-warn" title="'+u.flag_reason+'">⚠ часто пользуется</span>':''}${regNote}</div>
         <div class="item-sub">${frozen?('пауза до '+u.frozen_until):sub}</div>
       </div>
       <div class="item-right">
