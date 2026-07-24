@@ -269,6 +269,9 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 /* Action buttons */
 .actions-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
 .action-btn{padding:10px 8px;border-radius:14px;border:1px solid var(--border);background:var(--stat-bg);font-size:12px;font-weight:600;font-family:var(--body);color:var(--text);cursor:pointer;text-align:center;transition:all .15s;line-height:1.3}
+.tools-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:stretch}
+.tools-grid .action-btn{padding:12px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tools-grid .action-btn--lav{background:var(--lav-deep);color:#fff;border:none;font-family:var(--disp);font-weight:700}
 .action-btn:active{opacity:.75;transform:scale(0.97)}
 .action-btn.danger{color:var(--red);border-color:rgba(255,69,58,0.25);background:rgba(255,69,58,0.06)}
 .action-btn.success{color:var(--green);border-color:rgba(62,207,142,0.25);background:rgba(62,207,142,0.06)}
@@ -405,12 +408,12 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
   <div class="section">
     <div class="section-head"><div class="section-title">Инструменты</div></div>
     <div class="card">
-      <div class="actions-grid">
-        <button class="action-btn" onclick="openSettingsPopup()">⚙️ Настройки клуба</button>
-        <button class="action-btn" onclick="openRegistrationReport()">📊 Статистика</button>
-        <button class="action-btn" onclick="openBulkPointsPopup()">🎁 Раздать баллы всем</button>
-        <button class="action-btn" onclick="openLevelConfigPopup()">🪜 Настроить уровни</button>
-        <button class="action-btn" onclick="openRewardCatalogPopup()">🏆 Управление наградами</button>
+      <div class="tools-grid">
+        <button class="action-btn" onclick="openSettingsPopup()">Настройки клуба</button>
+        <button class="action-btn" onclick="openRegistrationReport()">Статистика</button>
+        <button class="action-btn" onclick="openBulkPointsPopup()">Раздать баллы всем</button>
+        <button class="action-btn" onclick="openLevelConfigPopup()">Настроить уровни</button>
+        <button class="action-btn" onclick="openRewardCatalogPopup()">Управление наградами</button>
       </div>
     </div>
   </div>
@@ -418,11 +421,11 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
   <div class="section">
     <div class="section-head"><div class="section-title">Рассылки</div></div>
     <div class="card" id="broadcast-row">
-      <div class="actions-grid">
-        <button class="action-btn" onclick="openCampaignsPopup()">Кампании</button>
-        <button class="action-btn" onclick="openNewsPopup()">Лента новостей (в приложении)</button>
-        <button class="action-btn" onclick="openStreamsPopup()">Потоки</button>
-        <button class="action-btn" onclick="openListNotifPopup()">Уведомления</button>
+      <div class="tools-grid">
+        <button class="action-btn action-btn--lav" onclick="openCampaignsPopup()">Кампании</button>
+        <button class="action-btn action-btn--lav" onclick="openNewsPopup()">Лента новостей</button>
+        <button class="action-btn action-btn--lav" onclick="openStreamsPopup()">Потоки</button>
+        <button class="action-btn action-btn--lav" onclick="openListNotifPopup()">Уведомления</button>
       </div>
     </div>
   </div>
