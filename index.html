@@ -274,6 +274,14 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 .action-btn.success{color:var(--green);border-color:rgba(62,207,142,0.25);background:rgba(62,207,142,0.06)}
 .action-btn.primary{color:var(--lav-deep);border-color:var(--lav-dim);background:var(--lav-dim)}
 .scroll-btn{flex:0 0 auto;white-space:nowrap;width:auto;padding:12px 20px;margin-bottom:0}
+/* iOS-style тумблер для настроек клуба */
+.switch{position:relative;display:inline-block;width:46px;height:27px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.switch-track{position:absolute;inset:0;background:var(--border);border-radius:27px;transition:background .2s;cursor:pointer}
+.switch-track::before{content:"";position:absolute;width:21px;height:21px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,0.25)}
+.switch input:checked + .switch-track{background:var(--lav-deep,#7c6fe0)}
+.switch input:checked + .switch-track::before{transform:translateX(19px)}
+.badge-warn{background:rgba(230,168,23,0.18);color:#b8860b}
 /* Замороженная подписка — видно прямо в списке, не открывая карточку */
 .list-item.frozen{background:linear-gradient(180deg,rgba(120,180,255,0.13),rgba(120,180,255,0.05))}
 .list-item.frozen .avatar{background:rgba(120,180,255,0.25);color:#3f7fd4}
@@ -318,6 +326,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       </div>
     </div>
     <div class="header-right">
+      <button class="icon-btn" onclick="openSettingsPopup()" title="Настройки клуба">⚙️</button>
       <button class="icon-btn" onclick="toggleTheme()" id="theme-btn" title="Тёмная тема">🌙</button>
       <button class="icon-btn refresh-btn" onclick="loadAll()" title="Обновить">↻</button>
     </div>
@@ -395,7 +404,6 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       <button class="popup-save scroll-btn" onclick="openStreamsPopup()">Потоки</button>
       <button class="popup-save scroll-btn" onclick="openSchedulePopup()">Расписание</button>
       <button class="popup-save scroll-btn" onclick="openListNotifPopup()">Уведомления</button>
-      <button class="popup-save scroll-btn" onclick="openSettingsPopup()">Настройки клуба</button>
     </div>
   </div>
 
@@ -730,10 +738,6 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       <div id="action-result" class="action-result"></div>
 
       <div class="actions-grid">
-        <button class="action-btn success" onclick="doAction('activate')">Активировать</button>
-        <button class="action-btn danger"  onclick="doAction('deactivate')">Деактивировать</button>
-        <button class="action-btn primary" onclick="doAction('discount')">Скидка</button>
-        <button class="action-btn primary" onclick="doAction('bonuses')">1000 бонусов</button>
         <button class="action-btn"         onclick="doAction('registration')">Регистрация</button>
         <button class="action-btn"         onclick="showPayload('shift_payment','Сдвинуть платёж','Дата ДД.ММ.ГГГГ')">Сдвинуть платёж</button>
         <button class="action-btn"         onclick="showPayload('send_message','Отправить','Текст сообщения...')">Сообщение</button>
@@ -930,7 +934,10 @@ async function loadSettings(){
           <div class="pay-name">${title}</div>
           <div class="pay-meta">${hint}</div>
         </div>
-        <button class="action-btn ${on?'success':''}" id="setting-${key}" onclick="toggleSetting('${key}', ${!on})">${on?'Включено':'Выключено'}</button>
+        <label class="switch">
+          <input type="checkbox" ${on?'checked':''} onchange="toggleSetting('${key}', this.checked)">
+          <span class="switch-track"></span>
+        </label>
       </div>`;
     }).join('');
   }catch(e){ el.innerHTML='<div class="empty">Не удалось загрузить</div>'; }
@@ -1019,10 +1026,11 @@ function renderUsersList(){
     const total=u.total_revenue||0;
     const frozen=!!u.frozen_until;
     const cancelled=(u.sub_status||'')==='cancelled';
+    const flagged=!!u.flagged;
     return `<div class="list-item${frozen?' frozen':''}" onclick="openPopup(${u.id})">
       <div class="avatar">${frozen?'❄':initials(name)}</div>
       <div class="item-info">
-        <div class="item-name">${name}${cancelled?' <span class="badge badge-err">остановлена</span>':''}</div>
+        <div class="item-name">${name}${cancelled?' <span class="badge badge-err">остановлена</span>':''}${flagged?' <span class="badge badge-warn" title="'+u.flag_reason+'">⚠ часто пользуется</span>':''}</div>
         <div class="item-sub">${frozen?('пауза до '+u.frozen_until):sub}</div>
       </div>
       <div class="item-right">
@@ -1445,6 +1453,10 @@ function openPopup(uid){
     ['Баллы',`<b>${u.points||0}</b>`],
     ['Следующий платёж',u.next_payment_date||'—'],
     ...(u.frozen_until?[['Заморожен до',`<span class="badge badge-err">${u.frozen_until}</span>`]]:[]),
+    ...(u.flagged?[['Внимание',`<span class="badge badge-warn">${u.flag_reason}</span>`]]:[]),
+    ['Скидок получено', String(u.discount_count||0)],
+    ['Возвратов подписки', String(u.reactivate_count||0)],
+    ['Дешёвых платежей', String(u.cheap_payment_count||0)],
     ['В клубе с',u.first_payment_date||'—'],
     ['Profile ID',u.profile_id||'—'],
     ['Статус',u.is_member?'<span class="badge badge-act">активен</span>':'<span class="badge badge-err">неактивен</span>'],
