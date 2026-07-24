@@ -333,8 +333,6 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       </div>
     </div>
     <div class="header-right">
-      <button class="icon-btn" onclick="openRegistrationReport()" title="Воронка регистрации">🚦</button>
-      <button class="icon-btn" onclick="openSettingsPopup()" title="Настройки клуба">⚙️</button>
       <button class="icon-btn" onclick="toggleTheme()" id="theme-btn" title="Тёмная тема">🌙</button>
       <button class="icon-btn refresh-btn" onclick="loadAll()" title="Обновить">↻</button>
     </div>
@@ -405,15 +403,27 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
   </div>
 
   <div class="section">
+    <div class="section-head"><div class="section-title">Инструменты</div></div>
+    <div class="card">
+      <div class="actions-grid">
+        <button class="action-btn" onclick="openSettingsPopup()">⚙️ Настройки клуба</button>
+        <button class="action-btn" onclick="openRegistrationReport()">📊 Статистика</button>
+        <button class="action-btn" onclick="openBulkPointsPopup()">🎁 Раздать баллы всем</button>
+        <button class="action-btn" onclick="openLevelConfigPopup()">🪜 Настроить уровни</button>
+        <button class="action-btn" onclick="openRewardCatalogPopup()">🏆 Управление наградами</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
     <div class="section-head"><div class="section-title">Рассылки</div></div>
-    <div class="card scroll-row" id="broadcast-row" style="padding:14px 16px;display:flex;gap:10px;overflow-x:auto">
-      <button class="popup-save scroll-btn" onclick="openCampaignsPopup()">Кампании</button>
-      <button class="popup-save scroll-btn" onclick="openNewsPopup()">Лента новостей (в приложении)</button>
-      <button class="popup-save scroll-btn" onclick="openStreamsPopup()">Потоки</button>
-      <button class="popup-save scroll-btn" onclick="openSchedulePopup()">Расписание</button>
-      <button class="popup-save scroll-btn" onclick="openListNotifPopup()">Уведомления</button>
-      <button class="popup-save scroll-btn" onclick="openBulkPointsPopup()">Раздать баллы всем</button>
-      <button class="popup-save scroll-btn" onclick="openLevelConfigPopup()">Настроить уровни</button>
+    <div class="card" id="broadcast-row">
+      <div class="actions-grid">
+        <button class="action-btn" onclick="openCampaignsPopup()">Кампании</button>
+        <button class="action-btn" onclick="openNewsPopup()">Лента новостей (в приложении)</button>
+        <button class="action-btn" onclick="openStreamsPopup()">Потоки</button>
+        <button class="action-btn" onclick="openListNotifPopup()">Уведомления</button>
+      </div>
     </div>
   </div>
 
@@ -792,27 +802,35 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 
 <div class="popup-overlay" id="points-popup-overlay" onclick="if(event.target===this) closePointsPopup()">
   <div class="popup" style="max-width:420px">
-    <div class="popup-section-title">Начислить баллы</div>
+    <div class="popup-handle"></div>
+    <div class="popup-body">
+    <div class="popup-section-title" style="margin-top:0">Начислить баллы</div>
     <div id="points-popup-value" style="text-align:center;font-size:32px;font-weight:800;margin:8px 0"></div>
     <input type="range" id="points-slider" min="100" max="5000" step="100" value="500" oninput="updatePointsPopup()" style="width:100%;accent-color:var(--lav-deep)">
     <input class="popup-input" type="text" id="points-reason" placeholder="За что (попадёт в ленту активности)">
     <button class="popup-save" onclick="submitPoints()">Начислить</button>
     <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)" onclick="closePointsPopup()">Отмена</button>
+    </div>
   </div>
 </div>
 
 <div class="popup-overlay" id="settings-popup-overlay" onclick="if(event.target===this) closeSettingsPopup()">
   <div class="popup" style="max-width:460px">
-    <div class="popup-section-title">Настройки клуба</div>
+    <div class="popup-handle"></div>
+    <div class="popup-body">
+    <div class="popup-section-title" style="margin-top:0">Настройки клуба</div>
     <div id="settings-body"><div class="loading">Загрузка...</div></div>
     <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)" onclick="closeSettingsPopup()">Закрыть</button>
+    </div>
   </div>
 </div>
 
 <!-- Массовая раздача баллов: слайдер + поиск участников + категория подарка -->
 <div class="popup-overlay" id="bulk-points-overlay" onclick="if(event.target===this) closeBulkPointsPopup()">
   <div class="popup" style="max-width:460px">
-    <div class="popup-section-title">Раздать баллы всем</div>
+    <div class="popup-handle"></div>
+    <div class="popup-body">
+    <div class="popup-section-title" style="margin-top:0">Раздать баллы всем</div>
 
     <div id="bulk-points-value" style="text-align:center;font-size:32px;font-weight:800;margin:8px 0">500</div>
     <input type="range" id="bulk-points-slider" min="100" max="5000" step="100" value="500" oninput="updateBulkPointsValue()" style="width:100%;accent-color:var(--lav-deep)">
@@ -833,13 +851,16 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 
     <button class="popup-save" onclick="submitBulkPoints()">Раздать баллы</button>
     <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)" onclick="closeBulkPointsPopup()">Закрыть</button>
+    </div>
   </div>
 </div>
 
 <!-- Настроить уровни: список level_config + форма добавления/редактирования -->
 <div class="popup-overlay" id="level-config-overlay" onclick="if(event.target===this) closeLevelConfigPopup()">
   <div class="popup" style="max-width:480px">
-    <div class="popup-section-title">Настроить уровни</div>
+    <div class="popup-handle"></div>
+    <div class="popup-body">
+    <div class="popup-section-title" style="margin-top:0">Настроить уровни</div>
     <div id="level-config-list"><div class="loading">Загрузка...</div></div>
 
     <div class="popup-section-title" style="margin-top:14px">Добавить / изменить уровень</div>
@@ -848,14 +869,37 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
     <div id="level-config-rewards" style="margin-bottom:10px"></div>
     <button class="popup-save" onclick="submitLevelConfig()">Сохранить уровень</button>
     <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)" onclick="closeLevelConfigPopup()">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- Управление наградами: CRUD каталога reward_catalog. 'month' — системная, только показывается -->
+<div class="popup-overlay" id="reward-catalog-overlay" onclick="if(event.target===this) closeRewardCatalogPopup()">
+  <div class="popup" style="max-width:480px">
+    <div class="popup-handle"></div>
+    <div class="popup-body">
+    <div class="popup-section-title" style="margin-top:0">Управление наградами</div>
+    <div id="reward-catalog-list"><div class="loading">Загрузка...</div></div>
+
+    <div class="popup-section-title" style="margin-top:14px">Добавить / изменить награду</div>
+    <input class="popup-input" type="text" id="reward-catalog-key" placeholder="Ключ (латиницей, напр. archive)">
+    <input class="popup-input" type="text" id="reward-catalog-title" placeholder="Название">
+    <input class="popup-input" type="number" id="reward-catalog-cost" placeholder="Стоимость в баллах">
+    <input class="popup-input" type="text" id="reward-catalog-hint" placeholder="Подсказка (необязательно)">
+    <button class="popup-save" onclick="submitRewardCatalog()">Сохранить награду</button>
+    <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)" onclick="closeRewardCatalogPopup()">Закрыть</button>
+    </div>
   </div>
 </div>
 
 <div class="popup-overlay" id="reg-report-overlay" onclick="if(event.target===this) closeRegistrationReport()">
   <div class="popup" style="max-width:480px">
-    <div class="popup-section-title">Воронка регистрации</div>
+    <div class="popup-handle"></div>
+    <div class="popup-body">
+    <div class="popup-section-title" style="margin-top:0">Статистика — воронка регистрации</div>
     <div id="reg-report-body"><div class="loading">Загрузка...</div></div>
     <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)" onclick="closeRegistrationReport()">Закрыть</button>
+    </div>
   </div>
 </div>
 
@@ -1719,29 +1763,31 @@ async function submitBulkPoints(){
 
 /* ── Настроить уровни ──────────────────────────────────────────────────────── */
 
-const REWARD_CATALOG_FOR_LEVELS = [
-  { key:'archive',       title:'Доступ к архивным материалам' },
-  { key:'call_nikita',   title:'Секретный созвон с Никитой' },
-  { key:'consult_denis', title:'Личная консультация с Денисом' },
-  { key:'month',         title:'Оплатить месяц баллами' },
-];
+let rewardCatalogRows = []; // общий кэш каталога — используется и попапом наград, и чекбоксами уровней
 let levelConfigRows = [];
+
+async function loadRewardCatalog(){
+  try{
+    rewardCatalogRows = await fetch(API+'/reward-catalog').then(r=>r.json());
+  }catch(e){ rewardCatalogRows = []; }
+  return rewardCatalogRows;
+}
 
 function openLevelConfigPopup(){
   document.getElementById('level-config-num').value = '';
   document.getElementById('level-config-points').value = '';
-  renderLevelConfigRewardCheckboxes([]);
   document.getElementById('level-config-overlay').classList.add('open');
+  loadRewardCatalog().then(() => renderLevelConfigRewardCheckboxes([]));
   loadLevelConfig();
 }
 function closeLevelConfigPopup(){ document.getElementById('level-config-overlay').classList.remove('open'); }
 
 function renderLevelConfigRewardCheckboxes(checked){
   const el = document.getElementById('level-config-rewards');
-  el.innerHTML = REWARD_CATALOG_FOR_LEVELS.map(r => `
+  el.innerHTML = rewardCatalogRows.map(r => `
     <label style="display:flex;align-items:center;gap:8px;padding:6px 2px;font-size:13px">
       <input type="checkbox" value="${r.key}" ${checked.includes(r.key)?'checked':''}> ${r.title}
-    </label>`).join('');
+    </label>`).join('') || '<div class="empty">Наград пока нет — добавь их в "Управление наградами"</div>';
 }
 
 async function loadLevelConfig(){
@@ -1790,6 +1836,70 @@ async function deleteLevelConfig(level){
   if (!confirm(`Удалить уровень ${level}?`)) return;
   await fetch(API+'/levels/'+level+'?x_admin_token='+ADMIN_TOKEN, { method:'DELETE' });
   loadLevelConfig();
+}
+
+/* ── Управление наградами (каталог reward_catalog) ──────────────────────────── */
+
+function openRewardCatalogPopup(){
+  document.getElementById('reward-catalog-key').value = '';
+  document.getElementById('reward-catalog-title').value = '';
+  document.getElementById('reward-catalog-cost').value = '';
+  document.getElementById('reward-catalog-hint').value = '';
+  document.getElementById('reward-catalog-overlay').classList.add('open');
+  loadRewardCatalog().then(renderRewardCatalogList);
+}
+function closeRewardCatalogPopup(){ document.getElementById('reward-catalog-overlay').classList.remove('open'); }
+
+function renderRewardCatalogList(){
+  const el = document.getElementById('reward-catalog-list');
+  if (!rewardCatalogRows.length){ el.innerHTML = '<div class="empty">Наград пока нет</div>'; return; }
+  el.innerHTML = rewardCatalogRows.map(r => {
+    const isSystem = r.kind === 'payment';
+    return `<div class="pay-item" ${isSystem ? '' : `style="cursor:pointer" onclick="editRewardCatalog('${r.key}')"`}>
+      <div class="pay-info">
+        <div class="pay-name">${r.title}${isSystem ? ' <span class="badge badge-warn">системная</span>' : ''}</div>
+        <div class="pay-meta">${r.cost} баллов${r.hint ? ' · ' + r.hint : ''}</div>
+      </div>
+      ${isSystem ? '' : `<button class="action-btn danger" onclick="event.stopPropagation();deleteRewardCatalog('${r.key}')">✕</button>`}
+    </div>`;
+  }).join('');
+}
+
+function editRewardCatalog(key){
+  const r = rewardCatalogRows.find(x => x.key === key);
+  if (!r || r.kind === 'payment') return;
+  document.getElementById('reward-catalog-key').value = r.key;
+  document.getElementById('reward-catalog-title').value = r.title;
+  document.getElementById('reward-catalog-cost').value = r.cost;
+  document.getElementById('reward-catalog-hint').value = r.hint || '';
+}
+
+async function submitRewardCatalog(){
+  const key = document.getElementById('reward-catalog-key').value.trim();
+  const title = document.getElementById('reward-catalog-title').value.trim();
+  const cost = parseInt(document.getElementById('reward-catalog-cost').value, 10);
+  const hint = document.getElementById('reward-catalog-hint').value.trim();
+  if (!key || !title || !cost){ alert('Заполни ключ, название и стоимость'); return; }
+  try{
+    const r = await fetch(API+'/reward-catalog?x_admin_token='+ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ key, title, cost, hint })
+    });
+    if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || 'Не получилось');
+    document.getElementById('reward-catalog-key').value = '';
+    document.getElementById('reward-catalog-title').value = '';
+    document.getElementById('reward-catalog-cost').value = '';
+    document.getElementById('reward-catalog-hint').value = '';
+    await loadRewardCatalog();
+    renderRewardCatalogList();
+  }catch(e){ alert(e.message || 'Не получилось'); }
+}
+
+async function deleteRewardCatalog(key){
+  if (!confirm('Удалить эту награду?')) return;
+  await fetch(API+'/reward-catalog/'+key+'?x_admin_token='+ADMIN_TOKEN, { method:'DELETE' });
+  await loadRewardCatalog();
+  renderRewardCatalogList();
 }
 
 function openPointsPopup(){
