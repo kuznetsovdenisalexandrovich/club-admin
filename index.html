@@ -1231,13 +1231,14 @@ function renderPaymentsList(){
     const ok=isOk(p.status);
     const d=new Date(p.payment_date);
     const date=d.toLocaleDateString('ru',{day:'2-digit',month:'short'});
-    return `<div class="pay-item">
+    const clickable = !!p.user_id;
+    return `<div class="pay-item"${clickable ? ` onclick="openPopup(${p.user_id})" style="cursor:pointer"` : ''}>
       <div class="pay-icon ${ok?'pay-icon-ok':'pay-icon-err'}">${ok?'✓':'✗'}</div>
       <div class="pay-info">
         <div class="pay-name">${p.sub_name||'Платёж'}</div>
         <div class="pay-meta">${date} · ${p.client_name||('id '+p.telegram_id)}</div>
       </div>
-      <div style='display:flex;align-items:center;gap:8px'><div class="pay-amount" style="color:${ok?'var(--lav-deep)':'var(--red)'}">${fmt(parseFloat(p.actual_amount||0))}</div><button onclick="deletePayment(${p.id},event)" style='background:none;border:none;cursor:pointer;color:var(--text-faint);font-size:14px;padding:2px 4px;border-radius:4px' title='Удалить'>✕</button></div>
+      <div style='display:flex;align-items:center;gap:8px'><div class="pay-amount" style="color:${ok?'var(--lav-deep)':'var(--red)'}">${fmt(parseFloat(p.actual_amount||0))}</div><button onclick="event.stopPropagation();deletePayment(${p.id},event)" style='background:none;border:none;cursor:pointer;color:var(--text-faint);font-size:14px;padding:2px 4px;border-radius:4px' title='Удалить'>✕</button></div>
     </div>`;
     }).join('');
     renderPaginationControls('payments-pagination', paymentsPage, totalPages, 'prevPaymentsPage', 'nextPaymentsPage');
