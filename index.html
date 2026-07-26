@@ -1067,7 +1067,7 @@ async function loadSettings(){
   const el = document.getElementById('settings-body');
   try{
     const s = await fetch(API+'/settings').then(r=>r.json());
-    el.innerHTML = Object.keys(SETTING_LABELS).map(key=>{
+    const toggles = Object.keys(SETTING_LABELS).map(key=>{
       const [title, hint] = SETTING_LABELS[key];
       const on = !!s[key];
       return `<div class="pay-item">
@@ -1081,7 +1081,24 @@ async function loadSettings(){
         </label>
       </div>`;
     }).join('');
+    const numericRow = `<div class="pay-item">
+      <div class="pay-info">
+        <div class="pay-name">Уровень открытия "Главных идей"</div>
+        <div class="pay-meta">С какого уровня участнику открывается кнопка выжимки на карточке лекции</div>
+      </div>
+      <input type="number" min="1" value="${s.insights_unlock_level || 2}" style="width:56px;text-align:center;padding:8px 6px;border-radius:10px;border:1px solid var(--border);background:var(--stat-bg);color:var(--text);font-family:inherit" onchange="saveNumericSetting('insights_unlock_level', this.value)">
+    </div>`;
+    el.innerHTML = toggles + numericRow;
   }catch(e){ el.innerHTML='<div class="empty">Не удалось загрузить</div>'; }
+}
+
+async function saveNumericSetting(key, value){
+  try{
+    await fetch(API+'/settings?x_admin_token='+ADMIN_TOKEN,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({[key]: String(parseInt(value,10)||1)})
+    });
+  }catch(e){ alert('Не получилось сохранить'); }
 }
 
 async function toggleSetting(key, value){
