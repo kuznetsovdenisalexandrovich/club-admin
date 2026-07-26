@@ -354,6 +354,11 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       <div class="kpi-val" id="stat-payments">—</div>
       <div class="kpi-sub">за всё время</div>
     </div>
+    <div class="kpi">
+      <div class="kpi-label">Оплачено баллами</div>
+      <div class="kpi-val" id="stat-points-paid">—</div>
+      <div class="kpi-sub" id="stat-points-paid-users">уникальных участников</div>
+    </div>
     <div class="kpi kpi-wide">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div>
@@ -985,7 +990,10 @@ async function loadRegistrationReport(){
   const el = document.getElementById('reg-report-body');
   el.innerHTML = '<div class="loading">Загрузка...</div>';
   try{
-    const d = await fetch(API+'/admin/registration-report?days=7&x_admin_token='+ADMIN_TOKEN).then(r=>r.json());
+    const [d, w] = await Promise.all([
+      fetch(API+'/admin/registration-report?days=7&x_admin_token='+ADMIN_TOKEN).then(r=>r.json()),
+      fetch(API+'/admin/winback-stats?x_admin_token='+ADMIN_TOKEN).then(r=>r.json()),
+    ]);
     const rows = d.stuck_people.map(p=>{
       const badge = p.level==='hard' ? '<span class="badge badge-danger">оплатил и пропал</span>' : '<span class="badge badge-warn">не зашёл в канал/чат</span>';
       const steps = `канал ${p.channel_joined?'✓':'✗'} · чат ${p.chat_joined?'✓':'✗'} · апп ${p.app_opened?'✓':'✗'}`;
@@ -996,6 +1004,19 @@ async function loadRegistrationReport(){
         </div>
       </div>`;
     }).join('');
+
+    const reasonRows = (w.by_reason||[]).sort((a,b)=>b.attempts-a.attempts).map(r => {
+      const kept = r.attempts - r.declined;
+      const choicesText = Object.entries(r.choices).filter(([k])=>k!=='decline_forever')
+        .sort((a,b)=>b[1]-a[1]).map(([k,c])=>`${k}: ${c}`).join(', ');
+      return `<div class="pay-item">
+        <div class="pay-info">
+          <div class="pay-name">${r.label}</div>
+          <div class="pay-meta">${r.attempts} заходов · удержано ${kept} · ушло ${r.declined}${choicesText ? ' · '+choicesText : ''}</div>
+        </div>
+      </div>`;
+    }).join('');
+
     el.innerHTML = `
       <div class="popup-stats-row" style="display:flex;gap:10px;margin-bottom:14px">
         <div class="popup-stat"><div class="popup-stat-label">Оплатили (7 дн.)</div><div class="popup-stat-val">${d.activated_total}</div></div>
@@ -1003,6 +1024,14 @@ async function loadRegistrationReport(){
         <div class="popup-stat"><div class="popup-stat-label">Зависли сейчас</div><div class="popup-stat-val">${d.stuck_soft_now + d.stuck_hard_now}</div></div>
       </div>
       ${rows || '<div class="empty">Сейчас никто не завис</div>'}
+
+      <div class="popup-section-title" style="margin-top:18px">Воронка удержания</div>
+      <div class="popup-stats-row" style="display:flex;gap:10px;margin-bottom:14px">
+        <div class="popup-stat"><div class="popup-stat-label">Хотели уйти</div><div class="popup-stat-val">${w.total_cancel_requests}</div></div>
+        <div class="popup-stat"><div class="popup-stat-label">Удержано</div><div class="popup-stat-val">${w.total_saved}</div></div>
+        <div class="popup-stat"><div class="popup-stat-label">Ушли</div><div class="popup-stat-val">${w.total_cancelled}</div></div>
+      </div>
+      ${reasonRows || '<div class="empty">Пока никто не проходил воронку удержания</div>'}
     `;
   }catch(e){ el.innerHTML = '<div class="empty">Не удалось загрузить</div>'; }
 }
@@ -1126,6 +1155,8 @@ async function loadStats(){
     document.getElementById('stat-revenue').textContent=d.total_amount?fmt(d.total_amount):'—';
     document.getElementById('stat-actual').textContent=d.total_actual?fmt(d.total_actual):'—';
     if(d.total_commission) document.getElementById('stat-commission').textContent='комиссия '+fmt(d.total_commission);
+    document.getElementById('stat-points-paid').textContent=d.points_paid_months??'—';
+    document.getElementById('stat-points-paid-users').textContent=(d.points_paid_unique_users||0)+' уникальных участников';
   }catch(e){}
 }
 
