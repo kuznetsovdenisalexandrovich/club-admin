@@ -874,7 +874,17 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
     <div class="popup-section-title" style="margin-top:14px">Добавить / изменить уровень</div>
     <input class="popup-input" type="number" id="level-config-num" placeholder="Номер уровня (напр. 4)">
     <input class="popup-input" type="number" id="level-config-points" placeholder="Баллов нужно для этого уровня">
+    <div class="popup-section-title" style="margin-top:12px;font-size:12px">Награды из каталога</div>
     <div id="level-config-rewards" style="margin-bottom:10px"></div>
+    <div class="popup-section-title" style="margin-top:12px;font-size:12px">Что открывается в приложении</div>
+    <div id="level-config-unlocks" style="margin-bottom:14px">
+      <label style="display:flex;align-items:center;gap:8px;padding:6px 2px;font-size:13px">
+        <input type="checkbox" value="insights" id="unlock-insights"> Главные идеи (выжимка на карточке лекции)
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;padding:6px 2px;font-size:13px">
+        <input type="checkbox" value="pdf" id="unlock-pdf"> Скачивание PDF-выжимок
+      </label>
+    </div>
     <button class="popup-save" onclick="submitLevelConfig()">Сохранить уровень</button>
     <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)" onclick="closeLevelConfigPopup()">Закрыть</button>
     </div>
@@ -1847,14 +1857,19 @@ async function loadLevelConfig(){
   try{
     levelConfigRows = await fetch(API+'/levels').then(r=>r.json());
     if (!levelConfigRows.length){ el.innerHTML = '<div class="empty">Уровни ещё не настроены</div>'; return; }
-    el.innerHTML = levelConfigRows.map(l => `
+    const UNLOCK_LABELS = { insights: 'Главные идеи', pdf: 'PDF-выжимки' };
+    el.innerHTML = levelConfigRows.map(l => {
+      const unlockTitles = (l.unlock_keys || []).map(k => UNLOCK_LABELS[k] || k);
+      const allItems = [...(l.rewards || []), ...unlockTitles];
+      return `
       <div class="pay-item" style="cursor:pointer" onclick="editLevelConfig(${l.level})">
         <div class="pay-info">
           <div class="pay-name">Уровень ${l.level} · ${l.points_required} баллов</div>
-          <div class="pay-meta">${l.rewards.join(', ') || 'без наград'}</div>
+          <div class="pay-meta">${allItems.join(', ') || 'без наград и открытий'}</div>
         </div>
         <button class="action-btn danger" onclick="event.stopPropagation();deleteLevelConfig(${l.level})">✕</button>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }catch(e){ el.innerHTML = '<div class="empty">Не удалось загрузить</div>'; }
 }
 
@@ -1864,17 +1879,21 @@ function editLevelConfig(level){
   document.getElementById('level-config-num').value = row.level;
   document.getElementById('level-config-points').value = row.points_required;
   renderLevelConfigRewardCheckboxes(row.reward_keys || []);
+  const unlocks = row.unlock_keys || [];
+  document.getElementById('unlock-insights').checked = unlocks.includes('insights');
+  document.getElementById('unlock-pdf').checked      = unlocks.includes('pdf');
 }
 
 async function submitLevelConfig(){
   const level = parseInt(document.getElementById('level-config-num').value, 10);
   const points_required = parseInt(document.getElementById('level-config-points').value, 10);
   if (!level || !points_required){ alert('Укажи номер уровня и сколько баллов для него нужно'); return; }
-  const reward_keys = Array.from(document.querySelectorAll('#level-config-rewards input:checked')).map(i => i.value);
+  const reward_keys  = Array.from(document.querySelectorAll('#level-config-rewards input:checked')).map(i => i.value);
+  const unlock_keys  = Array.from(document.querySelectorAll('#level-config-unlocks input:checked')).map(i => i.value);
   try{
     const r = await fetch(API+'/levels?x_admin_token='+ADMIN_TOKEN, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ level, points_required, reward_keys })
+      body: JSON.stringify({ level, points_required, reward_keys, unlock_keys })
     });
     if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || 'Не получилось');
     document.getElementById('level-config-num').value = '';
