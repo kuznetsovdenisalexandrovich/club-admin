@@ -3367,7 +3367,7 @@ function cardDetailHtml(c, idx){
 
   const art = c.image_url
     ? '<img src="' + c.image_url + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block">'
-    : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:44px;color:' + rc + ';opacity:.45">◆</div>';
+    : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:64px;color:' + rc + ';opacity:.4">◆</div>';
 
   const per = c.limit_period_months || 1;
   const limitText = c.monthly_limit
@@ -3383,9 +3383,9 @@ function cardDetailHtml(c, idx){
   };
 
   return '<div style="padding:14px">'
-    + '<div style="display:flex;gap:16px;flex-wrap:wrap">'
-      + '<div style="width:150px;flex:none">'
-        + '<div style="aspect-ratio:3/4;border:2px solid ' + rc + ';border-radius:14px;overflow:hidden;background:rgba(255,255,255,.03)">' + art + '</div>'
+    + '<div style="display:flex;gap:18px;flex-wrap:wrap">'
+      + '<div style="width:min(280px,48vw);flex:none">'
+        + '<div style="aspect-ratio:3/4;border:2px solid ' + rc + ';border-radius:16px;overflow:hidden;background:rgba(255,255,255,.03)">' + art + '</div>'
       + '</div>'
       + '<div style="flex:1;min-width:180px">'
         + '<div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:' + rc + '">'
