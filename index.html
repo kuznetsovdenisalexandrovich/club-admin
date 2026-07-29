@@ -3240,7 +3240,8 @@ function visibleCards(){
     return ((c.title||'') + ' ' + (c.god||'') + ' ' + (c.key||'')).toLowerCase().indexOf(q) !== -1;
   });
 
-  const totalWeight = cardTypes.filter(function(c){ return c.active; })
+  // Секретные в колоде не участвуют, поэтому шанс считаем без них
+  const totalWeight = cardTypes.filter(function(c){ return c.active && !c.secret; })
                                .reduce(function(a,c){ return a + (c.weight||0); }, 0);
 
   list.sort(function(a,b){
@@ -3283,10 +3284,13 @@ function renderCardShelf(){
     const personalMark = c.personal
       ? '<div style="position:absolute;top:5px;right:5px;width:16px;height:16px;border-radius:50%;background:#f59e0b;color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center" title="Личное участие">Л</div>'
       : '';
+    const secretMark = c.secret
+      ? '<div style="position:absolute;top:5px;left:5px;width:16px;height:16px;border-radius:50%;background:#64748b;color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center" title="Секретная — не выпадает и не видна в альбоме">С</div>'
+      : '';
     return '<div onclick="openCardEditor(' + JSON.stringify(c.key) + ')" '
       + 'style="cursor:pointer;border:1.5px solid ' + rc + ';border-radius:12px;overflow:hidden;background:var(--surface);'
       + (c.active ? '' : 'opacity:.4;') + '">'
-      + '<div style="position:relative;aspect-ratio:3/4;background:rgba(255,255,255,.03)">' + art + personalMark + '</div>'
+      + '<div style="position:relative;aspect-ratio:3/4;background:rgba(255,255,255,.03)">' + art + personalMark + secretMark + '</div>'
       + '<div style="padding:6px 7px">'
         + '<div style="font-size:11px;font-weight:600;color:var(--text);line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (c.title || c.key) + '</div>'
         + '<div style="font-size:10px;color:var(--text-faint);margin-top:2px">' + (c.god || '—') + ' · ' + chance.toFixed(1) + '%</div>'
@@ -3337,7 +3341,7 @@ function renderCardShelf(){
    а не сразу лезть в поля. */
 function cardDetailHtml(c, idx){
   const rc = RARITY_COLORS[c.rarity] || '#94a3b8';
-  const totalWeight = cardTypes.filter(function(x){ return x.active; })
+  const totalWeight = cardTypes.filter(function(x){ return x.active && !x.secret; })
                                .reduce(function(a,x){ return a + (x.weight||0); }, 0);
   const chance = (totalWeight > 0 && c.active) ? ((c.weight||0)/totalWeight*100) : 0;
 
@@ -3374,6 +3378,7 @@ function cardDetailHtml(c, idx){
         + row('Лимит', limitText)
         + row('Что делает', effectText)
         + (c.personal ? row('Личное участие', 'да') : '')
+        + (c.secret ? row('Секретная', 'не выпадает, в альбоме не видна') : '')
         + (c.media_url ? row('Видео', 'прикреплено') : '')
       + '</div>'
     + '</div>'
@@ -3442,6 +3447,7 @@ function cardEditorHtml(c, idx){
       + '<div style="display:flex;gap:16px;flex-wrap:wrap;padding-top:2px">'
         + '<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer"><input type="checkbox" id="cf-personal-' + idx + '" ' + (c.personal?'checked':'') + '> Требует моего личного участия</label>'
         + '<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer"><input type="checkbox" id="cf-active-' + idx + '" ' + (c.active?'checked':'') + '> В колоде</label>'
+        + '<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer" title="Не выпадает случайно и не показывается плейсхолдером в альбоме. Выдаётся только через «Подарить»"><input type="checkbox" id="cf-secret-' + idx + '" ' + (c.secret?'checked':'') + '> Секретная</label>'
       + '</div>'
       + '<div style="display:flex;gap:8px;padding-top:2px">'
         + '<button onclick="saveCardType(' + idx + ')" style="flex:1;padding:9px;border-radius:9px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:600">Сохранить</button>'
@@ -3454,7 +3460,7 @@ function addCardType(){
   const key = 'card_' + Date.now().toString(36);
   cardTypes.push({ key:key, god:'', title:'Новая карточка', description:'', rarity:'common',
                    weight:100, monthly_limit:0, limit_period_months:1, effect_type:'points', effect_points:50,
-                   reward_key:'', media_url:'', image_url:'', personal:false, active:true,
+                   reward_key:'', media_url:'', image_url:'', personal:false, active:true, secret:false,
                    issued_this_month:0, _unsaved:true });
   cardsPage = 0;
   openCardEditor(key);
@@ -3476,7 +3482,7 @@ async function saveCardType(idx){
     effect_points: parseInt(v('effect_points'),10) || 0,
     reward_key: v('reward_key').trim(),
     media_url: v('media_url').trim(), image_url: v('image_url').trim(),
-    personal: cb('personal'), active: cb('active'),
+    personal: cb('personal'), active: cb('active'), secret: cb('secret'),
   };
   if (!payload.key){ alert('Нужен ключ карточки'); return; }
 
@@ -3560,7 +3566,7 @@ function runCardsSimulation(){
   const usePity = document.getElementById('sim-use-pity').checked;
   const out = document.getElementById('sim-result');
 
-  const deck = cardTypes.filter(function(c){ return c.active && (c.weight||0) > 0; });
+  const deck = cardTypes.filter(function(c){ return c.active && !c.secret && (c.weight||0) > 0; });
   if (!deck.length){ out.innerHTML = '<div class="empty">В колоде нет активных карточек с ненулевым весом</div>'; return; }
 
   // На человека: сколько баллов, сколько редких, сколько личного участия
@@ -3818,7 +3824,7 @@ function renderCardsWidget(){
   const countEl = document.getElementById('cards-widget-count');
   if (!el) return;
 
-  const active = cardTypes.filter(function(c){ return c.active; });
+  const active = cardTypes.filter(function(c){ return c.active && !c.secret; });
   const totalWeight = active.reduce(function(a,c){ return a + (c.weight||0); }, 0);
   if (countEl){
     countEl.textContent = cardTypes.length
