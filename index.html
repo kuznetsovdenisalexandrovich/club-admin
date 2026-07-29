@@ -3861,7 +3861,7 @@ function renderCardsWidget(){
     return (b.weight||0) - (a.weight||0);
   }).slice(0, CARDS_WIDGET_SLOTS);
 
-  let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:9px">';
+  let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px">';
 
   html += shown.map(function(c){
     const rc = RARITY_COLORS[c.rarity] || '#94a3b8';
