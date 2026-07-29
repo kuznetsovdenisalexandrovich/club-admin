@@ -449,7 +449,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
     </div>
     <div class="card">
       <div style="padding:14px">
-        <div id="cards-widget"><div class="loading">Загрузка...</div></div>
+        <div id="cards-widget"><div class="loading">Открываю колоду…</div></div>
         <button class="action-btn" style="width:100%;margin-top:10px" onclick="openCardsPopup()">Вся колода, симулятор и личное участие</button>
       </div>
     </div>
@@ -573,6 +573,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
         <button class="action-btn" id="cards-tab-deck-btn" onclick="switchCardsTab('deck')">Колода</button>
         <button class="action-btn" id="cards-tab-sim-btn" onclick="switchCardsTab('sim')">Симулятор</button>
         <button class="action-btn" id="cards-tab-queue-btn" onclick="switchCardsTab('queue')">Личное участие</button>
+        <button class="action-btn" id="cards-tab-grant-btn" onclick="switchCardsTab('grant')">Подарить</button>
       </div>
 
       <!-- Колода -->
@@ -631,6 +632,27 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
           Кому выпали карточки с пометкой «личное участие». Отмечай выполненные, иначе потеряешь, кому что должен.
         </div>
         <div id="cards-queue-list"><div class="loading">Загрузка...</div></div>
+      </div>
+
+      <!-- Подарить -->
+      <div id="cards-tab-grant" style="display:none">
+        <div style="font-size:12px;color:var(--text-faint);line-height:1.45;margin-bottom:12px">
+          Выдать карточку или пак конкретному участнику — для тестов и для подарков.
+          Приходит закрытой, как обычная: ритуал вскрытия сохраняется.
+        </div>
+        <input id="grant-search" placeholder="Найти участника по имени, телефону или юзернейму"
+               oninput="searchGrantCandidates()"
+               style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px">
+        <div id="grant-search-results" style="margin-top:6px"></div>
+        <div id="grant-chosen" style="margin-top:10px"></div>
+        <div id="grant-what" style="display:none;margin-top:12px">
+          <label style="display:flex;flex-direction:column;gap:4px">
+            <span style="font-size:11px;color:var(--text-faint)">Что выдать</span>
+            <select id="grant-card" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px"></select>
+          </label>
+          <button class="popup-save" style="margin-top:10px" onclick="grantCards()">Выдать</button>
+          <div id="grant-status" style="font-size:12px;color:var(--text-faint);margin-top:8px;min-height:16px"></div>
+        </div>
       </div>
 
       <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closeCardsPopup()">Закрыть</button>
@@ -3148,12 +3170,13 @@ function closeCardsPopup(){
 
 function switchCardsTab(tab){
   cardsTab = tab;
-  ['deck','sim','queue'].forEach(function(t){
+  ['deck','sim','queue','grant'].forEach(function(t){
     document.getElementById('cards-tab-'+t).style.display = (t===tab) ? 'block' : 'none';
     const b = document.getElementById('cards-tab-'+t+'-btn');
     if (b) b.style.opacity = (t===tab) ? '1' : '.55';
   });
   if (tab === 'queue') loadCardsQueue();
+  if (tab === 'grant') resetGrantTab();
 }
 
 /* Рубильник: пока колода не наполнена, выдача выключена и продление
@@ -3784,6 +3807,104 @@ function addCardFromWidget(){
   setTimeout(function(){ addCardType(); }, 250);
 }
 
+
+/* ── Подарить карточку или пак конкретному участнику ────────────────────── */
+
+let grantTarget = null;
+
+function resetGrantTab(){
+  grantTarget = null;
+  const q = document.getElementById('grant-search');
+  if (q) q.value = '';
+  document.getElementById('grant-search-results').innerHTML = '';
+  document.getElementById('grant-chosen').innerHTML = '';
+  document.getElementById('grant-status').textContent = '';
+  document.getElementById('grant-what').style.display = 'none';
+  fillGrantCardSelect();
+}
+
+function fillGrantCardSelect(){
+  const sel = document.getElementById('grant-card');
+  if (!sel) return;
+  // Случайный пак первым: это основной сценарий проверки
+  let opts = '<option value="">Случайный пак из трёх карточек</option>';
+  const byGod = {};
+  (cardTypes || []).forEach(function(c){
+    (byGod[c.god || 'Без бога'] = byGod[c.god || 'Без бога'] || []).push(c);
+  });
+  Object.keys(byGod).sort(function(a,b){ return a.localeCompare(b,'ru'); }).forEach(function(g){
+    opts += '<optgroup label="' + g + '">';
+    byGod[g].forEach(function(c){
+      const mark = c.active ? '' : ' (выключена)';
+      opts += '<option value="' + c.key + '">' + (c.title || c.key)
+            + ' — ' + (RARITY_LABELS[c.rarity] || c.rarity) + mark + '</option>';
+    });
+    opts += '</optgroup>';
+  });
+  sel.innerHTML = opts;
+}
+
+function searchGrantCandidates(){
+  const q = document.getElementById('grant-search').value.trim().toLowerCase();
+  const el = document.getElementById('grant-search-results');
+  if (!q){ el.innerHTML = ''; return; }
+  const matches = (allUsers || []).filter(function(u){
+    return u.telegram_id && (
+      (u.full_name||'').toLowerCase().includes(q) ||
+      (u.name||'').toLowerCase().includes(q) ||
+      (u.phone||'').includes(q) ||
+      (u.username||'').toLowerCase().includes(q) ||
+      String(u.telegram_id).includes(q)
+    );
+  }).slice(0, 8);
+
+  el.innerHTML = matches.map(function(u){
+    return '<div class="pay-item" style="cursor:pointer" onclick="chooseGrantTarget(' + u.id + ')">'
+      + '<div class="pay-info"><div class="pay-name">' + (u.full_name||u.name||'—') + '</div>'
+      + '<div class="pay-meta">' + (u.phone||u.username||u.telegram_id) + '</div></div></div>';
+  }).join('') || '<div class="empty" style="padding:10px">Никого не нашлось</div>';
+}
+
+function chooseGrantTarget(userId){
+  const u = (allUsers || []).find(function(x){ return x.id === userId; });
+  if (!u) return;
+  grantTarget = { telegram_id: u.telegram_id, name: u.full_name || u.name || String(u.telegram_id) };
+  document.getElementById('grant-search-results').innerHTML = '';
+  document.getElementById('grant-search').value = '';
+  document.getElementById('grant-chosen').innerHTML =
+    '<div class="pay-item"><div class="pay-info">'
+    + '<div class="pay-name">' + grantTarget.name + '</div>'
+    + '<div class="pay-meta">Telegram ID ' + grantTarget.telegram_id + '</div></div>'
+    + '<button class="action-btn" onclick="resetGrantTab()">Сменить</button></div>';
+  document.getElementById('grant-what').style.display = 'block';
+  document.getElementById('grant-status').textContent = '';
+}
+
+async function grantCards(){
+  if (!grantTarget){ return; }
+  const status = document.getElementById('grant-status');
+  const cardKey = document.getElementById('grant-card').value;
+  status.textContent = 'Выдаю...';
+  try {
+    const body = { telegram_id: grantTarget.telegram_id, reason: 'manual' };
+    if (cardKey) body.card_key = cardKey;
+    const r = await fetch(API+'/cards/admin/grant?x_admin_token='+encodeURIComponent(ADMIN_TOKEN), {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    const d = await r.json().catch(function(){ return {}; });
+    if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
+
+    const titles = (d.cards || []).map(function(k){
+      const c = (cardTypes || []).find(function(x){ return x.key === k; });
+      return c ? (c.title || k) : k;
+    });
+    status.textContent = (d.single ? 'Выдана карточка: ' : 'Выдан пак: ') + titles.join(', ');
+    // Расход лимитов мог измениться — обновляем полку и виджет
+    loadCardTypes();
+  } catch(e){
+    status.textContent = 'Не получилось: ' + (e && e.message ? e.message : e);
+  }
+}
 </script>
 </body>
 </html>
