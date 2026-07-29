@@ -419,6 +419,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
         <button class="action-btn" onclick="openBulkPointsPopup()">Раздать баллы всем</button>
         <button class="action-btn" onclick="openLevelConfigPopup()">Настроить уровни</button>
         <button class="action-btn" onclick="openRewardCatalogPopup()">Управление наградами</button>
+        <button class="action-btn" onclick="openCardsPopup()">Колода карточек</button>
       </div>
     </div>
   </div>
@@ -529,6 +530,62 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 </div>
 
 <!-- News Popup -->
+<div class="popup-overlay" id="cards-popup-overlay" onclick="if(event.target===this) closeCardsPopup()">
+  <div class="popup" style="max-width:560px">
+    <div class="popup-handle"></div>
+    <div class="popup-body">
+
+      <div class="popup-section-title" style="margin-top:0">Колода карточек</div>
+      <div id="cards-master-switch" style="margin-bottom:12px"></div>
+
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <button class="action-btn" id="cards-tab-deck-btn" onclick="switchCardsTab('deck')">Колода</button>
+        <button class="action-btn" id="cards-tab-sim-btn" onclick="switchCardsTab('sim')">Симулятор</button>
+        <button class="action-btn" id="cards-tab-queue-btn" onclick="switchCardsTab('queue')">Личное участие</button>
+      </div>
+
+      <!-- Колода -->
+      <div id="cards-tab-deck">
+        <div id="cards-list"><div class="loading">Загрузка...</div></div>
+        <button onclick="addCardType()" style="width:100%;margin-top:12px;padding:10px;border-radius:10px;border:1px dashed var(--border);background:transparent;color:var(--text-faint);cursor:pointer;font-size:13px">+ Добавить карточку</button>
+      </div>
+
+      <!-- Симулятор -->
+      <div id="cards-tab-sim" style="display:none">
+        <div style="font-size:12px;color:var(--text-faint);line-height:1.45;margin-bottom:12px">
+          Прогоняет раздачу на текущей колоде. Ничего не записывает — только считает.
+          Показывает распределение, а не средние: среднее скрывает и обделённых, и тех, кто выбил всё сразу.
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <label style="flex:1;display:flex;flex-direction:column;gap:4px">
+            <span style="font-size:11px;color:var(--text-faint)">Участников</span>
+            <input type="number" id="sim-members" value="200" min="1" step="10" class="popup-input" style="margin:0">
+          </label>
+          <label style="flex:1;display:flex;flex-direction:column;gap:4px">
+            <span style="font-size:11px;color:var(--text-faint)">Месяцев</span>
+            <input type="number" id="sim-months" value="12" min="1" max="60" class="popup-input" style="margin:0">
+          </label>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 0;cursor:pointer">
+          <input type="checkbox" id="sim-use-pity" checked> Учитывать счётчик невезения и лимиты
+        </label>
+        <button class="popup-save" onclick="runCardsSimulation()">Прогнать</button>
+        <div id="sim-result" style="margin-top:14px"></div>
+      </div>
+
+      <!-- Очередь личного участия -->
+      <div id="cards-tab-queue" style="display:none">
+        <div style="font-size:12px;color:var(--text-faint);line-height:1.45;margin-bottom:12px">
+          Кому выпали карточки с пометкой «личное участие». Отмечай выполненные, иначе потеряешь, кому что должен.
+        </div>
+        <div id="cards-queue-list"><div class="loading">Загрузка...</div></div>
+      </div>
+
+      <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closeCardsPopup()">Закрыть</button>
+    </div>
+  </div>
+</div>
+
 <div class="popup-overlay" id="news-popup-overlay">
   <div class="popup" id="news-popup">
     <div class="popup-handle"></div>
@@ -550,8 +607,9 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       </label>
       <div class="pay-meta">Дополнительные блоки — только для тех, кто состоит в конкретном списке уведомлений</div>
       <div id="news-targeted-list"></div>
+      <div style="font-size:11px;color:var(--text-faint);line-height:1.45;padding:2px 2px 6px">Здесь текущее состояние новостей. Сохранение публикует всё, что в форме — то, что не менял, останется как есть. Чтобы убрать новость списка, удали её блок крестиком и сохрани.</div>
       <button class="action-btn" onclick="addNewsTargeted()">+ Добавить блок для списка</button>
-      <button class="popup-save" onclick="publishNews()">Опубликовать</button>
+      <button class="popup-save" onclick="publishNews()">Сохранить новости</button>
       <button class="action-btn danger" onclick="deleteAllNews()">Удалить все новости</button>
       <button class="action-btn" onclick="clearUrgentNews()">Снять флаг "срочная" со всех новостей</button>
     </div>
@@ -2179,14 +2237,36 @@ function closeCampaignsPopup(){ document.getElementById('campaigns-popup-overlay
 
 let newsTargeted=[];
 
-function openNewsPopup(){
+async function openNewsPopup(){
   document.getElementById('news-popup-overlay').classList.add('open');
-  if(!newsTargeted.length) renderNewsTargeted();
+  await loadNewsIntoPopup();
+}
+
+// Показываем ТЕКУЩЕЕ состояние новостей, а не пустую форму. Иначе при сохранении
+// в новую запись уходит только то, что набрано сейчас, и блоки по спискам
+// (например книжный клуб) перестают показываться в приложении
+async function loadNewsIntoPopup(){
+  const listEl = document.getElementById('news-targeted-list');
+  listEl.innerHTML = '<div class="loading">Загрузка...</div>';
+  if(!notificationLists.length){ try{ await loadNotificationLists(); }catch(e){} }
+  try{
+    const news = await fetch(API+'/news/latest').then(r=>r.json());
+    document.getElementById('news-common').innerHTML = news.common_text || '';
+    document.getElementById('news-urgent').checked = !!news.urgent;
+    newsTargeted = (news.targeted || []).map(t => ({ list_id: t.list_id, text: t.text || '' }));
+  }catch(e){
+    newsTargeted = [];
+  }
+  renderNewsTargeted();
 }
 function closeNewsPopup(){ document.getElementById('news-popup-overlay').classList.remove('open'); }
 
 function addNewsTargeted(){
-  newsTargeted.push({list_id: notificationLists[0]?.list_id || 0, text: ''});
+  // Подставляем список, для которого блока ещё нет — иначе легко случайно
+  // завести два блока на один и тот же список
+  const used = new Set(newsTargeted.map(t => t.list_id));
+  const free = notificationLists.find(l => !used.has(l.list_id));
+  newsTargeted.push({ list_id: (free || notificationLists[0] || {}).list_id || 0, text: '' });
   renderNewsTargeted();
 }
 function removeNewsTargeted(i){
@@ -2213,22 +2293,25 @@ function renderNewsTargeted(){
 }
 
 async function publishNews(){
-  const common_text=document.getElementById('news-common').innerHTML.trim();
-  if(!common_text){ alert('Напиши общий текст новости'); return; }
-  if(!confirm('Опубликовать новость для всех участников?')) return;
+  const common_text = document.getElementById('news-common').innerHTML.trim();
+  const targeted = newsTargeted.filter(t => (t.text||'').trim());
+  // Общий текст больше не обязателен — иначе нельзя обновить новость только
+  // для книжного клуба, не трогая общую
+  if(!common_text && !targeted.length){
+    alert('Нечего сохранять — напиши общий текст или текст хотя бы для одного списка');
+    return;
+  }
+  if(!confirm('Сохранить новости? В приложении покажется всё, что сейчас в форме.')) return;
   try{
     const r=await fetch(API+'/news?x_admin_token='+ADMIN_TOKEN,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({common_text, targeted:newsTargeted.filter(t=>t.text.trim()), urgent:document.getElementById('news-urgent').checked})
+      body:JSON.stringify({common_text, targeted, urgent:document.getElementById('news-urgent').checked})
     });
-    if(!r.ok){ alert('Ошибка публикации'); return; }
-    alert('Опубликовано!');
-    document.getElementById('news-common').innerHTML='';
-    document.getElementById('news-urgent').checked=false;
-    newsTargeted=[];
-    renderNewsTargeted();
-    closeNewsPopup();
+    if(!r.ok){ alert('Ошибка сохранения'); return; }
+    // Не чистим форму, а перечитываем — видно, что реально записалось
+    await loadNewsIntoPopup();
+    alert('Сохранено');
   }catch(e){ alert('Ошибка соединения'); }
 }
 
@@ -2990,6 +3073,377 @@ document.querySelectorAll('.scroll-row').forEach(row => {
     row.scrollLeft = scrollLeft - (x - startX);
   });
 });
+
+/* ── Колода карточек ────────────────────────────────────────────────────── */
+
+const RARITY_LABELS = { common:'Частая', uncommon:'Нечастая', rare:'Редкая', legendary:'Легендарная' };
+const RARITY_COLORS = { common:'#94a3b8', uncommon:'#4ade80', rare:'#60a5fa', legendary:'#f59e0b' };
+const EFFECT_LABELS = { points:'Баллы', content:'Контент', unlock_reward:'Открывает награду' };
+
+let cardTypes = [];
+let cardExpanded = null;
+let cardsTab = 'deck';
+
+function openCardsPopup(){
+  document.getElementById('cards-popup-overlay').classList.add('open');
+  switchCardsTab('deck');
+  loadCardTypes();
+  loadCardsMasterSwitch();
+}
+function closeCardsPopup(){
+  document.getElementById('cards-popup-overlay').classList.remove('open');
+}
+
+function switchCardsTab(tab){
+  cardsTab = tab;
+  ['deck','sim','queue'].forEach(function(t){
+    document.getElementById('cards-tab-'+t).style.display = (t===tab) ? 'block' : 'none';
+    const b = document.getElementById('cards-tab-'+t+'-btn');
+    if (b) b.style.opacity = (t===tab) ? '1' : '.55';
+  });
+  if (tab === 'queue') loadCardsQueue();
+}
+
+/* Рубильник: пока колода не наполнена, выдача выключена и продление
+   по-прежнему даёт 500 баллов */
+async function loadCardsMasterSwitch(){
+  const el = document.getElementById('cards-master-switch');
+  try {
+    const st = await fetch(API+'/settings').then(r=>r.json());
+    const on = String(st.cards_enabled) === '1';
+    el.innerHTML =
+      '<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;cursor:pointer">'
+      + '<input type="checkbox" id="cards-enabled-cb" ' + (on?'checked':'') + ' onchange="toggleCardsEnabled(this.checked)">'
+      + '<span style="flex:1"><span style="font-size:13px;font-weight:600">Выдавать карточки за продление</span>'
+      + '<span style="display:block;font-size:11px;color:var(--text-faint);margin-top:2px">'
+      + 'Пока выключено — за продление начисляется 500 баллов, как раньше</span></span></label>';
+  } catch(e){ el.innerHTML = ''; }
+}
+
+async function toggleCardsEnabled(on){
+  try {
+    await fetch(API+'/settings?x_admin_token='+ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ key:'cards_enabled', value: on ? '1' : '0' })
+    });
+  } catch(e){ alert('Не удалось сохранить'); }
+}
+
+async function loadCardTypes(){
+  const el = document.getElementById('cards-list');
+  el.innerHTML = '<div class="loading">Загрузка...</div>';
+  try {
+    cardTypes = await fetch(API+'/cards/admin/catalog?x_admin_token='+ADMIN_TOKEN).then(r=>r.json());
+    if (!Array.isArray(cardTypes)) cardTypes = [];
+    renderCardTypes();
+  } catch(e){ el.innerHTML = '<div class="empty">Не удалось загрузить колоду</div>'; }
+}
+
+function renderCardTypes(){
+  const el = document.getElementById('cards-list');
+  if (!cardTypes.length){
+    el.innerHTML = '<div class="empty">Колода пуста — добавь первую карточку</div>';
+    return;
+  }
+  const totalWeight = cardTypes.filter(c=>c.active).reduce(function(a,c){ return a + (c.weight||0); }, 0);
+
+  el.innerHTML = cardTypes.map(function(c, idx){
+    const isOpen = cardExpanded === c.key;
+    const chance = (totalWeight > 0 && c.active) ? ((c.weight||0)/totalWeight*100) : 0;
+    const rc = RARITY_COLORS[c.rarity] || '#94a3b8';
+    const limitNote = c.monthly_limit
+      ? '<span style="font-size:11px;color:var(--text-faint)"> · ' + c.issued_this_month + '/' + c.monthly_limit + ' в этом месяце</span>'
+      : '';
+    const personalNote = c.personal
+      ? '<span style="font-size:11px;padding:1px 6px;border-radius:20px;background:rgba(245,158,11,.15);color:#f59e0b">личное участие</span>'
+      : '';
+    const offNote = c.active ? '' : '<span style="font-size:11px;color:var(--text-faint)">выключена</span>';
+
+    return '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:8px' + (c.active?'':';opacity:.55') + '">'
+      + '<div onclick="toggleCardExpand(' + JSON.stringify(c.key) + ')" style="display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer">'
+        + '<div style="width:8px;height:38px;border-radius:4px;background:' + rc + ';flex-shrink:0"></div>'
+        + '<div style="flex:1;min-width:0">'
+          + '<div style="font-size:13px;font-weight:600;color:var(--text)">' + (c.title || c.key) + '</div>'
+          + '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:3px">'
+            + '<span style="font-size:11px;color:' + rc + '">' + (RARITY_LABELS[c.rarity]||c.rarity) + '</span>'
+            + '<span style="font-size:11px;color:var(--text-faint)">' + (c.god||'без бога') + '</span>'
+            + '<span style="font-size:11px;color:var(--text-faint)">' + chance.toFixed(1) + '%</span>'
+            + limitNote + personalNote + offNote
+          + '</div>'
+        + '</div>'
+        + '<span style="color:var(--text-faint);font-size:15px">' + (isOpen?'▲':'▼') + '</span>'
+      + '</div>'
+      + (isOpen ? cardEditorHtml(c, idx) : '')
+      + '</div>';
+  }).join('');
+}
+
+function cardEditorHtml(c, idx){
+  const f = function(label, id, value, type, extra){
+    return '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:120px">'
+      + '<span style="font-size:11px;color:var(--text-faint)">' + label + '</span>'
+      + '<input type="' + (type||'text') + '" id="cf-' + id + '-' + idx + '" value="' + String(value==null?'':value).replace(/"/g,'&quot;') + '" '
+      + (extra||'') + ' style="padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px"></label>';
+  };
+  const sel = function(label, id, value, options){
+    const opts = Object.keys(options).map(function(k){
+      return '<option value="' + k + '"' + (k===value?' selected':'') + '>' + options[k] + '</option>';
+    }).join('');
+    return '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:120px">'
+      + '<span style="font-size:11px;color:var(--text-faint)">' + label + '</span>'
+      + '<select id="cf-' + id + '-' + idx + '" style="padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px">' + opts + '</select></label>';
+  };
+
+  return '<div style="padding:0 14px 14px;border-top:1px solid var(--border)">'
+    + '<div style="padding-top:12px;display:flex;flex-direction:column;gap:10px">'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap">' + f('Ключ (латиницей)','key',c.key) + f('Бог','god',c.god) + '</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap">' + f('Название','title',c.title) + '</div>'
+      + '<label style="display:flex;flex-direction:column;gap:3px">'
+        + '<span style="font-size:11px;color:var(--text-faint)">Описание</span>'
+        + '<textarea id="cf-description-' + idx + '" style="min-height:54px;padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px">' + (c.description||'') + '</textarea></label>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+        + sel('Редкость','rarity',c.rarity,RARITY_LABELS)
+        + f('Вес в колоде','weight',c.weight,'number','min="0"')
+        + f('Лимит в месяц','monthly_limit',c.monthly_limit,'number','min="0"')
+      + '</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+        + sel('Что делает','effect_type',c.effect_type,EFFECT_LABELS)
+        + f('Баллов','effect_points',c.effect_points,'number','min="0"')
+        + f('Ключ награды','reward_key',c.reward_key)
+      + '</div>'
+      + f('Ссылка на видео','media_url',c.media_url)
+      + f('Ссылка на картинку','image_url',c.image_url)
+      + '<div style="display:flex;gap:16px;flex-wrap:wrap;padding-top:2px">'
+        + '<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer"><input type="checkbox" id="cf-personal-' + idx + '" ' + (c.personal?'checked':'') + '> Требует моего личного участия</label>'
+        + '<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer"><input type="checkbox" id="cf-active-' + idx + '" ' + (c.active?'checked':'') + '> В колоде</label>'
+      + '</div>'
+      + '<div style="display:flex;gap:8px;padding-top:2px">'
+        + '<button onclick="saveCardType(' + idx + ')" style="flex:1;padding:9px;border-radius:9px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:600">Сохранить</button>'
+        + '<button onclick="deleteCardType(' + JSON.stringify(c.key) + ')" style="padding:9px 14px;border-radius:9px;border:1px solid #ef4444;background:transparent;color:#ef4444;cursor:pointer;font-size:13px">Удалить</button>'
+      + '</div>'
+    + '</div></div>';
+}
+
+function toggleCardExpand(key){
+  cardExpanded = (cardExpanded === key) ? null : key;
+  renderCardTypes();
+}
+
+function addCardType(){
+  const key = 'card_' + Date.now().toString(36);
+  cardTypes.push({ key:key, god:'', title:'Новая карточка', description:'', rarity:'common',
+                   weight:100, monthly_limit:0, effect_type:'points', effect_points:50,
+                   reward_key:'', media_url:'', image_url:'', personal:false, active:true,
+                   issued_this_month:0 });
+  cardExpanded = key;
+  renderCardTypes();
+}
+
+async function saveCardType(idx){
+  const v = function(id){ const el = document.getElementById('cf-'+id+'-'+idx); return el ? el.value : ''; };
+  const cb = function(id){ const el = document.getElementById('cf-'+id+'-'+idx); return el ? el.checked : false; };
+
+  const payload = {
+    key: v('key').trim(), god: v('god').trim(), title: v('title').trim(),
+    description: v('description'), rarity: v('rarity'),
+    weight: parseInt(v('weight'),10) || 0,
+    monthly_limit: parseInt(v('monthly_limit'),10) || 0,
+    effect_type: v('effect_type'),
+    effect_points: parseInt(v('effect_points'),10) || 0,
+    reward_key: v('reward_key').trim(),
+    media_url: v('media_url').trim(), image_url: v('image_url').trim(),
+    personal: cb('personal'), active: cb('active'),
+  };
+  if (!payload.key){ alert('Нужен ключ карточки'); return; }
+
+  try {
+    const r = await fetch(API+'/cards/admin/catalog?x_admin_token='+ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    });
+    if (!r.ok){ alert((await r.json().catch(function(){return {};})).detail || 'Ошибка сохранения'); return; }
+    cardExpanded = null;
+    await loadCardTypes();
+  } catch(e){ alert('Ошибка соединения'); }
+}
+
+async function deleteCardType(key){
+  if (!confirm('Удалить карточку? Если она уже кому-то выпала, удалить не получится — только выключить.')) return;
+  try {
+    const r = await fetch(API+'/cards/admin/catalog/'+encodeURIComponent(key)+'?x_admin_token='+ADMIN_TOKEN, { method:'DELETE' });
+    if (!r.ok){ alert((await r.json().catch(function(){return {};})).detail || 'Не удалось удалить'); return; }
+    cardExpanded = null;
+    await loadCardTypes();
+  } catch(e){ alert('Ошибка соединения'); }
+}
+
+/* ── Очередь личного участия ────────────────────────────────────────────── */
+
+async function loadCardsQueue(){
+  const el = document.getElementById('cards-queue-list');
+  el.innerHTML = '<div class="loading">Загрузка...</div>';
+  try {
+    const rows = await fetch(API+'/cards/admin/personal-queue?x_admin_token='+ADMIN_TOKEN).then(r=>r.json());
+    if (!rows.length){ el.innerHTML = '<div class="empty">Пока никому ничего не должен</div>'; return; }
+    el.innerHTML = rows.map(function(r){
+      const when = r.opened_at ? new Date(r.opened_at).toLocaleDateString('ru-RU') : '';
+      return '<div class="pay-item" style="' + (r.fulfilled?'opacity:.5':'') + '">'
+        + '<div class="pay-info">'
+          + '<div class="pay-name">' + (r.name || r.telegram_id) + ' — ' + r.card_title + '</div>'
+          + '<div class="pay-meta">' + when + (r.fulfilled ? ' · выполнено' : '') + '</div>'
+        + '</div>'
+        + (r.fulfilled ? '' : '<button class="action-btn" onclick="markCardFulfilled(' + r.id + ')">Выполнил</button>')
+        + '</div>';
+    }).join('');
+  } catch(e){ el.innerHTML = '<div class="empty">Не удалось загрузить</div>'; }
+}
+
+async function markCardFulfilled(id){
+  try {
+    await fetch(API+'/cards/admin/fulfill/'+id+'?x_admin_token='+ADMIN_TOKEN, { method:'POST' });
+    loadCardsQueue();
+  } catch(e){ alert('Ошибка соединения'); }
+}
+
+
+/* ── Симулятор раздачи ──────────────────────────────────────────────────────
+   Повторяет логику draw_pack из main.py: веса, месячные лимиты, счётчик
+   невезения. Ничего не пишет в базу — чистая математика в браузере.
+   Если правишь правила выдачи на бэкенде, поправь и здесь, иначе симулятор
+   начнёт врать. */
+
+const SIM_CARDS_PER_PACK = 3;
+const SIM_PITY_THRESHOLD = 6;
+const SIM_RARE = ['rare','legendary'];
+
+function simWeightedPick(pool){
+  let total = 0;
+  for (const c of pool) total += Math.max(c.weight||0, 0);
+  if (total <= 0) return null;
+  let r = Math.random() * total, upto = 0;
+  for (const c of pool){
+    const w = Math.max(c.weight||0, 0);
+    if (upto + w >= r) return c;
+    upto += w;
+  }
+  return pool[pool.length-1];
+}
+
+function runCardsSimulation(){
+  const members = Math.max(1, parseInt(document.getElementById('sim-members').value,10) || 1);
+  const months  = Math.max(1, parseInt(document.getElementById('sim-months').value,10) || 1);
+  const usePity = document.getElementById('sim-use-pity').checked;
+  const out = document.getElementById('sim-result');
+
+  const deck = cardTypes.filter(function(c){ return c.active && (c.weight||0) > 0; });
+  if (!deck.length){ out.innerHTML = '<div class="empty">В колоде нет активных карточек с ненулевым весом</div>'; return; }
+
+  // На человека: сколько баллов, сколько редких, сколько личного участия
+  const perMemberPoints = [], perMemberRare = [];
+  let personalTotal = 0, rareTotal = 0, packsTotal = 0;
+  const cardCounts = {};
+  // Расход месячных лимитов считаем помесячно по всей популяции
+  let monthlyIssued = {};
+
+  for (let m = 0; m < months; m++){
+    monthlyIssued = {};
+    for (let u = 0; u < members; u++){
+      if (m === 0){ perMemberPoints.push(0); perMemberRare.push(0); }
+      const pity = usePity ? (perMemberRare.__pity || (perMemberRare.__pity = [])) : null;
+      if (pity && pity[u] === undefined) pity[u] = 0;
+
+      // Лимит проверяем ПЕРЕД КАЖДЫМ слотом, а не один раз на пак — иначе
+      // карточка с лимитом 1 может выпасть дважды внутри одного пака,
+      // и симулятор будет врать в щедрую сторону (на бэкенде это учтено)
+      const availableNow = function(){
+        return deck.filter(function(c){
+          if (!usePity) return true;
+          if (!c.monthly_limit) return true;
+          return (monthlyIssued[c.key]||0) < c.monthly_limit;
+        });
+      };
+      if (!availableNow().length) continue;
+
+      packsTotal++;
+      const picked = [];
+      const forceRare = usePity && pity && (pity[u]+1) >= SIM_PITY_THRESHOLD;
+
+      for (let slot = 0; slot < SIM_CARDS_PER_PACK; slot++){
+        const pool = availableNow();
+        if (!pool.length) break;
+        let poolNow = pool;
+        if (forceRare && slot === SIM_CARDS_PER_PACK-1 && !picked.some(function(c){ return SIM_RARE.includes(c.rarity); })){
+          const rarePool = pool.filter(function(c){ return SIM_RARE.includes(c.rarity); });
+          if (rarePool.length) poolNow = rarePool;
+        }
+        const card = simWeightedPick(poolNow);
+        if (!card) continue;
+        picked.push(card);
+        monthlyIssued[card.key] = (monthlyIssued[card.key]||0) + 1;
+        cardCounts[card.key] = (cardCounts[card.key]||0) + 1;
+        if (card.effect_type === 'points') perMemberPoints[u] += (card.effect_points||0);
+        if (card.personal) personalTotal++;
+      }
+
+      const gotRare = picked.some(function(c){ return SIM_RARE.includes(c.rarity); });
+      if (gotRare){ perMemberRare[u]++; rareTotal++; }
+      if (pity) pity[u] = gotRare ? 0 : pity[u]+1;
+    }
+  }
+
+  const sorted = perMemberPoints.slice().sort(function(a,b){ return a-b; });
+  const pct = function(p){ return sorted[Math.min(sorted.length-1, Math.floor(sorted.length*p))]; };
+  const avg = sorted.reduce(function(a,b){ return a+b; }, 0) / sorted.length;
+  const noRare = perMemberRare.filter(function(n){ return n === 0; }).length;
+  const manyRare = perMemberRare.filter(function(n){ return n >= 3; }).length;
+
+  const row = function(label, value, hint){
+    return '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--border)">'
+      + '<span style="font-size:13px;color:var(--text-faint)">' + label + '</span>'
+      + '<span style="font-size:14px;font-weight:600;color:var(--text)">' + value
+      + (hint ? '<span style="font-size:11px;color:var(--text-faint);font-weight:400"> ' + hint + '</span>' : '')
+      + '</span></div>';
+  };
+
+  const monthsWord = months === 1 ? 'месяц' : (months < 5 ? 'месяца' : 'месяцев');
+
+  let html = '<div style="font-size:12px;color:var(--text-faint);margin-bottom:8px">'
+    + members + ' участников · ' + months + ' ' + monthsWord + ' · ' + packsTotal + ' паков</div>';
+
+  html += '<div class="popup-section-title" style="margin-top:10px;font-size:12px">Твоя нагрузка</div>';
+  html += row('Личное участие выпало', personalTotal + ' раз', personalTotal ? '≈ ' + (personalTotal/months).toFixed(1) + ' в месяц' : '');
+
+  html += '<div class="popup-section-title" style="margin-top:14px;font-size:12px">Баллы на человека за период</div>';
+  html += row('Худшие 5%', pct(0.05));
+  html += row('Медиана', pct(0.5));
+  html += row('В среднем', Math.round(avg));
+  html += row('Лучшие 5%', pct(0.95));
+  html += row('Максимум', sorted[sorted.length-1]);
+
+  const spread = pct(0.05) > 0 ? (sorted[sorted.length-1] / pct(0.05)) : 0;
+  if (spread > 5){
+    html += '<div style="font-size:12px;color:#f59e0b;line-height:1.45;padding:8px 0">'
+      + 'Разброс большой: у везучего в ' + spread.toFixed(0) + ' раз больше, чем у невезучего. '
+      + 'Стоит поднять номиналы частых карточек или снизить вес крупных.</div>';
+  }
+
+  html += '<div class="popup-section-title" style="margin-top:14px;font-size:12px">Редкие карточки</div>';
+  html += row('Не получили ни одной', noRare + ' чел', '(' + (noRare/members*100).toFixed(0) + '%)');
+  html += row('Получили 3 и больше', manyRare + ' чел', '(' + (manyRare/members*100).toFixed(0) + '%)');
+  html += row('Всего редких выпало', rareTotal);
+
+  html += '<div class="popup-section-title" style="margin-top:14px;font-size:12px">Что выпадало</div>';
+  const totalDraws = Object.keys(cardCounts).reduce(function(a,k){ return a + cardCounts[k]; }, 0);
+  html += Object.keys(cardCounts).sort(function(a,b){ return cardCounts[b]-cardCounts[a]; }).map(function(k){
+    const c = cardTypes.find(function(x){ return x.key === k; }) || {};
+    const share = (cardCounts[k]/totalDraws*100).toFixed(1);
+    return '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px">'
+      + '<span style="color:var(--text-faint)">' + (c.title||k) + '</span>'
+      + '<span style="color:var(--text)">' + cardCounts[k] + ' · ' + share + '%</span></div>';
+  }).join('');
+
+  out.innerHTML = html;
+}
+
 </script>
 </body>
 </html>
