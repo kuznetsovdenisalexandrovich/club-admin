@@ -3151,8 +3151,10 @@ function renderCardTypes(){
     const isOpen = cardExpanded === c.key;
     const chance = (totalWeight > 0 && c.active) ? ((c.weight||0)/totalWeight*100) : 0;
     const rc = RARITY_COLORS[c.rarity] || '#94a3b8';
+    const per = c.limit_period_months || 1;
+    const perWord = per === 1 ? 'в месяц' : ('за ' + per + ' мес');
     const limitNote = c.monthly_limit
-      ? '<span style="font-size:11px;color:var(--text-faint)"> · ' + c.issued_this_month + '/' + c.monthly_limit + ' в этом месяце</span>'
+      ? '<span style="font-size:11px;color:var(--text-faint)"> · ' + c.issued_this_month + '/' + c.monthly_limit + ' ' + perWord + '</span>'
       : '';
     const personalNote = c.personal
       ? '<span style="font-size:11px;padding:1px 6px;border-radius:20px;background:rgba(245,158,11,.15);color:#f59e0b">личное участие</span>'
@@ -3204,7 +3206,8 @@ function cardEditorHtml(c, idx){
       + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
         + sel('Редкость','rarity',c.rarity,RARITY_LABELS)
         + f('Вес в колоде','weight',c.weight,'number','min="0"')
-        + f('Лимит в месяц','monthly_limit',c.monthly_limit,'number','min="0"')
+        + f('Лимит выдач','monthly_limit',c.monthly_limit,'number','min="0"')
+        + f('за сколько мес','limit_period_months',c.limit_period_months||1,'number','min="1"')
       + '</div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
         + sel('Что делает','effect_type',c.effect_type,EFFECT_LABELS)
@@ -3232,7 +3235,7 @@ function toggleCardExpand(key){
 function addCardType(){
   const key = 'card_' + Date.now().toString(36);
   cardTypes.push({ key:key, god:'', title:'Новая карточка', description:'', rarity:'common',
-                   weight:100, monthly_limit:0, effect_type:'points', effect_points:50,
+                   weight:100, monthly_limit:0, limit_period_months:1, effect_type:'points', effect_points:50,
                    reward_key:'', media_url:'', image_url:'', personal:false, active:true,
                    issued_this_month:0 });
   cardExpanded = key;
@@ -3248,6 +3251,7 @@ async function saveCardType(idx){
     description: v('description'), rarity: v('rarity'),
     weight: parseInt(v('weight'),10) || 0,
     monthly_limit: parseInt(v('monthly_limit'),10) || 0,
+    limit_period_months: Math.max(1, parseInt(v('limit_period_months'),10) || 1),
     effect_type: v('effect_type'),
     effect_points: parseInt(v('effect_points'),10) || 0,
     reward_key: v('reward_key').trim(),
@@ -3341,11 +3345,23 @@ function runCardsSimulation(){
   const perMemberPoints = [], perMemberRare = [];
   let personalTotal = 0, rareTotal = 0, packsTotal = 0;
   const cardCounts = {};
-  // Расход месячных лимитов считаем помесячно по всей популяции
-  let monthlyIssued = {};
+  // Расход лимитов: помним, в каких месяцах карточка выдавалась, и считаем
+  // попадания в скользящее окно её периода — иначе карточка «раз в год»
+  // симулировалась бы как «раз в месяц»
+  const issueLog = {};   // key -> массив номеров месяцев
+  let curMonth = 0;
+  const issuedInWindow = function(c){
+    const log = issueLog[c.key];
+    if (!log) return 0;
+    const per = Math.max(1, c.limit_period_months || 1);
+    const from = curMonth - per + 1;
+    let n = 0;
+    for (const mm of log) if (mm >= from) n++;
+    return n;
+  };
 
   for (let m = 0; m < months; m++){
-    monthlyIssued = {};
+    curMonth = m;
     for (let u = 0; u < members; u++){
       if (m === 0){ perMemberPoints.push(0); perMemberRare.push(0); }
       const pity = usePity ? (perMemberRare.__pity || (perMemberRare.__pity = [])) : null;
@@ -3358,7 +3374,7 @@ function runCardsSimulation(){
         return deck.filter(function(c){
           if (!usePity) return true;
           if (!c.monthly_limit) return true;
-          return (monthlyIssued[c.key]||0) < c.monthly_limit;
+          return issuedInWindow(c) < c.monthly_limit;
         });
       };
       if (!availableNow().length) continue;
@@ -3378,7 +3394,7 @@ function runCardsSimulation(){
         const card = simWeightedPick(poolNow);
         if (!card) continue;
         picked.push(card);
-        monthlyIssued[card.key] = (monthlyIssued[card.key]||0) + 1;
+        (issueLog[card.key] || (issueLog[card.key] = [])).push(curMonth);
         cardCounts[card.key] = (cardCounts[card.key]||0) + 1;
         if (card.effect_type === 'points') perMemberPoints[u] += (card.effect_points||0);
         if (card.personal) personalTotal++;
