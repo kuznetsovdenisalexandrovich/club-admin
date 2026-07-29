@@ -3180,7 +3180,7 @@ function switchCardsTab(tab){
     if (b) b.style.opacity = (t===tab) ? '1' : '.55';
   });
   if (tab === 'queue') loadCardsQueue();
-  if (tab === 'grant') resetGrantTab();
+  if (tab === 'grant' && !grantTarget) resetGrantTab();
 }
 
 /* Рубильник: пока колода не наполнена, выдача выключена и продление
@@ -3225,6 +3225,7 @@ async function loadCardTypes(){
 const CARDS_PER_PAGE = 24;
 const RARITY_ORDER = { legendary:0, rare:1, uncommon:2, common:3 };
 let cardsPage = 0;
+let cardEditMode = false;   // false — карточка крупно, true — форма правки
 
 function renderCardTypes(){ cardsPage = 0; renderCardShelf(); }
 
@@ -3311,7 +3312,7 @@ function renderCardShelf(){
       + '<button class="action-btn" ' + (cardsPage>=pages-1?'disabled':'') + ' onclick="cardsPage++;renderCardShelf()">→</button>'
     : '';
 
-  // Редактор открытой карточки — под полкой
+  // Под полкой: сначала карточка крупно с кнопками, форма — только по «Редактировать»
   const slot = document.getElementById('cards-editor-slot');
   if (!cardExpanded){ slot.innerHTML = ''; return; }
   const idx = cardTypes.findIndex(function(c){ return c.key === cardExpanded; });
@@ -3321,20 +3322,86 @@ function renderCardShelf(){
   const unsavedNote = c._unsaved
     ? '<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:rgba(245,158,11,.18);color:#f59e0b">не сохранена</span>'
     : '';
+
   slot.innerHTML = '<div style="border:1.5px solid ' + rc + ';border-radius:12px;overflow:hidden">'
     + '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(255,255,255,.03)">'
       + '<div style="flex:1;font-size:13px;font-weight:600">' + (c.title || c.key) + ' ' + unsavedNote + '</div>'
       + '<button class="action-btn" onclick="closeCardEditor()">Свернуть</button>'
-    + '</div>' + cardEditorHtml(c, idx) + '</div>';
+    + '</div>'
+    + (cardEditMode ? cardEditorHtml(c, idx) : cardDetailHtml(c, idx))
+    + '</div>';
+}
+
+/* Крупный просмотр карточки: как она выглядит, плюс её настройки словами.
+   Правка спрятана за кнопкой — при клике по полке чаще хочется посмотреть,
+   а не сразу лезть в поля. */
+function cardDetailHtml(c, idx){
+  const rc = RARITY_COLORS[c.rarity] || '#94a3b8';
+  const totalWeight = cardTypes.filter(function(x){ return x.active; })
+                               .reduce(function(a,x){ return a + (x.weight||0); }, 0);
+  const chance = (totalWeight > 0 && c.active) ? ((c.weight||0)/totalWeight*100) : 0;
+
+  const art = c.image_url
+    ? '<img src="' + c.image_url + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block">'
+    : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:44px;color:' + rc + ';opacity:.45">◆</div>';
+
+  const per = c.limit_period_months || 1;
+  const limitText = c.monthly_limit
+    ? (c.monthly_limit + ' ' + (per === 1 ? 'в месяц' : ('за ' + per + ' мес')) + ' · выдано ' + (c.issued_this_month||0))
+    : 'без лимита';
+  const effectText = c.effect_type === 'points'
+    ? ('+' + (c.effect_points||0) + ' баллов')
+    : (c.effect_type === 'content' ? 'контент, баллов не даёт' : 'открывает награду');
+
+  const row = function(k, v){
+    return '<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">'
+      + '<span style="color:var(--text-faint)">' + k + '</span><span style="color:var(--text);text-align:right">' + v + '</span></div>';
+  };
+
+  return '<div style="padding:14px">'
+    + '<div style="display:flex;gap:16px;flex-wrap:wrap">'
+      + '<div style="width:150px;flex:none">'
+        + '<div style="aspect-ratio:3/4;border:2px solid ' + rc + ';border-radius:14px;overflow:hidden;background:rgba(255,255,255,.03)">' + art + '</div>'
+      + '</div>'
+      + '<div style="flex:1;min-width:180px">'
+        + '<div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:' + rc + '">'
+          + (RARITY_LABELS[c.rarity] || c.rarity) + (c.active ? '' : ' · выключена') + '</div>'
+        + '<div style="font-size:19px;font-weight:700;margin:3px 0 6px">' + (c.title || c.key) + '</div>'
+        + (c.god ? '<div style="font-size:13px;color:var(--text-faint);margin-bottom:8px">' + c.god + '</div>' : '')
+        + (c.description ? '<div style="font-size:13px;line-height:1.5;color:var(--text);margin-bottom:10px">' + c.description + '</div>' : '')
+        + row('Шанс выпадения', chance.toFixed(1) + '%')
+        + row('Вес в колоде', (c.weight||0))
+        + row('Лимит', limitText)
+        + row('Что делает', effectText)
+        + (c.personal ? row('Личное участие', 'да') : '')
+        + (c.media_url ? row('Видео', 'прикреплено') : '')
+      + '</div>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">'
+      + '<button onclick="editCardType()" style="flex:1;min-width:110px;padding:10px;border-radius:9px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:600">Редактировать</button>'
+      + '<button onclick="sendCardFromDetail(' + JSON.stringify(c.key) + ')" style="flex:1;min-width:110px;padding:10px;border-radius:9px;border:1px solid var(--border-strong,var(--border));background:var(--surface);color:var(--text);cursor:pointer;font-size:13px">Отправить</button>'
+      + '<button onclick="deleteCardType(' + JSON.stringify(c.key) + ')" style="padding:10px 14px;border-radius:9px;border:1px solid #ef4444;background:transparent;color:#ef4444;cursor:pointer;font-size:13px">Удалить</button>'
+    + '</div></div>';
+}
+
+function editCardType(){ cardEditMode = true; renderCardShelf(); }
+
+/* «Отправить» уводит на вкладку «Подарить» с этой карточкой уже выбранной —
+   иначе пришлось бы искать её в длинном списке вручную */
+function sendCardFromDetail(key){
+  switchCardsTab('grant');
+  const sel = document.getElementById('grant-card');
+  if (sel) sel.value = key;
 }
 
 function openCardEditor(key){
   cardExpanded = key;
+  cardEditMode = false;   // открываем просмотром, не формой
   renderCardShelf();
   const slot = document.getElementById('cards-editor-slot');
   if (slot && slot.scrollIntoView) slot.scrollIntoView({ behavior:'smooth', block:'nearest' });
 }
-function closeCardEditor(){ cardExpanded = null; renderCardShelf(); }
+function closeCardEditor(){ cardExpanded = null; cardEditMode = false; renderCardShelf(); }
 
 function cardEditorHtml(c, idx){
   const f = function(label, id, value, type, extra){
@@ -3391,6 +3458,8 @@ function addCardType(){
                    issued_this_month:0, _unsaved:true });
   cardsPage = 0;
   openCardEditor(key);
+  cardEditMode = true;   // у новой карточки смотреть нечего — сразу поля
+  renderCardShelf();
 }
 
 async function saveCardType(idx){
