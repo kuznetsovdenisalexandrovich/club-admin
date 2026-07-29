@@ -3287,7 +3287,7 @@ function renderCardShelf(){
     const secretMark = c.secret
       ? '<div style="position:absolute;top:5px;left:5px;width:16px;height:16px;border-radius:50%;background:#64748b;color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center" title="Секретная — не выпадает и не видна в альбоме">С</div>'
       : '';
-    return '<div onclick="openCardEditor(' + JSON.stringify(c.key) + ')" '
+    return '<div onclick="openCardEditor(' + jsArg(c.key) + ')" '
       + 'style="cursor:pointer;border:1.5px solid ' + rc + ';border-radius:12px;overflow:hidden;background:var(--surface);'
       + (c.active ? '' : 'opacity:.4;') + '">'
       + '<div style="position:relative;aspect-ratio:3/4;background:rgba(255,255,255,.03)">' + art + personalMark + secretMark + '</div>'
@@ -3384,8 +3384,8 @@ function cardDetailHtml(c, idx){
     + '</div>'
     + '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">'
       + '<button onclick="editCardType()" style="flex:1;min-width:110px;padding:10px;border-radius:9px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:600">Редактировать</button>'
-      + '<button onclick="sendCardFromDetail(' + JSON.stringify(c.key) + ')" style="flex:1;min-width:110px;padding:10px;border-radius:9px;border:1px solid var(--border-strong,var(--border));background:var(--surface);color:var(--text);cursor:pointer;font-size:13px">Отправить</button>'
-      + '<button onclick="deleteCardType(' + JSON.stringify(c.key) + ')" style="padding:10px 14px;border-radius:9px;border:1px solid #ef4444;background:transparent;color:#ef4444;cursor:pointer;font-size:13px">Удалить</button>'
+      + '<button onclick="sendCardFromDetail(' + jsArg(c.key) + ')" style="flex:1;min-width:110px;padding:10px;border-radius:9px;border:1px solid var(--border-strong,var(--border));background:var(--surface);color:var(--text);cursor:pointer;font-size:13px">Отправить</button>'
+      + '<button onclick="deleteCardType(' + jsArg(c.key) + ')" style="padding:10px 14px;border-radius:9px;border:1px solid #ef4444;background:transparent;color:#ef4444;cursor:pointer;font-size:13px">Удалить</button>'
     + '</div></div>';
 }
 
@@ -3451,7 +3451,7 @@ function cardEditorHtml(c, idx){
       + '</div>'
       + '<div style="display:flex;gap:8px;padding-top:2px">'
         + '<button onclick="saveCardType(' + idx + ')" style="flex:1;padding:9px;border-radius:9px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:600">Сохранить</button>'
-        + '<button onclick="deleteCardType(' + JSON.stringify(c.key) + ')" style="padding:9px 14px;border-radius:9px;border:1px solid #ef4444;background:transparent;color:#ef4444;cursor:pointer;font-size:13px">Удалить</button>'
+        + '<button onclick="deleteCardType(' + jsArg(c.key) + ')" style="padding:9px 14px;border-radius:9px;border:1px solid #ef4444;background:transparent;color:#ef4444;cursor:pointer;font-size:13px">Удалить</button>'
       + '</div>'
     + '</div></div>';
 }
@@ -3850,7 +3850,7 @@ function renderCardsWidget(){
     const personalMark = c.personal
       ? '<div style="position:absolute;top:4px;right:4px;width:14px;height:14px;border-radius:50%;background:#f59e0b;color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center">Л</div>'
       : '';
-    return '<div onclick="openCardFromWidget(' + JSON.stringify(c.key) + ')" '
+    return '<div onclick="openCardFromWidget(' + jsArg(c.key) + ')" '
       + 'style="cursor:pointer;border:1.5px solid ' + rc + ';border-radius:10px;overflow:hidden;background:var(--surface);'
       + (c.active ? '' : 'opacity:.4;') + '">'
       + '<div style="position:relative;aspect-ratio:3/4;background:rgba(255,255,255,.03)">' + art + personalMark + '</div>'
@@ -3983,6 +3983,18 @@ async function grantCards(){
   } catch(e){
     status.textContent = 'Не получилось: ' + (e && e.message ? e.message : e);
   }
+}
+
+/* Аргумент для inline-обработчика. JSON.stringify тут НЕЛЬЗЯ: он даёт строку в
+   двойных кавычках, а атрибут onclick="..." тоже ограничен двойными — первая же
+   кавычка закрывает атрибут, и обработчик молча перестаёт работать.
+   Оборачиваем в одинарные и экранируем на двух уровнях: сначала для JS, потом
+   для HTML. */
+function jsArg(v){
+  var s = String(v == null ? '' : v);
+  s = s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  s = s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  return "'" + s + "'";
 }
 </script>
 </body>
