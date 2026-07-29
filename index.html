@@ -425,6 +425,19 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
   </div>
 
   <div class="section">
+    <div class="section-head">
+      <div class="section-title">Колода карточек</div>
+      <span id="cards-widget-count" style="font-size:12px;color:var(--text-faint)"></span>
+    </div>
+    <div class="card">
+      <div style="padding:14px">
+        <div id="cards-widget"><div class="loading">Загрузка...</div></div>
+        <button class="action-btn" style="width:100%;margin-top:10px" onclick="openCardsPopup()">Вся колода, симулятор и личное участие</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
     <div class="section-head"><div class="section-title">Рассылки</div></div>
     <div class="card" id="broadcast-row">
       <div class="tools-grid">
@@ -1081,6 +1094,95 @@ async function uploadCardArt(idx, file){
     status.textContent = 'Ошибка: ' + e.message;
   }
 }
+
+/* Полка карточек прямо на главном экране: Denis специально просил видеть её
+   сразу, а не за кнопкой — так работает инстинкт коллекционирования.
+   Пустые места приглашают завести новую карточку. */
+
+const CARDS_WIDGET_SLOTS = 12;   // сколько мест показываем на главной
+
+async function loadCardsWidget(){
+  const el = document.getElementById('cards-widget');
+  if (!el) return;
+  try {
+    cardTypes = await fetch(API+'/cards/admin/catalog?x_admin_token='+ADMIN_TOKEN).then(r=>r.json());
+    if (!Array.isArray(cardTypes)) cardTypes = [];
+  } catch(e){
+    el.innerHTML = '<div class="empty">Не удалось загрузить колоду</div>';
+    return;
+  }
+  renderCardsWidget();
+}
+
+function renderCardsWidget(){
+  const el = document.getElementById('cards-widget');
+  const countEl = document.getElementById('cards-widget-count');
+  if (!el) return;
+
+  const active = cardTypes.filter(function(c){ return c.active; });
+  const totalWeight = active.reduce(function(a,c){ return a + (c.weight||0); }, 0);
+  if (countEl){
+    countEl.textContent = cardTypes.length
+      ? cardTypes.length + ' карточек, ' + active.length + ' в обороте'
+      : '';
+  }
+
+  // Сначала самые редкие — их приятнее видеть на полке
+  const shown = cardTypes.slice().sort(function(a,b){
+    const ra = RARITY_ORDER[a.rarity] ?? 9, rb = RARITY_ORDER[b.rarity] ?? 9;
+    if (ra !== rb) return ra - rb;
+    return (b.weight||0) - (a.weight||0);
+  }).slice(0, CARDS_WIDGET_SLOTS);
+
+  let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:9px">';
+
+  html += shown.map(function(c){
+    const rc = RARITY_COLORS[c.rarity] || '#94a3b8';
+    const chance = (totalWeight > 0 && c.active) ? ((c.weight||0)/totalWeight*100) : 0;
+    const art = c.image_url
+      ? '<img src="' + c.image_url + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.style.display=\'none\'">'
+      : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:19px;color:' + rc + ';opacity:.5">◆</div>';
+    const personalMark = c.personal
+      ? '<div style="position:absolute;top:4px;right:4px;width:14px;height:14px;border-radius:50%;background:#f59e0b;color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center">Л</div>'
+      : '';
+    return '<div onclick="openCardFromWidget(' + JSON.stringify(c.key) + ')" '
+      + 'style="cursor:pointer;border:1.5px solid ' + rc + ';border-radius:10px;overflow:hidden;background:var(--surface);'
+      + (c.active ? '' : 'opacity:.4;') + '">'
+      + '<div style="position:relative;aspect-ratio:3/4;background:rgba(255,255,255,.03)">' + art + personalMark + '</div>'
+      + '<div style="padding:5px 6px">'
+        + '<div style="font-size:10px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (c.title || c.key) + '</div>'
+        + '<div style="font-size:9px;color:var(--text-faint);margin-top:1px">' + chance.toFixed(1) + '%</div>'
+      + '</div></div>';
+  }).join('');
+
+  // Пустые места — сколько не хватает до полной полки, но хотя бы два
+  const empties = Math.max(2, CARDS_WIDGET_SLOTS - shown.length);
+  for (let i = 0; i < empties; i++){
+    html += '<div onclick="addCardFromWidget()" style="cursor:pointer;border:1.5px dashed var(--border);border-radius:10px;'
+      + 'display:flex;flex-direction:column;align-items:center;justify-content:center;aspect-ratio:3/4.5;'
+      + 'color:var(--text-faint);gap:3px">'
+      + '<div style="font-size:18px">+</div><div style="font-size:9px">пусто</div></div>';
+  }
+  html += '</div>';
+
+  if (cardTypes.length > CARDS_WIDGET_SLOTS){
+    html += '<div style="font-size:11px;color:var(--text-faint);text-align:center;margin-top:8px">'
+      + 'и ещё ' + (cardTypes.length - CARDS_WIDGET_SLOTS) + ' в колоде</div>';
+  }
+
+  el.innerHTML = html;
+}
+
+function openCardFromWidget(key){
+  openCardsPopup();
+  // Даём попапу дозагрузить каталог, потом раскрываем нужную карточку
+  setTimeout(function(){ openCardEditor(key); }, 250);
+}
+
+function addCardFromWidget(){
+  openCardsPopup();
+  setTimeout(function(){ addCardType(); }, 250);
+}
 </script>
 <script>
 const API        = 'https://club-backend-production-fc7f.up.railway.app';
@@ -1122,7 +1224,7 @@ async function loadAll(){
   loadSupport();
   loadRewardRequests();
   document.getElementById('last-update').textContent='Обновлено в '+new Date().toLocaleTimeString('ru');
-  await Promise.all([loadStats(),loadUsers(),loadPayments(),loadNotificationLists(),loadCampaigns(),loadAdminCalendarMonth(),loadQuestions()]);
+  await Promise.all([loadStats(),loadUsers(),loadPayments(),loadNotificationLists(),loadCampaigns(),loadAdminCalendarMonth(),loadQuestions(),loadCardsWidget()]);
 }
 
 async function loadQuestions(){
@@ -3453,6 +3555,7 @@ async function saveCardType(idx){
     if (!r.ok){ alert((await r.json().catch(function(){return {};})).detail || 'Ошибка сохранения'); return; }
     cardExpanded = null;
     await loadCardTypes();
+    renderCardsWidget();
   } catch(e){ alert('Ошибка соединения'); }
 }
 
@@ -3463,6 +3566,7 @@ async function deleteCardType(key){
     if (!r.ok){ alert((await r.json().catch(function(){return {};})).detail || 'Не удалось удалить'); return; }
     cardExpanded = null;
     await loadCardTypes();
+    renderCardsWidget();
   } catch(e){ alert('Ошибка соединения'); }
 }
 
