@@ -1104,14 +1104,28 @@ const CARDS_WIDGET_SLOTS = 12;   // сколько мест показываем
 async function loadCardsWidget(){
   const el = document.getElementById('cards-widget');
   if (!el) return;
+  // Отрисовка ВНУТРИ try и тайм-аут: иначе любая ошибка оставляла бы вечную
+  // «Загрузку», не сказав, что именно сломалось
   try {
-    cardTypes = await fetch(API+'/cards/admin/catalog?x_admin_token='+ADMIN_TOKEN).then(r=>r.json());
-    if (!Array.isArray(cardTypes)) cardTypes = [];
+    const ctrl = new AbortController();
+    const timer = setTimeout(function(){ ctrl.abort(); }, 15000);
+    let r;
+    try {
+      r = await fetch(API+'/cards/admin/catalog?x_admin_token='+ADMIN_TOKEN, { signal: ctrl.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!r.ok) throw new Error('сервер ответил ' + r.status + ' — задеплоен ли бэкенд с карточками?');
+    const data = await r.json();
+    cardTypes = Array.isArray(data) ? data : [];
+    renderCardsWidget();
   } catch(e){
-    el.innerHTML = '<div class="empty">Не удалось загрузить колоду</div>';
-    return;
+    const msg = (e && e.name === 'AbortError')
+      ? 'бэкенд не ответил за 15 секунд'
+      : ((e && e.message) ? e.message : String(e));
+    el.innerHTML = '<div class="empty" style="line-height:1.5">Не удалось загрузить колоду'
+      + '<div style="font-size:11px;margin-top:4px;opacity:.8">' + msg + '</div></div>';
   }
-  renderCardsWidget();
 }
 
 function renderCardsWidget(){
