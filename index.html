@@ -3158,11 +3158,15 @@ let cardTypes = [];
 let cardExpanded = null;
 let cardsTab = 'deck';
 
-function openCardsPopup(){
+async function openCardsPopup(after){
   document.getElementById('cards-popup-overlay').classList.add('open');
   switchCardsTab('deck');
-  loadCardTypes();
   loadCardsMasterSwitch();
+  // Ждём каталог и только потом выполняем действие. Раньше здесь был setTimeout
+  // на 250 мс: если каталог грузился дольше, ответ сервера перезатирал массив и
+  // только что добавленная карточка исчезала вместе с редактором
+  await loadCardTypes();
+  if (typeof after === 'function') after();
 }
 function closeCardsPopup(){
   document.getElementById('cards-popup-overlay').classList.remove('open');
@@ -3314,9 +3318,12 @@ function renderCardShelf(){
   if (idx < 0){ slot.innerHTML = ''; return; }
   const c = cardTypes[idx];
   const rc = RARITY_COLORS[c.rarity] || '#94a3b8';
+  const unsavedNote = c._unsaved
+    ? '<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:rgba(245,158,11,.18);color:#f59e0b">не сохранена</span>'
+    : '';
   slot.innerHTML = '<div style="border:1.5px solid ' + rc + ';border-radius:12px;overflow:hidden">'
     + '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(255,255,255,.03)">'
-      + '<div style="flex:1;font-size:13px;font-weight:600">' + (c.title || c.key) + '</div>'
+      + '<div style="flex:1;font-size:13px;font-weight:600">' + (c.title || c.key) + ' ' + unsavedNote + '</div>'
       + '<button class="action-btn" onclick="closeCardEditor()">Свернуть</button>'
     + '</div>' + cardEditorHtml(c, idx) + '</div>';
 }
@@ -3381,7 +3388,7 @@ function addCardType(){
   cardTypes.push({ key:key, god:'', title:'Новая карточка', description:'', rarity:'common',
                    weight:100, monthly_limit:0, limit_period_months:1, effect_type:'points', effect_points:50,
                    reward_key:'', media_url:'', image_url:'', personal:false, active:true,
-                   issued_this_month:0 });
+                   issued_this_month:0, _unsaved:true });
   cardsPage = 0;
   openCardEditor(key);
 }
@@ -3797,14 +3804,11 @@ function renderCardsWidget(){
 }
 
 function openCardFromWidget(key){
-  openCardsPopup();
-  // Даём попапу дозагрузить каталог, потом раскрываем нужную карточку
-  setTimeout(function(){ openCardEditor(key); }, 250);
+  openCardsPopup(function(){ openCardEditor(key); });
 }
 
 function addCardFromWidget(){
-  openCardsPopup();
-  setTimeout(function(){ addCardType(); }, 250);
+  openCardsPopup(function(){ addCardType(); });
 }
 
 
