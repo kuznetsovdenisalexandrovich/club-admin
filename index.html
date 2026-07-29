@@ -1009,6 +1009,78 @@ function rewardSelect(value, idx){
     + '<select id="cf-reward_key-' + idx + '" style="padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px">'
     + opts + '</select></label>';
 }
+
+/* Арт карточки: сжимаем в браузере и отдаём бэкенду, он коммитит в club-app.
+   Тот же механизм, что уже работает для обложек потоков в анализаторе —
+   без сжатия пара сотен артов разнесёт репозиторий. */
+
+function cardArtField(c, idx){
+  const preview = c.image_url
+    ? '<img src="' + c.image_url + '" alt="" style="width:56px;height:74px;object-fit:cover;border-radius:6px;display:block">'
+    : '<div style="width:56px;height:74px;border-radius:6px;border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-faint);font-size:16px">◆</div>';
+  return '<div style="display:flex;gap:10px;align-items:flex-start">'
+    + '<div id="card-art-preview-' + idx + '">' + preview + '</div>'
+    + '<div style="flex:1;display:flex;flex-direction:column;gap:5px">'
+      + '<span style="font-size:11px;color:var(--text-faint)">Арт карточки</span>'
+      + '<input type="file" accept="image/*" onchange="uploadCardArt(' + idx + ', this.files[0])" '
+      + 'style="font-size:12px;color:var(--text-faint)">'
+      + '<input type="hidden" id="cf-image_url-' + idx + '" value="' + String(c.image_url||'').replace(/"/g,'&quot;') + '">'
+      + '<div id="card-art-status-' + idx + '" style="font-size:11px;color:var(--text-faint);min-height:14px"></div>'
+    + '</div></div>';
+}
+
+function cardResizeToDataUrl(file, maxWidth){
+  return new Promise(function(resolve, reject){
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = function(){
+      img.onload = function(){
+        const scale = Math.min(1, maxWidth / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadCardArt(idx, file){
+  if (!file) return;
+  const status = document.getElementById('card-art-status-' + idx);
+  const keyEl  = document.getElementById('cf-key-' + idx);
+  const key    = keyEl ? keyEl.value.trim() : '';
+  if (!key){ status.textContent = 'Сначала задай ключ карточки'; return; }
+
+  status.textContent = 'Сжимаю и коммичу в GitHub...';
+  try {
+    // 600px по ширине хватает: карточка на полке около 100px, в аппе — не больше 300
+    const dataUrl = await cardResizeToDataUrl(file, 600);
+    const r = await fetch(API + '/cards/admin/upload-art?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ card_key: key, image_base64: dataUrl, ext: 'jpg' })
+    });
+    const d = await r.json().catch(function(){ return {}; });
+    if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
+
+    const hidden = document.getElementById('cf-image_url-' + idx);
+    if (hidden) hidden.value = d.url;
+    const prev = document.getElementById('card-art-preview-' + idx);
+    // Метка времени в конце — иначе браузер покажет старую картинку из кэша
+    if (prev) prev.innerHTML = '<img src="' + d.url + '?v=' + Date.now()
+      + '" alt="" style="width:56px;height:74px;object-fit:cover;border-radius:6px;display:block">';
+    const inDeck = cardTypes.find(function(x){ return x.key === key; });
+    if (inDeck) inDeck.image_url = d.url;
+    status.textContent = 'Готово';
+  } catch(e){
+    status.textContent = 'Ошибка: ' + e.message;
+  }
+}
 </script>
 <script>
 const API        = 'https://club-backend-production-fc7f.up.railway.app';
@@ -3334,7 +3406,7 @@ function cardEditorHtml(c, idx){
         + rewardSelect(c.reward_key, idx)
       + '</div>'
       + f('Ссылка на видео','media_url',c.media_url)
-      + f('Ссылка на картинку','image_url',c.image_url)
+      + cardArtField(c, idx)
       + '<div style="display:flex;gap:16px;flex-wrap:wrap;padding-top:2px">'
         + '<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer"><input type="checkbox" id="cf-personal-' + idx + '" ' + (c.personal?'checked':'') + '> Требует моего личного участия</label>'
         + '<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer"><input type="checkbox" id="cf-active-' + idx + '" ' + (c.active?'checked':'') + '> В колоде</label>'
