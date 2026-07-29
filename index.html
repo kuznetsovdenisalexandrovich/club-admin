@@ -3262,6 +3262,22 @@ function renderCardShelf(){
   const summary = document.getElementById('cards-summary');
   if (!shelf) return;
 
+  // Открытая карточка занимает место полки. Раньше просмотр раскрывался ПОД
+  // сеткой и при длинной колоде оказывался за пределами видимой части попапа —
+  // выглядело так, будто клик вообще ничего не делает
+  const searchRow = document.querySelector('#cards-tab-deck > div');
+  const summaryEl = document.getElementById('cards-summary');
+  if (cardExpanded){
+    if (searchRow) searchRow.style.display = 'none';
+    if (summaryEl) summaryEl.style.display = 'none';
+    shelf.innerHTML = '';
+    if (pager) pager.innerHTML = '';
+    renderCardDetailSlot();
+    return;
+  }
+  if (searchRow) searchRow.style.display = '';
+  if (summaryEl) summaryEl.style.display = '';
+
   const v = visibleCards();
   const list = v.list, totalWeight = v.totalWeight;
 
@@ -3316,8 +3332,12 @@ function renderCardShelf(){
       + '<button class="action-btn" ' + (cardsPage>=pages-1?'disabled':'') + ' onclick="cardsPage++;renderCardShelf()">→</button>'
     : '';
 
-  // Под полкой: сначала карточка крупно с кнопками, форма — только по «Редактировать»
+  renderCardDetailSlot();
+}
+
+function renderCardDetailSlot(){
   const slot = document.getElementById('cards-editor-slot');
+  if (!slot) return;
   if (!cardExpanded){ slot.innerHTML = ''; return; }
   const idx = cardTypes.findIndex(function(c){ return c.key === cardExpanded; });
   if (idx < 0){ slot.innerHTML = ''; return; }
@@ -3330,7 +3350,7 @@ function renderCardShelf(){
   slot.innerHTML = '<div style="border:1.5px solid ' + rc + ';border-radius:12px;overflow:hidden">'
     + '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(255,255,255,.03)">'
       + '<div style="flex:1;font-size:13px;font-weight:600">' + (c.title || c.key) + ' ' + unsavedNote + '</div>'
-      + '<button class="action-btn" onclick="closeCardEditor()">Свернуть</button>'
+      + '<button class="action-btn" onclick="closeCardEditor()">← К колоде</button>'
     + '</div>'
     + (cardEditMode ? cardEditorHtml(c, idx) : cardDetailHtml(c, idx))
     + '</div>';
@@ -3403,8 +3423,10 @@ function openCardEditor(key){
   cardExpanded = key;
   cardEditMode = false;   // открываем просмотром, не формой
   renderCardShelf();
-  const slot = document.getElementById('cards-editor-slot');
-  if (slot && slot.scrollIntoView) slot.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  // Прокручиваем попап к началу: карточка теперь на месте полки, и смотреть
+  // надо вверх, а не туда, где был клик
+  const popup = document.querySelector('#cards-popup-overlay .popup');
+  if (popup) popup.scrollTop = 0;
 }
 function closeCardEditor(){ cardExpanded = null; cardEditMode = false; renderCardShelf(); }
 
