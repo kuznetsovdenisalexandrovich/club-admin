@@ -530,7 +530,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 </div>
 
 <!-- News Popup -->
-<div class="popup-overlay" id="cards-popup-overlay" onclick="if(event.target===this) closeCardsPopup()">
+<div class="popup-overlay" id="cards-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeCardsPopup()">
   <div class="popup" style="max-width:560px">
     <div class="popup-handle"></div>
     <div class="popup-body">
@@ -546,8 +546,29 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 
       <!-- Колода -->
       <div id="cards-tab-deck">
-        <div id="cards-list"><div class="loading">Загрузка...</div></div>
-        <button onclick="addCardType()" style="width:100%;margin-top:12px;padding:10px;border-radius:10px;border:1px dashed var(--border);background:transparent;color:var(--text-faint);cursor:pointer;font-size:13px">+ Добавить карточку</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+          <input id="cards-search" placeholder="Поиск по названию или богу" oninput="renderCardShelf()"
+                 style="flex:2;min-width:150px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px">
+          <select id="cards-filter-rarity" onchange="renderCardShelf()"
+                  style="flex:1;min-width:110px;padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px">
+            <option value="">Все редкости</option>
+            <option value="common">Частые</option>
+            <option value="uncommon">Нечастые</option>
+            <option value="rare">Редкие</option>
+            <option value="legendary">Легендарные</option>
+          </select>
+          <select id="cards-sort" onchange="renderCardShelf()"
+                  style="flex:1;min-width:110px;padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px">
+            <option value="rarity">По редкости</option>
+            <option value="chance">По шансу</option>
+            <option value="god">По богу</option>
+            <option value="title">По названию</option>
+          </select>
+        </div>
+        <div id="cards-summary" style="font-size:11px;color:var(--text-faint);margin-bottom:8px"></div>
+        <div id="cards-shelf"><div class="loading">Загрузка...</div></div>
+        <div id="cards-pager" style="display:flex;justify-content:center;align-items:center;gap:10px;margin-top:12px"></div>
+        <div id="cards-editor-slot" style="margin-top:12px"></div>
       </div>
 
       <!-- Симулятор -->
@@ -866,7 +887,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
   </div>
 </div>
 
-<div class="popup-overlay" id="points-popup-overlay" onclick="if(event.target===this) closePointsPopup()">
+<div class="popup-overlay" id="points-popup-overlay" onclick="if(overlayShouldClose(event,this)) closePointsPopup()">
   <div class="popup" style="max-width:420px">
     <div class="popup-handle"></div>
     <div class="popup-body">
@@ -880,7 +901,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
   </div>
 </div>
 
-<div class="popup-overlay" id="settings-popup-overlay" onclick="if(event.target===this) closeSettingsPopup()">
+<div class="popup-overlay" id="settings-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeSettingsPopup()">
   <div class="popup" style="max-width:460px">
     <div class="popup-handle"></div>
     <div class="popup-body">
@@ -892,7 +913,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 </div>
 
 <!-- Массовая раздача баллов: слайдер + поиск участников + категория подарка -->
-<div class="popup-overlay" id="bulk-points-overlay" onclick="if(event.target===this) closeBulkPointsPopup()">
+<div class="popup-overlay" id="bulk-points-overlay" onclick="if(overlayShouldClose(event,this)) closeBulkPointsPopup()">
   <div class="popup" style="max-width:460px">
     <div class="popup-handle"></div>
     <div class="popup-body">
@@ -922,7 +943,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 </div>
 
 <!-- Настроить уровни: список level_config + форма добавления/редактирования -->
-<div class="popup-overlay" id="level-config-overlay" onclick="if(event.target===this) closeLevelConfigPopup()">
+<div class="popup-overlay" id="level-config-overlay" onclick="if(overlayShouldClose(event,this)) closeLevelConfigPopup()">
   <div class="popup" style="max-width:520px">
     <div class="popup-handle"></div>
     <div class="popup-body">
@@ -935,7 +956,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 </div>
 
 <!-- Управление наградами<!-- Управление наградами: CRUD каталога reward_catalog. 'month' — системная, только показывается -->
-<div class="popup-overlay" id="reward-catalog-overlay" onclick="if(event.target===this) closeRewardCatalogPopup()">
+<div class="popup-overlay" id="reward-catalog-overlay" onclick="if(overlayShouldClose(event,this)) closeRewardCatalogPopup()">
   <div class="popup" style="max-width:480px">
     <div class="popup-handle"></div>
     <div class="popup-body">
@@ -953,7 +974,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
   </div>
 </div>
 
-<div class="popup-overlay" id="reg-report-overlay" onclick="if(event.target===this) closeRegistrationReport()">
+<div class="popup-overlay" id="reg-report-overlay" onclick="if(overlayShouldClose(event,this)) closeRegistrationReport()">
   <div class="popup" style="max-width:480px">
     <div class="popup-handle"></div>
     <div class="popup-body">
@@ -964,7 +985,31 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js">
+/* Закрытие попапа по клику мимо. Раньше закрывалось, если ОТПУСКАНИЕ кнопки
+   пришлось на фон — из-за этого попап схлопывался, когда выделяешь текст внутри
+   и случайно уводишь мышь за край. Теперь требуем, чтобы и нажатие, и отпускание
+   были на фоне. */
+let _overlayMouseDownTarget = null;
+document.addEventListener('mousedown', function(e){ _overlayMouseDownTarget = e.target; }, true);
+function overlayShouldClose(event, overlayEl){
+  return event.target === overlayEl && _overlayMouseDownTarget === overlayEl;
+}
+
+/* Ключ награды — не свободное поле, а выбор из каталога наград: руками
+   правильный ключ угадать невозможно, а ошибка тихо ломает карточку */
+function rewardSelect(value, idx){
+  const opts = ['<option value="">— не открывает награду —</option>'].concat(
+    (rewardCatalogRows || []).map(function(r){
+      return '<option value="' + r.key + '"' + (r.key === value ? ' selected' : '') + '>' + (r.title || r.key) + '</option>';
+    })
+  ).join('');
+  return '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:150px">'
+    + '<span style="font-size:11px;color:var(--text-faint)">Какую награду открывает</span>'
+    + '<select id="cf-reward_key-' + idx + '" style="padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px">'
+    + opts + '</select></label>';
+}
+</script>
 <script>
 const API        = 'https://club-backend-production-fc7f.up.railway.app';
 const ADMIN_TOKEN = 'club2024secretkey';
@@ -3130,55 +3175,129 @@ async function toggleCardsEnabled(on){
 }
 
 async function loadCardTypes(){
-  const el = document.getElementById('cards-list');
-  el.innerHTML = '<div class="loading">Загрузка...</div>';
+  const el = document.getElementById('cards-shelf');
+  if (el) el.innerHTML = '<div class="loading">Загрузка...</div>';
+  // Каталог наград нужен для выпадающего списка в редакторе
+  if (!rewardCatalogRows || !rewardCatalogRows.length){
+    try { await loadRewardCatalog(); } catch(e){}
+  }
   try {
     cardTypes = await fetch(API+'/cards/admin/catalog?x_admin_token='+ADMIN_TOKEN).then(r=>r.json());
     if (!Array.isArray(cardTypes)) cardTypes = [];
     renderCardTypes();
-  } catch(e){ el.innerHTML = '<div class="empty">Не удалось загрузить колоду</div>'; }
+  } catch(e){ if (el) el.innerHTML = '<div class="empty">Не удалось загрузить колоду</div>'; }
 }
 
-function renderCardTypes(){
-  const el = document.getElementById('cards-list');
-  if (!cardTypes.length){
-    el.innerHTML = '<div class="empty">Колода пуста — добавь первую карточку</div>';
-    return;
-  }
-  const totalWeight = cardTypes.filter(c=>c.active).reduce(function(a,c){ return a + (c.weight||0); }, 0);
+const CARDS_PER_PAGE = 24;
+const RARITY_ORDER = { legendary:0, rare:1, uncommon:2, common:3 };
+let cardsPage = 0;
 
-  el.innerHTML = cardTypes.map(function(c, idx){
-    const isOpen = cardExpanded === c.key;
-    const chance = (totalWeight > 0 && c.active) ? ((c.weight||0)/totalWeight*100) : 0;
+function renderCardTypes(){ cardsPage = 0; renderCardShelf(); }
+
+function visibleCards(){
+  const q      = (document.getElementById('cards-search')?.value || '').trim().toLowerCase();
+  const rarity = document.getElementById('cards-filter-rarity')?.value || '';
+  const sort   = document.getElementById('cards-sort')?.value || 'rarity';
+
+  let list = cardTypes.filter(function(c){
+    if (rarity && c.rarity !== rarity) return false;
+    if (!q) return true;
+    return ((c.title||'') + ' ' + (c.god||'') + ' ' + (c.key||'')).toLowerCase().indexOf(q) !== -1;
+  });
+
+  const totalWeight = cardTypes.filter(function(c){ return c.active; })
+                               .reduce(function(a,c){ return a + (c.weight||0); }, 0);
+
+  list.sort(function(a,b){
+    if (sort === 'chance') return (b.weight||0) - (a.weight||0);
+    if (sort === 'god')    return (a.god||'').localeCompare(b.god||'', 'ru');
+    if (sort === 'title')  return (a.title||'').localeCompare(b.title||'', 'ru');
+    const ra = RARITY_ORDER[a.rarity] ?? 9, rb = RARITY_ORDER[b.rarity] ?? 9;
+    if (ra !== rb) return ra - rb;
+    return (b.weight||0) - (a.weight||0);
+  });
+
+  return { list: list, totalWeight: totalWeight };
+}
+
+function renderCardShelf(){
+  const shelf = document.getElementById('cards-shelf');
+  const pager = document.getElementById('cards-pager');
+  const summary = document.getElementById('cards-summary');
+  if (!shelf) return;
+
+  const v = visibleCards();
+  const list = v.list, totalWeight = v.totalWeight;
+
+  const pages = Math.max(1, Math.ceil(list.length / CARDS_PER_PAGE));
+  if (cardsPage >= pages) cardsPage = pages - 1;
+  const slice = list.slice(cardsPage*CARDS_PER_PAGE, (cardsPage+1)*CARDS_PER_PAGE);
+
+  const activeCount = cardTypes.filter(function(c){ return c.active; }).length;
+  summary.textContent = 'В колоде ' + cardTypes.length + ' карточек, ' + activeCount + ' в обороте'
+    + (list.length !== cardTypes.length ? ' · показано ' + list.length : '');
+
+  let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px">';
+
+  html += slice.map(function(c){
     const rc = RARITY_COLORS[c.rarity] || '#94a3b8';
-    const per = c.limit_period_months || 1;
-    const perWord = per === 1 ? 'в месяц' : ('за ' + per + ' мес');
-    const limitNote = c.monthly_limit
-      ? '<span style="font-size:11px;color:var(--text-faint)"> · ' + c.issued_this_month + '/' + c.monthly_limit + ' ' + perWord + '</span>'
+    const chance = (totalWeight > 0 && c.active) ? ((c.weight||0)/totalWeight*100) : 0;
+    const art = c.image_url
+      ? '<img src="' + c.image_url + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.style.display=\'none\'">'
+      : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;color:' + rc + ';opacity:.5">◆</div>';
+    const personalMark = c.personal
+      ? '<div style="position:absolute;top:5px;right:5px;width:16px;height:16px;border-radius:50%;background:#f59e0b;color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center" title="Личное участие">Л</div>'
       : '';
-    const personalNote = c.personal
-      ? '<span style="font-size:11px;padding:1px 6px;border-radius:20px;background:rgba(245,158,11,.15);color:#f59e0b">личное участие</span>'
-      : '';
-    const offNote = c.active ? '' : '<span style="font-size:11px;color:var(--text-faint)">выключена</span>';
-
-    return '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:8px' + (c.active?'':';opacity:.55') + '">'
-      + '<div onclick="toggleCardExpand(' + JSON.stringify(c.key) + ')" style="display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer">'
-        + '<div style="width:8px;height:38px;border-radius:4px;background:' + rc + ';flex-shrink:0"></div>'
-        + '<div style="flex:1;min-width:0">'
-          + '<div style="font-size:13px;font-weight:600;color:var(--text)">' + (c.title || c.key) + '</div>'
-          + '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:3px">'
-            + '<span style="font-size:11px;color:' + rc + '">' + (RARITY_LABELS[c.rarity]||c.rarity) + '</span>'
-            + '<span style="font-size:11px;color:var(--text-faint)">' + (c.god||'без бога') + '</span>'
-            + '<span style="font-size:11px;color:var(--text-faint)">' + chance.toFixed(1) + '%</span>'
-            + limitNote + personalNote + offNote
-          + '</div>'
-        + '</div>'
-        + '<span style="color:var(--text-faint);font-size:15px">' + (isOpen?'▲':'▼') + '</span>'
-      + '</div>'
-      + (isOpen ? cardEditorHtml(c, idx) : '')
-      + '</div>';
+    return '<div onclick="openCardEditor(' + JSON.stringify(c.key) + ')" '
+      + 'style="cursor:pointer;border:1.5px solid ' + rc + ';border-radius:12px;overflow:hidden;background:var(--surface);'
+      + (c.active ? '' : 'opacity:.4;') + '">'
+      + '<div style="position:relative;aspect-ratio:3/4;background:rgba(255,255,255,.03)">' + art + personalMark + '</div>'
+      + '<div style="padding:6px 7px">'
+        + '<div style="font-size:11px;font-weight:600;color:var(--text);line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (c.title || c.key) + '</div>'
+        + '<div style="font-size:10px;color:var(--text-faint);margin-top:2px">' + (c.god || '—') + ' · ' + chance.toFixed(1) + '%</div>'
+      + '</div></div>';
   }).join('');
+
+  // Пустые места на полке — приглашают завести новую карточку
+  const emptySlots = Math.max(0, (slice.length % 4 === 0 ? 4 : 4 - (slice.length % 4)));
+  for (let i = 0; i < emptySlots; i++){
+    html += '<div onclick="addCardType()" style="cursor:pointer;border:1.5px dashed var(--border);border-radius:12px;'
+      + 'display:flex;flex-direction:column;align-items:center;justify-content:center;aspect-ratio:3/4.55;'
+      + 'color:var(--text-faint);gap:4px">'
+      + '<div style="font-size:20px">+</div><div style="font-size:10px">пусто</div></div>';
+  }
+  html += '</div>';
+
+  shelf.innerHTML = list.length || cardTypes.length ? html
+    : '<div class="empty">Колода пуста — нажми на любое пустое место</div>';
+
+  pager.innerHTML = pages > 1
+    ? '<button class="action-btn" ' + (cardsPage===0?'disabled':'') + ' onclick="cardsPage--;renderCardShelf()">←</button>'
+      + '<span style="font-size:12px;color:var(--text-faint)">' + (cardsPage+1) + ' из ' + pages + '</span>'
+      + '<button class="action-btn" ' + (cardsPage>=pages-1?'disabled':'') + ' onclick="cardsPage++;renderCardShelf()">→</button>'
+    : '';
+
+  // Редактор открытой карточки — под полкой
+  const slot = document.getElementById('cards-editor-slot');
+  if (!cardExpanded){ slot.innerHTML = ''; return; }
+  const idx = cardTypes.findIndex(function(c){ return c.key === cardExpanded; });
+  if (idx < 0){ slot.innerHTML = ''; return; }
+  const c = cardTypes[idx];
+  const rc = RARITY_COLORS[c.rarity] || '#94a3b8';
+  slot.innerHTML = '<div style="border:1.5px solid ' + rc + ';border-radius:12px;overflow:hidden">'
+    + '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(255,255,255,.03)">'
+      + '<div style="flex:1;font-size:13px;font-weight:600">' + (c.title || c.key) + '</div>'
+      + '<button class="action-btn" onclick="closeCardEditor()">Свернуть</button>'
+    + '</div>' + cardEditorHtml(c, idx) + '</div>';
 }
+
+function openCardEditor(key){
+  cardExpanded = key;
+  renderCardShelf();
+  const slot = document.getElementById('cards-editor-slot');
+  if (slot && slot.scrollIntoView) slot.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+function closeCardEditor(){ cardExpanded = null; renderCardShelf(); }
 
 function cardEditorHtml(c, idx){
   const f = function(label, id, value, type, extra){
@@ -3212,7 +3331,7 @@ function cardEditorHtml(c, idx){
       + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
         + sel('Что делает','effect_type',c.effect_type,EFFECT_LABELS)
         + f('Баллов','effect_points',c.effect_points,'number','min="0"')
-        + f('Ключ награды','reward_key',c.reward_key)
+        + rewardSelect(c.reward_key, idx)
       + '</div>'
       + f('Ссылка на видео','media_url',c.media_url)
       + f('Ссылка на картинку','image_url',c.image_url)
@@ -3227,19 +3346,14 @@ function cardEditorHtml(c, idx){
     + '</div></div>';
 }
 
-function toggleCardExpand(key){
-  cardExpanded = (cardExpanded === key) ? null : key;
-  renderCardTypes();
-}
-
 function addCardType(){
   const key = 'card_' + Date.now().toString(36);
   cardTypes.push({ key:key, god:'', title:'Новая карточка', description:'', rarity:'common',
                    weight:100, monthly_limit:0, limit_period_months:1, effect_type:'points', effect_points:50,
                    reward_key:'', media_url:'', image_url:'', personal:false, active:true,
                    issued_this_month:0 });
-  cardExpanded = key;
-  renderCardTypes();
+  cardsPage = 0;
+  openCardEditor(key);
 }
 
 async function saveCardType(idx){
