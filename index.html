@@ -3747,7 +3747,7 @@ function cardArtField(c, idx){
   return '<div style="display:flex;gap:10px;align-items:flex-start">'
     + '<div id="card-art-preview-' + idx + '">' + preview + '</div>'
     + '<div style="flex:1;display:flex;flex-direction:column;gap:5px">'
-      + '<span style="font-size:11px;color:var(--text-faint)">Арт карточки</span>'
+      + '<span style="font-size:11px;color:var(--text-faint)">Арт карточки — грузи оригинал покрупнее, участник сможет приближать</span>'
       + '<input type="file" accept="image/*" onchange="uploadCardArt(' + idx + ', this.files[0])" '
       + 'style="font-size:12px;color:var(--text-faint)">'
       + '<input type="hidden" id="cf-image_url-' + idx + '" value="' + String(c.image_url||'').replace(/"/g,'&quot;') + '">'
@@ -3766,7 +3766,7 @@ function cardResizeToDataUrl(file, maxWidth){
         canvas.width = img.width * scale;
         canvas.height = img.height * scale;
         canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', 0.82));
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
       };
       img.onerror = reject;
       img.src = reader.result;
@@ -3785,8 +3785,10 @@ async function uploadCardArt(idx, file){
 
   status.textContent = 'Сжимаю и коммичу в GitHub...';
   try {
-    // 600px по ширине хватает: карточка на полке около 100px, в аппе — не больше 300
-    const dataUrl = await cardResizeToDataUrl(file, 600);
+    // 1500px: карточку можно приближать в аппе, и на ретине она должна оставаться
+    // чёткой. На полке около 100px, в аппе до 340pt — это уже ~1000 физических
+    // пикселей, а при трёхкратном зуме нужно больше. Вес одного арта ~250 КБ
+    const dataUrl = await cardResizeToDataUrl(file, 1500);
     const r = await fetch(API + '/cards/admin/upload-art?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ card_key: key, image_base64: dataUrl, ext: 'jpg' })
