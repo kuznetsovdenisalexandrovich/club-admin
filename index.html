@@ -443,6 +443,18 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
   </div>
 
   <div class="section">
+    <div class="section-head"><div class="section-title">Рассылки</div></div>
+    <div class="card" id="broadcast-row">
+      <div class="tools-grid">
+        <button class="action-btn action-btn--lav" onclick="openCampaignsPopup()">Кампании</button>
+        <button class="action-btn action-btn--lav" onclick="openNewsPopup()">Лента новостей</button>
+        <button class="action-btn action-btn--lav" onclick="openStreamsPopup()">Потоки</button>
+        <button class="action-btn action-btn--lav" onclick="openListNotifPopup()">Уведомления</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
     <div class="section-head">
       <div class="section-title">Колода карточек</div>
       <span id="cards-widget-count" style="font-size:12px;color:var(--text-faint)"></span>
@@ -451,18 +463,6 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       <div style="padding:14px">
         <div id="cards-widget"><div class="loading">Открываю колоду…</div></div>
         <button class="action-btn" style="width:100%;margin-top:10px" onclick="openCardsPopup()">Вся колода, симулятор и личное участие</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-head"><div class="section-title">Рассылки</div></div>
-    <div class="card" id="broadcast-row">
-      <div class="tools-grid">
-        <button class="action-btn action-btn--lav" onclick="openCampaignsPopup()">Кампании</button>
-        <button class="action-btn action-btn--lav" onclick="openNewsPopup()">Лента новостей</button>
-        <button class="action-btn action-btn--lav" onclick="openStreamsPopup()">Потоки</button>
-        <button class="action-btn action-btn--lav" onclick="openListNotifPopup()">Уведомления</button>
       </div>
     </div>
   </div>
