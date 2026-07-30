@@ -3365,8 +3365,11 @@ function cardDetailHtml(c, idx){
                                .reduce(function(a,x){ return a + (x.weight||0); }, 0);
   const chance = (totalWeight > 0 && c.active) ? ((c.weight||0)/totalWeight*100) : 0;
 
-  const art = c.image_url
-    ? '<img src="' + c.image_url + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block">'
+  // В крупном просмотре показываем полную версию, если она есть — это ровно то,
+  // что увидит участник при увеличении
+  const detailArt = c.image_full_url || c.image_url;
+  const art = detailArt
+    ? '<img src="' + detailArt + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block">'
     : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:64px;color:' + rc + ';opacity:.4">◆</div>';
 
   const per = c.limit_period_months || 1;
@@ -3399,6 +3402,7 @@ function cardDetailHtml(c, idx){
         + row('Что делает', effectText)
         + (c.personal ? row('Личное участие', 'да') : '')
         + (c.secret ? row('Секретная', 'не выпадает, в альбоме не видна') : '')
+        + (c.image_url && !c.image_full_url ? row('Арт', 'только превью — перезалей для увеличения') : '')
         + (c.media_url ? row('Видео', 'прикреплено') : '')
       + '</div>'
     + '</div>'
@@ -3482,7 +3486,7 @@ function addCardType(){
   const key = 'card_' + Date.now().toString(36);
   cardTypes.push({ key:key, god:'', title:'Новая карточка', description:'', rarity:'common',
                    weight:100, monthly_limit:0, limit_period_months:1, effect_type:'points', effect_points:50,
-                   reward_key:'', media_url:'', image_url:'', personal:false, active:true, secret:false,
+                   reward_key:'', media_url:'', image_url:'', image_full_url:'', personal:false, active:true, secret:false,
                    issued_this_month:0, _unsaved:true });
   cardsPage = 0;
   openCardEditor(key);
@@ -3504,6 +3508,7 @@ async function saveCardType(idx){
     effect_points: parseInt(v('effect_points'),10) || 0,
     reward_key: v('reward_key').trim(),
     media_url: v('media_url').trim(), image_url: v('image_url').trim(),
+    image_full_url: v('image_full_url').trim(),
     personal: cb('personal'), active: cb('active'), secret: cb('secret'),
   };
   if (!payload.key){ alert('Нужен ключ карточки'); return; }
@@ -3751,22 +3756,23 @@ function cardArtField(c, idx){
       + '<input type="file" accept="image/*" onchange="uploadCardArt(' + idx + ', this.files[0])" '
       + 'style="font-size:12px;color:var(--text-faint)">'
       + '<input type="hidden" id="cf-image_url-' + idx + '" value="' + String(c.image_url||'').replace(/"/g,'&quot;') + '">'
+      + '<input type="hidden" id="cf-image_full_url-' + idx + '" value="' + String(c.image_full_url||'').replace(/"/g,'&quot;') + '">'
       + '<div id="card-art-status-' + idx + '" style="font-size:11px;color:var(--text-faint);min-height:14px"></div>'
     + '</div></div>';
 }
 
-function cardResizeToDataUrl(file, maxWidth){
+function cardResizeToDataUrl(file, maxWidth, quality){
   return new Promise(function(resolve, reject){
     const img = new Image();
     const reader = new FileReader();
     reader.onload = function(){
       img.onload = function(){
-        const scale = Math.min(1, maxWidth / img.width);
+        const scale = Math.min(1, maxWidth / img.width);   // мельче оригинала не растягиваем
         const canvas = document.createElement('canvas');
         canvas.width = img.width * scale;
         canvas.height = img.height * scale;
         canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', 0.85));
+        resolve(canvas.toDataURL('image/jpeg', quality || 0.85));
       };
       img.onerror = reject;
       img.src = reader.result;
@@ -3783,28 +3789,35 @@ async function uploadCardArt(idx, file){
   const key    = keyEl ? keyEl.value.trim() : '';
   if (!key){ status.textContent = 'Сначала задай ключ карточки'; return; }
 
-  status.textContent = 'Сжимаю и коммичу в GitHub...';
+  status.textContent = 'Готовлю превью и полную версию...';
   try {
-    // 1500px: карточку можно приближать в аппе, и на ретине она должна оставаться
-    // чёткой. На полке около 100px, в аппе до 340pt — это уже ~1000 физических
-    // пикселей, а при трёхкратном зуме нужно больше. Вес одного арта ~250 КБ
-    const dataUrl = await cardResizeToDataUrl(file, 1500);
+    // ДВЕ версии. Превью 400px — для полки, ленты и сетки альбома: там карточка
+    // занимает 68-104px, четырёхсот хватает с запасом даже на ретине.
+    // Полная 2400px — только для увеличения. Раздельно потому, что картинка
+    // в памяти занимает ширину×высоту×4 байта независимо от размера показа,
+    // и сетка из полноразмерных артов съела бы сотни мегабайт на телефоне
+    const thumbUrl = await cardResizeToDataUrl(file, 400, 0.82);
+    status.textContent = 'Коммичу в GitHub...';
+    const fullUrl  = await cardResizeToDataUrl(file, 2400, 0.85);
     const r = await fetch(API + '/cards/admin/upload-art?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ card_key: key, image_base64: dataUrl, ext: 'jpg' })
+      body: JSON.stringify({ card_key: key, image_base64: thumbUrl,
+                             image_full_base64: fullUrl, ext: 'jpg' })
     });
     const d = await r.json().catch(function(){ return {}; });
     if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
 
     const hidden = document.getElementById('cf-image_url-' + idx);
     if (hidden) hidden.value = d.url;
+    const hiddenFull = document.getElementById('cf-image_full_url-' + idx);
+    if (hiddenFull) hiddenFull.value = d.full_url || '';
     const prev = document.getElementById('card-art-preview-' + idx);
     // Метка времени в конце — иначе браузер покажет старую картинку из кэша
     if (prev) prev.innerHTML = '<img src="' + d.url + '?v=' + Date.now()
       + '" alt="" style="width:56px;height:74px;object-fit:cover;border-radius:6px;display:block">';
     const inDeck = cardTypes.find(function(x){ return x.key === key; });
-    if (inDeck) inDeck.image_url = d.url;
-    status.textContent = 'Готово';
+    if (inDeck){ inDeck.image_url = d.url; inDeck.image_full_url = d.full_url || ''; }
+    status.textContent = d.full_url ? 'Готово — превью и полная версия' : 'Готово';
   } catch(e){
     status.textContent = 'Ошибка: ' + e.message;
   }
