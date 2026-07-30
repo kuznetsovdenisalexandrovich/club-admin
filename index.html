@@ -579,17 +579,9 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 
       <!-- Колода -->
       <div id="cards-tab-deck">
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+        <div id="cards-search-row" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
           <input id="cards-search" placeholder="Поиск по названию или богу" oninput="renderCardShelf()"
                  style="flex:2;min-width:150px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px">
-          <select id="cards-filter-rarity" onchange="renderCardShelf()"
-                  style="flex:1;min-width:110px;padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px">
-            <option value="">Все редкости</option>
-            <option value="common">Частые</option>
-            <option value="uncommon">Нечастые</option>
-            <option value="rare">Редкие</option>
-            <option value="legendary">Легендарные</option>
-          </select>
           <select id="cards-sort" onchange="renderCardShelf()"
                   style="flex:1;min-width:110px;padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px">
             <option value="rarity">По редкости</option>
@@ -598,6 +590,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
             <option value="title">По названию</option>
           </select>
         </div>
+        <div id="cards-filter-row" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
         <div id="cards-summary" style="font-size:11px;color:var(--text-faint);margin-bottom:8px"></div>
         <div id="cards-shelf"><div class="loading">Загрузка...</div></div>
         <div id="cards-pager" style="display:flex;justify-content:center;align-items:center;gap:10px;margin-top:12px"></div>
@@ -3243,13 +3236,55 @@ let cardEditMode = false;   // false — карточка крупно, true —
 
 function renderCardTypes(){ cardsPage = 0; renderCardShelf(); }
 
+/* Фильтры-чипы вместо выпадашки редкости: колода растёт, и «покажи все
+   легендарные» / «что сейчас выведено из оборота» — самые частые вопросы к полке.
+   Каждый фильтр — предикат плюс подпись; счётчик считается на лету */
+const CARD_FILTERS = [
+  { key:'all',        label:'Все',              test: function(){ return true; } },
+  { key:'legendary',  label:'Легендарные',      test: function(c){ return c.rarity === 'legendary'; } },
+  { key:'rare',       label:'Редкие',           test: function(c){ return c.rarity === 'rare'; } },
+  { key:'uncommon',   label:'Нечастые',         test: function(c){ return c.rarity === 'uncommon'; } },
+  { key:'common',     label:'Частые',           test: function(c){ return c.rarity === 'common'; } },
+  { key:'secret',     label:'Секретные',        test: function(c){ return !!c.secret; } },
+  { key:'inactive',   label:'Не в колоде',      test: function(c){ return !c.active; } },
+  { key:'personal',   label:'Личное участие',   test: function(c){ return !!c.personal; } },
+  { key:'noart',      label:'Без арта',         test: function(c){ return !c.image_url; } },
+  { key:'preview',    label:'Только превью',    test: function(c){ return !!c.image_url && !c.image_full_url; } },
+];
+
+let cardsFilter = 'all';
+
+function cardFilterTest(key){
+  const f = CARD_FILTERS.find(function(x){ return x.key === key; });
+  return f ? f.test : function(){ return true; };
+}
+
+function setCardsFilter(key){
+  cardsFilter = key;
+  cardsPage = 0;          // иначе с 3-й страницы всех карточек попадёшь в пустоту
+  renderCardShelf();
+}
+
+function renderCardFilters(){
+  const el = document.getElementById('cards-filter-row');
+  if (!el) return;
+  el.innerHTML = CARD_FILTERS.map(function(f){
+    const n = (cardTypes || []).filter(f.test).length;
+    // Пустые фильтры прячем, кроме «Все» — иначе строка забита нулями
+    if (!n && f.key !== 'all' && f.key !== cardsFilter) return '';
+    const on = (cardsFilter === f.key);
+    return '<button class="ptab' + (on ? ' active' : '') + '" onclick="setCardsFilter(' + jsArg(f.key) + ')">'
+      + f.label + ' <span style="opacity:.6">' + n + '</span></button>';
+  }).join('');
+}
+
 function visibleCards(){
   const q      = (document.getElementById('cards-search')?.value || '').trim().toLowerCase();
-  const rarity = document.getElementById('cards-filter-rarity')?.value || '';
   const sort   = document.getElementById('cards-sort')?.value || 'rarity';
+  const test   = cardFilterTest(cardsFilter);
 
   let list = cardTypes.filter(function(c){
-    if (rarity && c.rarity !== rarity) return false;
+    if (!test(c)) return false;
     if (!q) return true;
     return ((c.title||'') + ' ' + (c.god||'') + ' ' + (c.key||'')).toLowerCase().indexOf(q) !== -1;
   });
@@ -3279,10 +3314,12 @@ function renderCardShelf(){
   // Открытая карточка занимает место полки. Раньше просмотр раскрывался ПОД
   // сеткой и при длинной колоде оказывался за пределами видимой части попапа —
   // выглядело так, будто клик вообще ничего не делает
-  const searchRow = document.querySelector('#cards-tab-deck > div');
+  const searchRow = document.getElementById('cards-search-row');
+  const filterRow = document.getElementById('cards-filter-row');
   const summaryEl = document.getElementById('cards-summary');
   if (cardExpanded){
     if (searchRow) searchRow.style.display = 'none';
+    if (filterRow) filterRow.style.display = 'none';
     if (summaryEl) summaryEl.style.display = 'none';
     shelf.innerHTML = '';
     if (pager) pager.innerHTML = '';
@@ -3290,7 +3327,9 @@ function renderCardShelf(){
     return;
   }
   if (searchRow) searchRow.style.display = '';
+  if (filterRow) filterRow.style.display = '';
   if (summaryEl) summaryEl.style.display = '';
+  renderCardFilters();   // счётчики меняются после правок — считаем каждый раз
 
   const v = visibleCards();
   const list = v.list, totalWeight = v.totalWeight;
