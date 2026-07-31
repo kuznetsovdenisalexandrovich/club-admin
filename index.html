@@ -467,6 +467,9 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
     </div>
     <div class="card">
       <div style="padding:14px">
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text-faint);margin-bottom:10px;cursor:pointer">
+          <input type="checkbox" id="cards-widget-show-secret" onchange="toggleCardsWidgetSecret()"> Показать секретные
+        </label>
         <div id="cards-widget"><div class="loading">Открываю колоду…</div></div>
         <div id="cards-widget-pager" style="display:flex;justify-content:center;align-items:center;gap:10px;margin-top:10px"></div>
         <button class="action-btn" style="width:100%;margin-top:10px" onclick="openCardsPopup()">Вся колода, симулятор и личное участие</button>
@@ -3896,6 +3899,21 @@ async function uploadCardArt(idx, file){
 const CARDS_WIDGET_SLOTS = 12;   // карточек на страницу полки
 let cardsWidgetPage = 0;
 
+// Тумблер "Показать секретные" на главной — по умолчанию ВЫКЛЮЧЕН (секретные
+// карточки не должны палиться на виду), но выбор Denis'а запоминается локально
+// в этом браузере, а не сбрасывается при каждой перезагрузке дашборда
+function cardsWidgetSecretKey(){ return 'admin_cards_widget_show_secret'; }
+let showSecretInWidget = false;
+try { showSecretInWidget = localStorage.getItem(cardsWidgetSecretKey()) === '1'; } catch(e){}
+
+function toggleCardsWidgetSecret(){
+  const cb = document.getElementById('cards-widget-show-secret');
+  showSecretInWidget = !!(cb && cb.checked);
+  try { localStorage.setItem(cardsWidgetSecretKey(), showSecretInWidget ? '1' : '0'); } catch(e){}
+  cardsWidgetPage = 0;   // состав списка меняется — начинаем со страницы 1
+  renderCardsWidget();
+}
+
 async function loadCardsWidget(){
   const el = document.getElementById('cards-widget');
   if (!el) return;
@@ -3929,6 +3947,9 @@ function renderCardsWidget(){
   const pagerEl = document.getElementById('cards-widget-pager');
   if (!el) return;
 
+  const secretCb = document.getElementById('cards-widget-show-secret');
+  if (secretCb) secretCb.checked = showSecretInWidget;
+
   const active = cardTypes.filter(function(c){ return c.active && !c.secret; });
   const totalWeight = active.reduce(function(a,c){ return a + (c.weight||0); }, 0);
   if (countEl){
@@ -3937,8 +3958,12 @@ function renderCardsWidget(){
       : '';
   }
 
+  // Секретные — только если тумблер выше явно включён. По умолчанию скрыты,
+  // чтобы на главном экране дашборда их не увидел никто, кто заглянул в экран
+  const source = showSecretInWidget ? cardTypes : cardTypes.filter(function(c){ return !c.secret; });
+
   // Сначала самые редкие — их приятнее видеть на полке
-  const sorted = cardTypes.slice().sort(function(a,b){
+  const sorted = source.slice().sort(function(a,b){
     const ra = RARITY_ORDER[a.rarity] ?? 9, rb = RARITY_ORDER[b.rarity] ?? 9;
     if (ra !== rb) return ra - rb;
     return (b.weight||0) - (a.weight||0);
