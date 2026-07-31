@@ -624,6 +624,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
           <select id="cards-sort" onchange="renderCardShelf()"
                   style="flex:1;min-width:110px;padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">
             <option value="rarity">По редкости</option>
+            <option value="added">По дате добавления</option>
             <option value="chance">По шансу</option>
             <option value="god">По богу</option>
             <option value="title">По названию</option>
@@ -3317,6 +3318,22 @@ function renderCardFilters(){
   }).join('');
 }
 
+/* Сравнение по дате добавления — СНАЧАЛА НОВЫЕ. Отдельной функцией, потому что
+   используется и в попапе колоды, и в полке на главной.
+   Дата приходит с бэкенда строкой ISO; у карточек, заведённых до того, как поле
+   стало отдаваться, её может не быть — такие уходят в конец, а между собой
+   сравниваются по ключу, чтобы порядок не скакал при каждой перерисовке */
+function cardAddedCmp(a, b){
+  const ta = a.created_at ? Date.parse(a.created_at) : NaN;
+  const tb = b.created_at ? Date.parse(b.created_at) : NaN;
+  const va = isNaN(ta), vb = isNaN(tb);
+  if (va && vb) return (a.key||'').localeCompare(b.key||'');
+  if (va) return 1;
+  if (vb) return -1;
+  if (tb !== ta) return tb - ta;
+  return (a.key||'').localeCompare(b.key||'');
+}
+
 function visibleCards(){
   const q      = (document.getElementById('cards-search')?.value || '').trim().toLowerCase();
   const sort   = document.getElementById('cards-sort')?.value || 'rarity';
@@ -3333,6 +3350,7 @@ function visibleCards(){
                                .reduce(function(a,c){ return a + (c.weight||0); }, 0);
 
   list.sort(function(a,b){
+    if (sort === 'added')  return cardAddedCmp(a, b);
     if (sort === 'chance') return (b.weight||0) - (a.weight||0);
     if (sort === 'god')    return (a.god||'').localeCompare(b.god||'', 'ru');
     if (sort === 'title')  return (a.title||'').localeCompare(b.title||'', 'ru');
@@ -3991,12 +4009,9 @@ function renderCardsWidget(){
   // чтобы на главном экране дашборда их не увидел никто, кто заглянул в экран
   const source = showSecretInWidget ? cardTypes : cardTypes.filter(function(c){ return !c.secret; });
 
-  // Сначала самые редкие — их приятнее видеть на полке
-  const sorted = source.slice().sort(function(a,b){
-    const ra = RARITY_ORDER[a.rarity] ?? 9, rb = RARITY_ORDER[b.rarity] ?? 9;
-    if (ra !== rb) return ra - rb;
-    return (b.weight||0) - (a.weight||0);
-  });
+  // Сначала самые свежие: пока колода наполняется, только что заведённая карточка
+  // должна быть на виду, а не улетать на третью страницу из-за своей редкости
+  const sorted = source.slice().sort(cardAddedCmp);
 
   const pages = Math.max(1, Math.ceil(sorted.length / CARDS_WIDGET_SLOTS));
   if (cardsWidgetPage >= pages) cardsWidgetPage = pages - 1;
