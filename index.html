@@ -72,6 +72,12 @@
   --lav:#9b8cf2; --lav-deep:#7c6cf0; --lav-dim:rgba(155,140,242,0.16);
   --peach:#ffb199; --mint:#8fe3c0; --coral:#ff8fa3;
   --green:#3ecf8e; --red:#ff453a;
+  /* Оранжевый акцент главных действий — тот же брендовый терракотовый, что в
+     club-app (--warm). До 31.07.2026 var(--accent) уже использовался в редакторе
+     карточки, но НИГДЕ не объявлялся: правило с несуществующей переменной
+     браузер отбрасывает целиком, и кнопка «Сохранить» оставалась белым текстом
+     на прозрачном фоне — невидимой */
+  --accent:#e8614a; --accent-deep:#cf4f39;
   --disp:'Unbounded',sans-serif; --body:'Manrope',sans-serif;
 }
 
@@ -263,7 +269,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 .popup-section-title{font-size:11px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:.07em;margin:16px 0 10px}
 .popup-input{width:100%;font-size:13px;font-family:var(--body);padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);margin-bottom:8px}
 .popup-input::placeholder{color:var(--text-faint)}
-.popup-save{width:100%;padding:12px;border-radius:14px;background:var(--lav-deep);color:white;font-family:var(--disp);font-weight:700;font-size:13px;border:none;cursor:pointer;margin-top:4px;transition:opacity .15s}
+.popup-save{width:100%;padding:12px;border-radius:14px;background:var(--accent);color:white;font-family:var(--disp);font-weight:700;font-size:13px;border:none;cursor:pointer;margin-top:4px;transition:opacity .15s}
 .popup-save:active{opacity:.8}
 
 /* Action buttons */
@@ -314,7 +320,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 .pin-dot{width:12px;height:12px;border-radius:50%;background:var(--lav-dim);transition:background .15s}
 .pin-dot.filled{background:var(--lav-deep)}
 .pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:240px}
-.pin-btn{height:64px;border-radius:16px;border:1px solid var(--border);background:var(--surface);font-family:var(--disp);font-weight:700;font-size:20px;color:var(--text);cursor:pointer;transition:all .12s;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.pin-btn{height:64px;border-radius:16px;border:1px solid var(--line);background:var(--input-bg);font-family:var(--disp);font-weight:700;font-size:20px;color:var(--text);cursor:pointer;transition:all .12s;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
 .pin-btn:active{transform:scale(0.94);background:var(--lav-dim)}
 .pin-btn.del{font-size:16px;color:var(--text-faint)}
 .pin-error{font-size:13px;color:var(--red);height:18px;text-align:center}
@@ -331,7 +337,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
 .popup-close-x{
   position:absolute;top:10px;right:12px;
   width:30px;height:30px;border-radius:50%;
-  border:1px solid var(--border);background:var(--surface);
+  border:1px solid var(--line);background:var(--input-bg);
   color:var(--text);font-size:15px;line-height:1;
   cursor:pointer;display:flex;align-items:center;justify-content:center;
   z-index:2;
@@ -581,9 +587,9 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       <div id="cards-tab-deck">
         <div id="cards-search-row" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
           <input id="cards-search" placeholder="Поиск по названию или богу" oninput="renderCardShelf()"
-                 style="flex:2;min-width:150px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px">
+                 style="flex:2;min-width:150px;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">
           <select id="cards-sort" onchange="renderCardShelf()"
-                  style="flex:1;min-width:110px;padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px">
+                  style="flex:1;min-width:110px;padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">
             <option value="rarity">По редкости</option>
             <option value="chance">По шансу</option>
             <option value="god">По богу</option>
@@ -645,13 +651,13 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
         </div>
         <input id="grant-search" placeholder="Найти участника по имени, телефону или юзернейму"
                oninput="searchGrantCandidates()"
-               style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px">
+               style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">
         <div id="grant-search-results" style="margin-top:6px"></div>
         <div id="grant-chosen" style="margin-top:10px"></div>
         <div id="grant-what" style="display:none;margin-top:12px">
           <label style="display:flex;flex-direction:column;gap:4px">
             <span style="font-size:11px;color:var(--text-faint)">Что выдать</span>
-            <select id="grant-card" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px"></select>
+            <select id="grant-card" style="padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px"></select>
           </label>
           <button class="popup-save" style="margin-top:10px" onclick="grantCards()">Выдать</button>
           <div id="grant-status" style="font-size:12px;color:var(--text-faint);margin-top:8px;min-height:16px"></div>
@@ -1245,7 +1251,7 @@ async function loadSettings(){
         <div class="pay-name">Уровень открытия "Главных идей"</div>
         <div class="pay-meta">С какого уровня участнику открывается кнопка выжимки на карточке лекции</div>
       </div>
-      <input type="number" min="1" value="${s.insights_unlock_level || 2}" style="width:56px;text-align:center;padding:8px 6px;border-radius:10px;border:1px solid var(--border);background:var(--stat-bg);color:var(--text);font-family:inherit" onchange="saveNumericSetting('insights_unlock_level', this.value)">
+      <input type="number" min="1" value="${s.insights_unlock_level || 2}" style="width:56px;text-align:center;padding:8px 6px;border-radius:10px;border:1px solid var(--line);background:var(--stat-bg);color:var(--text);font-family:inherit" onchange="saveNumericSetting('insights_unlock_level', this.value)">
     </div>`;
     el.innerHTML = toggles + numericRow;
   }catch(e){ el.innerHTML='<div class="empty">Не удалось загрузить</div>'; }
@@ -2028,7 +2034,7 @@ function renderLevelAccordion(){
           <label style="display:flex;flex-direction:column;gap:4px">
             <span style="font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em">Баллов для уровня</span>
             <input type="number" id="lv-pts-${l.level}" value="${l.points_required}" min="0" step="100"
-              style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:14px">
+              style="padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:14px">
           </label>
           <div>
             <div style="font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Награды из каталога</div>
@@ -3492,7 +3498,7 @@ function cardEditorHtml(c, idx){
     return '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:120px">'
       + '<span style="font-size:11px;color:var(--text-faint)">' + label + '</span>'
       + '<input type="' + (type||'text') + '" id="cf-' + id + '-' + idx + '" value="' + String(value==null?'':value).replace(/"/g,'&quot;') + '" '
-      + (extra||'') + ' style="padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px"></label>';
+      + (extra||'') + ' style="padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px"></label>';
   };
   const sel = function(label, id, value, options){
     const opts = Object.keys(options).map(function(k){
@@ -3500,7 +3506,7 @@ function cardEditorHtml(c, idx){
     }).join('');
     return '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:120px">'
       + '<span style="font-size:11px;color:var(--text-faint)">' + label + '</span>'
-      + '<select id="cf-' + id + '-' + idx + '" style="padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px">' + opts + '</select></label>';
+      + '<select id="cf-' + id + '-' + idx + '" style="padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">' + opts + '</select></label>';
   };
 
   return '<div style="padding:0 14px 14px;border-top:1px solid var(--border)">'
@@ -3513,7 +3519,7 @@ function cardEditorHtml(c, idx){
       + '<div style="display:flex;gap:8px;flex-wrap:wrap">' + f('Название','title',c.title) + '</div>'
       + '<label style="display:flex;flex-direction:column;gap:3px">'
         + '<span style="font-size:11px;color:var(--text-faint)">Описание</span>'
-        + '<textarea id="cf-description-' + idx + '" style="min-height:54px;padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px">' + (c.description||'') + '</textarea></label>'
+        + '<textarea id="cf-description-' + idx + '" style="min-height:54px;padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">' + (c.description||'') + '</textarea></label>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
         + sel('Редкость','rarity',c.rarity,RARITY_LABELS)
         + f('Вес в колоде','weight',c.weight,'number','min="0"')
@@ -3794,7 +3800,7 @@ function rewardSelect(value, idx){
   ).join('');
   return '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:150px">'
     + '<span style="font-size:11px;color:var(--text-faint)">Какую награду открывает</span>'
-    + '<select id="cf-reward_key-' + idx + '" style="padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px">'
+    + '<select id="cf-reward_key-' + idx + '" style="padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">'
     + opts + '</select></label>';
 }
 
@@ -4199,7 +4205,7 @@ function godEditorHtml(name){
   const lbl = function(text){
     return '<span style="font-size:11px;color:var(--text-faint)">' + text + '</span>';
   };
-  const inputStyle = 'padding:8px 10px;border-radius:8px;border:1px solid var(--border);'
+  const inputStyle = 'padding:8px 10px;border-radius:8px;border:1px solid var(--line);'
     + 'background:var(--surface);color:var(--text);font-size:13px;width:100%';
 
   const isNew = !!g._new;
