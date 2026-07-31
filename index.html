@@ -468,6 +468,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
     <div class="card">
       <div style="padding:14px">
         <div id="cards-widget"><div class="loading">Открываю колоду…</div></div>
+        <div id="cards-widget-pager" style="display:flex;justify-content:center;align-items:center;gap:10px;margin-top:10px"></div>
         <button class="action-btn" style="width:100%;margin-top:10px" onclick="openCardsPopup()">Вся колода, симулятор и личное участие</button>
       </div>
     </div>
@@ -3385,6 +3386,8 @@ function renderCardShelf(){
   shelf.innerHTML = list.length || cardTypes.length ? html
     : '<div class="empty">Колода пуста — нажми на любое пустое место</div>';
 
+  wireShelfSwipe(pages);
+
   pager.innerHTML = pages > 1
     ? '<button class="action-btn" ' + (cardsPage===0?'disabled':'') + ' onclick="cardsPage--;renderCardShelf()">←</button>'
       + '<span style="font-size:12px;color:var(--text-faint)">' + (cardsPage+1) + ' из ' + pages + '</span>'
@@ -3890,7 +3893,8 @@ async function uploadCardArt(idx, file){
    сразу, а не за кнопкой — так работает инстинкт коллекционирования.
    Пустые места приглашают завести новую карточку. */
 
-const CARDS_WIDGET_SLOTS = 12;   // сколько мест показываем на главной
+const CARDS_WIDGET_SLOTS = 12;   // карточек на страницу полки
+let cardsWidgetPage = 0;
 
 async function loadCardsWidget(){
   const el = document.getElementById('cards-widget');
@@ -3922,6 +3926,7 @@ async function loadCardsWidget(){
 function renderCardsWidget(){
   const el = document.getElementById('cards-widget');
   const countEl = document.getElementById('cards-widget-count');
+  const pagerEl = document.getElementById('cards-widget-pager');
   if (!el) return;
 
   const active = cardTypes.filter(function(c){ return c.active && !c.secret; });
@@ -3933,11 +3938,17 @@ function renderCardsWidget(){
   }
 
   // Сначала самые редкие — их приятнее видеть на полке
-  const shown = cardTypes.slice().sort(function(a,b){
+  const sorted = cardTypes.slice().sort(function(a,b){
     const ra = RARITY_ORDER[a.rarity] ?? 9, rb = RARITY_ORDER[b.rarity] ?? 9;
     if (ra !== rb) return ra - rb;
     return (b.weight||0) - (a.weight||0);
-  }).slice(0, CARDS_WIDGET_SLOTS);
+  });
+
+  const pages = Math.max(1, Math.ceil(sorted.length / CARDS_WIDGET_SLOTS));
+  if (cardsWidgetPage >= pages) cardsWidgetPage = pages - 1;
+  if (cardsWidgetPage < 0) cardsWidgetPage = 0;
+  const shown = sorted.slice(cardsWidgetPage * CARDS_WIDGET_SLOTS,
+                             (cardsWidgetPage + 1) * CARDS_WIDGET_SLOTS);
 
   let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px">';
 
@@ -3950,32 +3961,83 @@ function renderCardsWidget(){
     const personalMark = c.personal
       ? '<div style="position:absolute;top:4px;right:4px;width:14px;height:14px;border-radius:50%;background:#f59e0b;color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center">Л</div>'
       : '';
+    const secretMark = c.secret
+      ? '<div style="position:absolute;top:4px;left:4px;width:14px;height:14px;border-radius:50%;background:#64748b;color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center">С</div>'
+      : '';
     return '<div onclick="openCardFromWidget(' + jsArg(c.key) + ')" '
       + 'style="cursor:pointer;border:1.5px solid ' + rc + ';border-radius:10px;overflow:hidden;background:var(--surface);'
       + (c.active ? '' : 'opacity:.4;') + '">'
-      + '<div style="position:relative;aspect-ratio:3/4;background:rgba(255,255,255,.03)">' + art + personalMark + '</div>'
+      + '<div style="position:relative;aspect-ratio:3/4;background:rgba(255,255,255,.03)">' + art + personalMark + secretMark + '</div>'
       + '<div style="padding:5px 6px">'
         + '<div style="font-size:10px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (c.title || c.key) + '</div>'
         + '<div style="font-size:9px;color:var(--text-faint);margin-top:1px">' + chance.toFixed(1) + '%</div>'
       + '</div></div>';
   }).join('');
 
-  // Пустые места — сколько не хватает до полной полки, но хотя бы два
-  const empties = Math.max(2, CARDS_WIDGET_SLOTS - shown.length);
-  for (let i = 0; i < empties; i++){
-    html += '<div onclick="addCardFromWidget()" style="cursor:pointer;border:1.5px dashed var(--border);border-radius:10px;'
-      + 'display:flex;flex-direction:column;align-items:center;justify-content:center;aspect-ratio:3/4.5;'
-      + 'color:var(--text-faint);gap:3px">'
-      + '<div style="font-size:18px">+</div><div style="font-size:9px">пусто</div></div>';
-  }
+  // РОВНО ОДНО место под новую карточку. Раньше полка добивалась пустыми до
+  // двенадцати, и их число скакало от количества карточек — выглядело случайным
+  html += '<div onclick="addCardFromWidget()" style="cursor:pointer;border:1.5px dashed var(--line);border-radius:10px;'
+    + 'display:flex;flex-direction:column;align-items:center;justify-content:center;aspect-ratio:3/4.5;'
+    + 'color:var(--text-faint);gap:3px">'
+    + '<div style="font-size:18px">+</div><div style="font-size:9px">новая</div></div>';
   html += '</div>';
 
-  if (cardTypes.length > CARDS_WIDGET_SLOTS){
-    html += '<div style="font-size:11px;color:var(--text-faint);text-align:center;margin-top:8px">'
-      + 'и ещё ' + (cardTypes.length - CARDS_WIDGET_SLOTS) + ' в колоде</div>';
+  el.innerHTML = html;
+
+  // Листалка — только когда есть что листать
+  if (pagerEl){
+    pagerEl.innerHTML = pages > 1
+      ? '<button class="action-btn" style="min-width:44px" ' + (cardsWidgetPage === 0 ? 'disabled' : '')
+        + ' onclick="cardsWidgetGo(-1)">←</button>'
+        + '<span style="font-size:12px;color:var(--text-faint)">' + (cardsWidgetPage + 1) + ' из ' + pages + '</span>'
+        + '<button class="action-btn" style="min-width:44px" ' + (cardsWidgetPage >= pages - 1 ? 'disabled' : '')
+        + ' onclick="cardsWidgetGo(1)">→</button>'
+      : '';
   }
 
-  el.innerHTML = html;
+  wireCardsWidgetSwipe();
+}
+
+function cardsWidgetGo(delta){
+  cardsWidgetPage += delta;
+  renderCardsWidget();
+}
+
+/* Свайп по полке. Горизонтальное движение листает страницы, вертикальное
+   отдаём странице — иначе полка перехватывала бы обычную прокрутку.
+   Решаем по тому, какая ось преобладает, и только после порога в 40px */
+function wireCardsWidgetSwipe(){
+  const el = document.getElementById('cards-widget');
+  if (!el || el._swipeWired) return;
+  el._swipeWired = true;
+
+  let x0 = 0, y0 = 0, tracking = false;
+
+  el.addEventListener('touchstart', function(e){
+    if (e.touches.length !== 1) return;
+    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; tracking = true;
+  }, { passive: true });
+
+  el.addEventListener('touchmove', function(e){
+    if (!tracking || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - x0;
+    const dy = e.touches[0].clientY - y0;
+    if (Math.abs(dy) > Math.abs(dx)) { tracking = false; return; }   // это прокрутка
+    if (Math.abs(dx) > 40){
+      tracking = false;
+      cardsWidgetGo(dx < 0 ? 1 : -1);
+    }
+  }, { passive: true });
+
+  el.addEventListener('touchend', function(){ tracking = false; }, { passive: true });
+
+  // Мышью на десктопе — колесо с зажатым Shift и обычное горизонтальное
+  el.addEventListener('wheel', function(e){
+    const dx = e.shiftKey ? e.deltaY : e.deltaX;
+    if (Math.abs(dx) < 30 || Math.abs(dx) < Math.abs(e.deltaY) && !e.shiftKey) return;
+    e.preventDefault();
+    cardsWidgetGo(dx > 0 ? 1 : -1);
+  }, { passive: false });
 }
 
 function openCardFromWidget(key){
@@ -4299,6 +4361,39 @@ function jsArg(v){
   s = s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   s = s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
   return "'" + s + "'";
+}
+
+/* Свайп по полке в попапе. Логика та же, что у виджета на главной: горизонталь
+   листает, вертикаль отдаём прокрутке. Границы страниц передаём снаружи —
+   полка фильтруется поиском, и число страниц меняется на лету */
+let shelfPages = 1;
+
+function wireShelfSwipe(pages){
+  shelfPages = pages;
+  const el = document.getElementById('cards-shelf');
+  if (!el || el._swipeWired) return;
+  el._swipeWired = true;
+
+  let x0 = 0, y0 = 0, tracking = false;
+
+  el.addEventListener('touchstart', function(e){
+    if (e.touches.length !== 1) return;
+    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; tracking = true;
+  }, { passive: true });
+
+  el.addEventListener('touchmove', function(e){
+    if (!tracking || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - x0;
+    const dy = e.touches[0].clientY - y0;
+    if (Math.abs(dy) > Math.abs(dx)) { tracking = false; return; }
+    if (Math.abs(dx) > 40){
+      tracking = false;
+      const next = cardsPage + (dx < 0 ? 1 : -1);
+      if (next >= 0 && next < shelfPages){ cardsPage = next; renderCardShelf(); }
+    }
+  }, { passive: true });
+
+  el.addEventListener('touchend', function(){ tracking = false; }, { passive: true });
 }
 </script>
 </body>
