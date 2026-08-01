@@ -149,7 +149,7 @@ body{
 .shell{position:relative;z-index:1;max-width:480px;margin:0 auto;padding:0 16px}
 
 /* Header */
-header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-items:center;justify-content:space-between}
+header{padding:calc(max(env(safe-area-inset-top), 8px) + 20px) 0 16px;display:flex;align-items:center;justify-content:space-between}
 .brand{display:flex;align-items:center;gap:10px}
 .mark{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--lav),var(--coral));display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:900;font-size:13px;color:white;box-shadow:0 6px 16px -4px rgba(155,140,242,0.45)}
 .brand-name{font-family:var(--disp);font-weight:700;font-size:13px;letter-spacing:-.01em}
@@ -608,7 +608,7 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
       <div class="popup-section-title" style="margin-top:0">Колода карточек</div>
       <div id="cards-master-switch" style="margin-bottom:12px"></div>
 
-      <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
         <button class="action-btn" id="cards-tab-deck-btn" onclick="switchCardsTab('deck')">Колода</button>
         <button class="action-btn" id="cards-tab-gods-btn" onclick="switchCardsTab('gods')">Боги</button>
         <button class="action-btn" id="cards-tab-sim-btn" onclick="switchCardsTab('sim')">Симулятор</button>
@@ -631,6 +631,11 @@ header{padding:calc(env(safe-area-inset-top)+16px) 0 16px;display:flex;align-ite
           </select>
         </div>
         <div id="cards-filter-row" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+        <label class="toggle-switch" id="cards-shelf-secret-row" style="margin-bottom:10px">
+          <input type="checkbox" id="cards-shelf-show-secret" onchange="toggleCardsShelfSecret()">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="toggle-label-text">Показать секретные</span>
+        </label>
         <div id="cards-summary" style="font-size:11px;color:var(--text-faint);margin-bottom:8px"></div>
         <div id="cards-shelf"><div class="loading">Загрузка...</div></div>
         <div id="cards-pager" style="display:flex;justify-content:center;align-items:center;gap:10px;margin-top:12px"></div>
@@ -3334,12 +3339,30 @@ function cardAddedCmp(a, b){
   return (a.key||'').localeCompare(b.key||'');
 }
 
+// Тумблер секретных в попапе колоды. Отдельно от такого же на главной: там
+// решается «не спалить на виду», здесь — «не мешать в работе»
+function cardsShelfSecretKey(){ return 'admin_cards_shelf_show_secret'; }
+let showSecretInShelf = false;
+try { showSecretInShelf = localStorage.getItem(cardsShelfSecretKey()) === '1'; } catch(e){}
+
+function toggleCardsShelfSecret(){
+  const cb = document.getElementById('cards-shelf-show-secret');
+  showSecretInShelf = !!(cb && cb.checked);
+  try { localStorage.setItem(cardsShelfSecretKey(), showSecretInShelf ? '1' : '0'); } catch(e){}
+  cardsPage = 0;   // состав списка меняется — начинаем со страницы 1
+  renderCardShelf();
+}
+
 function visibleCards(){
   const q      = (document.getElementById('cards-search')?.value || '').trim().toLowerCase();
   const sort   = document.getElementById('cards-sort')?.value || 'rarity';
   const test   = cardFilterTest(cardsFilter);
 
   let list = cardTypes.filter(function(c){
+    // Секретные скрыты по умолчанию: Denis держит там тестовые и ещё не
+    // опубликованные карточки, и в общей полке они только мешают.
+    // Явный фильтр-чип «Секретные» тумблер перебивает — там их и ищут
+    if (c.secret && !showSecretInShelf && cardsFilter !== 'secret') return false;
     if (!test(c)) return false;
     if (!q) return true;
     return ((c.title||'') + ' ' + (c.god||'') + ' ' + (c.key||'')).toLowerCase().indexOf(q) !== -1;
@@ -3374,10 +3397,12 @@ function renderCardShelf(){
   const searchRow = document.getElementById('cards-search-row');
   const filterRow = document.getElementById('cards-filter-row');
   const summaryEl = document.getElementById('cards-summary');
+  const secretRow = document.getElementById('cards-shelf-secret-row');
   if (cardExpanded){
     if (searchRow) searchRow.style.display = 'none';
     if (filterRow) filterRow.style.display = 'none';
     if (summaryEl) summaryEl.style.display = 'none';
+    if (secretRow) secretRow.style.display = 'none';
     shelf.innerHTML = '';
     if (pager) pager.innerHTML = '';
     renderCardDetailSlot();
@@ -3386,6 +3411,11 @@ function renderCardShelf(){
   if (searchRow) searchRow.style.display = '';
   if (filterRow) filterRow.style.display = '';
   if (summaryEl) summaryEl.style.display = '';
+  if (secretRow){
+    secretRow.style.display = 'inline-flex';
+    const cb = document.getElementById('cards-shelf-show-secret');
+    if (cb) cb.checked = showSecretInShelf;
+  }
   renderCardFilters();   // счётчики меняются после правок — считаем каждый раз
 
   const v = visibleCards();
@@ -3423,14 +3453,13 @@ function renderCardShelf(){
       + '</div></div>';
   }).join('');
 
-  // Пустые места на полке — приглашают завести новую карточку
-  const emptySlots = Math.max(0, (slice.length % 4 === 0 ? 4 : 4 - (slice.length % 4)));
-  for (let i = 0; i < emptySlots; i++){
-    html += '<div onclick="addCardType()" style="cursor:pointer;border:1.5px dashed var(--border);border-radius:12px;'
-      + 'display:flex;flex-direction:column;align-items:center;justify-content:center;aspect-ratio:3/4.55;'
-      + 'color:var(--text-faint);gap:4px">'
-      + '<div style="font-size:20px">+</div><div style="font-size:10px">пусто</div></div>';
-  }
+  // РОВНО ОДНО место под новую карточку — как на полке главной страницы.
+  // Раньше полка добивалась пустыми до кратности четырём, и их число скакало
+  // от количества карточек: выглядело как дыры в колоде, а не как кнопка
+  html += '<div onclick="addCardType()" style="cursor:pointer;border:1.5px dashed var(--border);border-radius:12px;'
+    + 'display:flex;flex-direction:column;align-items:center;justify-content:center;aspect-ratio:3/4.55;'
+    + 'color:var(--text-faint);gap:4px">'
+    + '<div style="font-size:20px">+</div><div style="font-size:10px">новая</div></div>';
   html += '</div>';
 
   shelf.innerHTML = list.length || cardTypes.length ? html
@@ -3480,8 +3509,11 @@ function cardDetailHtml(c, idx){
   // В крупном просмотре показываем полную версию, если она есть — это ровно то,
   // что увидит участник при увеличении
   const detailArt = c.image_full_url || c.image_url;
+  // Клик по арту открывает увеличение — то же, что видит участник в аппе.
+  // Без арта ни курсора-руки, ни обработчика: нажимать не на что
   const art = detailArt
-    ? '<img src="' + detailArt + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block">'
+    ? '<img src="' + detailArt + '" alt="" onclick="openAdminZoom(' + jsArg(detailArt) + ')" '
+      + 'style="width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in">'
     : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:64px;color:' + rc + ';opacity:.4">◆</div>';
 
   const per = c.limit_period_months || 1;
@@ -3520,10 +3552,31 @@ function cardDetailHtml(c, idx){
     + '</div>'
     + '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">'
       + '<button onclick="editCardType()" style="flex:1;min-width:110px;padding:10px;border-radius:9px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:600">Редактировать</button>'
-      + '<button onclick="sendCardFromDetail(' + jsArg(c.key) + ')" style="flex:1;min-width:110px;padding:10px;border-radius:9px;border:1px solid var(--border-strong,var(--border));background:var(--surface);color:var(--text);cursor:pointer;font-size:13px">Отправить</button>'
+      + '<button onclick="sendCardFromDetail(' + jsArg(c.key) + ')" style="flex:1;min-width:110px;padding:10px;border-radius:9px;border:1.5px solid var(--accent);background:var(--surface);color:var(--text);cursor:pointer;font-size:13px">Отправить</button>'
       + '<button onclick="deleteCardType(' + jsArg(c.key) + ')" style="padding:10px 14px;border-radius:9px;border:1px solid #ef4444;background:transparent;color:#ef4444;cursor:pointer;font-size:13px">Удалить</button>'
     + '</div></div>';
 }
+
+/* Увеличение арта — то же, что участник видит в аппе. Здесь проще: у Denis'а
+   не телефон в кармане, а рабочий экран, поэтому без жестов — открыть и закрыть */
+function openAdminZoom(url){
+  if (!url) return;
+  const ov = document.getElementById('admin-zoom');
+  const img = document.getElementById('admin-zoom-img');
+  if (!ov || !img) return;
+  img.src = url;
+  ov.style.display = 'flex';
+}
+
+function closeAdminZoom(){
+  const ov = document.getElementById('admin-zoom');
+  if (ov) ov.style.display = 'none';
+}
+
+// Esc закрывает — привычно для экрана с клавиатурой
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape') closeAdminZoom();
+});
 
 function editCardType(){ cardEditMode = true; renderCardShelf(); }
 
@@ -4072,33 +4125,104 @@ function cardsWidgetGo(delta){
   renderCardsWidget();
 }
 
-/* Свайп по полке. Горизонтальное движение листает страницы, вертикальное
-   отдаём странице — иначе полка перехватывала бы обычную прокрутку.
-   Решаем по тому, какая ось преобладает, и только после порога в 40px */
+/* Свайп по полке — с ПРОТЯЖКОЙ ЗА ПАЛЬЦЕМ. Раньше страница просто
+   перещёлкивалась по достижении порога, и это выглядело рывком.
+
+   Двигаем сетку карточек, а не весь блок: заголовок и листалка должны стоять
+   на месте. Вертикальное движение отдаём странице — иначе полка перехватывала
+   бы обычную прокрутку. */
+
+function cardsWidgetGrid(){
+  const el = document.getElementById('cards-widget');
+  return el ? el.firstElementChild : null;
+}
+
+function cardsWidgetShift(dx, animate){
+  const grid = cardsWidgetGrid();
+  if (!grid) return;
+  const w = grid.offsetWidth || 300;
+  grid.style.transition = animate
+    ? 'transform .22s cubic-bezier(.25,.8,.35,1), opacity .22s ease' : 'none';
+  grid.style.transform = 'translateX(' + dx + 'px)';
+  grid.style.opacity = String(Math.max(.3, 1 - Math.abs(dx) / (w * .85)));
+}
+
+function cardsWidgetResetShift(){
+  const grid = cardsWidgetGrid();
+  if (!grid) return;
+  grid.style.transition = '';
+  grid.style.transform = '';
+  grid.style.opacity = '';
+}
+
+// Доводим страницу в ту же сторону, куда вели, меняем содержимое за краем
+// и впускаем следующую с противоположной стороны
+function cardsWidgetCommit(dir){
+  const grid = cardsWidgetGrid();
+  const w = (grid && grid.offsetWidth) || 300;
+  const out = -(w + 40) * dir;
+  cardsWidgetShift(out, true);
+  setTimeout(function(){
+    cardsWidgetPage += dir;
+    renderCardsWidget();
+    cardsWidgetShift(-out, false);
+    const g = cardsWidgetGrid();
+    if (g) void g.offsetWidth;   // без этого браузер схлопнет оба состояния
+    cardsWidgetShift(0, true);
+    setTimeout(cardsWidgetResetShift, 240);
+  }, 190);
+}
+
 function wireCardsWidgetSwipe(){
   const el = document.getElementById('cards-widget');
   if (!el || el._swipeWired) return;
   el._swipeWired = true;
 
-  let x0 = 0, y0 = 0, tracking = false;
+  let x0 = 0, y0 = 0, tracking = false, axis = null, busy = false;
+
+  const pageCount = function(){
+    const src = showSecretInWidget ? cardTypes : cardTypes.filter(function(c){ return !c.secret; });
+    return Math.max(1, Math.ceil(src.length / CARDS_WIDGET_SLOTS));
+  };
 
   el.addEventListener('touchstart', function(e){
-    if (e.touches.length !== 1) return;
-    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; tracking = true;
+    if (busy || e.touches.length !== 1) return;
+    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+    tracking = true; axis = null;
   }, { passive: true });
 
   el.addEventListener('touchmove', function(e){
     if (!tracking || e.touches.length !== 1) return;
-    const dx = e.touches[0].clientX - x0;
+    let dx = e.touches[0].clientX - x0;
     const dy = e.touches[0].clientY - y0;
-    if (Math.abs(dy) > Math.abs(dx)) { tracking = false; return; }   // это прокрутка
-    if (Math.abs(dx) > 40){
-      tracking = false;
-      cardsWidgetGo(dx < 0 ? 1 : -1);
+    if (axis === null && (Math.abs(dx) > 10 || Math.abs(dy) > 10)){
+      axis = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+    }
+    if (axis !== 'h') return;
+    e.preventDefault();
+    // На краях идти некуда — упругое сопротивление вместо пустого хода
+    const atEdge = (dx > 0 && cardsWidgetPage === 0)
+                || (dx < 0 && cardsWidgetPage >= pageCount() - 1);
+    if (atEdge) dx = dx / 3.5;
+    cardsWidgetShift(dx, false);
+  }, { passive: false });
+
+  el.addEventListener('touchend', function(e){
+    if (!tracking) return;
+    tracking = false;
+    if (axis !== 'h') return;
+    const dx = e.changedTouches[0].clientX - x0;
+    const dir = dx < 0 ? 1 : -1;
+    const canGo = (dir === 1) ? cardsWidgetPage < pageCount() - 1 : cardsWidgetPage > 0;
+    if (Math.abs(dx) >= 40 && canGo){
+      busy = true;
+      cardsWidgetCommit(dir);
+      setTimeout(function(){ busy = false; }, 450);
+    } else {
+      cardsWidgetShift(0, true);
+      setTimeout(cardsWidgetResetShift, 240);
     }
   }, { passive: true });
-
-  el.addEventListener('touchend', function(){ tracking = false; }, { passive: true });
 
   // Мышью на десктопе — колесо с зажатым Shift и обычное горизонтальное
   el.addEventListener('wheel', function(e){
@@ -4108,330 +4232,6 @@ function wireCardsWidgetSwipe(){
     cardsWidgetGo(dx > 0 ? 1 : -1);
   }, { passive: false });
 }
-
-function openCardFromWidget(key){
-  openCardsPopup(function(){ openCardEditor(key); });
-}
-
-function addCardFromWidget(){
-  openCardsPopup(function(){ addCardType(); });
-}
-
-
-/* ── Подарить карточку или пак конкретному участнику ────────────────────── */
-
-let grantTarget = null;
-
-function resetGrantTab(){
-  grantTarget = null;
-  const q = document.getElementById('grant-search');
-  if (q) q.value = '';
-  document.getElementById('grant-search-results').innerHTML = '';
-  document.getElementById('grant-chosen').innerHTML = '';
-  document.getElementById('grant-status').textContent = '';
-  document.getElementById('grant-what').style.display = 'none';
-  fillGrantCardSelect();
-}
-
-function fillGrantCardSelect(){
-  const sel = document.getElementById('grant-card');
-  if (!sel) return;
-  // Случайный пак первым: это основной сценарий проверки
-  let opts = '<option value="">Случайный пак из трёх карточек</option>';
-  const byGod = {};
-  (cardTypes || []).forEach(function(c){
-    (byGod[c.god || 'Без бога'] = byGod[c.god || 'Без бога'] || []).push(c);
-  });
-  Object.keys(byGod).sort(function(a,b){ return a.localeCompare(b,'ru'); }).forEach(function(g){
-    opts += '<optgroup label="' + g + '">';
-    byGod[g].forEach(function(c){
-      const mark = c.active ? '' : ' (выключена)';
-      opts += '<option value="' + c.key + '">' + (c.title || c.key)
-            + ' — ' + (RARITY_LABELS[c.rarity] || c.rarity) + mark + '</option>';
-    });
-    opts += '</optgroup>';
-  });
-  sel.innerHTML = opts;
-}
-
-function searchGrantCandidates(){
-  const q = document.getElementById('grant-search').value.trim().toLowerCase();
-  const el = document.getElementById('grant-search-results');
-  if (!q){ el.innerHTML = ''; return; }
-  const matches = (allUsers || []).filter(function(u){
-    return u.telegram_id && (
-      (u.full_name||'').toLowerCase().includes(q) ||
-      (u.name||'').toLowerCase().includes(q) ||
-      (u.phone||'').includes(q) ||
-      (u.username||'').toLowerCase().includes(q) ||
-      String(u.telegram_id).includes(q)
-    );
-  }).slice(0, 8);
-
-  el.innerHTML = matches.map(function(u){
-    return '<div class="pay-item" style="cursor:pointer" onclick="chooseGrantTarget(' + u.id + ')">'
-      + '<div class="pay-info"><div class="pay-name">' + (u.full_name||u.name||'—') + '</div>'
-      + '<div class="pay-meta">' + (u.phone||u.username||u.telegram_id) + '</div></div></div>';
-  }).join('') || '<div class="empty" style="padding:10px">Никого не нашлось</div>';
-}
-
-function chooseGrantTarget(userId){
-  const u = (allUsers || []).find(function(x){ return x.id === userId; });
-  if (!u) return;
-  grantTarget = { telegram_id: u.telegram_id, name: u.full_name || u.name || String(u.telegram_id) };
-  document.getElementById('grant-search-results').innerHTML = '';
-  document.getElementById('grant-search').value = '';
-  document.getElementById('grant-chosen').innerHTML =
-    '<div class="pay-item"><div class="pay-info">'
-    + '<div class="pay-name">' + grantTarget.name + '</div>'
-    + '<div class="pay-meta">Telegram ID ' + grantTarget.telegram_id + '</div></div>'
-    + '<button class="action-btn" onclick="resetGrantTab()">Сменить</button></div>';
-  document.getElementById('grant-what').style.display = 'block';
-  document.getElementById('grant-status').textContent = '';
-}
-
-async function grantCards(){
-  if (!grantTarget){ return; }
-  const status = document.getElementById('grant-status');
-  const cardKey = document.getElementById('grant-card').value;
-  status.textContent = 'Выдаю...';
-  try {
-    const body = { telegram_id: grantTarget.telegram_id, reason: 'manual' };
-    if (cardKey) body.card_key = cardKey;
-    const r = await fetch(API+'/cards/admin/grant?x_admin_token='+encodeURIComponent(ADMIN_TOKEN), {
-      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
-    });
-    const d = await r.json().catch(function(){ return {}; });
-    if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
-
-    const titles = (d.cards || []).map(function(k){
-      const c = (cardTypes || []).find(function(x){ return x.key === k; });
-      return c ? (c.title || k) : k;
-    });
-    status.textContent = (d.single ? 'Выдана карточка: ' : 'Выдан пак: ') + titles.join(', ');
-    // Расход лимитов мог измениться — обновляем полку и виджет
-    loadCardTypes();
-  } catch(e){
-    status.textContent = 'Не получилось: ' + (e && e.message ? e.message : e);
-  }
-}
-
-/* ── Боги пантеона: описания для аппа ───────────────────────────────────── */
-
-let godsList = [];        // с описаниями, как их отдал бэкенд
-let godsOrphans = [];     // имена, встречающиеся у карточек, но описания не имеющие
-let godExpanded = null;   // имя редактируемого бога; null — показываем список
-
-/* Имена для подсказки в поле «Бог» редактора карточки: и описанные, и те,
-   что уже проставлены у карточек. */
-function godNameOptions(){
-  const seen = {};
-  (godsList || []).forEach(function(g){ if (g.name) seen[g.name] = 1; });
-  (cardTypes || []).forEach(function(c){ if (c.god) seen[c.god] = 1; });
-  return Object.keys(seen).sort(function(a,b){ return a.localeCompare(b,'ru'); })
-    .map(function(n){ return '<option value="' + String(n).replace(/"/g,'&quot;') + '">'; }).join('');
-}
-
-async function loadGods(){
-  const el = document.getElementById('gods-body');
-  try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(function(){ ctrl.abort(); }, 15000);
-    const r = await fetch(API+'/gods/admin?x_admin_token='+encodeURIComponent(ADMIN_TOKEN), { signal: ctrl.signal });
-    clearTimeout(timer);
-    if (!r.ok) throw new Error('сервер ответил ' + r.status);
-    const d = await r.json();
-    godsList = d.gods || [];
-    godsOrphans = d.orphan_gods || [];
-    renderGods();
-  } catch(e){
-    // Плейсхолдер «Загрузка…» без причины — худшее, что тут может остаться
-    if (el) el.innerHTML = '<div class="empty" style="padding:14px">Не удалось загрузить богов: '
-      + godEsc(e && e.message ? e.message : String(e)) + '</div>';
-  }
-}
-
-function godEsc(s){
-  return String(s == null ? '' : s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function renderGods(){
-  const el = document.getElementById('gods-body');
-  if (!el) return;
-
-  if (godExpanded !== null){
-    el.innerHTML = godEditorHtml(godExpanded);
-    const popup = document.querySelector('#cards-popup-overlay .popup');
-    if (popup) popup.scrollTop = 0;
-    return;
-  }
-
-  let html = '';
-
-  if (godsOrphans.length){
-    html += '<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:12px">'
-      + '<div style="font-size:12px;font-weight:600;margin-bottom:6px">Есть в карточках, но без описания</div>'
-      + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
-      + godsOrphans.map(function(n){
-          return '<button class="action-btn" onclick="addGod(' + jsArg(n) + ')">' + godEsc(n) + '</button>';
-        }).join('')
-      + '</div></div>';
-  }
-
-  if (!godsList.length){
-    html += '<div class="empty" style="padding:14px">Описаний пока нет</div>';
-  } else {
-    html += godsList.map(function(g){
-      const cnt = g.cards_count || 0;
-      const status = g.published
-        ? '<span style="color:var(--green);font-size:11px">опубликован</span>'
-        : '<span style="color:var(--text-faint);font-size:11px">черновик</span>';
-      const words = (g.description || '').trim() ? (g.description.trim().split(/\s+/).length + ' слов') : 'текста нет';
-      return '<div class="pay-item" style="cursor:pointer" onclick="openGodEditor(' + jsArg(g.name) + ')">'
-        + '<div class="pay-info">'
-          + '<div class="pay-name">' + godEsc(g.name) + '</div>'
-          + '<div class="pay-meta">' + godEsc(g.subtitle || '—') + '</div>'
-          + '<div class="pay-meta">' + cnt + ' ' + cardWord(cnt) + ' · ' + words + ' · ' + status + '</div>'
-        + '</div></div>';
-    }).join('');
-  }
-
-  html += '<button class="popup-save" style="margin-top:12px" onclick="addGod()">+ Добавить бога</button>';
-  el.innerHTML = html;
-}
-
-function cardWord(n){
-  const t = n % 10, h = n % 100;
-  if (t === 1 && h !== 11) return 'карточка';
-  if (t >= 2 && t <= 4 && (h < 12 || h > 14)) return 'карточки';
-  return 'карточек';
-}
-
-function openGodEditor(name){ godExpanded = name; renderGods(); }
-function closeGodEditor(){ godExpanded = null; renderGods(); }
-
-function addGod(prefillName){
-  const name = (prefillName || '').trim();
-  if (name && !godsList.some(function(g){ return g.name === name; })){
-    godsList.push({ name:name, subtitle:'', description:'', image_url:'', sort_order:100,
-                    published:true, cards_count:0, _new:true });
-  } else if (!name){
-    godsList.push({ name:'', subtitle:'', description:'', image_url:'', sort_order:100,
-                    published:true, cards_count:0, _new:true });
-  }
-  godExpanded = name;   // у новой без имени это '' — редактор находит её по _new
-  renderGods();
-}
-
-function findGod(name){
-  return (godsList || []).find(function(g){
-    return g.name === name || (name === '' && g._new && !g.name);
-  });
-}
-
-function godEditorHtml(name){
-  const g = findGod(name) || { name:'', subtitle:'', description:'', image_url:'',
-                               sort_order:100, published:true, cards_count:0, _new:true };
-  const lbl = function(text){
-    return '<span style="font-size:11px;color:var(--text-faint)">' + text + '</span>';
-  };
-  const inputStyle = 'padding:8px 10px;border-radius:8px;border:1px solid var(--line);'
-    + 'background:var(--surface);color:var(--text);font-size:13px;width:100%';
-
-  const isNew = !!g._new;
-
-  return '<div style="display:flex;flex-direction:column;gap:11px">'
-    + '<button class="action-btn" style="align-self:flex-start" onclick="closeGodEditor()">← К списку</button>'
-
-    + '<label style="display:flex;flex-direction:column;gap:3px">' + lbl('Имя бога — ровно так, как стоит в поле «Бог» у карточек')
-      + '<input id="gf-name" value="' + godEsc(g.name) + '" style="' + inputStyle + '"></label>'
-
-    + '<label style="display:flex;flex-direction:column;gap:3px">' + lbl('Короткая строка под именем')
-      + '<input id="gf-subtitle" value="' + godEsc(g.subtitle) + '" placeholder="бог вдохновения и непредсказуемого успеха" style="' + inputStyle + '"></label>'
-
-    + '<label style="display:flex;flex-direction:column;gap:3px">' + lbl('Описание — пустая строка между абзацами')
-      + '<textarea id="gf-description" style="min-height:220px;line-height:1.5;' + inputStyle + '">' + godEsc(g.description) + '</textarea></label>'
-
-    + '<label style="display:flex;flex-direction:column;gap:3px">' + lbl('Ссылка на портрет (необязательно)')
-      + '<input id="gf-image" value="' + godEsc(g.image_url) + '" style="' + inputStyle + '"></label>'
-
-    + '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">'
-      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:120px">' + lbl('Порядок в аппе')
-        + '<input type="number" id="gf-sort" value="' + (g.sort_order == null ? 100 : g.sort_order) + '" style="' + inputStyle + '"></label>'
-      + '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding-bottom:9px">'
-        + '<input type="checkbox" id="gf-published" ' + (g.published ? 'checked' : '') + '> Показывать в приложении</label>'
-    + '</div>'
-
-    + (isNew ? '' : '<div style="font-size:11px;color:var(--text-faint)">За этим богом закреплено '
-        + (g.cards_count || 0) + ' ' + cardWord(g.cards_count || 0)
-        + '. Если сменить имя, оно перепишется и у них.</div>')
-
-    + '<div style="display:flex;gap:8px">'
-      + '<button class="popup-save" style="flex:1;margin:0" onclick="saveGod(' + jsArg(g.name) + ')">Сохранить</button>'
-      + (isNew ? '' : '<button style="padding:9px 14px;border-radius:9px;border:1px solid #ef4444;background:transparent;color:#ef4444;cursor:pointer;font-size:13px" onclick="deleteGod(' + jsArg(g.name) + ')">Удалить</button>')
-    + '</div>'
-    + '<div id="gf-status" style="font-size:12px;color:var(--text-faint);min-height:16px"></div>'
-    + '</div>';
-}
-
-async function saveGod(oldName){
-  const val = function(id){ const el = document.getElementById(id); return el ? el.value : ''; };
-  const status = document.getElementById('gf-status');
-  const payload = {
-    name: val('gf-name').trim(),
-    subtitle: val('gf-subtitle').trim(),
-    description: val('gf-description'),
-    image_url: val('gf-image').trim(),
-    sort_order: parseInt(val('gf-sort'), 10) || 100,
-    published: !!(document.getElementById('gf-published') || {}).checked,
-  };
-  if (!payload.name){ if (status) status.textContent = 'Нужно имя бога'; return; }
-  if (oldName && oldName !== payload.name) payload.old_name = oldName;
-
-  if (status) status.textContent = 'Сохраняю…';
-  try {
-    const r = await fetch(API+'/gods/admin?x_admin_token='+encodeURIComponent(ADMIN_TOKEN), {
-      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
-    });
-    const d = await r.json().catch(function(){ return {}; });
-    if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
-    godExpanded = null;
-    await loadGods();
-    // Имя бога могло поменяться у карточек — перечитываем колоду, иначе полка врёт
-    loadCardTypes();
-  } catch(e){
-    if (status) status.textContent = 'Не сохранилось: ' + (e && e.message ? e.message : e);
-  }
-}
-
-async function deleteGod(name){
-  if (!confirm('Удалить описание бога «' + name + '»? Карточки останутся, просто имя в аппе перестанет быть ссылкой.')) return;
-  const status = document.getElementById('gf-status');
-  try {
-    const r = await fetch(API+'/gods/admin/'+encodeURIComponent(name)+'?x_admin_token='+encodeURIComponent(ADMIN_TOKEN),
-                          { method:'DELETE' });
-    if (!r.ok) throw new Error('сервер ответил ' + r.status);
-    godExpanded = null;
-    loadGods();
-  } catch(e){
-    if (status) status.textContent = 'Не удалилось: ' + (e && e.message ? e.message : e);
-  }
-}
-
-
-/* Аргумент для inline-обработчика. JSON.stringify тут НЕЛЬЗЯ: он даёт строку в
-   двойных кавычках, а атрибут onclick="..." тоже ограничен двойными — первая же
-   кавычка закрывает атрибут, и обработчик молча перестаёт работать.
-   Оборачиваем в одинарные и экранируем на двух уровнях: сначала для JS, потом
-   для HTML. */
-function jsArg(v){
-  var s = String(v == null ? '' : v);
-  s = s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-  s = s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-  return "'" + s + "'";
-}
-
 /* Свайп по полке в попапе. Логика та же, что у виджета на главной: горизонталь
    листает, вертикаль отдаём прокрутке. Границы страниц передаём снаружи —
    полка фильтруется поиском, и число страниц меняется на лету */
@@ -4465,5 +4265,9 @@ function wireShelfSwipe(pages){
   el.addEventListener('touchend', function(){ tracking = false; }, { passive: true });
 }
 </script>
+<div id="admin-zoom" onclick="closeAdminZoom()" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(12,10,21,.94);align-items:center;justify-content:center;padding:20px;cursor:zoom-out">
+  <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
+</div>
+
 </body>
 </html>
