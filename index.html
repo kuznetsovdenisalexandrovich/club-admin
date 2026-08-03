@@ -368,6 +368,159 @@ header{padding:calc(max(env(safe-area-inset-top), 8px) + 20px) 0 16px;display:fl
   background:#fffaf3;
 }
 .toggle-switch .toggle-label-text{font-size:12px;color:var(--text-faint)}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ОБЩИЙ СЛОЙ ОФОРМЛЕНИЯ — приведение к виду club-app (03.08.2026).
+   Блок добавлен В КОНЕЦ стилей и работает переопределением: разметка,
+   классы и обработчики не тронуты, меняются только значения.
+   Токены и фактура фона скопированы из аппа дословно; плотность оставлена
+   рабочей — инструменты живут на широком экране со списками и таблицами,
+   и воздух мобильного аппа съел бы половину полезной площади.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root{ --paper-noise:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.12'/%3E%3C/svg%3E"); }
+
+[data-theme="light"]{
+  --bg:#e6ded4;--bg-b:#dbd1c5;--bg-c:#f0e9e1;
+  --bg2:#ebe3da;--card:#e7dfd5;--card2:#dcd2c6;
+  --card-bg:#e7dfd5;--input-bg:#ded4c8;--stat-bg:#ddd2c6;
+  --border:rgba(255,255,255,.58);--line:rgba(76,58,42,.10);
+  --text:#302821;--text-dim:#77695e;--text-faint:#9c8d80;
+  --sh-r:12px 16px 30px rgba(91,70,52,.17),-3px -3px 8px rgba(255,255,255,.83),inset 0 1px 0 rgba(255,255,255,.74);
+  --sh-sm:6px 8px 17px rgba(91,70,52,.15),-2px -2px 6px rgba(255,255,255,.78),inset 0 1px 0 rgba(255,255,255,.66);
+  --sh-i:inset 6px 7px 13px rgba(116,92,72,.17),inset -5px -5px 12px rgba(255,255,255,.72);
+  --sh-is:inset 3px 4px 8px rgba(116,92,72,.18),inset -3px -3px 7px rgba(255,255,255,.68);
+  --shadow:var(--sh-r);
+  /* Переменные, которых в аппе нет, а инструменты ими пользуются.
+     Без этой перекладки часть блоков осталась бы в старой палитре */
+  --surface:var(--card); --surface2:var(--card2); --popup-bg:#efe8e0;
+  --chart-grid:rgba(76,58,42,.10); --chart-tick:#9c8d80;
+  --shadow:var(--sh-r);
+}
+[data-theme="dark"]{
+  --bg:#05060d;--bg-b:#080a15;--bg-c:#05060d;
+  --bg2:rgba(11,12,27,.96);--card:rgba(18,18,39,.54);--card2:rgba(255,255,255,.065);
+  --card-bg:rgba(18,18,39,.54);--input-bg:rgba(255,255,255,.065);--stat-bg:rgba(255,255,255,.065);
+  --border:rgba(170,150,255,.18);--line:rgba(184,168,255,.09);
+  --text:#f4f2ff;--text-dim:#aaa6ca;--text-faint:#716c91;
+  --sh-r:0 20px 48px rgba(0,0,0,.34),0 0 34px -22px rgba(139,104,255,.42),inset 0 1px 0 rgba(255,255,255,.075);
+  --sh-sm:0 10px 26px rgba(0,0,0,.28),0 0 24px -18px rgba(139,104,255,.38),inset 0 1px 0 rgba(255,255,255,.07);
+  --shadow:var(--sh-r);
+  --surface:var(--card); --surface2:var(--card2); --popup-bg:rgba(13,13,30,.97);
+  --chart-grid:rgba(184,168,255,.10); --chart-tick:#716c91;
+  --shadow:var(--sh-r);
+}
+
+/* Фон в три слоя, как в аппе: заливка, световые полосы, бумажное зерно.
+   Слои фиксированные и не кликаются; .shell у обоих инструментов уже
+   position:relative;z-index:1, поэтому содержимое остаётся сверху */
+html,body{background:var(--bg)}
+body{position:relative;isolation:isolate}
+body::before,body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0}
+.blob{z-index:0}
+
+[data-theme="light"] body{
+  background:
+    radial-gradient(1000px 760px at -10% -8%,rgba(255,255,255,.98) 0%,rgba(255,252,245,.82) 29%,transparent 63%),
+    radial-gradient(720px 640px at 110% 72%,rgba(151,129,109,.18),transparent 68%),
+    linear-gradient(145deg,#f0ebe4 0%,#e5ddd3 46%,#d9cfc3 100%);
+}
+[data-theme="light"] body::before{
+  background:
+    linear-gradient(216deg,transparent 0 11%,rgba(255,255,255,.46) 12% 16%,transparent 17% 31%,
+      rgba(255,252,235,.30) 32% 37%,transparent 38% 54%,rgba(255,255,255,.22) 55% 59%,transparent 60%),
+    radial-gradient(520px 420px at 0% 0%,rgba(255,242,204,.42),transparent 72%);
+  opacity:.68;filter:blur(.35px);mix-blend-mode:screen;
+}
+[data-theme="light"] body::after{
+  background-image:var(--paper-noise);background-size:180px 180px;opacity:.16;mix-blend-mode:multiply;
+}
+[data-theme="dark"] body{
+  background:
+    radial-gradient(740px 600px at 4% -5%,rgba(107,70,211,.23),transparent 63%),
+    radial-gradient(620px 520px at 108% 7%,rgba(48,69,170,.17),transparent 67%),
+    radial-gradient(760px 620px at 50% 112%,rgba(110,31,98,.11),transparent 68%),
+    linear-gradient(155deg,#060711 0%,#090a17 45%,#03040a 100%);
+}
+[data-theme="dark"] body::before{
+  background:
+    linear-gradient(126deg,transparent 0 9%,rgba(152,125,255,.075) 10% 14%,transparent 15% 30%,
+      rgba(80,118,255,.045) 31% 36%,transparent 37%),
+    radial-gradient(540px 420px at 0% 0%,rgba(140,99,255,.13),transparent 72%);
+  opacity:.72;mix-blend-mode:screen;
+}
+[data-theme="dark"] body::after{
+  background-image:var(--paper-noise);background-size:180px 180px;opacity:.035;mix-blend-mode:screen;
+}
+
+/* ── Панели. Радиус чуть меньше аппового (22px): у инструментов карточки
+      вложены друг в друга, и крупное скругление на вложенных выглядит рыхло ── */
+.card,.kpi,.popup-stat{
+  border-radius:18px;
+  border:1px solid var(--border);
+  box-shadow:var(--sh-r);
+}
+[data-theme="light"] .card,[data-theme="light"] .kpi,[data-theme="light"] .popup-stat{
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.30),rgba(255,255,255,.03)),
+    var(--paper-noise),rgba(231,223,213,.62);
+  background-blend-mode:soft-light,multiply,normal;
+  border-color:rgba(255,255,255,.64);
+  backdrop-filter:blur(18px) saturate(120%);-webkit-backdrop-filter:blur(18px) saturate(120%);
+}
+[data-theme="dark"] .card,[data-theme="dark"] .kpi,[data-theme="dark"] .popup-stat{
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.012)),
+    rgba(18,18,39,.5);
+  border-color:rgba(170,150,255,.18);
+  backdrop-filter:blur(22px) saturate(125%);-webkit-backdrop-filter:blur(22px) saturate(125%);
+}
+
+/* Шапка инструмента — как в аппе */
+.mark{border-radius:13px;
+  background:linear-gradient(135deg,var(--lav),var(--warm));
+  box-shadow:0 0 11px rgba(232,97,74,.18),0 0 7px rgba(155,140,242,.15),
+    inset 0 1px 0 rgba(255,255,255,.35),inset 0 -1px 0 rgba(0,0,0,.25)}
+
+/* ── Поля ввода: стеклянные, но ПЛОТНЫЕ. Размытие под полем, куда смотрят
+      при наборе, мешает читать — берём материал, не эффект ── */
+input,select,textarea,.rich-input,.popup-input,.payload-input{
+  border-radius:12px;
+  border:1px solid var(--line);
+  background:var(--input-bg);
+  color:var(--text);
+  font-family:var(--body);
+}
+input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
+  outline:none;border-color:var(--lav);
+  box-shadow:0 0 0 3px var(--lav-dim);
+}
+
+/* ── Кнопки ── */
+.btn,.action-btn,.icon-btn,.scroll-btn,.pin-btn,.send-payload-btn{
+  border-radius:12px;font-family:var(--body);font-weight:600;
+  transition:transform .16s ease,box-shadow .25s ease,background .25s ease;
+}
+.btn:active,.action-btn:active,.icon-btn:active{transform:translateY(1px)}
+.action-btn.primary,.btn.primary{
+  background:linear-gradient(135deg,var(--warm),var(--warm-deep));
+  border-color:transparent;color:#fff;
+  box-shadow:0 8px 20px -10px var(--warm),inset 0 1px 0 rgba(255,255,255,.35);
+}
+
+/* ── Вкладки ── */
+.tab.active,.ptab.active{color:var(--text)}
+.tabs{gap:6px}
+
+/* Строки списков намеренно БЕЗ размытия: их на экране бывают сотни,
+   и стекло под ними и читается хуже, и стоит заметно дороже */
+.scroll-row,.popup-row,.payload-row,tr,tbody td{backdrop-filter:none!important}
+
+@media (prefers-reduced-motion:reduce){
+  .btn,.action-btn,.icon-btn,.card{transition:none!important}
+}
+
 </style>
 </head>
 
