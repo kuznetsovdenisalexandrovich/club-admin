@@ -482,6 +482,7 @@ header{padding:calc(max(env(safe-area-inset-top), 8px) + 20px) 0 16px;display:fl
         <button class="action-btn action-btn--lav" onclick="openCampaignsPopup()">Кампании</button>
         <button class="action-btn action-btn--lav" onclick="openNewsPopup()">Лента новостей</button>
         <button class="action-btn action-btn--lav" onclick="openStreamsPopup()">Потоки</button>
+        <button class="action-btn action-btn--lav" onclick="openMagazinePopup()">Журнал</button>
         <button class="action-btn action-btn--lav" onclick="openListNotifPopup()">Уведомления</button>
       </div>
     </div>
@@ -740,6 +741,59 @@ header{padding:calc(max(env(safe-area-inset-top), 8px) + 20px) 0 16px;display:fl
 </div>
 
 <!-- Streams Popup -->
+<div class="popup-overlay" id="magazine-popup-overlay">
+  <div class="popup" id="magazine-popup">
+    <div class="popup-handle"></div>
+    <div class="popup-body" style="padding-top:0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="popup-section-title" style="margin-top:0;margin-bottom:0">Журнал</div>
+      <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeMagazinePopup()"><svg width="14" height="14" viewBox="0 0 14 14" style="display:block"><path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+    </div>
+
+    <div style="font-size:11px;color:var(--text-faint);line-height:1.5;margin-bottom:12px">
+      Вёрстка выпуска лежит в репозитории club-app, папкой <b>magazine/&lt;папка&gt;/</b> — она заливается через терминал.
+      Здесь заводится карточка выпуска: обложка, описание и место в очереди.
+    </div>
+
+    <div class="popup-section-title" style="margin-top:0">Обложка плитки «Журнал»</div>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">
+      <div id="magazine-tile-preview" style="width:78px;height:78px;border-radius:12px;background:var(--input-bg);flex-shrink:0;overflow:hidden"></div>
+      <div style="flex:1">
+        <input type="file" accept="image/*" id="magazine-tile-file" style="font-size:11px" onchange="uploadMagazineCover('tile', this.files[0])">
+        <div id="magazine-tile-status" style="font-size:11px;color:var(--text-faint);min-height:14px"></div>
+      </div>
+    </div>
+
+    <div class="popup-section-title">Выпуск</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <input class="popup-input" type="text" id="magazine-key" placeholder="Ключ выпуска латиницей (напр. pilot) — совпадает с именем папки" style="margin-bottom:0">
+      <input class="popup-input" type="text" id="magazine-title" placeholder="Название выпуска" style="margin-bottom:0">
+      <textarea class="popup-input" id="magazine-description" rows="3" placeholder="Описание-анонс. Его читают и на закрытом выпуске тоже — писать как тизер, а не как оглавление" style="margin-bottom:0;resize:vertical"></textarea>
+      <div style="display:flex;gap:8px">
+        <input class="popup-input" type="number" id="magazine-number" placeholder="Номер в очереди" style="margin-bottom:0;flex:1">
+        <input class="popup-input" type="text" id="magazine-date" placeholder="Вышел (дд.мм.гггг)" style="margin-bottom:0;flex:1">
+      </div>
+      <input class="popup-input" type="text" id="magazine-folder" placeholder="Папка в репозитории (пусто = совпадает с ключом)" style="margin-bottom:0">
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px"><input type="checkbox" id="magazine-free"> Открыт всем, включая демо (пилотный выпуск)</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px"><input type="checkbox" id="magazine-published" checked> Опубликован (виден в приложении)</label>
+
+      <div style="display:flex;gap:10px;align-items:center">
+        <div id="magazine-cover-preview" style="width:60px;height:80px;border-radius:8px;background:var(--input-bg);flex-shrink:0;overflow:hidden"></div>
+        <div style="flex:1">
+          <input type="file" accept="image/*" id="magazine-cover-file" style="font-size:11px" onchange="uploadMagazineIssueCover(this.files[0])">
+          <div id="magazine-cover-status" style="font-size:11px;color:var(--text-faint);min-height:14px"></div>
+        </div>
+      </div>
+
+      <button class="popup-save" onclick="saveMagazineIssue()">Сохранить выпуск</button>
+      <button class="action-btn" onclick="resetMagazineForm()">Очистить форму</button>
+    </div>
+
+    <div id="magazine-list" style="margin-top:14px"></div>
+    </div>
+  </div>
+</div>
+
 <div class="popup-overlay" id="streams-popup-overlay">
   <div class="popup" id="streams-popup">
     <div class="popup-handle"></div>
@@ -2516,6 +2570,144 @@ async function deleteStream(key){
     await fetch(API+'/streams/'+key+'?x_admin_token='+ADMIN_TOKEN,{method:'DELETE'});
     loadStreamsList();
   }catch(e){ alert('Ошибка соединения'); }
+}
+
+/* ── Журнал ──
+   Карточки выпусков и обложки. Сама вёрстка выпуска (десятки файлов из экспорта
+   Тильды) едет в репозиторий через git — заливать её отсюда нельзя: GitHub
+   Contents API кладёт по одному файлу за вызов. */
+
+let magazineIssues = [];
+
+function openMagazinePopup(){
+  document.getElementById('magazine-popup-overlay').classList.add('open');
+  loadMagazineList();
+}
+function closeMagazinePopup(){ document.getElementById('magazine-popup-overlay').classList.remove('open'); }
+
+async function loadMagazineList(){
+  const el = document.getElementById('magazine-list');
+  el.innerHTML = '<div class="loading">Загрузка...</div>';
+  try{
+    const d = await fetch(API + '/magazine/admin?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN)).then(r=>r.json());
+    magazineIssues = d.issues || [];
+
+    const tile = document.getElementById('magazine-tile-preview');
+    if (tile) tile.innerHTML = d.tile_cover
+      ? '<img src="' + d.tile_cover + '?v=' + Date.now() + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block">'
+      : '';
+
+    if(!magazineIssues.length){ el.innerHTML = '<div class="pay-meta">Выпусков пока нет</div>'; return; }
+    el.innerHTML = magazineIssues.map(function(m){
+      const marks = [];
+      if (m.free) marks.push('открыт всем');
+      if (!m.published) marks.push('черновик');
+      return '<div class="pay-item">'
+        + (m.cover_url ? '<img src="' + m.cover_url + '" alt="" style="width:34px;height:46px;object-fit:cover;border-radius:6px;margin-right:8px">' : '')
+        + '<div style="flex:1">'
+        +   '<div class="pay-name">' + (m.number || 0) + '. ' + (m.title || m.issue_key) + '</div>'
+        +   '<div class="pay-meta">' + m.issue_key + (marks.length ? ' — ' + marks.join(', ') : '') + '</div>'
+        + '</div>'
+        + '<button class="action-btn" onclick="editMagazineIssue(' + jsArg(m.issue_key) + ')">Изм.</button>'
+        + '<button class="action-btn danger" onclick="deleteMagazineIssue(' + jsArg(m.issue_key) + ')">Удл.</button>'
+        + '</div>';
+    }).join('');
+  }catch(e){ el.innerHTML = '<div class="pay-meta">Ошибка загрузки</div>'; }
+}
+
+function resetMagazineForm(){
+  document.getElementById('magazine-key').value = '';
+  document.getElementById('magazine-key').disabled = false;
+  document.getElementById('magazine-title').value = '';
+  document.getElementById('magazine-description').value = '';
+  document.getElementById('magazine-number').value = '';
+  document.getElementById('magazine-date').value = '';
+  document.getElementById('magazine-folder').value = '';
+  document.getElementById('magazine-free').checked = false;
+  document.getElementById('magazine-published').checked = true;
+  document.getElementById('magazine-cover-preview').innerHTML = '';
+  document.getElementById('magazine-cover-status').textContent = '';
+}
+
+function editMagazineIssue(key){
+  const m = magazineIssues.find(function(x){ return x.issue_key === key; });
+  if(!m) return;
+  document.getElementById('magazine-key').value = m.issue_key;
+  document.getElementById('magazine-key').disabled = true;   // ключ = имя папки, менять нельзя
+  document.getElementById('magazine-title').value = m.title || '';
+  document.getElementById('magazine-description').value = m.description || '';
+  document.getElementById('magazine-number').value = m.number || 0;
+  document.getElementById('magazine-date').value = m.published_at || '';
+  document.getElementById('magazine-folder').value = (m.folder === m.issue_key ? '' : (m.folder || ''));
+  document.getElementById('magazine-free').checked = !!m.free;
+  document.getElementById('magazine-published').checked = !!m.published;
+  document.getElementById('magazine-cover-preview').innerHTML = m.cover_url
+    ? '<img src="' + m.cover_url + '?v=' + Date.now() + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block">'
+    : '';
+  document.getElementById('magazine-cover-status').textContent = '';
+}
+
+async function saveMagazineIssue(){
+  const key = document.getElementById('magazine-key').value.trim();
+  const title = document.getElementById('magazine-title').value.trim();
+  if(!key || !title){ alert('Заполни ключ и название'); return; }
+  if(!/^[a-z0-9_]+$/.test(key)){ alert('Ключ — только латиница, цифры и подчёркивание: он же имя папки в репозитории'); return; }
+
+  const body = {
+    issue_key: key,
+    title: title,
+    description: document.getElementById('magazine-description').value.trim(),
+    number: parseInt(document.getElementById('magazine-number').value, 10) || 0,
+    published_at: document.getElementById('magazine-date').value.trim(),
+    folder: document.getElementById('magazine-folder').value.trim(),
+    free: document.getElementById('magazine-free').checked,
+    published: document.getElementById('magazine-published').checked
+  };
+  try{
+    const r = await fetch(API + '/magazine/admin?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    if(!r.ok){ alert('Ошибка сохранения'); return; }
+    resetMagazineForm();
+    loadMagazineList();
+  }catch(e){ alert('Ошибка соединения'); }
+}
+
+async function deleteMagazineIssue(key){
+  if(!confirm('Удалить карточку выпуска "' + key + '"? Папка с вёрсткой в репозитории останется на месте.')) return;
+  try{
+    await fetch(API + '/magazine/admin/' + encodeURIComponent(key) + '?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {method:'DELETE'});
+    resetMagazineForm();
+    loadMagazineList();
+  }catch(e){ alert('Ошибка соединения'); }
+}
+
+async function uploadMagazineCover(key, file){
+  if(!file) return;
+  const statusId = (key === 'tile') ? 'magazine-tile-status' : 'magazine-cover-status';
+  const prevId   = (key === 'tile') ? 'magazine-tile-preview' : 'magazine-cover-preview';
+  const status = document.getElementById(statusId);
+  status.textContent = 'Готовлю картинку...';
+  try{
+    const dataUrl = await cardResizeToDataUrl(file, 900, 0.85);
+    status.textContent = 'Коммичу в GitHub...';
+    const r = await fetch(API + '/magazine/admin/upload-cover?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ issue_key: key, image_base64: dataUrl, ext: 'jpg' })
+    });
+    const d = await r.json().catch(function(){ return {}; });
+    if(!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
+    document.getElementById(prevId).innerHTML = '<img src="' + d.url + '?v=' + Date.now()
+      + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block">';
+    status.textContent = 'Готово';
+    loadMagazineList();
+  }catch(e){ status.textContent = 'Ошибка: ' + e.message; }
+}
+
+function uploadMagazineIssueCover(file){
+  const key = document.getElementById('magazine-key').value.trim();
+  if(!key){ document.getElementById('magazine-cover-status').textContent = 'Сначала задай ключ выпуска'; return; }
+  uploadMagazineCover(key, file);
 }
 
 /* ── Расписание ── */
