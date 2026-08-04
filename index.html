@@ -5812,6 +5812,10 @@ function renderBonusItems(){
         + '<input type="checkbox" ' + (it.free ? 'checked' : '')
         + ' onchange="setBonusItem(' + i + ',&quot;free&quot;,this.checked)">'
         + 'Бесплатна для всех, включая не участников</label>'
+      + '<label style="display:flex;align-items:center;gap:8px;font-size:12px">'
+        + '<input type="checkbox" ' + (it.vertical ? 'checked' : '')
+        + ' onchange="setBonusItem(' + i + ',&quot;vertical&quot;,this.checked)">'
+        + 'Вертикальное видео (как истории)</label>'
       + '</div>';
   });
   if (!bonusItems.length) h = '<div style="font-size:12px;color:var(--text-faint)">Позиций пока нет.</div>';
