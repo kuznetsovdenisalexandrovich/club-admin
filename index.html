@@ -624,6 +624,7 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
         <button class="action-btn" onclick="openLevelConfigPopup()">Настроить уровни</button>
         <button class="action-btn" onclick="openRewardCatalogPopup()">Управление наградами</button>
         <button class="action-btn" onclick="openCardsPopup()">Колода карточек</button>
+        <button class="action-btn" onclick="openBonusPopup()">Бонусы за вступление</button>
       </div>
     </div>
   </div>
@@ -754,6 +755,20 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
 </div>
 
 <!-- News Popup -->
+<!-- Бонусы за вступление: мастер-класс и бэкстейджи. Один набор = одна плитка
+     в аппе, позиции внутри. Позиция умеет и Boomstream, и ссылки в каналы -->
+<div class="popup-overlay popup-centered" id="bonus-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeBonusPopup()">
+  <div class="popup" style="max-width:560px">
+    <button class="popup-close-x" onclick="closeBonusPopup()" title="Закрыть">✕</button>
+    <div class="popup-body" style="padding-top:20px">
+      <div class="popup-section-title" style="margin-top:0">Бонусы за вступление</div>
+      <div id="bonus-list"><div class="loading">Загрузка...</div></div>
+      <div id="bonus-editor-slot" style="margin-top:12px"></div>
+      <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closeBonusPopup()">Закрыть</button>
+    </div>
+  </div>
+</div>
+
 <div class="popup-overlay popup-centered" id="cards-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeCardsPopup()">
   <div class="popup" style="max-width:560px">
     <button class="popup-close-x" onclick="closeCardsPopup()" title="Закрыть">✕</button>
@@ -5662,6 +5677,185 @@ async function runCompose(commit){
     document.getElementById('cf-commit').style.display = 'flex';
     st.textContent = d.motto ? ('Девиз: ' + d.motto) : 'Девиза нет — на карточке пусто';
   } catch(e){ st.textContent = 'Не вышло: ' + e.message; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   БОНУСЫ ЗА ВСТУПЛЕНИЕ
+
+   Набор с позициями внутри. У позиции либо код Boomstream (плеер внутри аппа),
+   либо ссылки в ТГ и ВК — мастер-класс заполняет первое, бэкстейджи второе.
+   Флаг «по порядку» нужен мастер-классу (продающее → четыре урока) и не нужен
+   бэкстейджам.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var bonusList = [], bonusExpanded = null, bonusItems = [];
+
+function openBonusPopup(){
+  document.getElementById('bonus-popup-overlay').classList.add('open');
+  loadBonuses();
+}
+function closeBonusPopup(){
+  document.getElementById('bonus-popup-overlay').classList.remove('open');
+  bonusExpanded = null;
+}
+
+async function loadBonuses(){
+  var box = document.getElementById('bonus-list');
+  try {
+    bonusList = await fetch(API + '/bonuses/admin?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN))
+      .then(function(r){ return r.json(); });
+    if (!Array.isArray(bonusList)) bonusList = [];
+    renderBonusList();
+  } catch(e){
+    box.innerHTML = '<div style="color:var(--text-faint);font-size:12px">Не загрузилось: ' + elEsc(e.message) + '</div>';
+  }
+}
+
+function renderBonusList(){
+  var box = document.getElementById('bonus-list');
+  var h = '<div style="display:flex;flex-direction:column;gap:8px">';
+  bonusList.forEach(function(b){
+    h += '<div style="border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;gap:10px;align-items:center">'
+      + '<div style="flex:1;min-width:0">'
+        + '<div style="font-size:13px">' + elEsc(b.title || b.key) + (b.active ? '' : ' · выключен') + '</div>'
+        + '<div style="font-size:11px;color:var(--text-faint)">' + (b.items || []).length + ' позиций'
+          + (b.sequential ? ' · по порядку' : '') + ' · открытий: ' + (b.opens || 0) + '</div>'
+      + '</div>'
+      + '<button class="action-btn" onclick="openBonusEditor(' + jsArg(b.key) + ')">Открыть</button></div>';
+  });
+  if (!bonusList.length) h += '<div style="font-size:12px;color:var(--text-faint)">Пока ни одного бонуса.</div>';
+  h += '</div><button class="action-btn" style="margin-top:10px" onclick="openBonusEditor(&quot;&quot;)">+ бонус</button>';
+  box.innerHTML = h;
+  document.getElementById('bonus-editor-slot').innerHTML =
+    (bonusExpanded === null) ? '' : bonusEditorHtml(bonusExpanded);
+  if (bonusExpanded !== null) renderBonusItems();
+}
+
+function findBonus(key){
+  var out = null;
+  bonusList.forEach(function(b){ if (b.key === key) out = b; });
+  return out;
+}
+
+function openBonusEditor(key){
+  bonusExpanded = key || '';
+  var b = findBonus(key);
+  // копию позиций держим отдельно: их правят по одной, а сохраняют пачкой
+  bonusItems = b ? JSON.parse(JSON.stringify(b.items || [])) : [];
+  document.getElementById('bonus-editor-slot').innerHTML = bonusEditorHtml(bonusExpanded);
+  renderBonusItems();
+}
+
+function bonusEditorHtml(key){
+  var b = findBonus(key) || { key:'', title:'', subtitle:'', cover_url:'', badge:'БОНУС',
+                              unlock:'member', sequential:false, active:true, sort_order:100 };
+  var isNew = !key;
+  return '<div style="border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px">'
+    + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Ключ: masterclass, backstage')
+      + '<input id="bf-key" value="' + elEsc(b.key) + '" ' + (isNew ? '' : 'readonly') + ' style="' + elInput() + '"></label>'
+    + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Название на плитке')
+      + '<input id="bf-title" value="' + elEsc(b.title) + '" style="' + elInput() + '"></label>'
+    + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Подпись под названием')
+      + '<input id="bf-subtitle" value="' + elEsc(b.subtitle) + '" style="' + elInput() + '"></label>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:120px">' + elLbl('Стикер')
+        + '<input id="bf-badge" value="' + elEsc(b.badge) + '" style="' + elInput() + '"></label>'
+      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:120px">' + elLbl('Кому доступен')
+        + '<select id="bf-unlock" style="' + elInput() + '">'
+        + '<option value="member"' + (b.unlock === 'member' ? ' selected' : '') + '>участникам</option>'
+        + '<option value="always"' + (b.unlock === 'always' ? ' selected' : '') + '>всем, включая демо</option>'
+        + '</select></label>'
+    + '</div>'
+    + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Обложка плитки, ссылка на картинку')
+      + '<input id="bf-cover" value="' + elEsc(b.cover_url) + '" style="' + elInput() + '"></label>'
+    + '<label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="bf-seq"'
+      + (b.sequential ? ' checked' : '') + '> Открывать позиции по порядку</label>'
+    + '<label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="bf-active"'
+      + (b.active ? ' checked' : '') + '> Показывать в приложении</label>'
+
+    + '<div style="font-size:12px;font-weight:600;margin-top:4px">Позиции</div>'
+    + '<div id="bonus-items"></div>'
+    + '<button class="action-btn" onclick="addBonusItem()">+ позиция</button>'
+
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">'
+      + '<button class="action-btn" onclick="saveBonus()">Сохранить</button>'
+      + '<button class="action-btn" onclick="bonusExpanded=null;renderBonusList()">Отмена</button>'
+      + (isNew ? '' : '<button class="action-btn" style="margin-left:auto" onclick="deleteBonus(' + jsArg(b.key) + ')">Удалить</button>')
+    + '</div><div id="bf-status" style="font-size:11px;color:var(--text-faint)"></div></div>';
+}
+
+function renderBonusItems(){
+  var box = document.getElementById('bonus-items');
+  if (!box) return;
+  var h = '';
+  bonusItems.forEach(function(it, i){
+    h += '<div style="border:1px solid var(--line);border-radius:9px;padding:9px;margin-bottom:8px;display:flex;flex-direction:column;gap:6px">'
+      + '<div style="display:flex;gap:8px;align-items:center">'
+        + '<span style="font-size:11px;color:var(--text-faint)">' + (i + 1) + '</span>'
+        + '<input placeholder="Название позиции" value="' + elEsc(it.title || '') + '"'
+          + ' oninput="setBonusItem(' + i + ',&quot;title&quot;,this.value)" style="flex:1;' + elInput() + '">'
+        + '<button class="action-btn" onclick="removeBonusItem(' + i + ')">×</button>'
+      + '</div>'
+      + '<input placeholder="Ключ позиции (латиница) — по нему хранится отметка об открытии" value="' + elEsc(it.key || '') + '"'
+        + ' oninput="setBonusItem(' + i + ',&quot;key&quot;,this.value)" style="' + elInput() + '">'
+      + '<input placeholder="Код Boomstream — если видео играет внутри приложения" value="' + elEsc(it.boomstream || '') + '"'
+        + ' oninput="setBonusItem(' + i + ',&quot;boomstream&quot;,this.value)" style="' + elInput() + '">'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+        + '<input placeholder="Ссылка ТГ" value="' + elEsc(it.tg || '') + '"'
+          + ' oninput="setBonusItem(' + i + ',&quot;tg&quot;,this.value)" style="flex:1;min-width:150px;' + elInput() + '">'
+        + '<input placeholder="Ссылка ВК" value="' + elEsc(it.vk || '') + '"'
+          + ' oninput="setBonusItem(' + i + ',&quot;vk&quot;,this.value)" style="flex:1;min-width:150px;' + elInput() + '">'
+      + '</div>'
+      + '<input placeholder="Пояснение, необязательно" value="' + elEsc(it.note || '') + '"'
+        + ' oninput="setBonusItem(' + i + ',&quot;note&quot;,this.value)" style="' + elInput() + '">'
+      + '</div>';
+  });
+  if (!bonusItems.length) h = '<div style="font-size:12px;color:var(--text-faint)">Позиций пока нет.</div>';
+  box.innerHTML = h;
+}
+
+/* Правим массив, а НЕ перерисовываем список на каждый символ: перерисовка
+   сбрасывала бы фокус и курсор при вводе */
+function setBonusItem(i, field, value){
+  if (!bonusItems[i]) return;
+  bonusItems[i][field] = value;
+}
+function addBonusItem(){
+  bonusItems.push({ key:'i' + (bonusItems.length + 1), title:'', boomstream:'', tg:'', vk:'', note:'' });
+  renderBonusItems();
+}
+function removeBonusItem(i){
+  bonusItems.splice(i, 1);
+  renderBonusItems();
+}
+
+async function saveBonus(){
+  var v = function(id){ var e = document.getElementById(id); return e ? e.value : ''; };
+  var c = function(id){ var e = document.getElementById(id); return !!(e && e.checked); };
+  var st = document.getElementById('bf-status');
+  var key = v('bf-key').trim();
+  if (!key){ st.textContent = 'Нужен ключ'; return; }
+  st.textContent = 'Сохраняю…';
+  try {
+    var payload = { key: key, title: v('bf-title').trim(), subtitle: v('bf-subtitle').trim(),
+                    badge: v('bf-badge').trim() || 'БОНУС', unlock: v('bf-unlock') || 'member',
+                    cover_url: v('bf-cover').trim(), sequential: c('bf-seq'), active: c('bf-active'),
+                    items: bonusItems };
+    var r = await fetch(API + '/bonuses/admin?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    var d = await r.json().catch(function(){ return {}; });
+    if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
+    bonusExpanded = null;
+    await loadBonuses();
+  } catch(e){ st.textContent = 'Не сохранилось: ' + e.message; }
+}
+
+async function deleteBonus(key){
+  if (!confirm('Удалить бонус «' + key + '»? Отметки о том, кто что открывал, останутся.')) return;
+  await fetch(API + '/bonuses/admin?key=' + encodeURIComponent(key)
+    + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), { method:'DELETE' });
+  bonusExpanded = null;
+  loadBonuses();
 }
 
 function jsArg(v){
