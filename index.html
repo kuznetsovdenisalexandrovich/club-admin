@@ -5319,6 +5319,14 @@ function openComposer(){
       + '<input id="cf-motto" style="' + elInput() + '"></label>'
     + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Подпись под картой: номер экземпляра и код')
       + '<input id="cf-serial" placeholder="№ 0001   ·   E T M S" style="' + elInput() + '"></label>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:90px">' + elLbl('Плашка: масштаб')
+        + '<input type="number" step="0.05" id="cf-plate-scale" value="1" style="' + elInput() + '"></label>'
+      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:90px">' + elLbl('сдвиг вбок, px')
+        + '<input type="number" id="cf-plate-dx" value="0" style="' + elInput() + '"></label>'
+      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:90px">' + elLbl('сдвиг вверх-вниз, px')
+        + '<input type="number" id="cf-plate-dy" value="0" style="' + elInput() + '"></label>'
+    + '</div>'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
       + '<button class="action-btn" onclick="runCompose(false)">Показать превью</button>'
       + '<button class="action-btn" onclick="closeComposer()">Закрыть</button></div>'
@@ -5341,7 +5349,10 @@ async function runCompose(commit){
   try {
     var payload = { frame: v('cf-frame'), art: v('cf-art'), plate: v('cf-plate'),
                     god: v('cf-god').trim(), motto: v('cf-motto').trim(),
-                    serial: v('cf-serial').trim(), commit: !!commit, card_key: v('cf-card-key').trim() };
+                    serial: v('cf-serial').trim(), commit: !!commit, card_key: v('cf-card-key').trim(),
+                    plate_scale: parseFloat(v('cf-plate-scale')) || 1,
+                    plate_dx: parseInt(v('cf-plate-dx'), 10) || 0,
+                    plate_dy: parseInt(v('cf-plate-dy'), 10) || 0 };
     var r = await fetch(API + '/cards/admin/compose?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     var d = await r.json().catch(function(){ return {}; });
