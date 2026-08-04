@@ -5340,7 +5340,7 @@ function openComposer(){
     + '<div id="cf-stage" style="display:none;flex-direction:column;gap:8px">'
       + '<canvas id="cf-canvas" width="360" height="480" style="display:block;width:100%;height:auto;border-radius:10px;background:#efe4d4;touch-action:none;cursor:grab"></canvas>'
       + '<div id="cf-stage-status" style="font-size:11px;color:var(--text-faint)"></div>'
-      + '<div style="font-size:11px;color:var(--text-faint)">Тащи мышкой по холсту — двигается выбранный слой. Колесо — размер.</div>'
+      + '<div style="font-size:11px;color:var(--text-faint)">Тащи мышкой по холсту — двигается выбранный слой. Размер — ползунками ниже.</div>'
       + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
         + '<button class="action-btn" id="cf-layer-art" onclick="cmpSetLayer(&quot;art&quot;)">Двигать арт</button>'
         + '<button class="action-btn" id="cf-layer-plate" onclick="cmpSetLayer(&quot;plate&quot;)">Двигать плашку</button>'
@@ -5539,14 +5539,8 @@ function cmpWireCanvas(cv){
   var stop = function(){ if (cmp) cmp.drag = null; cv.style.cursor = 'grab'; };
   cv.addEventListener('pointerup', stop);
   cv.addEventListener('pointercancel', stop);
-  cv.addEventListener('wheel', function(e){
-    if (!cmp) return;
-    e.preventDefault();
-    var t = cmp.t[cmp.active];
-    t.scale = Math.max(0.3, Math.min(2.5, t.scale + (e.deltaY < 0 ? 0.03 : -0.03)));
-    cmpSliders();
-    cmpDraw();
-  }, { passive: false });
+  // Колесо мыши НЕ масштабирует: на трекпаде и мыши шаг слишком разный,
+  // работать неудобно. Размер меняется только ползунками
 }
 
 async function runCompose(commit){
