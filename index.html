@@ -5488,6 +5488,17 @@ function cmpDraw(){
   var w = g.window, ww = w[2] - w[0], wh = w[3] - w[1];
 
   if (art){
+    // подложка — размытая копия арта, ровно как на сервере: иначе при
+    // уменьшении в щель между артом и рамкой лез бы фон холста
+    var rb = Math.max(ww / art.width, wh / art.height);
+    ctx.save();
+    ctx.beginPath(); ctx.rect(w[0] * k, w[1] * k, ww * k, wh * k); ctx.clip();
+    ctx.filter = 'blur(' + Math.max(4, (ww * k) / 22) + 'px) brightness(' + cmp.t.art.bright + ')';
+    ctx.drawImage(art, (w[0] - (art.width * rb - ww) / 2) * k,
+                       (w[1] - (art.height * rb - wh) * 0.15) * k,
+                       art.width * rb * k, art.height * rb * k);
+    ctx.restore();
+
     var sw = ww * cmp.t.art.scale, sh = wh * cmp.t.art.scale;
     // «cover»: вписываем с обрезкой, как ImageOps.fit на сервере
     var r = Math.max(sw / art.width, sh / art.height);
