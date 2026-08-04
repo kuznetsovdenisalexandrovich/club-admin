@@ -5338,7 +5338,8 @@ function openComposer(){
     + pick('plate','cf-plate','Плашка имени','cmpLoad()')
 
     + '<div id="cf-stage" style="display:none;flex-direction:column;gap:8px">'
-      + '<canvas id="cf-canvas" style="width:100%;border-radius:10px;background:#efe4d4;touch-action:none;cursor:grab"></canvas>'
+      + '<canvas id="cf-canvas" width="360" height="480" style="display:block;width:100%;height:auto;border-radius:10px;background:#efe4d4;touch-action:none;cursor:grab"></canvas>'
+      + '<div id="cf-stage-status" style="font-size:11px;color:var(--text-faint)"></div>'
       + '<div style="font-size:11px;color:var(--text-faint)">Тащи мышкой по холсту — двигается выбранный слой. Колесо — размер.</div>'
       + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
         + '<button class="action-btn" id="cf-layer-art" onclick="cmpSetLayer(&quot;art&quot;)">Двигать арт</button>'
@@ -5355,7 +5356,7 @@ function openComposer(){
     + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Подпись под картой')
       + '<input id="cf-serial" placeholder="№ 0001   ·   E T M S" style="' + elInput() + '"></label>'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
-      + '<button class="action-btn" onclick="runCompose(false)">Собрать на сервере</button>'
+      + '<button class="action-btn" onclick="runCompose(false)">Показать превью</button>'
       + '<button class="action-btn" onclick="closeComposer()">Закрыть</button></div>'
     + '<div id="cf-status" style="font-size:11px;color:var(--text-faint)"></div>'
     + '<div id="cf-preview"></div>'
@@ -5404,7 +5405,17 @@ function cmpImage(key){
 async function cmpLoad(){
   if (!cmp || !cmp.geo) return;
   document.getElementById('cf-stage').style.display = 'flex';
-  await Promise.all([cmpImage(cmpVal('cf-frame')), cmpImage(cmpVal('cf-art')), cmpImage(cmpVal('cf-plate'))]);
+  var got = await Promise.all([cmpImage(cmpVal('cf-frame')), cmpImage(cmpVal('cf-art')), cmpImage(cmpVal('cf-plate'))]);
+  var st = document.getElementById('cf-stage-status');
+  if (st){
+    var miss = [];
+    if (cmpVal('cf-frame') && !got[0]) miss.push('рамка');
+    if (cmpVal('cf-art') && !got[1]) miss.push('арт');
+    if (cmpVal('cf-plate') && !got[2]) miss.push('плашка');
+    st.textContent = miss.length
+      ? ('Не загрузилось на холст: ' + miss.join(', ') + ' — превью на сервере это не мешает')
+      : ('Холст ' + cmp.geo.width + '×' + cmp.geo.height + ', окно ' + cmp.geo.window.join(', '));
+  }
   cmpDraw();
 }
 
