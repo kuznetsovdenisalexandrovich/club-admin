@@ -5300,35 +5300,62 @@ async function deleteElement(key){
 
 /* ── Сборка ───────────────────────────────────────────────────────────────── */
 
+/* ── Редактор сборки: слои двигаются мышкой ────────────────────────────────
+   Браузер рисует превью ПО ТЕМ ЖЕ ЧИСЛАМ, которые потом уйдут на сервер, а
+   финальную картинку всё равно собирает сервер. Иначе то, что видно при
+   перетаскивании, и то, что получится, разъедутся.
+
+   Единственное сознательное упрощение: арт на холсте обрезается ПРЯМОУГОЛЬНИКОМ
+   окна, а сервер режет его по настоящей форме (арка, скругления). У рамок с
+   альфой разницы нет — рамка сама накрывает лишнее. У рамок с запечённым фоном
+   углы окна на превью могут выглядеть чуть иначе, чем в результате. */
+
+var cmp = null;   // всё состояние редактора
+
+function cmpDefaults(){
+  return { art:{scale:1, dx:0, dy:0, bright:1},
+           plate:{scale:1, dx:0, dy:0, bright:1},
+           frame:{bright:1} };
+}
+
 function openComposer(){
-  var pick = function(kind, id, label){
+  var pick = function(kind, id, label, onchange){
     var rows = elementsCache.filter(function(e){ return e.kind === kind; });
     return '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl(label)
-      + '<select id="' + id + '" style="' + elInput() + '"><option value="">— нет —</option>'
+      + '<select id="' + id + '" onchange="' + onchange + '" style="' + elInput() + '">'
+      + '<option value="">— нет —</option>'
       + rows.map(function(e){
           return '<option value="' + elEsc(e.key) + '">' + elEsc(e.title || e.key) + '</option>'; }).join('')
       + '</select></label>';
   };
+  cmp = { geo:null, imgs:{}, t:cmpDefaults(), active:'art', drag:null, view:1 };
+
   document.getElementById('composer-slot').innerHTML =
     '<div style="border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px">'
     + '<div style="font-size:13px;font-weight:700">Сборка карточки</div>'
-    + pick('frame','cf-frame','Рамка') + pick('art','cf-art','Арт') + pick('plate','cf-plate','Плашка имени')
-    + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Бог — чтобы подставился его девиз (можно оставить пустым)')
+    + pick('frame','cf-frame','Рамка','cmpPickFrame()')
+    + pick('art','cf-art','Арт','cmpLoad()')
+    + pick('plate','cf-plate','Плашка имени','cmpLoad()')
+
+    + '<div id="cf-stage" style="display:none;flex-direction:column;gap:8px">'
+      + '<canvas id="cf-canvas" style="width:100%;border-radius:10px;background:#efe4d4;touch-action:none;cursor:grab"></canvas>'
+      + '<div style="font-size:11px;color:var(--text-faint)">Тащи мышкой по холсту — двигается выбранный слой. Колесо — размер.</div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+        + '<button class="action-btn" id="cf-layer-art" onclick="cmpSetLayer(&quot;art&quot;)">Двигать арт</button>'
+        + '<button class="action-btn" id="cf-layer-plate" onclick="cmpSetLayer(&quot;plate&quot;)">Двигать плашку</button>'
+        + '<button class="action-btn" onclick="cmpReset()">Сбросить</button>'
+      + '</div>'
+      + '<div id="cf-sliders" style="display:flex;flex-direction:column;gap:6px"></div>'
+    + '</div>'
+
+    + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Бог — чтобы подставился его девиз')
       + '<input id="cf-god" style="' + elInput() + '"></label>'
     + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Девиз вручную — перебивает подставленный')
       + '<input id="cf-motto" style="' + elInput() + '"></label>'
-    + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Подпись под картой: номер экземпляра и код')
+    + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Подпись под картой')
       + '<input id="cf-serial" placeholder="№ 0001   ·   E T M S" style="' + elInput() + '"></label>'
-    + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
-      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:90px">' + elLbl('Плашка: масштаб')
-        + '<input type="number" step="0.05" id="cf-plate-scale" value="1" style="' + elInput() + '"></label>'
-      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:90px">' + elLbl('сдвиг вбок, px')
-        + '<input type="number" id="cf-plate-dx" value="0" style="' + elInput() + '"></label>'
-      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:90px">' + elLbl('сдвиг вверх-вниз, px')
-        + '<input type="number" id="cf-plate-dy" value="0" style="' + elInput() + '"></label>'
-    + '</div>'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
-      + '<button class="action-btn" onclick="runCompose(false)">Показать превью</button>'
+      + '<button class="action-btn" onclick="runCompose(false)">Собрать на сервере</button>'
       + '<button class="action-btn" onclick="closeComposer()">Закрыть</button></div>'
     + '<div id="cf-status" style="font-size:11px;color:var(--text-faint)"></div>'
     + '<div id="cf-preview"></div>'
@@ -5337,31 +5364,198 @@ function openComposer(){
         + '<input id="cf-card-key" style="' + elInput() + '"></label>'
       + '<button class="action-btn" onclick="runCompose(true)">Сохранить карточке</button></div>'
     + '</div>';
+  cmpSetLayer('art');
+  cmpSliders();
 }
 
-function closeComposer(){ document.getElementById('composer-slot').innerHTML = ''; }
+function closeComposer(){ cmp = null; document.getElementById('composer-slot').innerHTML = ''; }
+
+function cmpVal(id){ var e = document.getElementById(id); return e ? e.value : ''; }
+
+async function cmpPickFrame(){
+  var key = cmpVal('cf-frame');
+  cmp.geo = null;
+  if (!key){ document.getElementById('cf-stage').style.display = 'none'; return; }
+  var st = document.getElementById('cf-status');
+  st.textContent = 'Читаю геометрию рамки…';
+  try {
+    cmp.geo = await fetch(API + '/cards/admin/frame-geometry?key=' + encodeURIComponent(key)
+      + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN)).then(function(r){ return r.json(); });
+    st.textContent = '';
+    cmpLoad();
+  } catch(e){ st.textContent = 'Геометрия не прочиталась: ' + e.message; }
+}
+
+/* Картинки грузим без crossOrigin: мы их только РИСУЕМ, пиксели не читаем,
+   поэтому CORS не нужен и «испорченный» холст нам не мешает */
+function cmpImage(key){
+  return new Promise(function(resolve){
+    if (!key){ resolve(null); return; }
+    if (cmp.imgs[key]){ resolve(cmp.imgs[key]); return; }
+    var el = findElement(key);
+    if (!el || !el.url){ resolve(null); return; }
+    var img = new Image();
+    img.onload = function(){ cmp.imgs[key] = img; resolve(img); };
+    img.onerror = function(){ resolve(null); };
+    img.src = el.url;
+  });
+}
+
+async function cmpLoad(){
+  if (!cmp || !cmp.geo) return;
+  document.getElementById('cf-stage').style.display = 'flex';
+  await Promise.all([cmpImage(cmpVal('cf-frame')), cmpImage(cmpVal('cf-art')), cmpImage(cmpVal('cf-plate'))]);
+  cmpDraw();
+}
+
+function cmpSetLayer(which){
+  if (!cmp) return;
+  cmp.active = which;
+  ['art','plate'].forEach(function(k){
+    var b = document.getElementById('cf-layer-' + k);
+    if (b) b.style.opacity = (k === which) ? '1' : '.55';
+  });
+}
+
+function cmpReset(){ if (!cmp) return; cmp.t = cmpDefaults(); cmpSliders(); cmpDraw(); }
+
+function cmpSliders(){
+  var box = document.getElementById('cf-sliders');
+  if (!box || !cmp) return;
+  var row = function(label, id, val, min, max, step){
+    return '<label style="display:flex;align-items:center;gap:8px;font-size:11.5px">'
+      + '<span style="min-width:104px;color:var(--text-faint)">' + label + '</span>'
+      + '<input type="range" id="' + id + '" min="' + min + '" max="' + max + '" step="' + step + '"'
+      + ' value="' + val + '" oninput="cmpSlide()" style="flex:1"></label>';
+  };
+  box.innerHTML =
+      row('Яркость арта', 'cf-b-art', cmp.t.art.bright, 0.4, 1.6, 0.02)
+    + row('Яркость рамки', 'cf-b-frame', cmp.t.frame.bright, 0.4, 1.6, 0.02)
+    + row('Яркость плашки', 'cf-b-plate', cmp.t.plate.bright, 0.4, 1.6, 0.02)
+    + row('Размер арта', 'cf-s-art', cmp.t.art.scale, 0.6, 2.2, 0.02)
+    + row('Размер плашки', 'cf-s-plate', cmp.t.plate.scale, 0.4, 1.6, 0.02);
+}
+
+function cmpSlide(){
+  if (!cmp) return;
+  var num = function(id, d){ var e = document.getElementById(id); return e ? parseFloat(e.value) : d; };
+  cmp.t.art.bright = num('cf-b-art', 1);
+  cmp.t.frame.bright = num('cf-b-frame', 1);
+  cmp.t.plate.bright = num('cf-b-plate', 1);
+  cmp.t.art.scale = num('cf-s-art', 1);
+  cmp.t.plate.scale = num('cf-s-plate', 1);
+  cmpDraw();
+}
+
+/* Куда сядет плашка — считаем ТОЧНО ТАК ЖЕ, как сервер: от панели, если она
+   есть, иначе от верхней кромки карты */
+function cmpPlateRect(img){
+  var g = cmp.geo, sp = g.plate || {}, t = cmp.t.plate;
+  var host = (sp.place === 'panel' && g.panel) ? g.panel : g.card;
+  var w = (host[2] - host[0]) * (sp.width || 0.72) * t.scale;
+  var h = img ? img.height * w / img.width : 0;
+  var x = (host[0] + host[2]) / 2 - w / 2 + t.dx;
+  var y = ((sp.place === 'panel' && g.panel) ? host[1] + (sp.offset || 0)
+                                             : g.card[1] + (sp.offset || 0) - h / 2) + t.dy;
+  return { x: x, y: y, w: w, h: h };
+}
+
+function cmpDraw(){
+  if (!cmp || !cmp.geo) return;
+  var g = cmp.geo, cv = document.getElementById('cf-canvas');
+  if (!cv) return;
+  var maxW = 360, k = Math.min(1, maxW / g.width);
+  cmp.view = k;
+  cv.width = Math.round(g.width * k);
+  cv.height = Math.round(g.height * k);
+  var ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.fillStyle = '#eed5ba';
+  ctx.fillRect(0, 0, cv.width, cv.height);
+
+  var frame = cmp.imgs[cmpVal('cf-frame')], art = cmp.imgs[cmpVal('cf-art')], plate = cmp.imgs[cmpVal('cf-plate')];
+  var w = g.window, ww = w[2] - w[0], wh = w[3] - w[1];
+
+  if (art){
+    var sw = ww * cmp.t.art.scale, sh = wh * cmp.t.art.scale;
+    // «cover»: вписываем с обрезкой, как ImageOps.fit на сервере
+    var r = Math.max(sw / art.width, sh / art.height);
+    var dw = art.width * r, dh = art.height * r;
+    var ax = w[0] - (sw - ww) / 2 + cmp.t.art.dx - (dw - sw) / 2;
+    var ay = w[1] - (sh - wh) / 2 + cmp.t.art.dy - (dh - sh) * 0.15;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(w[0] * k, w[1] * k, ww * k, wh * k);
+    ctx.clip();
+    ctx.filter = 'brightness(' + cmp.t.art.bright + ')';
+    ctx.drawImage(art, ax * k, ay * k, dw * k, dh * k);
+    ctx.restore();
+  }
+  if (frame){
+    ctx.save();
+    ctx.filter = 'brightness(' + cmp.t.frame.bright + ')';
+    ctx.drawImage(frame, 0, 0, cv.width, cv.height);
+    ctx.restore();
+  }
+  if (plate){
+    var pr = cmpPlateRect(plate);
+    ctx.save();
+    ctx.filter = 'brightness(' + cmp.t.plate.bright + ')';
+    ctx.drawImage(plate, pr.x * k, pr.y * k, pr.w * k, pr.h * k);
+    ctx.restore();
+  }
+  cmpWireCanvas(cv);
+}
+
+function cmpWireCanvas(cv){
+  if (cv._cmpWired) return;
+  cv._cmpWired = true;
+  cv.addEventListener('pointerdown', function(e){
+    cv.setPointerCapture(e.pointerId);
+    cmp.drag = { x: e.clientX, y: e.clientY };
+    cv.style.cursor = 'grabbing';
+  });
+  cv.addEventListener('pointermove', function(e){
+    if (!cmp || !cmp.drag) return;
+    var t = cmp.t[cmp.active];
+    // делим на масштаб холста: тащим в ЭКРАННЫХ пикселях, храним в пикселях
+    // рамки, иначе на маленьком превью сдвиг был бы втрое крупнее
+    t.dx += (e.clientX - cmp.drag.x) / cmp.view;
+    t.dy += (e.clientY - cmp.drag.y) / cmp.view;
+    cmp.drag = { x: e.clientX, y: e.clientY };
+    cmpDraw();
+  });
+  var stop = function(){ if (cmp) cmp.drag = null; cv.style.cursor = 'grab'; };
+  cv.addEventListener('pointerup', stop);
+  cv.addEventListener('pointercancel', stop);
+  cv.addEventListener('wheel', function(e){
+    if (!cmp) return;
+    e.preventDefault();
+    var t = cmp.t[cmp.active];
+    t.scale = Math.max(0.3, Math.min(2.5, t.scale + (e.deltaY < 0 ? 0.03 : -0.03)));
+    cmpSliders();
+    cmpDraw();
+  }, { passive: false });
+}
 
 async function runCompose(commit){
-  var v = function(id){ var e = document.getElementById(id); return e ? e.value : ''; };
   var st = document.getElementById('cf-status');
-  if (!v('cf-frame')){ st.textContent = 'Выбери рамку'; return; }
-  st.textContent = commit ? 'Сохраняю…' : 'Собираю…';
+  if (!cmpVal('cf-frame')){ st.textContent = 'Выбери рамку'; return; }
+  st.textContent = commit ? 'Сохраняю…' : 'Собираю на сервере…';
+  var t = (cmp && cmp.t) || cmpDefaults();
   try {
-    var payload = { frame: v('cf-frame'), art: v('cf-art'), plate: v('cf-plate'),
-                    god: v('cf-god').trim(), motto: v('cf-motto').trim(),
-                    serial: v('cf-serial').trim(), commit: !!commit, card_key: v('cf-card-key').trim(),
-                    plate_scale: parseFloat(v('cf-plate-scale')) || 1,
-                    plate_dx: parseInt(v('cf-plate-dx'), 10) || 0,
-                    plate_dy: parseInt(v('cf-plate-dy'), 10) || 0 };
+    var payload = { frame: cmpVal('cf-frame'), art: cmpVal('cf-art'), plate: cmpVal('cf-plate'),
+                    god: cmpVal('cf-god').trim(), motto: cmpVal('cf-motto').trim(),
+                    serial: cmpVal('cf-serial').trim(), commit: !!commit,
+                    card_key: cmpVal('cf-card-key').trim(),
+                    art_scale: t.art.scale, art_dx: Math.round(t.art.dx), art_dy: Math.round(t.art.dy),
+                    plate_scale: t.plate.scale, plate_dx: Math.round(t.plate.dx), plate_dy: Math.round(t.plate.dy),
+                    art_bright: t.art.bright, frame_bright: t.frame.bright, plate_bright: t.plate.bright };
     var r = await fetch(API + '/cards/admin/compose?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     var d = await r.json().catch(function(){ return {}; });
     if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
-    if (commit){
-      st.textContent = 'Сохранено';
-      loadCardTypes();
-      return;
-    }
+    if (commit){ st.textContent = 'Сохранено'; loadCardTypes(); return; }
     document.getElementById('cf-preview').innerHTML =
       '<img src="data:image/png;base64,' + d.preview_base64 + '" style="width:100%;border-radius:10px;margin-top:6px">';
     document.getElementById('cf-commit').style.display = 'flex';
