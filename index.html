@@ -5466,8 +5466,12 @@ function cmpPlateRect(img){
   var w = (host[2] - host[0]) * (sp.width || 0.72) * t.scale;
   var h = img ? img.height * w / img.width : 0;
   var x = (host[0] + host[2]) / 2 - w / 2 + t.dx;
-  var y = ((sp.place === 'panel' && g.panel) ? host[1] + (sp.offset || 0)
-                                             : g.card[1] + (sp.offset || 0) - h / 2) + t.dy;
+  // Условие ровно как на сервере: он смотрит ТОЛЬКО на place, а host уже
+  // выбран с учётом наличия панели. Раньше здесь была своя проверка, и при
+  // рамке без панели превью центрировало плашку по кромке, а сервер ставил её
+  // ОТ кромки — расхождение ровно в половину высоты
+  var y = ((sp.place === 'panel') ? host[1] + (sp.offset || 0)
+                                  : g.card[1] + (sp.offset || 0) - h / 2) + t.dy;
   return { x: x, y: y, w: w, h: h };
 }
 
@@ -5476,9 +5480,13 @@ function cmpDraw(){
   var g = cmp.geo, cv = document.getElementById('cf-canvas');
   if (!cv) return;
   var maxW = 360, k = Math.min(1, maxW / g.width);
-  cmp.view = k;
   cv.width = Math.round(g.width * k);
   cv.height = Math.round(g.height * k);
+  // МАСШТАБ БЕРЁМ ПО ФАКТИЧЕСКОЙ ШИРИНЕ НА ЭКРАНЕ, а не по своему коэффициенту:
+  // холст растягивается CSS'ом по контейнеру и почти всегда шире, чем
+  // g.width * k. Из-за этого перетаскивание шло с опережением мыши
+  var shown = cv.getBoundingClientRect().width;
+  cmp.view = shown > 4 ? (shown / g.width) : k;
   var ctx = cv.getContext('2d');
   ctx.clearRect(0, 0, cv.width, cv.height);
   ctx.fillStyle = '#eed5ba';
