@@ -768,6 +768,9 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
         <button class="action-btn" id="cards-tab-sim-btn" onclick="switchCardsTab('sim')">Симулятор</button>
         <button class="action-btn" id="cards-tab-queue-btn" onclick="switchCardsTab('queue')">Личное участие</button>
         <button class="action-btn" id="cards-tab-grant-btn" onclick="switchCardsTab('grant')">Подарить</button>
+        <button class="action-btn" id="cards-tab-series-btn" onclick="switchCardsTab('series')">Сезон</button>
+        <button class="action-btn" id="cards-tab-unique-btn" onclick="switchCardsTab('unique')">Уникальные</button>
+        <button class="action-btn" id="cards-tab-elements-btn" onclick="switchCardsTab('elements')">Элементы</button>
       </div>
 
       <!-- Колода -->
@@ -855,6 +858,34 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
           <button class="popup-save" style="margin-top:10px" onclick="grantCards()">Выдать</button>
           <div id="grant-status" style="font-size:12px;color:var(--text-faint);margin-top:8px;min-height:16px"></div>
         </div>
+      </div>
+
+
+      <!-- Сезон: полка пантеона. Шестнадцать слотов НЕ хранятся в базе — они
+           собираются из справочника богов, поэтому пустая ячейка это и есть
+           «здесь ещё не нарисовано» -->
+      <div id="cards-tab-series" style="display:none">
+        <div id="series-list"><div class="loading">Загрузка...</div></div>
+        <div id="series-shelf" style="margin-top:14px"></div>
+      </div>
+
+      <!-- Уникальные и персональные: отдельной страницей, потому что искать их
+           внутри общей колоды неудобно -->
+      <div id="cards-tab-unique" style="display:none">
+        <div id="unique-list"><div class="loading">Загрузка...</div></div>
+      </div>
+
+      <!-- Библиотека элементов + превью сборки -->
+      <div id="cards-tab-elements" style="display:none">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+          <button class="action-btn" onclick="setElKind('frame')" id="el-kind-frame">Рамки</button>
+          <button class="action-btn" onclick="setElKind('art')" id="el-kind-art">Арты</button>
+          <button class="action-btn" onclick="setElKind('plate')" id="el-kind-plate">Плашки</button>
+          <button class="action-btn" onclick="openComposer()" style="margin-left:auto">Собрать карточку</button>
+        </div>
+        <div id="el-list"><div class="loading">Загрузка...</div></div>
+        <div id="el-editor-slot" style="margin-top:12px"></div>
+        <div id="composer-slot" style="margin-top:12px"></div>
       </div>
 
       <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closeCardsPopup()">Закрыть</button>
@@ -3570,7 +3601,7 @@ function closeCardsPopup(){
 
 function switchCardsTab(tab){
   cardsTab = tab;
-  ['deck','gods','sim','queue','grant'].forEach(function(t){
+  ['deck','gods','sim','queue','grant','series','unique','elements'].forEach(function(t){
     document.getElementById('cards-tab-'+t).style.display = (t===tab) ? 'block' : 'none';
     const b = document.getElementById('cards-tab-'+t+'-btn');
     if (b) b.style.opacity = (t===tab) ? '1' : '.55';
@@ -3578,6 +3609,9 @@ function switchCardsTab(tab){
   if (tab === 'gods') { godExpanded = null; loadGods(); }
   if (tab === 'queue') loadCardsQueue();
   if (tab === 'grant' && !grantTarget) resetGrantTab();
+  if (tab === 'series') loadSeries();
+  if (tab === 'unique') renderUniqueCards();
+  if (tab === 'elements') loadElements();
 }
 
 /* Рубильник: пока колода не наполнена, выдача выключена и продление
@@ -4830,6 +4864,10 @@ function godEditorHtml(name){
     + '<label style="display:flex;flex-direction:column;gap:3px">' + lbl('Описание — пустая строка между абзацами')
       + '<textarea id="gf-description" style="min-height:220px;line-height:1.5;' + inputStyle + '">' + godEsc(g.description) + '</textarea></label>'
 
+    + '<label style="display:flex;flex-direction:column;gap:3px">'
+      + lbl('Девизы для карточек — по одному в строке. Можно указать тень через «|»: «Арес | текст девиза». Строка без тени подойдёт любой карточке этого бога. Пусто — тоже нормально, тогда на карточке встанет строка под именем')
+      + '<textarea id="gf-mottos" style="min-height:90px;line-height:1.5;' + inputStyle + '">' + godEsc(mottosToText(g.mottos)) + '</textarea></label>'
+
     + '<label style="display:flex;flex-direction:column;gap:3px">' + lbl('Ссылка на портрет (необязательно)')
       + '<input id="gf-image" value="' + godEsc(g.image_url) + '" style="' + inputStyle + '"></label>'
 
@@ -4862,6 +4900,7 @@ async function saveGod(oldName){
     image_url: val('gf-image').trim(),
     sort_order: parseInt(val('gf-sort'), 10) || 100,
     published: !!(document.getElementById('gf-published') || {}).checked,
+    mottos: textToMottos(val('gf-mottos')),
   };
   if (!payload.name){ if (status) status.textContent = 'Нужно имя бога'; return; }
   if (oldName && oldName !== payload.name) payload.old_name = oldName;
@@ -4902,6 +4941,423 @@ async function deleteGod(name){
    кавычка закрывает атрибут, и обработчик молча перестаёт работать.
    Оборачиваем в одинарные и экранируем на двух уровнях: сначала для JS, потом
    для HTML. */
+/* ═══════════════════════════════════════════════════════════════════════════
+   СЕЗОНЫ, УНИКАЛЬНЫЕ КАРТЫ И БИБЛИОТЕКА ЭЛЕМЕНТОВ
+
+   Карточка хранится РЕЦЕПТОМ (рамка + арт + плашка + девиз), картинка
+   собирается на бэкенде. Здесь — управление ингредиентами и превью сборки.
+   Превью не роскошь: без него не видно, что плашка накрыла ноги фигуры,
+   пока карточка не ушла живому человеку.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var seriesList = [], seriesGods = [], currentSeries = '', seriesExpanded = null;
+var elementsCache = [], elKind = 'frame', elExpanded = null;
+
+function elEsc(v){ return godEsc(v == null ? '' : String(v)); }
+function elInput(){ return 'padding:8px 10px;border-radius:8px;border:1px solid var(--line);'
+  + 'background:var(--surface);color:var(--text);font-size:13px;width:100%'; }
+function elLbl(t){ return '<span style="font-size:11px;color:var(--text-faint)">' + t + '</span>'; }
+
+/* Девизы: в базе объекты, в поле — по строке на девиз */
+function mottosToText(list){
+  return (list || []).map(function(m){
+    if (typeof m === 'string') return m;
+    return (m.shadow ? m.shadow + ' | ' : '') + (m.text || '');
+  }).join('\n');
+}
+function textToMottos(text){
+  return String(text || '').split('\n').map(function(line){
+    var t = line.trim();
+    if (!t) return null;
+    var i = t.indexOf('|');
+    if (i === -1) return { text: t, shadow: '' };
+    return { shadow: t.slice(0, i).trim(), text: t.slice(i + 1).trim() };
+  }).filter(function(m){ return m && m.text; });
+}
+
+/* ── Сезоны ───────────────────────────────────────────────────────────────── */
+
+async function loadSeries(){
+  var box = document.getElementById('series-list');
+  try {
+    var d = await fetch(API + '/cards/admin/series?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN))
+      .then(function(r){ return r.json(); });
+    seriesList = d.series || [];
+    seriesGods = d.gods || [];
+    renderSeriesList(d.unassigned || 0);
+    if (currentSeries) loadShelf(currentSeries);
+  } catch(e){
+    box.innerHTML = '<div style="color:var(--text-faint);font-size:12px">Не загрузилось: ' + elEsc(e.message) + '</div>';
+  }
+}
+
+function renderSeriesList(unassigned){
+  var box = document.getElementById('series-list');
+  var h = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">';
+  seriesList.forEach(function(s){
+    var mark = (s.active ? '● ' : '○ ');
+    h += '<button class="action-btn" onclick="openShelf(' + jsArg(s.key) + ')"'
+      + ' style="opacity:' + (currentSeries === s.key ? '1' : '.6') + '">'
+      + mark + elEsc(s.title || s.key) + ' · ' + s.cards_count + '</button>';
+  });
+  h += '<button class="action-btn" onclick="openSeriesEditor(&quot;&quot;)">+ сезон</button></div>';
+  if (unassigned) {
+    h += '<div style="font-size:11px;color:var(--text-faint);margin-bottom:8px">'
+      + 'Без серии: ' + unassigned + ' карточек. Это всё, что заведено до появления сезонов — '
+      + 'их можно оставить как есть, полка «без серии» открывается кнопкой ниже.</div>'
+      + '<button class="action-btn" style="margin-bottom:8px" onclick="openShelf(&quot;&quot;)">Полка без серии</button>';
+  }
+  h += '<div id="series-editor-slot"></div>';
+  box.innerHTML = h;
+  if (seriesExpanded !== null) document.getElementById('series-editor-slot').innerHTML = seriesEditorHtml(seriesExpanded);
+}
+
+function openSeriesEditor(key){
+  seriesExpanded = key || '';
+  document.getElementById('series-editor-slot').innerHTML = seriesEditorHtml(seriesExpanded);
+}
+
+function seriesEditorHtml(key){
+  var s = null;
+  seriesList.forEach(function(x){ if (x.key === key) s = x; });
+  s = s || { key:'', title:'', subtitle:'', active:false, exportable:true, visible:true, sort_order:100 };
+  var isNew = !key;
+  return '<div style="border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px">'
+    + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Ключ (латиница): s2, base, personal')
+      + '<input id="sf-key" value="' + elEsc(s.key) + '" ' + (isNew ? '' : 'readonly') + ' style="' + elInput() + '"></label>'
+    + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Название')
+      + '<input id="sf-title" value="' + elEsc(s.title) + '" placeholder="Сезон 2 — Олимп" style="' + elInput() + '"></label>'
+    + '<label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="sf-active"'
+      + (s.active ? ' checked' : '') + '> Участвует в выдаче паков</label>'
+    + '<label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="sf-export"'
+      + (s.exportable ? ' checked' : '') + '> Можно делиться наружу</label>'
+    + '<label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="sf-visible"'
+      + (s.visible ? ' checked' : '') + '> Видна в альбоме</label>'
+    + '<div style="font-size:11px;color:var(--text-faint);line-height:1.5">'
+      + 'Выдача и экспорт разделены намеренно: закрыть выдачу — сделать сезон дефицитным для новых, '
+      + 'закрыть экспорт — отнять право хвастаться у тех, кто карточку уже получил.</div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + '<button class="action-btn" onclick="saveSeries()">Сохранить</button>'
+      + '<button class="action-btn" onclick="seriesExpanded=null;renderSeriesList(0)">Отмена</button>'
+      + (isNew ? '' : '<button class="action-btn" style="margin-left:auto" onclick="deleteSeries(' + jsArg(s.key) + ')">Удалить</button>')
+    + '</div><div id="sf-status" style="font-size:11px;color:var(--text-faint)"></div></div>';
+}
+
+async function saveSeries(){
+  var v = function(id){ var e = document.getElementById(id); return e ? e.value : ''; };
+  var c = function(id){ var e = document.getElementById(id); return !!(e && e.checked); };
+  var st = document.getElementById('sf-status');
+  var payload = { key: v('sf-key').trim(), title: v('sf-title').trim(),
+                  active: c('sf-active'), exportable: c('sf-export'), visible: c('sf-visible') };
+  if (!payload.key){ st.textContent = 'Нужен ключ'; return; }
+  st.textContent = 'Сохраняю…';
+  try {
+    var r = await fetch(API + '/cards/admin/series?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    var d = await r.json().catch(function(){ return {}; });
+    if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
+    seriesExpanded = null;
+    await loadSeries();
+  } catch(e){ st.textContent = 'Не сохранилось: ' + e.message; }
+}
+
+async function deleteSeries(key){
+  if (!confirm('Удалить сезон «' + key + '»? Карточки останутся, они просто уедут в «без серии».')) return;
+  await fetch(API + '/cards/admin/series?key=' + encodeURIComponent(key)
+    + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), { method:'DELETE' });
+  seriesExpanded = null;
+  if (currentSeries === key) currentSeries = '';
+  loadSeries();
+}
+
+function openShelf(key){ currentSeries = key || ''; renderSeriesList(0); loadShelf(currentSeries); }
+
+async function loadShelf(key){
+  var box = document.getElementById('series-shelf');
+  box.innerHTML = '<div class="loading">Загрузка...</div>';
+  try {
+    var d = await fetch(API + '/cards/admin/shelf?series_key=' + encodeURIComponent(key || '')
+      + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN)).then(function(r){ return r.json(); });
+    var slots = d.slots || [];
+    var filled = slots.filter(function(s){ return s.cards.length; }).length;
+    var h = '<div style="font-size:11px;color:var(--text-faint);margin-bottom:8px">Нарисовано '
+      + filled + ' из ' + slots.length + ' богов</div>'
+      + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px">';
+    slots.forEach(function(slot){
+      var empty = !slot.cards.length;
+      var first = slot.cards[0];
+      h += '<div style="border:1px solid var(--line);border-radius:10px;padding:6px;text-align:center;'
+        + (empty ? 'opacity:.5;border-style:dashed' : '') + '">'
+        + (first && first.image_url
+            ? '<img src="' + elEsc(first.image_url) + '" style="width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:7px">'
+            : '<div style="width:100%;aspect-ratio:3/4;border-radius:7px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--text-faint)">+</div>')
+        + '<div style="font-size:11px;margin-top:5px">' + elEsc(slot.god) + '</div>'
+        + '<div style="font-size:10px;color:var(--text-faint)">'
+        + (empty ? 'пусто' : slot.cards.length + ' шт.') + '</div></div>';
+    });
+    box.innerHTML = h + '</div>';
+  } catch(e){
+    box.innerHTML = '<div style="color:var(--text-faint);font-size:12px">Полка не загрузилась: ' + elEsc(e.message) + '</div>';
+  }
+}
+
+/* ── Уникальные и персональные ────────────────────────────────────────────── */
+
+function renderUniqueCards(){
+  var box = document.getElementById('unique-list');
+  var rows = (cardTypes || []).filter(function(c){ return c.personal || c.secret; });
+  if (!rows.length){
+    box.innerHTML = '<div style="font-size:12px;color:var(--text-faint);line-height:1.6">'
+      + 'Пока пусто. Сюда попадают карточки с флагом «личное участие» или «секретная» — '
+      + 'те, что рисуются под конкретного человека и не участвуют в случайной выдаче.</div>';
+    return;
+  }
+  var h = '<div style="display:flex;flex-direction:column;gap:8px">';
+  rows.forEach(function(c){
+    h += '<div style="display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:8px">'
+      + (c.image_url ? '<img src="' + elEsc(c.image_url) + '" style="width:44px;height:58px;object-fit:cover;border-radius:6px">' : '')
+      + '<div style="flex:1;min-width:0">'
+        + '<div style="font-size:13px">' + elEsc(c.title || c.key) + '</div>'
+        + '<div style="font-size:11px;color:var(--text-faint)">' + elEsc(c.god || '—')
+          + (c.personal ? ' · личная' : '') + (c.secret ? ' · секретная' : '') + '</div>'
+      + '</div>'
+      + '<button class="action-btn" onclick="openCardEditor(' + jsArg(c.key) + ')">Открыть</button></div>';
+  });
+  box.innerHTML = h + '</div>';
+}
+
+/* ── Библиотека элементов ─────────────────────────────────────────────────── */
+
+function setElKind(kind){ elKind = kind; elExpanded = null; loadElements(); }
+
+async function loadElements(){
+  var box = document.getElementById('el-list');
+  ['frame','art','plate'].forEach(function(k){
+    var b = document.getElementById('el-kind-' + k);
+    if (b) b.style.opacity = (k === elKind) ? '1' : '.55';
+  });
+  try {
+    elementsCache = await fetch(API + '/cards/admin/elements?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN))
+      .then(function(r){ return r.json(); });
+    renderElements();
+  } catch(e){
+    box.innerHTML = '<div style="color:var(--text-faint);font-size:12px">Не загрузилось: ' + elEsc(e.message) + '</div>';
+  }
+}
+
+function renderElements(){
+  var box = document.getElementById('el-list');
+  var rows = elementsCache.filter(function(e){ return e.kind === elKind; });
+  var h = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'
+    + '<button class="action-btn" onclick="openElementEditor(&quot;&quot;)">+ загрузить</button></div>';
+  if (!rows.length){
+    h += '<div style="font-size:12px;color:var(--text-faint)">Пока ничего не загружено.</div>';
+  } else {
+    h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px">';
+    rows.forEach(function(e){
+      h += '<div style="border:1px solid var(--line);border-radius:10px;padding:6px;cursor:pointer;text-align:center"'
+        + ' onclick="openElementEditor(' + jsArg(e.key) + ')">'
+        + '<img src="' + elEsc(e.url) + '" style="width:100%;aspect-ratio:3/4;object-fit:contain;border-radius:6px;background:var(--surface)">'
+        + '<div style="font-size:11px;margin-top:5px;word-break:break-all">' + elEsc(e.title || e.key) + '</div>'
+        + '<div style="font-size:10px;color:var(--text-faint)">' + elEsc(e.theme) + (e.style ? ' · ' + elEsc(e.style) : '') + '</div>'
+        + '</div>';
+    });
+    h += '</div>';
+  }
+  box.innerHTML = h;
+  document.getElementById('el-editor-slot').innerHTML = (elExpanded === null) ? '' : elementEditorHtml(elExpanded);
+}
+
+function findElement(key){
+  var out = null;
+  elementsCache.forEach(function(e){ if (e.key === key) out = e; });
+  return out;
+}
+
+function openElementEditor(key){
+  elExpanded = key || '';
+  document.getElementById('el-editor-slot').innerHTML = elementEditorHtml(elExpanded);
+}
+
+function elementEditorHtml(key){
+  var e = findElement(key) || { key:'', kind:elKind, title:'', url:'', theme:'light',
+                                style:'', god:'', series_key:'', plate_mode:'key', layout:{}, sort_order:100 };
+  var isNew = !key;
+  var layoutHint = 'Геометрия рамки числами. Прямоугольное окно: '
+    + '{"card":[163,68,923,1380],"window":{"type":"rect","box":[231,168,854,1262],"radius":100}}. '
+    + 'Арочное: {"type":"arch","x0":200,"x1":905,"spring":340,"rise":162,"bottom":1030} плюс "panel":[x0,y0,x1,y1]. '
+    + 'У PNG с настоящей прозрачностью можно оставить пусто — окно найдётся по альфе.';
+  return '<div style="border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px">'
+    + (e.url ? '<img src="' + elEsc(e.url) + '" style="max-height:220px;object-fit:contain;border-radius:8px;background:var(--surface)">' : '')
+    + '<label style="display:flex;flex-direction:column;gap:3px">'
+      + elLbl('Ключ: латиница, цифры, слеш. Например frame/holo-dark-03 или art/s2/ares-01')
+      + '<input id="ef-key" value="' + elEsc(e.key) + '" ' + (isNew ? '' : 'readonly') + ' style="' + elInput() + '"></label>'
+    + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Название для себя')
+      + '<input id="ef-title" value="' + elEsc(e.title) + '" style="' + elInput() + '"></label>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:110px">' + elLbl('Тема')
+        + '<select id="ef-theme" style="' + elInput() + '">'
+        + ['light','dark','any'].map(function(t){
+            return '<option value="' + t + '"' + (e.theme === t ? ' selected' : '') + '>' + t + '</option>'; }).join('')
+        + '</select></label>'
+      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:110px">' + elLbl('Стиль: holo, emboss, gold')
+        + '<input id="ef-style" value="' + elEsc(e.style) + '" style="' + elInput() + '"></label>'
+    + '</div>'
+    + (elKind === 'frame' ? '' :
+       '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Бог')
+       + '<input id="ef-god" value="' + elEsc(e.god) + '" style="' + elInput() + '"></label>')
+    + (elKind === 'plate'
+       ? '<label style="display:flex;flex-direction:column;gap:3px">'
+         + elLbl('Как вырезать: key — цветная плашка на белом; relief — тиснение бежевым по бежевому (вырезать нельзя, переносится рельефом)')
+         + '<select id="ef-plate-mode" style="' + elInput() + '">'
+         + ['key','relief'].map(function(m){
+             return '<option value="' + m + '"' + (e.plate_mode === m ? ' selected' : '') + '>' + m + '</option>'; }).join('')
+         + '</select></label>' : '')
+    + (elKind === 'frame'
+       ? '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl(layoutHint)
+         + '<textarea id="ef-layout" style="min-height:110px;font-family:monospace;font-size:11px;' + elInput() + '">'
+         + elEsc(JSON.stringify(e.layout || {}, null, 1)) + '</textarea></label>' : '')
+    + '<label style="display:flex;flex-direction:column;gap:3px">'
+      + elLbl('Файл. Рамки и плашки — PNG без сжатия: у рамок альфа, у плашек тиснение, JPEG размажет их в грязь')
+      + '<input type="file" accept="image/*" id="ef-file" style="font-size:12px"></label>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + '<button class="action-btn" onclick="saveElement()">Сохранить</button>'
+      + '<button class="action-btn" onclick="elExpanded=null;renderElements()">Отмена</button>'
+      + (isNew ? '' : '<button class="action-btn" style="margin-left:auto" onclick="deleteElement(' + jsArg(e.key) + ')">Удалить</button>')
+    + '</div><div id="ef-status" style="font-size:11px;color:var(--text-faint)"></div></div>';
+}
+
+/* Арты ужимаем в браузере, рамки и плашки отдаём как есть: сжатие съело бы
+   альфу у рамки и тиснение у плашки */
+function readElementFile(file, kind){
+  return new Promise(function(resolve, reject){
+    var fr = new FileReader();
+    fr.onerror = function(){ reject(new Error('файл не прочитался')); };
+    fr.onload = function(){
+      if (kind !== 'art') { resolve({ data: fr.result, ext: 'png' }); return; }
+      var img = new Image();
+      img.onload = function(){
+        var max = 1400, k = Math.min(1, max / Math.max(img.width, img.height));
+        var cv = document.createElement('canvas');
+        cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        resolve({ data: cv.toDataURL('image/jpeg', 0.88), ext: 'jpg' });
+      };
+      img.onerror = function(){ reject(new Error('картинка не открылась')); };
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+async function saveElement(){
+  var v = function(id){ var e = document.getElementById(id); return e ? e.value : ''; };
+  var st = document.getElementById('ef-status');
+  var key = v('ef-key').trim();
+  if (!key){ st.textContent = 'Нужен ключ'; return; }
+
+  var layout = {};
+  if (document.getElementById('ef-layout')) {
+    var raw = v('ef-layout').trim();
+    if (raw) {
+      try { layout = JSON.parse(raw); }
+      catch(e){ st.textContent = 'Геометрия — не валидный JSON: ' + e.message; return; }
+    }
+  }
+
+  st.textContent = 'Сохраняю…';
+  try {
+    var fileEl = document.getElementById('ef-file');
+    if (fileEl && fileEl.files && fileEl.files[0]) {
+      st.textContent = 'Загружаю файл…';
+      var got = await readElementFile(fileEl.files[0], elKind);
+      var ur = await fetch(API + '/cards/admin/elements/upload?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ key: key, kind: elKind, image_base64: got.data, ext: got.ext }) });
+      var ud = await ur.json().catch(function(){ return {}; });
+      if (!ur.ok) throw new Error(ud.detail || ('загрузка не прошла, ' + ur.status));
+    }
+    var payload = { key: key, kind: elKind, title: v('ef-title').trim(),
+                    theme: v('ef-theme') || 'light', style: v('ef-style').trim(),
+                    god: v('ef-god').trim(), plate_mode: v('ef-plate-mode') || 'key',
+                    layout: layout };
+    var r = await fetch(API + '/cards/admin/elements?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    var d = await r.json().catch(function(){ return {}; });
+    if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
+    elExpanded = null;
+    await loadElements();
+  } catch(e){ st.textContent = 'Не сохранилось: ' + e.message; }
+}
+
+async function deleteElement(key){
+  if (!confirm('Удалить элемент «' + key + '»? Файл в репозитории останется.')) return;
+  await fetch(API + '/cards/admin/elements?key=' + encodeURIComponent(key)
+    + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), { method:'DELETE' });
+  elExpanded = null;
+  loadElements();
+}
+
+/* ── Сборка ───────────────────────────────────────────────────────────────── */
+
+function openComposer(){
+  var pick = function(kind, id, label){
+    var rows = elementsCache.filter(function(e){ return e.kind === kind; });
+    return '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl(label)
+      + '<select id="' + id + '" style="' + elInput() + '"><option value="">— нет —</option>'
+      + rows.map(function(e){
+          return '<option value="' + elEsc(e.key) + '">' + elEsc(e.title || e.key) + '</option>'; }).join('')
+      + '</select></label>';
+  };
+  document.getElementById('composer-slot').innerHTML =
+    '<div style="border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px">'
+    + '<div style="font-size:13px;font-weight:700">Сборка карточки</div>'
+    + pick('frame','cf-frame','Рамка') + pick('art','cf-art','Арт') + pick('plate','cf-plate','Плашка имени')
+    + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Бог — чтобы подставился его девиз (можно оставить пустым)')
+      + '<input id="cf-god" style="' + elInput() + '"></label>'
+    + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Девиз вручную — перебивает подставленный')
+      + '<input id="cf-motto" style="' + elInput() + '"></label>'
+    + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Подпись под картой: номер экземпляра и код')
+      + '<input id="cf-serial" placeholder="№ 0001   ·   E T M S" style="' + elInput() + '"></label>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + '<button class="action-btn" onclick="runCompose(false)">Показать превью</button>'
+      + '<button class="action-btn" onclick="closeComposer()">Закрыть</button></div>'
+    + '<div id="cf-status" style="font-size:11px;color:var(--text-faint)"></div>'
+    + '<div id="cf-preview"></div>'
+    + '<div id="cf-commit" style="display:none;flex-direction:column;gap:8px">'
+      + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Ключ карточки, которой присвоить картинку')
+        + '<input id="cf-card-key" style="' + elInput() + '"></label>'
+      + '<button class="action-btn" onclick="runCompose(true)">Сохранить карточке</button></div>'
+    + '</div>';
+}
+
+function closeComposer(){ document.getElementById('composer-slot').innerHTML = ''; }
+
+async function runCompose(commit){
+  var v = function(id){ var e = document.getElementById(id); return e ? e.value : ''; };
+  var st = document.getElementById('cf-status');
+  if (!v('cf-frame')){ st.textContent = 'Выбери рамку'; return; }
+  st.textContent = commit ? 'Сохраняю…' : 'Собираю…';
+  try {
+    var payload = { frame: v('cf-frame'), art: v('cf-art'), plate: v('cf-plate'),
+                    god: v('cf-god').trim(), motto: v('cf-motto').trim(),
+                    serial: v('cf-serial').trim(), commit: !!commit, card_key: v('cf-card-key').trim() };
+    var r = await fetch(API + '/cards/admin/compose?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    var d = await r.json().catch(function(){ return {}; });
+    if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
+    if (commit){
+      st.textContent = 'Сохранено';
+      loadCardTypes();
+      return;
+    }
+    document.getElementById('cf-preview').innerHTML =
+      '<img src="data:image/png;base64,' + d.preview_base64 + '" style="width:100%;border-radius:10px;margin-top:6px">';
+    document.getElementById('cf-commit').style.display = 'flex';
+    st.textContent = d.motto ? ('Девиз: ' + d.motto) : 'Девиза нет — на карточке пусто';
+  } catch(e){ st.textContent = 'Не вышло: ' + e.message; }
+}
+
 function jsArg(v){
   var s = String(v == null ? '' : v);
   s = s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
