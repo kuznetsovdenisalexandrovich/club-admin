@@ -5798,7 +5798,7 @@ function renderBonusItems(){
       + '</div>'
       + '<input placeholder="Ключ позиции (латиница) — по нему хранится отметка об открытии" value="' + elEsc(it.key || '') + '"'
         + ' oninput="setBonusItem(' + i + ',&quot;key&quot;,this.value)" style="' + elInput() + '">'
-      + '<input placeholder="Код Boomstream — если видео играет внутри приложения" value="' + elEsc(it.boomstream || '') + '"'
+      + '<input placeholder="Boomstream: код, ссылка или весь фрагмент вставки — вытащу код сам" value="' + elEsc(it.boomstream || '') + '"'
         + ' oninput="setBonusItem(' + i + ',&quot;boomstream&quot;,this.value)" style="' + elInput() + '">'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
         + '<input placeholder="Ссылка ТГ" value="' + elEsc(it.tg || '') + '"'
