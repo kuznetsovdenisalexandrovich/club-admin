@@ -626,6 +626,7 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
         <button class="action-btn" onclick="openCardsPopup()">Колода карточек</button>
         <button class="action-btn" onclick="openBonusPopup()">Бонусы за вступление</button>
         <button class="action-btn" onclick="openRefPostsPopup()">Посты для приглашений</button>
+        <button class="action-btn" onclick="openTextsPopup()">Тексты приложения</button>
       </div>
     </div>
   </div>
@@ -761,6 +762,22 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
 <!-- Заготовки постов, которыми участники зовут друзей. Выдаются случайным
      выбором, поэтому их должно быть несколько — иначе ленты заполнятся
      одинаковыми сообщениями -->
+<!-- Тексты приложения. Исходники живут в коде аппа и присылаются сюда при его
+     запуске — здесь только замены и отметки о просмотре -->
+<div class="popup-overlay popup-centered" id="texts-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeTextsPopup()">
+  <div class="popup" style="max-width:720px">
+    <button class="popup-close-x" onclick="closeTextsPopup()" title="Закрыть">✕</button>
+    <div class="popup-body" style="padding-top:20px">
+      <div class="popup-section-title" style="margin-top:0">Тексты приложения</div>
+      <div id="texts-counters" style="font-size:12px;color:var(--text-faint);margin-bottom:10px"></div>
+      <input id="texts-search" class="popup-input" placeholder="Поиск по тексту или месту" oninput="renderTexts()" style="margin-bottom:8px">
+      <div id="texts-filters" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
+      <div id="texts-list"><div class="loading">Загрузка...</div></div>
+      <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closeTextsPopup()">Закрыть</button>
+    </div>
+  </div>
+</div>
+
 <div class="popup-overlay popup-centered" id="refposts-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeRefPostsPopup()">
   <div class="popup" style="max-width:560px">
     <button class="popup-close-x" onclick="closeRefPostsPopup()" title="Закрыть">✕</button>
@@ -5946,6 +5963,198 @@ async function deleteRefPost(id){
   await fetch(API + '/referral/posts/admin?post_id=' + id
     + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), { method:'DELETE' });
   loadRefPosts();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ТЕКСТЫ ПРИЛОЖЕНИЯ
+
+   Список приходит с сервера, а туда его присылает само приложение при запуске.
+   Руками ничего не заводим: что в коде — то и здесь.
+
+   «Сохранить» = «я это прочитал». Кнопка неактивна, пока текст не тронут и уже
+   одобрен. Если исходник в коде поменялся после одобрения, запись снова
+   становится непросмотренной — старое одобрение относилось к другому тексту.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var textsData = { items: [], total: 0, pending: 0, changed: 0 };
+var textsFilter = 'pending';
+var textsDrafts = {};    // ключ → что сейчас в поле, до сохранения
+
+function openTextsPopup(){
+  document.getElementById('texts-popup-overlay').classList.add('open');
+  loadTexts();
+}
+function closeTextsPopup(){
+  document.getElementById('texts-popup-overlay').classList.remove('open');
+  textsDrafts = {};
+}
+
+async function loadTexts(){
+  try {
+    textsData = await fetch(API + '/app-texts/admin?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN))
+      .then(function(r){ return r.json(); });
+    if (!textsData || !Array.isArray(textsData.items)) textsData = { items: [], total: 0, pending: 0, changed: 0 };
+  } catch(e){
+    document.getElementById('texts-list').innerHTML =
+      '<div style="font-size:12px;color:var(--text-faint)">Не загрузилось: ' + elEsc(e.message) + '</div>';
+    return;
+  }
+  renderTexts();
+}
+
+function textsCategories(){
+  var out = [];
+  textsData.items.forEach(function(i){
+    if (i.important && i.category && out.indexOf(i.category) === -1) out.push(i.category);
+  });
+  return out;
+}
+
+function setTextsFilter(f){ textsFilter = f; renderTexts(); }
+
+function renderTexts(){
+  var q = ((document.getElementById('texts-search') || {}).value || '').toLowerCase().trim();
+
+  document.getElementById('texts-counters').innerHTML =
+    'Всего ' + textsData.total + ' · не просмотрено <b>' + textsData.pending + '</b>'
+    + (textsData.changed ? ' · изменилось в коде <b>' + textsData.changed + '</b>' : '');
+
+  var chips = [['pending','Не просмотренные'], ['changed','Изменились в коде'], ['all','Все']];
+  textsCategories().forEach(function(c){ chips.push(['cat:' + c, c]); });
+  chips.push(['rest','Остальные']);
+  document.getElementById('texts-filters').innerHTML = chips.map(function(c){
+    return '<button class="action-btn" onclick="setTextsFilter(' + jsArg(c[0]) + ')"'
+      + ' style="opacity:' + (textsFilter === c[0] ? '1' : '.55') + '">' + elEsc(c[1]) + '</button>';
+  }).join('');
+
+  var rows = textsData.items.filter(function(i){
+    if (textsFilter === 'pending' && i.approved) return false;
+    if (textsFilter === 'changed' && !i.changed_in_code) return false;
+    if (textsFilter === 'rest' && i.important) return false;
+    if (textsFilter.indexOf('cat:') === 0 && i.category !== textsFilter.slice(4)) return false;
+    if (!q) return true;
+    return (i.label + ' ' + i.place + ' ' + i.base_text + ' ' + i.text).toLowerCase().indexOf(q) !== -1;
+  });
+
+  if (!rows.length){
+    document.getElementById('texts-list').innerHTML =
+      '<div style="font-size:12.5px;color:var(--text-faint)">'
+      + (textsFilter === 'pending' ? 'Всё просмотрено — красиво.' : 'Ничего не нашлось.') + '</div>';
+    return;
+  }
+
+  document.getElementById('texts-list').innerHTML = rows.map(function(i){
+    var val = (textsDrafts[i.key] !== undefined) ? textsDrafts[i.key] : (i.text || i.base_text);
+    var dirty = (textsDrafts[i.key] !== undefined)
+      && textsDrafts[i.key] !== (i.text || i.base_text);
+    var canSave = dirty || !i.approved;
+    var mark = i.changed_in_code
+      ? '<span style="font-size:10px;padding:2px 7px;border-radius:99px;background:rgba(255,138,92,.16);color:var(--warm)">текст в приложении поменялся</span>'
+      : (i.approved ? '<span style="font-size:10px;color:var(--text-faint)">просмотрено</span>' : '');
+    return '<div style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px">'
+      + '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:8px">'
+        + '<div><div style="font-size:13.5px;font-weight:600">' + elEsc(i.label || i.key) + '</div>'
+        + '<div style="font-size:11px;color:var(--text-faint)">' + elEsc(i.place || i.key) + '</div></div>'
+        + mark
+      + '</div>'
+      + '<textarea id="tx-' + elEsc(i.key) + '" oninput="onTextInput(' + jsArg(i.key) + ',this.value)"'
+        + ' style="min-height:76px;line-height:1.55;' + elInput() + '">' + elEsc(val) + '</textarea>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px">'
+        + '<button class="action-btn" onclick="saveText(' + jsArg(i.key) + ')"'
+          + (canSave ? '' : ' disabled')
+          + ' style="' + (canSave ? 'background:var(--accent);color:#fff;border-color:transparent' : 'opacity:.45;cursor:default') + '">Сохранить</button>'
+        // Второстепенная: это вспомогательный инструмент, а не действие экрана
+        + '<button class="action-btn" onclick="spinText(' + jsArg(i.key) + ')"'
+          + ' style="background:transparent;font-size:12px;opacity:.75">Сгенерировать вариант</button>'
+        + (i.text ? '<button class="action-btn" style="background:transparent;font-size:12px;opacity:.75;margin-left:auto" onclick="resetText(' + jsArg(i.key) + ')">Вернуть исходный</button>' : '')
+      + '</div>'
+      + '<div id="tx-out-' + elEsc(i.key) + '" style="font-size:12.5px;color:var(--text-faint);margin-top:8px;white-space:pre-wrap"></div>'
+      + '</div>';
+  }).join('');
+}
+
+/* Правим черновик и перерисовываем ТОЛЬКО кнопку: полная перерисовка сбрасывала
+   бы фокус и курсор на каждом символе */
+function onTextInput(key, value){
+  var was = textsDrafts[key] !== undefined;
+  textsDrafts[key] = value;
+  if (!was) renderTextsButtons();
+  else renderTextsButtons();
+}
+
+function renderTextsButtons(){
+  textsData.items.forEach(function(i){
+    var ta = document.getElementById('tx-' + i.key);
+    if (!ta) return;
+    var btn = ta.parentNode.querySelector('button');
+    if (!btn) return;
+    var dirty = ta.value !== (i.text || i.base_text);
+    var canSave = dirty || !i.approved;
+    btn.disabled = !canSave;
+    btn.style.cssText = canSave
+      ? 'background:var(--accent);color:#fff;border-color:transparent'
+      : 'opacity:.45;cursor:default';
+  });
+}
+
+async function saveText(key){
+  var ta = document.getElementById('tx-' + key);
+  if (!ta) return;
+  try {
+    var r = await fetch(API + '/app-texts/admin?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ key: key, text: ta.value, spintax: /\{[^{}]*\|/.test(ta.value) }) });
+    var d = await r.json();
+    if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
+    delete textsDrafts[key];
+    await loadTexts();
+  } catch(e){
+    var out = document.getElementById('tx-out-' + key);
+    if (out) out.textContent = 'Не сохранилось: ' + e.message;
+  }
+}
+
+async function resetText(key){
+  await fetch(API + '/app-texts/admin/reset?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ key: key }) });
+  delete textsDrafts[key];
+  loadTexts();
+}
+
+/* Спинтакс: собираем один вариант. Сначала раскрываем самые внутренние скобки,
+   иначе «{а|{б|в}}» разберётся неправильно. Ограничитель — от незакрытой скобки */
+function spinOnce(text){
+  var out = text || '', guard = 0;
+  while (/\{[^{}]*\}/.test(out) && guard++ < 200){
+    out = out.replace(/\{([^{}]*)\}/, function(_, body){
+      var parts = body.split('|');
+      return parts[Math.floor(Math.random() * parts.length)];
+    });
+  }
+  return out;
+}
+
+function spinCount(text){
+  var total = 1, guard = 0, work = text || '';
+  while (/\{[^{}]*\}/.test(work) && guard++ < 200){
+    work = work.replace(/\{([^{}]*)\}/, function(_, body){
+      var parts = body.split('|');
+      total *= parts.length;
+      return parts[0];
+    });
+  }
+  return total;
+}
+
+function spinText(key){
+  var ta = document.getElementById('tx-' + key);
+  var out = document.getElementById('tx-out-' + key);
+  if (!ta || !out) return;
+  if (!/\{[^{}]*\|/.test(ta.value)){
+    out.textContent = 'В тексте нет вариантов. Запиши их так: {первый|второй}.';
+    return;
+  }
+  out.textContent = spinOnce(ta.value) + '\n\nВсего вариантов: ' + spinCount(ta.value);
 }
 
 function jsArg(v){
