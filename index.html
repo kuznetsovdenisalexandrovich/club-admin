@@ -644,6 +644,21 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
     </div>
   </div>
 
+  <!-- СЕЗОН НА ГЛАВНОЙ. Текущая работа — это полка сезона: видно, каких богов
+       ещё не нарисовали. Колода ниже осталась справочным видом -->
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">Сезон</div>
+      <span id="season-widget-count" style="font-size:12px;color:var(--text-faint)"></span>
+    </div>
+    <div class="card">
+      <div style="padding:14px">
+        <div id="season-widget"><div class="loading">Собираю полку…</div></div>
+        <button class="action-btn" style="width:100%;margin-top:10px" onclick="openCardsPopup()">Открыть полку сезона</button>
+      </div>
+    </div>
+  </div>
+
   <div class="section">
     <div class="section-head">
       <div class="section-title">Колода карточек</div>
@@ -1427,7 +1442,7 @@ async function loadAll(){
   loadSupport();
   loadRewardRequests();
   document.getElementById('last-update').textContent='Обновлено в '+new Date().toLocaleTimeString('ru');
-  await Promise.all([loadStats(),loadUsers(),loadPayments(),loadNotificationLists(),loadCampaigns(),loadAdminCalendarMonth(),loadQuestions(),loadCardsWidget()]);
+  await Promise.all([loadStats(),loadUsers(),loadPayments(),loadNotificationLists(),loadCampaigns(),loadAdminCalendarMonth(),loadQuestions(),loadCardsWidget(),loadSeasonWidget()]);
 }
 
 async function loadQuestions(){
@@ -4544,6 +4559,72 @@ function toggleCardsWidgetSecret(){
   renderCardsWidget();
 }
 
+/* ── Полка сезона на главном экране дашборда ───────────────────────────────
+   Компактный вид того же, что в разделе «Колода → Сезон»: шестнадцать слотов
+   пантеона, пустые — пунктиром. Клик по пустому заводит карточку и открывает
+   сборку, клик по занятому — саму карточку.
+
+   Данные берём тем же эндпоинтом полки. Активная серия определяется сервером
+   по списку серий, поэтому сначала спрашиваем список, потом полку. */
+
+async function loadSeasonWidget(){
+  var box = document.getElementById('season-widget');
+  var cnt = document.getElementById('season-widget-count');
+  if (!box) return;
+  try {
+    var d = await fetch(API + '/cards/admin/series?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN))
+      .then(function(r){ return r.json(); });
+    var list = d.series || [];
+    if (!list.length){
+      box.innerHTML = '<div style="font-size:12.5px;color:var(--text-faint)">Сезонов пока нет. '
+        + 'Заведи первый в разделе «Колода → Сезон».</div>';
+      if (cnt) cnt.textContent = '';
+      return;
+    }
+    var act = list.filter(function(x){ return x.active; })[0] || list[0];
+    var sh = await fetch(API + '/cards/admin/shelf?series_key=' + encodeURIComponent(act.key)
+      + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN)).then(function(r){ return r.json(); });
+    var slots = sh.slots || [];
+    var filled = slots.filter(function(x){ return x.cards.length; }).length;
+
+    if (cnt) cnt.textContent = (act.title || act.key) + ' · ' + filled + ' из ' + slots.length;
+
+    box.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:7px">'
+      + slots.map(function(slot){
+          var empty = !slot.cards.length;
+          var first = slot.cards[0];
+          var act2 = empty ? ('composeForSeasonSlot(' + jsArg(slot.god) + ',' + jsArg(act.key) + ')')
+                           : ('openCardFromSeason(' + jsArg(first.key) + ')');
+          var art = (!empty && first.image_url)
+            ? '<img src="' + elEsc(first.image_url) + '" style="width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:7px;display:block">'
+            : '<div style="width:100%;aspect-ratio:3/4;border-radius:7px;display:flex;align-items:center;'
+              + 'justify-content:center;font-size:10px;color:var(--text-faint);text-align:center;padding:4px;'
+              + 'background:var(--card2)">' + elEsc(slot.god) + '</div>';
+          return '<div onclick="' + act2 + '" style="cursor:pointer;border:1px solid var(--line);border-radius:9px;'
+            + 'padding:5px;' + (empty ? 'opacity:.55;border-style:dashed' : '') + '">'
+            + art
+            + '<div style="font-size:10.5px;margin-top:4px;text-align:center;overflow:hidden;'
+            + 'text-overflow:ellipsis;white-space:nowrap">' + elEsc(slot.god) + '</div></div>';
+        }).join('')
+      + '</div>';
+  } catch(e){
+    box.innerHTML = '<div style="font-size:12px;color:var(--text-faint)">Не загрузилось: ' + elEsc(e.message) + '</div>';
+  }
+}
+
+/* Оба клика ведут в попап — там полноценный редактор. Виджет только показывает
+   состояние и служит входом, дублировать в нём формы незачем */
+async function composeForSeasonSlot(god, seriesKey){
+  await openCardsPopup();
+  currentSeries = seriesKey;
+  composeForSlot(god);
+}
+
+async function openCardFromSeason(key){
+  await openCardsPopup();
+  openCardEditor(key);
+}
+
 async function loadCardsWidget(){
   const el = document.getElementById('cards-widget');
   if (!el) return;
@@ -5126,6 +5207,13 @@ async function loadSeries(){
       .then(function(r){ return r.json(); });
     seriesList = d.series || [];
     seriesGods = d.gods || [];
+    // Полку открываем СРАЗУ: работа идёт над текущим сезоном, а список серий —
+    // это навигация, ради которой не должно требоваться лишнего нажатия.
+    // Берём активную серию, иначе первую в списке
+    if (!currentSeries && seriesList.length){
+      var act = seriesList.filter(function(x){ return x.active; })[0] || seriesList[0];
+      currentSeries = act.key;
+    }
     renderSeriesList(d.unassigned || 0);
     if (currentSeries) loadShelf(currentSeries);
   } catch(e){
