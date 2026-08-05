@@ -6019,12 +6019,29 @@ function renderTexts(){
     'Всего ' + textsData.total + ' · не просмотрено <b>' + textsData.pending + '</b>'
     + (textsData.changed ? ' · изменилось в коде <b>' + textsData.changed + '</b>' : '');
 
-  var chips = [['pending','Не просмотренные'], ['changed','Изменились в коде'], ['all','Все']];
-  textsCategories().forEach(function(c){ chips.push(['cat:' + c, c]); });
-  chips.push(['rest','Остальные']);
+  // Дробь «не просмотрено / всего» у каждой категории: первое число ярким,
+  // второе приглушённым — так видно, где ещё есть работа, не открывая раздел
+  var frac = function(items){
+    var pend = items.filter(function(i){ return !i.approved; }).length;
+    return '<b style="color:var(--text)">' + pend + '</b>'
+      + '<span style="opacity:.5">/' + items.length + '</span>';
+  };
+  var all = textsData.items;
+  var chips = [
+    ['pending', 'Не просмотренные', all.filter(function(i){ return !i.approved; })],
+    ['changed', 'Изменились в коде', all.filter(function(i){ return i.changed_in_code; })],
+    ['all', 'Все', all],
+  ];
+  textsCategories().forEach(function(c){
+    chips.push(['cat:' + c, c, all.filter(function(i){ return i.category === c; })]);
+  });
+  chips.push(['rest', 'Остальные', all.filter(function(i){ return !i.important; })]);
+
   document.getElementById('texts-filters').innerHTML = chips.map(function(c){
     return '<button class="action-btn" onclick="setTextsFilter(' + jsArg(c[0]) + ')"'
-      + ' style="opacity:' + (textsFilter === c[0] ? '1' : '.55') + '">' + elEsc(c[1]) + '</button>';
+      + ' style="display:flex;gap:7px;align-items:baseline;opacity:'
+      + (textsFilter === c[0] ? '1' : '.6') + '">'
+      + elEsc(c[1]) + '<span style="font-size:11.5px">' + frac(c[2]) + '</span></button>';
   }).join('');
 
   var rows = textsData.items.filter(function(i){
