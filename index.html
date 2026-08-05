@@ -813,15 +813,26 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
       <div class="popup-section-title" style="margin-top:0">Колода карточек</div>
       <div id="cards-master-switch" style="margin-bottom:12px"></div>
 
-      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-        <button class="action-btn" id="cards-tab-deck-btn" onclick="switchCardsTab('deck')">Колода</button>
-        <button class="action-btn" id="cards-tab-gods-btn" onclick="switchCardsTab('gods')">Боги</button>
-        <button class="action-btn" id="cards-tab-sim-btn" onclick="switchCardsTab('sim')">Симулятор</button>
-        <button class="action-btn" id="cards-tab-queue-btn" onclick="switchCardsTab('queue')">Личное участие</button>
-        <button class="action-btn" id="cards-tab-grant-btn" onclick="switchCardsTab('grant')">Подарить</button>
-        <button class="action-btn" id="cards-tab-series-btn" onclick="switchCardsTab('series')">Сезон</button>
-        <button class="action-btn" id="cards-tab-unique-btn" onclick="switchCardsTab('unique')">Уникальные</button>
-        <button class="action-btn" id="cards-tab-elements-btn" onclick="switchCardsTab('elements')">Элементы</button>
+      <!-- ЧЕТЫРЕ РАЗДЕЛА ВМЕСТО ВОСЬМИ ВКЛАДОК.
+           Разделы названы по типу РАБОТЫ, а не по типу карточки: «доделать
+           колоду», «собрать картинку», «разобраться с тем, что от меня ждут».
+           Прежние вкладки Сезон / Вся колода / Уникальные — это фильтры внутри
+           «Колоды», а не отдельные места. Симулятор и «Подарить» переехали
+           внутрь тех разделов, где они реально нужны. -->
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <button class="action-btn" id="cards-sec-deck-btn" onclick="switchCardsSection('deck')">Колода</button>
+        <button class="action-btn" id="cards-sec-shop-btn" onclick="switchCardsSection('shop')">Мастерская</button>
+        <button class="action-btn" id="cards-sec-gods-btn" onclick="switchCardsSection('gods')">Боги</button>
+        <button class="action-btn" id="cards-sec-todo-btn" onclick="switchCardsSection('todo')">Дела<span id="cards-todo-count" style="margin-left:6px;font-size:11px;color:var(--warm)"></span></button>
+      </div>
+
+      <!-- Фильтры «Колоды». СЕЗОН ПЕРВЫЙ И ПО УМОЛЧАНИЮ: это то, над чем идёт
+           текущая работа, а вся колода и уникальные — справочные виды -->
+      <div id="cards-deck-chips" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+        <button class="action-btn" id="cards-view-series-btn" onclick="switchDeckView('series')">Сезон</button>
+        <button class="action-btn" id="cards-view-deck-btn" onclick="switchDeckView('deck')">Вся колода</button>
+        <button class="action-btn" id="cards-view-unique-btn" onclick="switchDeckView('unique')">Уникальные</button>
+        <button class="action-btn" id="cards-view-sim-btn" onclick="switchDeckView('sim')" style="margin-left:auto;background:transparent;font-size:12px;opacity:.75">Симулятор выдачи</button>
       </div>
 
       <!-- Колода -->
@@ -891,7 +902,7 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
       </div>
 
       <!-- Подарить -->
-      <div id="cards-tab-grant" style="display:none">
+      <div id="cards-tab-grant" style="display:none;margin-top:18px;border-top:1px solid var(--line);padding-top:16px">
         <div style="font-size:12px;color:var(--text-faint);line-height:1.45;margin-bottom:12px">
           Выдать карточку или пак конкретному участнику — для тестов и для подарков.
           Приходит закрытой, как обычная: ритуал вскрытия сохраняется.
@@ -3635,7 +3646,9 @@ let cardsTab = 'deck';
 
 async function openCardsPopup(after){
   document.getElementById('cards-popup-overlay').classList.add('open');
-  switchCardsTab('deck');
+  deckView = 'series';              // открываемся на сезоне — там идёт работа
+  switchCardsSection('deck');
+  loadCardsQueue();                 // молча, ради цифры долга на кнопке «Дела»
   loadCardsMasterSwitch();
   // Ждём каталог и только потом выполняем действие. Раньше здесь был setTimeout
   // на 250 мс: если каталог грузился дольше, ответ сервера перезатирал массив и
@@ -3650,19 +3663,88 @@ function closeCardsPopup(){
   document.getElementById('cards-popup-overlay').classList.remove('open');
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   РАЗДЕЛЫ РАБОЧЕГО МЕСТА ПО КАРТОЧКАМ
+
+   Было восемь вкладок, стало четыре раздела. Соответствие:
+     Колода     ← Сезон + Вся колода + Уникальные (теперь фильтры) + Симулятор
+     Мастерская ← Элементы + сборка картинки
+     Боги       ← Боги (без изменений)
+     Дела       ← Личное участие + Подарить
+
+   Ни один прежний экран не удалён: все контейнеры `#cards-tab-*` на месте, все
+   функции отрисовки вызываются как раньше. Изменилась только группировка и то,
+   какими кнопками до них добираться.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var cardsSection = 'deck';
+var deckView = 'series';   // сезон — вид по умолчанию
+
+const CARD_TAB_IDS = ['deck','gods','sim','queue','grant','series','unique','elements'];
+
+function hideAllCardTabs(){
+  CARD_TAB_IDS.forEach(function(t){
+    const el = document.getElementById('cards-tab-'+t);
+    if (el) el.style.display = 'none';
+  });
+}
+
+function switchCardsSection(name){
+  cardsSection = name;
+  ['deck','shop','gods','todo'].forEach(function(n){
+    const b = document.getElementById('cards-sec-'+n+'-btn');
+    if (b) b.style.opacity = (n === name) ? '1' : '.55';
+  });
+  // строка фильтров принадлежит только «Колоде»
+  const chips = document.getElementById('cards-deck-chips');
+  if (chips) chips.style.display = (name === 'deck') ? 'flex' : 'none';
+
+  hideAllCardTabs();
+  if (name === 'deck'){ switchDeckView(deckView); return; }
+
+  if (name === 'shop'){
+    document.getElementById('cards-tab-elements').style.display = 'block';
+    loadElements();
+  }
+  if (name === 'gods'){
+    document.getElementById('cards-tab-gods').style.display = 'block';
+    godExpanded = null;
+    loadGods();
+  }
+  if (name === 'todo'){
+    // Оба блока сразу: и очередь личного участия, и ручная выдача. Это один
+    // вопрос «что требует моего участия», а не два разных места
+    document.getElementById('cards-tab-queue').style.display = 'block';
+    document.getElementById('cards-tab-grant').style.display = 'block';
+    loadCardsQueue();
+    if (!grantTarget) resetGrantTab();
+  }
+}
+
+function switchDeckView(view){
+  if (view !== 'sim') deckView = view;   // симулятор не запоминаем как вид
+  ['series','deck','unique','sim'].forEach(function(v){
+    const b = document.getElementById('cards-view-'+v+'-btn');
+    if (b) b.style.opacity = (v === view) ? '1' : (v === 'sim' ? '.75' : '.55');
+  });
+  hideAllCardTabs();
+  document.getElementById('cards-tab-'+view).style.display = 'block';
+  if (view === 'series') loadSeries();
+  if (view === 'unique') renderUniqueCards();
+}
+
+/* Совместимость: старое имя ещё вызывается из сборки картинки и из выдачи.
+   Переводим прежние вкладки в новые разделы, чтобы ничего не отвалилось */
 function switchCardsTab(tab){
   cardsTab = tab;
-  ['deck','gods','sim','queue','grant','series','unique','elements'].forEach(function(t){
-    document.getElementById('cards-tab-'+t).style.display = (t===tab) ? 'block' : 'none';
-    const b = document.getElementById('cards-tab-'+t+'-btn');
-    if (b) b.style.opacity = (t===tab) ? '1' : '.55';
-  });
-  if (tab === 'gods') { godExpanded = null; loadGods(); }
-  if (tab === 'queue') loadCardsQueue();
-  if (tab === 'grant' && !grantTarget) resetGrantTab();
-  if (tab === 'series') loadSeries();
-  if (tab === 'unique') renderUniqueCards();
-  if (tab === 'elements') loadElements();
+  if (tab === 'elements') return switchCardsSection('shop');
+  if (tab === 'gods') return switchCardsSection('gods');
+  if (tab === 'queue' || tab === 'grant') return switchCardsSection('todo');
+  if (tab === 'series' || tab === 'unique' || tab === 'sim'){
+    switchCardsSection('deck');
+    return switchDeckView(tab);
+  }
+  switchCardsSection('deck');
 }
 
 /* Рубильник: пока колода не наполнена, выдача выключена и продление
@@ -4137,11 +4219,19 @@ async function deleteCardType(key){
 
 /* ── Очередь личного участия ────────────────────────────────────────────── */
 
+/* Цифра рядом с «Делами» — это ДОЛГ, а не статистика: сколько людей чего-то
+   ждут от Denis'а. Поэтому оранжевая и исчезает, когда очередь пуста */
+function setTodoCount(n){
+  const el = document.getElementById('cards-todo-count');
+  if (el) el.textContent = n > 0 ? String(n) : '';
+}
+
 async function loadCardsQueue(){
   const el = document.getElementById('cards-queue-list');
   el.innerHTML = '<div class="loading">Загрузка...</div>';
   try {
     const rows = await fetch(API+'/cards/admin/personal-queue?x_admin_token='+ADMIN_TOKEN).then(r=>r.json());
+    setTodoCount(rows.filter(function(r){ return !r.fulfilled; }).length);
     if (!rows.length){ el.innerHTML = '<div class="empty">Пока никому ничего не должен</div>'; return; }
     el.innerHTML = rows.map(function(r){
       const when = r.opened_at ? new Date(r.opened_at).toLocaleDateString('ru-RU') : '';
