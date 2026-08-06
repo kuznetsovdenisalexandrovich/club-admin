@@ -809,7 +809,7 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
   </div>
 </div>
 
-<div class="popup-overlay popup-centered" id="godcards-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeGodCards()">
+<div class="popup-overlay popup-centered" id="godcards-popup-overlay" style="z-index:140" onclick="if(overlayShouldClose(event,this)) closeGodCards()">
   <div class="popup" style="max-width:520px">
     <button class="popup-close-x" onclick="closeGodCards()" title="Закрыть">✕</button>
     <div class="popup-body" style="padding-top:20px">
@@ -4243,15 +4243,26 @@ function renderGodCards(){
   box.innerHTML = h;
 }
 
-function openCardFromGod(key){
+function cardsPopupOpen(){
+  var el = document.getElementById('cards-popup-overlay');
+  return !!(el && el.classList.contains('open'));
+}
+
+async function openCardFromGod(key){
   closeGodCards();
+  // Пришли с главного экрана — колоды ещё нет, поднимаем её сейчас.
+  // openCardsPopup дожидается каталога, иначе редактор откроется на пустом массиве
+  if (!cardsPopupOpen()) await openCardsPopup();
   openCardEditor(key);
 }
 
-function composeAnotherForGod(){
+async function composeAnotherForGod(){
   var god = godCardsGod;
   closeGodCards();
-  composeForSlot(god);   // сам подберёт свободный ключ вида s2-athena-02
+  if (!cardsPopupOpen()) await openCardsPopup();
+  // composeForSlot подбирает свободный ключ по каталогу — до его загрузки
+  // вызывать нельзя, иначе новая карта получит уже занятый ключ
+  composeForSlot(god);
 }
 
 /* ── РОЗЫГРЫШИ ─────────────────────────────────────────────────────────────────
@@ -4992,9 +5003,11 @@ async function openCardFromSeason(key){
   openCardEditor(key);
 }
 
-/* С главного экрана — сначала карты этого бога, потом уже конкретная */
-async function openGodCardsFromMain(god, seriesKey){
-  await openCardsPopup();
+/* С главного экрана открываем ТОЛЬКО попап бога. Раньше здесь сначала
+   поднималась вся колода, и попап оказывался под ней — клик выглядел как
+   «ничего не произошло». Тяжёлое окно колоды поднимется потом, если человек
+   действительно выберет карту или решит нарисовать ещё одну */
+function openGodCardsFromMain(god, seriesKey){
   currentSeries = seriesKey;
   openGodCards(god);
 }
