@@ -1491,14 +1491,15 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 
     <div class="popup-section-title">Выпуск</div>
     <div style="display:flex;flex-direction:column;gap:8px">
-      <input class="popup-input" type="text" id="magazine-key" placeholder="Ключ выпуска латиницей (напр. pilot) — совпадает с именем папки" style="margin-bottom:0">
+      <input class="popup-input" type="text" id="magazine-key" placeholder="Ключ выпуска латиницей (напр. vol01)" style="margin-bottom:0">
       <input class="popup-input" type="text" id="magazine-title" placeholder="Название выпуска" style="margin-bottom:0">
       <textarea class="popup-input" id="magazine-description" rows="3" placeholder="Описание-анонс. Его читают и на закрытом выпуске тоже — писать как тизер, а не как оглавление" style="margin-bottom:0;resize:vertical"></textarea>
       <div style="display:flex;gap:8px">
         <input class="popup-input" type="number" id="magazine-number" placeholder="Номер в очереди" style="margin-bottom:0;flex:1">
         <input class="popup-input" type="text" id="magazine-date" placeholder="Вышел (дд.мм.гггг)" style="margin-bottom:0;flex:1">
       </div>
-      <input class="popup-input" type="text" id="magazine-folder" placeholder="Слаг на Тильде, напр. edition_01_mobile (пусто = совпадает с ключом)" style="margin-bottom:0">
+      <input class="popup-input" type="text" id="magazine-folder" placeholder="Слаг мобильной на Тильде, напр. s01-ed01-mobile (пусто = совпадает с ключом)" style="margin-bottom:0">
+      <input class="popup-input" type="text" id="magazine-folder-pc" placeholder="Слаг ПК-версии на Тильде (пусто = кнопка «ПК» не показывается)" style="margin-bottom:0">
       <label style="display:flex;align-items:center;gap:8px;font-size:12px"><input type="checkbox" id="magazine-free"> Открыт всем, включая демо (пилотный выпуск)</label>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px"><input type="checkbox" id="magazine-published" checked> Опубликован (виден в приложении)</label>
 
@@ -3389,6 +3390,7 @@ function resetMagazineForm(){
   document.getElementById('magazine-number').value = '';
   document.getElementById('magazine-date').value = '';
   document.getElementById('magazine-folder').value = '';
+  document.getElementById('magazine-folder-pc').value = '';
   document.getElementById('magazine-free').checked = false;
   document.getElementById('magazine-published').checked = true;
   document.getElementById('magazine-cover-preview').innerHTML = '';
@@ -3399,12 +3401,13 @@ function editMagazineIssue(key){
   const m = magazineIssues.find(function(x){ return x.issue_key === key; });
   if(!m) return;
   document.getElementById('magazine-key').value = m.issue_key;
-  document.getElementById('magazine-key').disabled = true;   // ключ = имя папки, менять нельзя
+  document.getElementById('magazine-key').disabled = true;   // ключ используется в подписанных ссылках чтения, менять нельзя
   document.getElementById('magazine-title').value = m.title || '';
   document.getElementById('magazine-description').value = m.description || '';
   document.getElementById('magazine-number').value = m.number || 0;
   document.getElementById('magazine-date').value = m.published_at || '';
   document.getElementById('magazine-folder').value = (m.folder === m.issue_key ? '' : (m.folder || ''));
+  document.getElementById('magazine-folder-pc').value = m.folder_pc || '';
   document.getElementById('magazine-free').checked = !!m.free;
   document.getElementById('magazine-published').checked = !!m.published;
   document.getElementById('magazine-cover-preview').innerHTML = m.cover_url
@@ -3417,7 +3420,7 @@ async function saveMagazineIssue(){
   const key = document.getElementById('magazine-key').value.trim();
   const title = document.getElementById('magazine-title').value.trim();
   if(!key || !title){ alert('Заполни ключ и название'); return; }
-  if(!/^[a-z0-9_]+$/.test(key)){ alert('Ключ — только латиница, цифры и подчёркивание: он же имя папки в репозитории'); return; }
+  if(!/^[a-z0-9_]+$/.test(key)){ alert('Ключ — только латиница, цифры и подчёркивание: он же ключ в подписанных ссылках чтения'); return; }
 
   const body = {
     issue_key: key,
@@ -3426,6 +3429,7 @@ async function saveMagazineIssue(){
     number: parseInt(document.getElementById('magazine-number').value, 10) || 0,
     published_at: document.getElementById('magazine-date').value.trim(),
     folder: document.getElementById('magazine-folder').value.trim(),
+    folder_pc: document.getElementById('magazine-folder-pc').value.trim(),
     free: document.getElementById('magazine-free').checked,
     published: document.getElementById('magazine-published').checked
   };
@@ -3440,7 +3444,7 @@ async function saveMagazineIssue(){
 }
 
 async function deleteMagazineIssue(key){
-  if(!confirm('Удалить карточку выпуска "' + key + '"? Папка с вёрсткой в репозитории останется на месте.')) return;
+  if(!confirm('Удалить карточку выпуска "' + key + '"? Сама страница на Тильде не пострадает — удаляется только карточка в клубе.')) return;
   try{
     await fetch(API + '/magazine/admin/' + encodeURIComponent(key) + '?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {method:'DELETE'});
     resetMagazineForm();
