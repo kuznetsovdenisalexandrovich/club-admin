@@ -3089,6 +3089,21 @@ function renderActivity(items){
         <div class="pay-amount" style="color:${it.ok?'var(--lav-deep)':'var(--red)'}">${fmt(it.amount||0)}</div>
       </div>`;
     }
+    // Шаги по приложению (тест, просмотр видео, замок, доступ...) идут той же
+    // лентой, что платежи и действия с подпиской — читается одной историей
+    if (it.type === 'event'){
+      let detail = '';
+      if (it.event === 'sales_video' && it.value) detail = Math.max(1, Math.round(it.value/60)) + ' мин';
+      else if (it.event === 'magazine_read' && it.value) detail = it.value + '%';
+      else if (it.ref) detail = it.ref;
+      return `<div class="pay-item">
+        <div class="pay-icon" style="background:transparent;color:var(--text-faint)">◦</div>
+        <div class="pay-info">
+          <div class="pay-name">${it.title}</div>
+          <div class="pay-meta">${date}${detail?' · '+detail:''}</div>
+        </div>
+      </div>`;
+    }
     const label = ACTIVITY_LABELS[it.title] || it.title;
     const p = it.params || {};
     let detail = '';
