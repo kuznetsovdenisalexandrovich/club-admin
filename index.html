@@ -809,6 +809,19 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
   </div>
 </div>
 
+<div class="popup-overlay popup-centered" id="godcards-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeGodCards()">
+  <div class="popup" style="max-width:520px">
+    <button class="popup-close-x" onclick="closeGodCards()" title="Закрыть">✕</button>
+    <div class="popup-body" style="padding-top:20px">
+      <div class="popup-section-title" style="margin-top:0" id="godcards-title">Бог</div>
+      <div style="font-size:11.5px;color:var(--text-faint);margin-bottom:10px;line-height:1.5">
+        У бога в сезоне может быть несколько карт. Выбери, какую открыть, или нарисуй ещё одну.
+      </div>
+      <div id="godcards-list"></div>
+    </div>
+  </div>
+</div>
+
 <div class="popup-overlay popup-centered" id="raffle-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeRafflePopup()">
   <div class="popup" style="max-width:600px">
     <button class="popup-close-x" onclick="closeRafflePopup()" title="Закрыть">✕</button>
@@ -4162,6 +4175,13 @@ function sendCardFromDetail(key){
 function openCardEditor(key){
   cardExpanded = key;
   cardEditMode = false;   // открываем просмотром, не формой
+  // КАРТОЧКА ЖИВЁТ ВО «ВСЕЙ КОЛОДЕ». Если открыть её, стоя на «Сезоне» или
+  // придя с главного экрана, редактор развернётся в СКРЫТОЙ вкладке — клик
+  // выглядит так, будто ничего не произошло, пока сам не переключишь вид
+  if (cardsSection !== 'deck' || deckView !== 'deck'){
+    deckView = 'deck';
+    switchCardsSection('deck');
+  }
   renderCardShelf();
   // Прокручиваем попап к началу: карточка теперь на месте полки, и смотреть
   // надо вверх, а не туда, где был клик
@@ -4170,6 +4190,69 @@ function openCardEditor(key){
 }
 function closeCardEditor(){ cardExpanded = null; cardEditMode = false; renderCardShelf(); }
 
+
+
+/* ── КАРТЫ ОДНОГО БОГА В СЕЗОНЕ ───────────────────────────────────────────────
+   Промежуточный шаг между полкой и редактором. Нужен потому, что слот на полке
+   — это БОГ, а не карточка: внутри одного бога карт может быть несколько (пара
+   Афин в одном сезоне — нормально). Раньше клик по слоту вёл в первую попавшуюся
+   карту, и остальные было не достать. */
+
+var shelfSlots = [];
+var godCardsGod = '';
+
+function openGodCards(god){
+  godCardsGod = god;
+  document.getElementById('godcards-popup-overlay').classList.add('open');
+  renderGodCards();
+}
+
+function closeGodCards(){
+  document.getElementById('godcards-popup-overlay').classList.remove('open');
+}
+
+function renderGodCards(){
+  var title = document.getElementById('godcards-title');
+  var box   = document.getElementById('godcards-list');
+  if (!box) return;
+  if (title) title.textContent = godCardsGod || 'Бог';
+
+  var slot = (shelfSlots || []).filter(function(s){ return s.god === godCardsGod; })[0];
+  var cards = (slot && slot.cards) ? slot.cards : [];
+
+  var h = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:9px">';
+  cards.forEach(function(c){
+    h += '<div onclick="openCardFromGod(' + jsArg(c.key) + ')" style="cursor:pointer;border:1px solid var(--line);'
+      + 'border-radius:10px;padding:6px;text-align:center">'
+      + (c.image_url
+          ? '<img src="' + elEsc(c.image_url) + '" style="width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:7px;display:block">'
+          : '<div style="width:100%;aspect-ratio:3/4;border-radius:7px;background:var(--surface);display:flex;'
+            + 'align-items:center;justify-content:center;font-size:11px;color:var(--text-faint)">без картинки</div>')
+      + '<div style="font-size:11.5px;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+      + elEsc(c.title || c.key) + '</div>'
+      + '<div style="font-size:10px;color:var(--text-faint);margin-top:2px">' + elEsc(c.key) + '</div>'
+    + '</div>';
+  });
+  // Место под ещё одну карту этого же бога — ровно одно, как на полке колоды
+  h += '<div onclick="composeAnotherForGod()" style="cursor:pointer;border:1.5px dashed var(--border);border-radius:10px;'
+    + 'display:flex;flex-direction:column;align-items:center;justify-content:center;aspect-ratio:3/4.4;'
+    + 'color:var(--text-faint);gap:4px">'
+    + '<div style="font-size:20px">+</div><div style="font-size:10px;text-align:center;padding:0 6px">ещё карта<br>этого бога</div></div>';
+  h += '</div>';
+
+  box.innerHTML = h;
+}
+
+function openCardFromGod(key){
+  closeGodCards();
+  openCardEditor(key);
+}
+
+function composeAnotherForGod(){
+  var god = godCardsGod;
+  closeGodCards();
+  composeForSlot(god);   // сам подберёт свободный ключ вида s2-athena-02
+}
 
 /* ── РОЗЫГРЫШИ ─────────────────────────────────────────────────────────────────
    Отдельная механика от паков и Знаков: пак — это удача внутри подписки, Знак —
@@ -4868,6 +4951,7 @@ async function loadSeasonWidget(){
     var sh = await fetch(API + '/cards/admin/shelf?series_key=' + encodeURIComponent(act.key)
       + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN)).then(function(r){ return r.json(); });
     var slots = sh.slots || [];
+    shelfSlots = slots;
     var filled = slots.filter(function(x){ return x.cards.length; }).length;
 
     if (cnt) cnt.textContent = (act.title || act.key) + ' · ' + filled + ' из ' + slots.length;
@@ -4877,7 +4961,7 @@ async function loadSeasonWidget(){
           var empty = !slot.cards.length;
           var first = slot.cards[0];
           var act2 = empty ? ('composeForSeasonSlot(' + jsArg(slot.god) + ',' + jsArg(act.key) + ')')
-                           : ('openCardFromSeason(' + jsArg(first.key) + ')');
+                           : ('openGodCardsFromMain(' + jsArg(slot.god) + ',' + jsArg(act.key) + ')');
           var art = (!empty && first.image_url)
             ? '<img src="' + elEsc(first.image_url) + '" style="width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:7px;display:block">'
             : '<div style="width:100%;aspect-ratio:3/4;border-radius:7px;display:flex;align-items:center;'
@@ -4906,6 +4990,13 @@ async function composeForSeasonSlot(god, seriesKey){
 async function openCardFromSeason(key){
   await openCardsPopup();
   openCardEditor(key);
+}
+
+/* С главного экрана — сначала карты этого бога, потом уже конкретная */
+async function openGodCardsFromMain(god, seriesKey){
+  await openCardsPopup();
+  currentSeries = seriesKey;
+  openGodCards(god);
 }
 
 async function loadCardsWidget(){
@@ -5592,6 +5683,7 @@ async function loadShelf(key){
     var d = await fetch(API + '/cards/admin/shelf?series_key=' + encodeURIComponent(key || '')
       + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN)).then(function(r){ return r.json(); });
     var slots = d.slots || [];
+    shelfSlots = slots;            // попап бога читает отсюда, не ходя на сервер второй раз
     var filled = slots.filter(function(s){ return s.cards.length; }).length;
     var h = '<div style="font-size:11px;color:var(--text-faint);margin-bottom:8px">Нарисовано '
       + filled + ' из ' + slots.length + ' богов</div>'
@@ -5599,8 +5691,10 @@ async function loadShelf(key){
     slots.forEach(function(slot){
       var empty = !slot.cards.length;
       var first = slot.cards[0];
+      // Даже у заполненного слота клик ведёт НЕ прямо в карточку: у бога в сезоне
+      // может быть несколько карт, и выбирать надо из них
       var act = empty ? ('composeForSlot(' + jsArg(slot.god) + ')')
-                      : ('openCardEditor(' + jsArg(first.key) + ')');
+                      : ('openGodCards(' + jsArg(slot.god) + ')');
       h += '<div onclick="' + act + '" style="cursor:pointer;border:1px solid var(--line);'
         + 'border-radius:10px;padding:6px;text-align:center;'
         + (empty ? 'opacity:.5;border-style:dashed' : '') + '">'
