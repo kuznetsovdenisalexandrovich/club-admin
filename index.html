@@ -877,6 +877,60 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus,.pa
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ГАЛОЧКИ — «тлеющая точка»
+   Обычный квадрат с птичкой заменён кольцом, внутри которого при включении
+   загорается тёплое ядро с ореолом. Разметка не меняется: это всё те же
+   <input type="checkbox"> внутри <label>, поэтому JavaScript не тронут.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+input[type="checkbox"]{
+  appearance:none; -webkit-appearance:none;
+  margin:0; flex-shrink:0; vertical-align:middle;
+  width:20px; height:20px; border-radius:50%;
+  position:relative; cursor:pointer;
+  background:transparent;
+  border:1.5px solid var(--line);
+  transition:border-color .3s var(--ui-ease), box-shadow .3s var(--ui-ease);
+}
+
+input[type="checkbox"]::after{
+  content:''; position:absolute; inset:4px; border-radius:50%;
+  background:radial-gradient(circle at 40% 35%, #ffd0a8, var(--warm) 55%, var(--warm-deep));
+  transform:scale(.2); opacity:0;
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1), opacity .2s ease;
+}
+
+input[type="checkbox"]:checked{
+  border-color:rgba(232,95,31,.55);
+  box-shadow:0 0 16px 2px var(--warm-glow), inset 0 0 8px rgba(255,140,60,.25);
+}
+input[type="checkbox"]:checked::after{ transform:scale(1); opacity:1; }
+input[type="checkbox"]:hover:not(:checked):not(:disabled){ border-color:rgba(232,95,31,.4); }
+input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
+
+/* ЗАЩИТА ТУМБЛЕРОВ. У переключателей настроек сам чекбокс спрятан, а видна
+   дорожка с бегунком. Правило выше по весу равно правилу .toggle-switch input
+   и, стоя ниже по файлу, победило бы — тумблеры превратились бы в кружки.
+   Возвращаем им скрытость явно */
+.toggle-switch input[type="checkbox"]{
+  position:absolute !important; opacity:0 !important;
+  width:0 !important; height:0 !important;
+  border:none !important; box-shadow:none !important;
+  appearance:none !important; -webkit-appearance:none !important;
+}
+.toggle-switch input[type="checkbox"]::after{ content:none !important; }
+
+/* Тумблеров в дашборде ДВА вида: .toggle-switch (полка карточек) и .switch
+   (настройки клуба). Второй прячет чекбокс нулевым размером без absolute —
+   его тоже надо защитить, иначе в настройках вылезут кружки поверх дорожек */
+.switch input[type="checkbox"]{
+  opacity:0 !important; width:0 !important; height:0 !important;
+  border:none !important; box-shadow:none !important; margin:0 !important;
+  appearance:none !important; -webkit-appearance:none !important;
+}
+.switch input[type="checkbox"]::after{ content:none !important; }
 </style>
 </head>
 
