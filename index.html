@@ -3369,13 +3369,13 @@ async function loadMagazineList(){
       if (m.free) marks.push('открыт всем');
       if (!m.published) marks.push('черновик');
       return '<div class="pay-item">'
-        + (m.cover_url ? '<img src="' + m.cover_url + '" alt="" style="width:34px;height:46px;object-fit:cover;border-radius:6px;margin-right:8px">' : '')
-        + '<div style="flex:1">'
+        + (m.cover_url ? '<img src="' + m.cover_url + '" alt="" style="width:34px;height:46px;object-fit:cover;border-radius:6px;margin-right:8px;flex-shrink:0">' : '')
+        + '<div style="flex:1;min-width:0">'
         +   '<div class="pay-name">' + (m.number || 0) + '. ' + (m.title || m.issue_key) + '</div>'
         +   '<div class="pay-meta">' + m.issue_key + (marks.length ? ' — ' + marks.join(', ') : '') + '</div>'
         + '</div>'
-        + '<button class="action-btn" onclick="editMagazineIssue(' + jsArg(m.issue_key) + ')">Изм.</button>'
-        + '<button class="action-btn danger" onclick="deleteMagazineIssue(' + jsArg(m.issue_key) + ')">Удл.</button>'
+        + '<button class="action-btn" style="flex-shrink:0" onclick="editMagazineIssue(' + jsArg(m.issue_key) + ')">Изм.</button>'
+        + '<button class="action-btn danger" style="flex-shrink:0" onclick="deleteMagazineIssue(' + jsArg(m.issue_key) + ')">Удл.</button>'
         + '</div>';
     }).join('');
   }catch(e){ el.innerHTML = '<div class="pay-meta">Ошибка загрузки</div>'; }
