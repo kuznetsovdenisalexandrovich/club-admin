@@ -7398,7 +7398,7 @@ function renderHelpSectionDatalist(){
     document.body.appendChild(dl);
   }
   dl.innerHTML = helpDocsSections.map(function(s){
-    return '<option value="' + escapeHtml(s.key) + '">' + escapeHtml(s.label) + '</option>';
+    return '<option value="' + escapeHtmlText(s.key) + '">' + escapeHtmlText(s.label) + '</option>';
   }).join('');
 }
 
@@ -7417,14 +7417,14 @@ function renderHelpDocsList(){
   list.innerHTML = helpDocsSections.map(function(sec){
     const arts = bySection[sec.key] || [];
     return '<div style="margin-bottom:12px">'
-      + '<div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);margin-bottom:4px">' + escapeHtml(sec.label) + '</div>'
+      + '<div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);margin-bottom:4px">' + escapeHtmlText(sec.label) + '</div>'
       + (arts.length
           ? arts.map(function(a){
               const active = a.key === helpDocsEditingKey;
               return '<div onclick="helpDocsEditArticle(' + jsArg(a.key) + ')" '
                 + 'style="padding:7px 9px;border-radius:8px;cursor:pointer;font-size:13px;margin-bottom:2px;'
                 + (active ? 'background:var(--lav-dim);color:var(--lav-deep);font-weight:600' : 'color:var(--text-dim)') + '">'
-                + escapeHtml(a.title || a.key) + '</div>';
+                + escapeHtmlText(a.title || a.key) + '</div>';
             }).join('')
           : '<div style="padding:7px 9px;font-size:12px;color:var(--text-faint);font-style:italic">нет статей</div>')
       + '</div>';
@@ -7449,15 +7449,15 @@ function renderHelpDocsEditor(a){
   const isNew = !a;
   box.innerHTML =
       '<input class="popup-input" id="hd-key" placeholder="Ключ статьи латиницей (напр. faq-payment)" '
-        + 'value="' + escapeHtml(a ? a.key : '') + '" ' + (isNew ? '' : 'disabled') + ' style="margin-bottom:8px">'
+        + 'value="' + escapeHtmlText(a ? a.key : '') + '" ' + (isNew ? '' : 'disabled') + ' style="margin-bottom:8px">'
     + '<div style="display:flex;gap:8px;margin-bottom:8px">'
       + '<input class="popup-input" id="hd-section-key" list="hs-datalist" placeholder="Ключ раздела — выбери или впиши новый" '
-        + 'value="' + escapeHtml(a ? a.section_key : '') + '" style="flex:1;margin-bottom:0">'
+        + 'value="' + escapeHtmlText(a ? a.section_key : '') + '" style="flex:1;margin-bottom:0">'
       + '<input class="popup-input" id="hd-section-label" placeholder="Название (если раздел новый)" '
-        + 'value="' + escapeHtml(a ? a.section_label : '') + '" style="flex:1;margin-bottom:0">'
+        + 'value="' + escapeHtmlText(a ? a.section_label : '') + '" style="flex:1;margin-bottom:0">'
     + '</div>'
     + '<input class="popup-input" id="hd-title" placeholder="Заголовок статьи" '
-      + 'value="' + escapeHtml(a ? a.title : '') + '" style="margin-bottom:8px">'
+      + 'value="' + escapeHtmlText(a ? a.title : '') + '" style="margin-bottom:8px">'
     + '<div style="margin-bottom:10px;max-width:140px">'
       + '<div style="font-size:10.5px;color:var(--text-faint);margin-bottom:2px">Порядок статьи в разделе</div>'
       + '<input class="popup-input" type="number" id="hd-article-order" value="' + (a ? a.article_order : 0) + '" style="margin-bottom:0"></div>'
@@ -7466,7 +7466,7 @@ function renderHelpDocsEditor(a){
       + '<button class="lec-card" style="border:none;font-size:12px;padding:6px 12px" onclick="helpFormat(\'list\')">Список</button>'
       + '<button class="lec-card" style="border:none;font-size:12px;padding:6px 12px" onclick="helpFormat(\'heading\')">Заголовок</button>'
     + '</div>'
-    + '<textarea class="popup-input" id="hd-body" rows="12" style="font-family:inherit;resize:vertical;margin-bottom:10px">' + escapeHtml(a ? a.body : '') + '</textarea>'
+    + '<textarea class="popup-input" id="hd-body" rows="12" style="font-family:inherit;resize:vertical;margin-bottom:10px">' + escapeHtmlText(a ? a.body : '') + '</textarea>'
     + '<div style="display:flex;gap:8px">'
       + '<button class="popup-save" style="flex:1" onclick="helpDocsSave()">Сохранить</button>'
       + (isNew ? '' : '<button class="popup-save" style="flex:0 0 auto;background:transparent;border:1px solid var(--red);color:var(--red)" onclick="helpDocsDelete(' + jsArg(a.key) + ')">Удалить</button>')
@@ -7583,7 +7583,7 @@ function renderHelpSectionsList(){
         + '<button class="icon-btn" style="width:22px;height:18px;font-size:10px' + (i === helpDocsSections.length - 1 ? ';opacity:.3' : '') + '" '
           + (i === helpDocsSections.length - 1 ? 'disabled' : '') + ' onclick="helpSectionMove(' + jsArg(s.key) + ',1)">▼</button>'
       + '</div>'
-      + '<input class="popup-input" value="' + escapeHtml(s.label) + '" style="flex:1;margin-bottom:0;font-size:13px" '
+      + '<input class="popup-input" value="' + escapeHtmlText(s.label) + '" style="flex:1;margin-bottom:0;font-size:13px" '
         + 'onblur="helpSectionRename(' + jsArg(s.key) + ',this.value)">'
       + '<span style="font-size:11px;color:var(--text-faint);flex:0 0 auto">' + n + ' ' + (n === 1 ? 'статья' : 'статей') + '</span>'
       + '<button class="icon-btn" style="color:var(--red)" onclick="helpSectionDelete(' + jsArg(s.key) + ',' + n + ')">✕</button>'
