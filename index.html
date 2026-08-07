@@ -1039,6 +1039,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <button class="action-btn" onclick="openBonusPopup()">Бонусы за вступление</button>
         <button class="action-btn" onclick="openRefPostsPopup()">Посты для приглашений</button>
         <button class="action-btn" onclick="openTextsPopup()">Тексты приложения</button>
+        <button class="action-btn" onclick="openHelpDocsPopup()">Справка клуба</button>
       </div>
     </div>
   </div>
@@ -1201,6 +1202,54 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <div id="texts-filters" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
       <div id="texts-list"><div class="loading">Загрузка...</div></div>
       <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closeTextsPopup()">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Справка клуба: список статей + редактор с панелью форматирования ──
+     Список и редактор — ДВЕ ПАНЕЛИ ОДНОГО ПОПАПА (не два разных попапа):
+     это привычнее, когда правишь много статей подряд — не закрывать и
+     открывать заново на каждую ── -->
+<div class="popup-overlay popup-centered" id="help-docs-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeHelpDocsPopup()">
+  <div class="popup" style="max-width:860px">
+    <button class="popup-close-x" onclick="closeHelpDocsPopup()" title="Закрыть">✕</button>
+    <div class="popup-body" style="padding-top:20px">
+      <div class="popup-section-title" style="margin-top:0">Справка клуба</div>
+      <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+
+        <div style="flex:1;min-width:220px;max-width:280px">
+          <div style="display:flex;gap:6px;margin-bottom:10px">
+            <button class="action-btn" style="flex:1" onclick="helpDocsNewArticle()">+ Статья</button>
+            <button class="action-btn" style="flex:0 0 auto" onclick="openHelpSectionsPopup()">Разделы</button>
+          </div>
+          <div id="help-docs-list" style="max-height:520px;overflow-y:auto"><div class="loading">Загрузка...</div></div>
+        </div>
+
+        <div style="flex:2;min-width:280px" id="help-docs-editor">
+          <div style="font-size:13px;color:var(--text-faint);padding:40px 0;text-align:center">
+            Выбери статью слева или создай новую
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Управление разделами справки: создать, переименовать, удалить,
+     переставить местами. Отдельный попап поверх, а не третья колонка —
+     трогается редко, не должен занимать место в основном редакторе ── -->
+<div class="popup-overlay popup-centered" id="help-sections-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeHelpSectionsPopup()">
+  <div class="popup" style="max-width:480px">
+    <button class="popup-close-x" onclick="closeHelpSectionsPopup()" title="Закрыть">✕</button>
+    <div class="popup-body" style="padding-top:20px">
+      <div class="popup-section-title" style="margin-top:0">Разделы справки</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <input class="popup-input" id="hs-new-key" placeholder="Ключ (напр. faq)" style="flex:1;margin-bottom:0">
+        <input class="popup-input" id="hs-new-label" placeholder="Название" style="flex:1;margin-bottom:0">
+      </div>
+      <button class="action-btn" style="width:100%;margin-bottom:14px" onclick="helpSectionCreate()">+ Новый раздел</button>
+      <div id="help-sections-list"><div class="loading">Загрузка...</div></div>
     </div>
   </div>
 </div>
@@ -7294,6 +7343,308 @@ function openTextsPopup(){
 function closeTextsPopup(){
   document.getElementById('texts-popup-overlay').classList.remove('open');
   textsDrafts = {};
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   СПРАВКА КЛУБА
+
+   Список слева + редактор справа В ОДНОМ ПОПАПЕ — правишь много статей
+   подряд, не закрывая окно. Текст — тот же узкий markdown, что и в аппе
+   (## заголовок, - список, **жирный**, [текст](url)): панель кнопок
+   форматирования просто вставляет этот синтаксис в textarea, никакого
+   contenteditable и настоящего WYSIWYG — надёжнее и совместимо с тем, как
+   апп потом эти статьи парсит.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var helpDocsData = { sections: [] };   // сгруппировано для списка слева
+var helpDocsFlat = [];                 // плоский список — то, что реально шлёт сервер
+var helpDocsEditingKey = null;         // null = новая статья
+
+var helpDocsData = { sections: [] };   // сгруппировано для списка слева
+var helpDocsSections = [];             // список разделов (для попапа разделов и автокомплита)
+var helpDocsFlat = [];                 // плоский список статей — то, что реально шлёт сервер
+var helpDocsEditingKey = null;         // null = новая статья
+
+function openHelpDocsPopup(){
+  document.getElementById('help-docs-popup-overlay').classList.add('open');
+  loadHelpDocs();
+}
+function closeHelpDocsPopup(){
+  document.getElementById('help-docs-popup-overlay').classList.remove('open');
+}
+
+async function loadHelpDocs(){
+  const list = document.getElementById('help-docs-list');
+  try {
+    const data = await fetch(API + '/help-docs/admin?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN))
+      .then(function(r){ return r.json(); });
+    helpDocsSections = data.sections || [];
+    helpDocsFlat = data.articles || [];
+    renderHelpDocsList();
+    renderHelpSectionDatalist();
+  } catch(e){
+    list.innerHTML = '<div style="font-size:12px;color:var(--text-faint)">Не удалось загрузить</div>';
+  }
+}
+
+/* Даталист для поля «Ключ раздела» в редакторе статьи — подсказывает уже
+   существующие ключи, но не запрещает ввести новый (раздел тогда заведётся
+   сам при сохранении, см. бэкенд) */
+function renderHelpSectionDatalist(){
+  let dl = document.getElementById('hs-datalist');
+  if (!dl){
+    dl = document.createElement('datalist');
+    dl.id = 'hs-datalist';
+    document.body.appendChild(dl);
+  }
+  dl.innerHTML = helpDocsSections.map(function(s){
+    return '<option value="' + escapeHtml(s.key) + '">' + escapeHtml(s.label) + '</option>';
+  }).join('');
+}
+
+function renderHelpDocsList(){
+  const list = document.getElementById('help-docs-list');
+  const bySection = {};
+  helpDocsFlat.forEach(function(a){
+    (bySection[a.section_key] = bySection[a.section_key] || []).push(a);
+  });
+  if (!helpDocsSections.length){
+    list.innerHTML = '<div style="font-size:12px;color:var(--text-faint)">Пока пусто</div>';
+    return;
+  }
+  // Порядок разделов — из helpDocsSections (управляется попапом «Разделы»),
+  // НЕ из порядка появления статей: пустой раздел тоже должен быть виден
+  list.innerHTML = helpDocsSections.map(function(sec){
+    const arts = bySection[sec.key] || [];
+    return '<div style="margin-bottom:12px">'
+      + '<div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);margin-bottom:4px">' + escapeHtml(sec.label) + '</div>'
+      + (arts.length
+          ? arts.map(function(a){
+              const active = a.key === helpDocsEditingKey;
+              return '<div onclick="helpDocsEditArticle(' + jsArg(a.key) + ')" '
+                + 'style="padding:7px 9px;border-radius:8px;cursor:pointer;font-size:13px;margin-bottom:2px;'
+                + (active ? 'background:var(--lav-dim);color:var(--lav-deep);font-weight:600' : 'color:var(--text-dim)') + '">'
+                + escapeHtml(a.title || a.key) + '</div>';
+            }).join('')
+          : '<div style="padding:7px 9px;font-size:12px;color:var(--text-faint);font-style:italic">нет статей</div>')
+      + '</div>';
+  }).join('');
+}
+
+function helpDocsNewArticle(){
+  helpDocsEditingKey = null;
+  renderHelpDocsList();
+  renderHelpDocsEditor(null);
+}
+
+function helpDocsEditArticle(key){
+  helpDocsEditingKey = key;
+  renderHelpDocsList();
+  const article = helpDocsFlat.find(function(a){ return a.key === key; });
+  renderHelpDocsEditor(article || null);
+}
+
+function renderHelpDocsEditor(a){
+  const box = document.getElementById('help-docs-editor');
+  const isNew = !a;
+  box.innerHTML =
+      '<input class="popup-input" id="hd-key" placeholder="Ключ статьи латиницей (напр. faq-payment)" '
+        + 'value="' + escapeHtml(a ? a.key : '') + '" ' + (isNew ? '' : 'disabled') + ' style="margin-bottom:8px">'
+    + '<div style="display:flex;gap:8px;margin-bottom:8px">'
+      + '<input class="popup-input" id="hd-section-key" list="hs-datalist" placeholder="Ключ раздела — выбери или впиши новый" '
+        + 'value="' + escapeHtml(a ? a.section_key : '') + '" style="flex:1;margin-bottom:0">'
+      + '<input class="popup-input" id="hd-section-label" placeholder="Название (если раздел новый)" '
+        + 'value="' + escapeHtml(a ? a.section_label : '') + '" style="flex:1;margin-bottom:0">'
+    + '</div>'
+    + '<input class="popup-input" id="hd-title" placeholder="Заголовок статьи" '
+      + 'value="' + escapeHtml(a ? a.title : '') + '" style="margin-bottom:8px">'
+    + '<div style="margin-bottom:10px;max-width:140px">'
+      + '<div style="font-size:10.5px;color:var(--text-faint);margin-bottom:2px">Порядок статьи в разделе</div>'
+      + '<input class="popup-input" type="number" id="hd-article-order" value="' + (a ? a.article_order : 0) + '" style="margin-bottom:0"></div>'
+    + '<div style="display:flex;gap:6px;margin-bottom:6px">'
+      + '<button class="lec-card" style="border:none;font-size:12px;padding:6px 12px;font-weight:700" onclick="helpFormat(\'bold\')">Ж</button>'
+      + '<button class="lec-card" style="border:none;font-size:12px;padding:6px 12px" onclick="helpFormat(\'list\')">Список</button>'
+      + '<button class="lec-card" style="border:none;font-size:12px;padding:6px 12px" onclick="helpFormat(\'heading\')">Заголовок</button>'
+    + '</div>'
+    + '<textarea class="popup-input" id="hd-body" rows="12" style="font-family:inherit;resize:vertical;margin-bottom:10px">' + escapeHtml(a ? a.body : '') + '</textarea>'
+    + '<div style="display:flex;gap:8px">'
+      + '<button class="popup-save" style="flex:1" onclick="helpDocsSave()">Сохранить</button>'
+      + (isNew ? '' : '<button class="popup-save" style="flex:0 0 auto;background:transparent;border:1px solid var(--red);color:var(--red)" onclick="helpDocsDelete(' + jsArg(a.key) + ')">Удалить</button>')
+    + '</div>';
+}
+
+/* Панель форматирования — вставляет ТОТ ЖЕ markdown, что понимает парсер в
+   аппе, прямо в textarea. Работает с выделением: если ничего не выделено,
+   подставляет заготовку и сразу выделяет её — удобно сразу печатать поверх */
+function helpFormat(type){
+  const ta = document.getElementById('hd-body');
+  if (!ta) return;
+  const start = ta.selectionStart, end = ta.selectionEnd;
+  const val = ta.value;
+  const selected = val.slice(start, end);
+
+  if (type === 'bold'){
+    const text = selected || 'жирный текст';
+    const insert = '**' + text + '**';
+    ta.value = val.slice(0, start) + insert + val.slice(end);
+    ta.focus();
+    ta.setSelectionRange(start + 2, start + 2 + text.length);
+    return;
+  }
+
+  if (type === 'list'){
+    const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+    const afterEnd = val.indexOf('\n', end);
+    const lineEnd = afterEnd === -1 ? val.length : afterEnd;
+    const block = val.slice(lineStart, lineEnd);
+    const lines = block.split('\n').map(function(l){
+      return l.startsWith('- ') ? l : '- ' + l;
+    });
+    const newBlock = lines.join('\n');
+    ta.value = val.slice(0, lineStart) + newBlock + val.slice(lineEnd);
+    ta.focus();
+    ta.setSelectionRange(lineStart, lineStart + newBlock.length);
+    return;
+  }
+
+  if (type === 'heading'){
+    const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+    const afterStart = val.indexOf('\n', start);
+    const lineEnd = afterStart === -1 ? val.length : afterStart;
+    let line = val.slice(lineStart, lineEnd).replace(/^##\s*/, '');
+    const newLine = '## ' + line;
+    ta.value = val.slice(0, lineStart) + newLine + val.slice(lineEnd);
+    ta.focus();
+    ta.setSelectionRange(lineStart, lineStart + newLine.length);
+    return;
+  }
+}
+
+async function helpDocsSave(){
+  const key = document.getElementById('hd-key').value.trim();
+  const sectionKey = document.getElementById('hd-section-key').value.trim();
+  if (!key || !/^[a-z0-9-]+$/.test(key)){ alert('Ключ статьи — латиница, цифры, дефис'); return; }
+  if (!sectionKey){ alert('Укажи ключ раздела'); return; }
+
+  const body = {
+    key: key,
+    section_key: sectionKey,
+    section_label: document.getElementById('hd-section-label').value.trim(),
+    title: document.getElementById('hd-title').value.trim(),
+    body: document.getElementById('hd-body').value,
+    article_order: parseInt(document.getElementById('hd-article-order').value, 10) || 0,
+  };
+
+  await fetch(API + '/help-docs/admin?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  helpDocsEditingKey = key;
+  await loadHelpDocs();
+  renderHelpDocsEditor(helpDocsFlat.find(function(a){ return a.key === key; }));
+}
+
+async function helpDocsDelete(key){
+  if (!confirm('Удалить статью "' + key + '"?')) return;
+  await fetch(API + '/help-docs/admin/' + encodeURIComponent(key)
+    + '?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), { method: 'DELETE' });
+  helpDocsEditingKey = null;
+  await loadHelpDocs();
+  document.getElementById('help-docs-editor').innerHTML =
+    '<div style="font-size:13px;color:var(--text-faint);padding:40px 0;text-align:center">Выбери статью слева или создай новую</div>';
+}
+
+/* ── Управление разделами: создать, переименовать, удалить, переставить ──
+   Свой попап поверх основного — трогается редко. Список берём каждый раз из
+   loadHelpDocs() основного попапа (helpDocsSections уже свежий к этому
+   моменту, кнопка «Разделы» открывается ИЗ уже открытого попапа справки) */
+function openHelpSectionsPopup(){
+  document.getElementById('help-sections-popup-overlay').classList.add('open');
+  renderHelpSectionsList();
+}
+function closeHelpSectionsPopup(){
+  document.getElementById('help-sections-popup-overlay').classList.remove('open');
+}
+
+function renderHelpSectionsList(){
+  const box = document.getElementById('help-sections-list');
+  if (!helpDocsSections.length){
+    box.innerHTML = '<div style="font-size:12px;color:var(--text-faint)">Разделов пока нет</div>';
+    return;
+  }
+  const counts = {};
+  helpDocsFlat.forEach(function(a){ counts[a.section_key] = (counts[a.section_key] || 0) + 1; });
+
+  box.innerHTML = helpDocsSections.map(function(s, i){
+    const n = counts[s.key] || 0;
+    return '<div style="display:flex;align-items:center;gap:6px;padding:7px 0;border-bottom:1px solid var(--line)">'
+      + '<div style="display:flex;flex-direction:column;gap:0">'
+        + '<button class="icon-btn" style="width:22px;height:18px;font-size:10px' + (i === 0 ? ';opacity:.3' : '') + '" '
+          + (i === 0 ? 'disabled' : '') + ' onclick="helpSectionMove(' + jsArg(s.key) + ',-1)">▲</button>'
+        + '<button class="icon-btn" style="width:22px;height:18px;font-size:10px' + (i === helpDocsSections.length - 1 ? ';opacity:.3' : '') + '" '
+          + (i === helpDocsSections.length - 1 ? 'disabled' : '') + ' onclick="helpSectionMove(' + jsArg(s.key) + ',1)">▼</button>'
+      + '</div>'
+      + '<input class="popup-input" value="' + escapeHtml(s.label) + '" style="flex:1;margin-bottom:0;font-size:13px" '
+        + 'onblur="helpSectionRename(' + jsArg(s.key) + ',this.value)">'
+      + '<span style="font-size:11px;color:var(--text-faint);flex:0 0 auto">' + n + ' ' + (n === 1 ? 'статья' : 'статей') + '</span>'
+      + '<button class="icon-btn" style="color:var(--red)" onclick="helpSectionDelete(' + jsArg(s.key) + ',' + n + ')">✕</button>'
+    + '</div>';
+  }).join('');
+}
+
+async function helpSectionCreate(){
+  const key = document.getElementById('hs-new-key').value.trim();
+  const label = document.getElementById('hs-new-label').value.trim();
+  if (!key || !/^[a-z0-9-]+$/.test(key)){ alert('Ключ раздела — латиница, цифры, дефис'); return; }
+  await fetch(API + '/help-docs/admin/sections?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ key: key, label: label })
+  });
+  document.getElementById('hs-new-key').value = '';
+  document.getElementById('hs-new-label').value = '';
+  await loadHelpDocs();
+  renderHelpSectionsList();
+}
+
+async function helpSectionRename(key, newLabel){
+  newLabel = newLabel.trim();
+  const current = helpDocsSections.find(function(s){ return s.key === key; });
+  if (!current || !newLabel || newLabel === current.label) return;   // не дёргаем сервер без нужды
+  await fetch(API + '/help-docs/admin/sections?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ key: key, label: newLabel })
+  });
+  await loadHelpDocs();
+  renderHelpSectionsList();
+}
+
+async function helpSectionMove(key, direction){
+  const keys = helpDocsSections.map(function(s){ return s.key; });
+  const i = keys.indexOf(key);
+  const j = i + direction;
+  if (i === -1 || j < 0 || j >= keys.length) return;
+  const tmp = keys[i]; keys[i] = keys[j]; keys[j] = tmp;
+  await fetch(API + '/help-docs/admin/sections/reorder?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ keys: keys })
+  });
+  await loadHelpDocs();
+  renderHelpSectionsList();
+}
+
+async function helpSectionDelete(key, articleCount){
+  const warn = articleCount > 0
+    ? 'Удалить раздел и ВМЕСТЕ С НИМ ' + articleCount + ' ' + (articleCount === 1 ? 'статью' : 'статей') + '? Это необратимо.'
+    : 'Удалить пустой раздел?';
+  if (!confirm(warn)) return;
+  await fetch(API + '/help-docs/admin/sections/' + encodeURIComponent(key)
+    + '?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), { method: 'DELETE' });
+  if (helpDocsEditingKey && !helpDocsFlat.find(function(a){ return a.key === helpDocsEditingKey; })){
+    helpDocsEditingKey = null;
+    document.getElementById('help-docs-editor').innerHTML =
+      '<div style="font-size:13px;color:var(--text-faint);padding:40px 0;text-align:center">Выбери статью слева или создай новую</div>';
+  }
+  await loadHelpDocs();
+  renderHelpSectionsList();
 }
 
 async function loadTexts(){
