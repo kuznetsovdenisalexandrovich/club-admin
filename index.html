@@ -7461,15 +7461,17 @@ function renderHelpDocsEditor(a){
     + '<div style="margin-bottom:10px;max-width:140px">'
       + '<div style="font-size:10.5px;color:var(--text-faint);margin-bottom:2px">Порядок статьи в разделе</div>'
       + '<input class="popup-input" type="number" id="hd-article-order" value="' + (a ? a.article_order : 0) + '" style="margin-bottom:0"></div>'
-    + '<div style="display:flex;gap:6px;margin-bottom:6px">'
+    + '<div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">'
       + '<button class="lec-card" style="border:none;font-size:12px;padding:6px 12px;font-weight:700" onclick="helpFormat(\'bold\')">Ж</button>'
       + '<button class="lec-card" style="border:none;font-size:12px;padding:6px 12px" onclick="helpFormat(\'list\')">Список</button>'
       + '<button class="lec-card" style="border:none;font-size:12px;padding:6px 12px" onclick="helpFormat(\'heading\')">Заголовок</button>'
+      + '<button class="lec-card" style="border:none;font-size:12px;padding:6px 12px" onclick="helpFormat(\'link\')">Ссылка</button>'
+      + '<button class="lec-card" style="border:none;font-size:12px;padding:6px 12px" onclick="helpFormat(\'applink\')">→ Экран аппа</button>'
     + '</div>'
     + '<textarea class="popup-input" id="hd-body" rows="12" style="font-family:inherit;resize:vertical;margin-bottom:10px">' + escapeHtmlText(a ? a.body : '') + '</textarea>'
     + '<div style="display:flex;gap:8px">'
       + '<button class="popup-save" style="flex:1" onclick="helpDocsSave()">Сохранить</button>'
-      + (isNew ? '' : '<button class="popup-save" style="flex:0 0 auto;background:transparent;border:1px solid var(--red);color:var(--red)" onclick="helpDocsDelete(' + jsArg(a.key) + ')">Удалить</button>')
+      + (isNew ? '' : '<button class="popup-save" style="flex:0 0 auto;width:auto;padding-left:20px;padding-right:20px;background:transparent;border:1px solid var(--red);color:var(--red)" onclick="helpDocsDelete(' + jsArg(a.key) + ')">Удалить</button>')
     + '</div>';
 }
 
@@ -7504,6 +7506,42 @@ function helpFormat(type){
     ta.value = val.slice(0, lineStart) + newBlock + val.slice(lineEnd);
     ta.focus();
     ta.setSelectionRange(lineStart, lineStart + newBlock.length);
+    return;
+  }
+
+  // Ссылка наружу: спрашиваем адрес, текстом берём выделение (или адрес)
+  if (type === 'link'){
+    const url = prompt('Адрес ссылки (начиная с https://)', 'https://');
+    if (!url || !/^https?:\/\//.test(url)) return;
+    const text = selected || url;
+    const insert = '[' + text + '](' + url + ')';
+    ta.value = val.slice(0, start) + insert + val.slice(end);
+    ta.focus();
+    ta.setSelectionRange(start + 1, start + 1 + text.length);
+    return;
+  }
+
+  // Ссылка на экран самого приложения. Ключи — те же, что в таблице DEEPLINKS
+  // в club-app: добавили там маршрут — он сразу доступен и здесь. Список
+  // держим синхронно вручную, зато Denis'у не надо помнить адреса
+  if (type === 'applink'){
+    const key = prompt(
+      'Куда вести внутри приложения? Впиши ключ экрана:\n\n'
+      + 'schedule — расписание\nlibrary или watch — что посмотреть\nmagazine — журнал\n'
+      + 'plan — личный план\ncards — коллекция карточек\npoints — о баллах\n'
+      + 'levels — уровни\nrewards — каталог наград\nbonuses — бонусы\n'
+      + 'subscription — управление подпиской\nnotifications — уведомления\n'
+      + 'profile — профиль\naccess — доступ\ntour — тур по приложению\n'
+      + 'howto — как пользоваться клубом\nai — ИИ-помощник\nclub или about — о клубе\n'
+      + 'deck-rules — правила колоды\nsupport — поддержка\nhelp — помощь с оплатой\n'
+      + 'guide — эта справка', 'schedule');
+    if (!key) return;
+    const clean = key.trim().toLowerCase();
+    const text = selected || 'открыть раздел';
+    const insert = '[' + text + '](app:' + clean + ')';
+    ta.value = val.slice(0, start) + insert + val.slice(end);
+    ta.focus();
+    ta.setSelectionRange(start + 1, start + 1 + text.length);
     return;
   }
 
