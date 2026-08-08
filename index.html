@@ -527,6 +527,12 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
   .btn,.action-btn,.icon-btn,.card{transition:none!important}
 }
 
+
+/* Идентификаторы в карточке участника */
+.id-copy{cursor:pointer;border-bottom:1px dashed var(--border);padding-bottom:1px;user-select:all}
+.id-copy:hover{border-bottom-style:solid}
+.id-copy.id-copied{color:var(--lav-deep);border-bottom-color:transparent;font-size:11px}
+.id-link{margin-left:8px;font-size:11px;color:var(--lav-deep);text-decoration:none;border-bottom:1px solid currentColor}
 </style>
 
 <style id="bp-visual-redesign-2026">
@@ -2714,7 +2720,9 @@ function openPopup(uid){
   document.getElementById('popup-rows').innerHTML=[
     ['Телефон',u.phone||'—'],
     ['Email',u.email||'—'],
-    ['Username',u.username||'—'],
+    ['Telegram', idCell(u.telegram_id, u.username ? 'https://t.me/'+String(u.username).replace(/^@/,'') : '',
+                        u.username ? '@'+String(u.username).replace(/^@/,'') : '')],
+    ['ВКонтакте', idCell(u.vk_id, u.vk_id ? 'https://vk.ru/id'+u.vk_id : '', u.vk_id ? 'профиль' : '')],
     ['Тариф',u.sub_name||'—'],
     ['Баллы',`<b>${u.points||0}</b>`],
     ['Следующий платёж',u.next_payment_date||'—'],
@@ -3878,6 +3886,48 @@ async function liveStart(){
   }catch(e){ alert('Ошибка: ' + (e && e.message || e)); }
 }
 
+
+
+/* Ячейка идентификатора: сам номер копируется одним нажатием, рядом — ссылка
+   на профиль. Denis попросил, чтобы можно было быстро выйти на человека, а не
+   выделять цифры мышью в попапе. */
+function idCell(id, link, linkLabel){
+  const parts = [];
+  if (id){
+    parts.push('<span class="id-copy" onclick="copyId(' + jsArg(String(id)) + ',this)" '
+      + 'title="Нажми, чтобы скопировать">' + id + '</span>');
+  } else {
+    parts.push('—');
+  }
+  if (link && linkLabel){
+    parts.push('<a class="id-link" href="' + link + '" target="_blank" rel="noopener">' + linkLabel + '</a>');
+  }
+  return parts.join(' ');
+}
+
+async function copyId(value, el){
+  const done = function(){
+    const was = el.textContent;
+    el.textContent = 'скопировано';
+    el.classList.add('id-copied');
+    setTimeout(function(){ el.textContent = was; el.classList.remove('id-copied'); }, 1100);
+  };
+  try {
+    await navigator.clipboard.writeText(value);
+    done();
+  } catch (e) {
+    // Внутри вебвью и по http буфер обмена бывает запрещён — старый способ
+    // через временное поле работает почти везде
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = value; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      done();
+    } catch (e2) { alert('Не удалось скопировать: ' + value); }
+  }
+}
 
 async function liveAutoStart(){
   const sel = document.getElementById('live-admin-event');
