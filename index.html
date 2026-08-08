@@ -3933,7 +3933,26 @@ async function liveAutoStart(){
   if (!live_event_id){ alert('Выбери трансляцию'); return; }
   if (!play_code){ alert('У этой трансляции нет кода плеера — апп не сможет её показать'); return; }
   if (!title){ alert('Впиши название — оно уйдёт и в приложение, и в ВК'); return; }
-  if (!confirm('Создать трансляции во всех настроенных сообществах ВК и завести точки ретрансляции?')) return;
+
+  // ПЕРЕЧИСЛЯЕМ ПОИМЁННО, куда уйдут трансляции. Раньше предупреждение было
+  // общим («во всех настроенных сообществах»), и промахнуться было легко:
+  // Denis выбрал трансляцию с названием «Без ретрансляции» и чуть не завёл ей
+  // площадки — название описывает, как она заведена в Kinescope, а кнопка это
+  // переопределяет. Пусть решение принимается по фактам, а не по памяти
+  let where = '';
+  try {
+    const tr = await fetch(API + '/admin/live/targets?x_admin_token=' + ADMIN_TOKEN);
+    const td = await tr.json();
+    const all = (td.vk || []).map(function(t){ return '  • ' + t.label; })
+      .concat((td.tg || []).map(function(t){ return '  • ' + t.label; }));
+    where = all.length ? all.join('\n') : '  (площадок не настроено)';
+  } catch (e) { where = '  (не удалось получить список площадок)'; }
+
+  const msg = 'Трансляция: ' + (opt ? opt.textContent : '—') + '\n\n'
+    + 'Будут созданы трансляции и точки ретрансляции:\n' + where + '\n\n'
+    + 'Точки добавятся ИМЕННО К ЭТОЙ трансляции Kinescope.\n'
+    + 'Если эфир нужен только в приложении — отмени и нажми «Только открыть сессию».\n\nПродолжить?';
+  if (!confirm(msg)) return;
   try{
     const r = await fetch(API + '/admin/live/auto-start?x_admin_token=' + ADMIN_TOKEN, {
       method:'POST', headers:{'Content-Type':'application/json'},
