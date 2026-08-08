@@ -1636,6 +1636,13 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <div class="section-title" style="margin:14px 0 6px;font-size:13px">Точки ретрансляции</div>
         <div id="live-admin-restreams"></div>
         <div class="pay-meta" style="margin:4px 2px 12px">Отметь ОТКРЫТЫЕ площадки — их погасит кнопка ниже. Закрытые продолжат идти.</div>
+        <div class="section-title" style="margin:14px 0 6px;font-size:13px">Чат эфира</div>
+        <div id="live-chat-admin" style="max-height:240px;overflow-y:auto;margin-bottom:8px"></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+          <button class="action-btn" onclick="chatSetSlow()">Медленный режим</button>
+          <button class="action-btn" id="chat-toggle-btn" onclick="chatToggleOpen()">Закрыть чат</button>
+          <button class="action-btn" onclick="loadChatAdmin()">Обновить</button>
+        </div>
         <button class="popup-save" id="live-close-free-btn" onclick="liveCloseFree()" style="margin-bottom:8px">Закрыть бесплатную часть</button>
         <button class="popup-save" onclick="liveFinish()" style="background:#e8614a">Завершить эфир</button>
       </div>
@@ -3829,6 +3836,7 @@ function renderLiveAdmin(){
 
   startBox.style.display = 'none';
   runBox.style.display = 'block';
+  loadChatAdmin();
 
   const rs = s.restreams || [];
   const el = document.getElementById('live-admin-restreams');
@@ -3847,6 +3855,92 @@ function renderLiveAdmin(){
     }).join('');
   }
   document.getElementById('live-close-free-btn').disabled = !s.free_open;
+}
+
+
+/* ── Модерация чата эфира ────────────────────────────────────────────────
+   Denis во время эфира ВЕДЁТ, а не сидит в дашборде — поэтому действий
+   ровно три и все в одно нажатие: убрать сообщение, заглушить автора,
+   притормозить весь чат. Ничего не удаляем безвозвратно. */
+let chatAdminState = null;
+
+async function loadChatAdmin(){
+  const box = document.getElementById('live-chat-admin');
+  if (!box) return;
+  try{
+    const r = await fetch(API + '/admin/live/chat?limit=60&x_admin_token=' + ADMIN_TOKEN);
+    const d = await r.json();
+    chatAdminState = d;
+    if (!d.active){ box.innerHTML = '<div class="pay-meta">Эфир не идёт</div>'; return; }
+    const muted = d.muted || [];
+    box.innerHTML = (d.messages || []).map(function(m){
+      const isMuted = muted.indexOf(m.telegram_id) >= 0;
+      return '<div class="pay-item" style="' + (m.hidden ? 'opacity:.45' : '') + '">'
+        + '<div style="flex:1;min-width:0">'
+        + '<div class="pay-name">' + escapeHtmlAdm(m.name) + (m.from_admin ? ' · ты' : '')
+        + (isMuted ? ' <span class="badge badge-err">заглушён</span>' : '') + '</div>'
+        + '<div class="pay-meta" style="white-space:normal">' + escapeHtmlAdm(m.text) + '</div>'
+        + '</div>'
+        + '<button class="action-btn" style="flex-shrink:0" onclick="chatHide(' + m.id + ',' + (!m.hidden) + ')">'
+        + (m.hidden ? 'Вернуть' : 'Убрать') + '</button>'
+        + (m.telegram_id ? '<button class="action-btn danger" style="flex-shrink:0" onclick="chatMute('
+            + m.telegram_id + ',' + (!isMuted) + ')">' + (isMuted ? 'Вернуть голос' : 'Заглушить') + '</button>' : '')
+        + '</div>';
+    }).join('') || '<div class="pay-meta">Сообщений пока нет</div>';
+    const btn = document.getElementById('chat-toggle-btn');
+    if (btn) btn.textContent = d.chat_open ? 'Закрыть чат' : 'Открыть чат';
+  }catch(e){
+    box.innerHTML = '<div class="pay-meta" style="color:#e8614a">Не загрузился: ' + (e && e.message || e) + '</div>';
+  }
+}
+
+function escapeHtmlAdm(v){
+  return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function chatHide(id, on){
+  try{
+    await fetch(API + '/admin/live/chat/hide?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({message_id: id, on: on})
+    });
+    loadChatAdmin();
+  }catch(e){ alert('Ошибка: ' + (e && e.message || e)); }
+}
+
+async function chatMute(tid, on){
+  if (on && !confirm('Заглушить участника до конца эфира? Он не увидит отказа — сообщения просто не будут появляться.')) return;
+  try{
+    await fetch(API + '/admin/live/chat/mute?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({telegram_id: tid, on: on})
+    });
+    loadChatAdmin();
+  }catch(e){ alert('Ошибка: ' + (e && e.message || e)); }
+}
+
+async function chatSetSlow(){
+  const cur = (chatAdminState && chatAdminState.slow_sec) || 0;
+  const v = prompt('Пауза между сообщениями, секунд (0 — выключить):', String(cur));
+  if (v === null) return;
+  try{
+    await fetch(API + '/admin/live/chat/settings?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({slow_sec: parseInt(v) || 0})
+    });
+    loadChatAdmin();
+  }catch(e){ alert('Ошибка: ' + (e && e.message || e)); }
+}
+
+async function chatToggleOpen(){
+  const open = !(chatAdminState && chatAdminState.chat_open);
+  try{
+    await fetch(API + '/admin/live/chat/settings?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({chat_open: open})
+    });
+    loadChatAdmin();
+  }catch(e){ alert('Ошибка: ' + (e && e.message || e)); }
 }
 
 async function liveToggleOpen(){
