@@ -1045,6 +1045,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <div class="tools-grid">
         <button class="action-btn" onclick="openSettingsPopup()">Настройки клуба</button>
         <button class="action-btn" onclick="openRegistrationReport()">Статистика</button>
+        <button class="action-btn" onclick="openLectureStats()">Статистика лекций</button>
         <button class="action-btn" onclick="openBulkPointsPopup()">Раздать баллы всем</button>
         <button class="action-btn" onclick="openLevelConfigPopup()">Настроить уровни</button>
         <button class="action-btn" onclick="openRewardCatalogPopup()">Управление наградами</button>
@@ -1887,6 +1888,10 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <button class="action-btn primary" onclick="openPointsPopup()">Начислить баллы</button>
       </div>
 
+      <!-- Диагностика: снимок участника глазами приложения -->
+      <div class="popup-section-title">Диагностика</div>
+      <div id="popup-diag" style="border-radius:14px;overflow:hidden;background:var(--stat-bg);border:1px solid var(--border)"></div>
+
       <!-- Лента активности -->
       <div class="popup-section-title">Активность</div>
       <div id="popup-payments" style="border-radius:14px;overflow:hidden;background:var(--stat-bg);border:1px solid var(--border)"></div>
@@ -1991,6 +1996,17 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     <div class="popup-section-title" style="margin-top:0">Статистика — воронка регистрации</div>
     <div id="reg-report-body"><div class="loading">Загрузка...</div></div>
     <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)" onclick="closeRegistrationReport()">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<div class="popup-overlay" id="lecture-stats-overlay" onclick="if(overlayShouldClose(event,this)) closeLectureStats()">
+  <div class="popup" style="max-width:480px">
+    <div class="popup-handle"></div>
+    <div class="popup-body">
+    <div class="popup-section-title" style="margin-top:0">Статистика лекций</div>
+    <div id="lecture-stats-body"><div class="loading">Загрузка...</div></div>
+    <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)" onclick="closeLectureStats()">Закрыть</button>
     </div>
   </div>
 </div>
@@ -2747,6 +2763,7 @@ function openPopup(uid){
   document.getElementById('popup-input-revenue').value=u.manual_revenue||'';
   document.getElementById('popup-input-notes').value=u.notes||'';
   loadActivity(u.telegram_id);
+  loadSnapshot(u.telegram_id);
   document.getElementById('sub-action-result').style.display='none';
   document.getElementById('action-result').style.display='none';
   document.getElementById('payload-row').classList.remove('visible');
@@ -3276,6 +3293,185 @@ function renderActivity(items){
       </div>
     </div>`;
   }).join('');
+}
+
+/* ── ДИАГНОСТИКА УЧАСТНИКА (09.08.2026) ───────────────────────────────────────
+   Снимок по telegram_id: то, что апп показал бы этому человеку прямо сейчас,
+   и главное — ПОЧЕМУ у него что-то закрыто. Ничего не меняет, только читает. */
+
+function diagChip(label, ok){
+  return `<span style="display:inline-block;font-size:11px;font-weight:600;padding:4px 9px;border-radius:20px;margin:0 5px 5px 0;`
+       + (ok ? `background:rgba(62,207,142,.16);color:#1a9466`
+             : `background:var(--stat-bg);color:var(--text-faint)`)
+       + `">${ok ? '✓' : '—'} ${label}</span>`;
+}
+
+function diagDate(iso){
+  if(!iso) return '—';
+  const d = new Date(iso);
+  return isNaN(d) ? '—' : d.toLocaleDateString('ru',{day:'2-digit',month:'short',year:'2-digit'});
+}
+
+async function loadSnapshot(telegramId){
+  const el = document.getElementById('popup-diag');
+  if(!el) return;
+  if(!telegramId){ el.innerHTML = '<div class="empty">Нет telegram_id — снимок не собрать</div>'; return; }
+  el.innerHTML = '<div class="loading">Загрузка...</div>';
+  try{
+    const r = await fetch(API + '/admin/users/' + telegramId + '/snapshot?x_admin_token=' + ADMIN_TOKEN);
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.detail || 'Не получилось');
+    renderSnapshot(d);
+  }catch(e){
+    el.innerHTML = '<div class="empty">' + (e.message || 'Не удалось загрузить') + '</div>';
+  }
+}
+
+function renderSnapshot(d){
+  const el = document.getElementById('popup-diag');
+  const a  = d.access   || {}, p  = d.points   || {}, pl = d.plan || {};
+  const cd = d.cards    || {}, lc = d.lectures || {}, mg = d.magazine || {};
+  const issues = mg.issues || [];
+
+  const chips = [
+    ['Подписка', a.is_member], ['Канал', a.channel_joined], ['Чат', a.chat_joined],
+    ['ВК', a.vk_access_granted], ['Открывал апп', a.app_opened],
+    ['Тест', a.quiz_done], ['Личный план', pl.built],
+  ].map(([l, ok]) => diagChip(l, !!ok)).join('');
+
+  let stuck = '';
+  if(a.stuck_hard) stuck = '<span class="badge badge-danger">оплатил и пропал</span>';
+  else if(a.stuck_soft) stuck = '<span class="badge badge-warn">не зашёл в канал/чат</span>';
+
+  const rows = [
+    ['Лекций открыл', `<b>${lc.opened_count||0}</b>${lc.saved_count ? ' · отложено ' + lc.saved_count : ''}`],
+    ['Журнал', `открыто ${mg.unlocked_count||0} из ${issues.length} · заходил в ${mg.opened_count||0}${mg.all_unlocked ? ' · все разом' : ''}`],
+    ['Карточек', `${cd.total||0}${cd.unopened ? ' · <b>' + cd.unopened + '</b> не вскрыто' : ''}${cd.to_claim ? ' · ' + cd.to_claim + ' ждёт «Забрать»' : ''}`],
+    ['Баллы', `${p.balance||0} · уровень ${p.level||'—'}${(p.points_to_next!=null) ? ' · до следующего ' + p.points_to_next : ''}`],
+    ['Последняя активность', diagDate(d.last_activity_at)],
+  ].map(([l,v]) => `<div class="popup-row"><span class="popup-row-label">${l}</span><span class="popup-row-val">${v}</span></div>`).join('');
+
+  // Бонусы: причина по каждой позиции — ровно то, ради чего снимок и заводился
+  const bonuses = (d.bonuses || []).map(b => {
+    const items = (b.items || []).map(it => {
+      const bad  = !it.has_link;
+      const dim  = it.locked;
+      const color = bad ? 'var(--red)' : (dim ? 'var(--text-faint)' : 'var(--text)');
+      const mark  = it.opened ? '✓' : (it.locked ? '🔒' : '○');
+      return `<div style="display:flex;gap:8px;padding:5px 0;font-size:12px;color:${color}">
+        <span style="width:14px;flex:none;text-align:center">${mark}</span>
+        <span style="flex:1;min-width:0">${it.title || it.key}</span>
+        <span style="flex:none;max-width:55%;text-align:right;color:${bad ? 'var(--red)' : 'var(--text-faint)'}">${it.reason || ''}</span>
+      </div>`;
+    }).join('');
+    return `<div style="padding:10px 0;border-top:1px solid var(--line)">
+      <div style="font-size:12px;font-weight:700;margin-bottom:2px">${b.title || b.key}
+        <span style="font-weight:400;color:var(--text-faint)">${b.sequential ? ' · по порядку' : ''}${b.available ? '' : ' · нет доступа'}</span>
+      </div>${items}</div>`;
+  }).join('');
+
+  const lastViews = (lc.last || []).slice(0,5).map(v =>
+    `<div style="display:flex;gap:8px;padding:4px 0;font-size:12px">
+      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.title}</span>
+      <span style="flex:none;color:var(--text-faint)">${diagDate(v.at)}</span>
+    </div>`).join('');
+
+  const lockedIssues = issues.filter(i => !i.unlocked);
+  const magLine = lockedIssues.length
+    ? `<div style="padding:10px 0;border-top:1px solid var(--line);font-size:12px;color:var(--text-faint)">
+         Закрытые выпуски: ${lockedIssues.map(i => (i.title || i.issue_key)).join(', ')} · ${lockedIssues[0].reason}
+       </div>` : '';
+
+  el.innerHTML = `
+    <div style="padding:12px 14px">
+      <div style="margin-bottom:8px">${chips}${stuck ? '<div style="margin-top:6px">' + stuck + '</div>' : ''}</div>
+      ${rows}
+      ${bonuses}
+      ${lastViews ? `<div style="padding:10px 0;border-top:1px solid var(--line)">
+        <div style="font-size:12px;font-weight:700;margin-bottom:4px">Последние открытые лекции</div>${lastViews}</div>` : ''}
+      ${magLine}
+    </div>`;
+}
+
+/* ── Статистика открытий лекций ───────────────────────────────────────────────
+   ⚠️ В lecture_views пара (человек, лекция) уникальна — «открытий» и «людей»
+   это одно и то же число, второй раз тот же человек не считается. И «открыл»
+   значит «нажал ссылку», а не «досмотрел». */
+
+let lectureStatsData = null;
+let lectureStatsMode = 'all';
+
+function openLectureStats(){
+  document.getElementById('lecture-stats-overlay').classList.add('open');
+  loadLectureStats();
+}
+function closeLectureStats(){
+  document.getElementById('lecture-stats-overlay').classList.remove('open');
+}
+function setLectureStatsMode(mode){
+  lectureStatsMode = mode;
+  renderLectureStats();
+}
+
+async function loadLectureStats(){
+  const el = document.getElementById('lecture-stats-body');
+  el.innerHTML = '<div class="loading">Загрузка...</div>';
+  try{
+    const r = await fetch(API + '/admin/lectures/stats?x_admin_token=' + ADMIN_TOKEN);
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.detail || 'Не получилось');
+    lectureStatsData = d;
+    lectureStatsMode = 'all';
+    renderLectureStats();
+  }catch(e){
+    el.innerHTML = '<div class="empty">' + (e.message || 'Не удалось загрузить') + '</div>';
+  }
+}
+
+function renderLectureStats(){
+  const el = document.getElementById('lecture-stats-body');
+  const d = lectureStatsData;
+  if(!d){ el.innerHTML = '<div class="empty">Нет данных</div>'; return; }
+
+  const all = d.lectures || [];
+  const list = lectureStatsMode === 'zero' ? all.filter(l => !l.people) : all;
+
+  const rows = list.map(l => {
+    const zero = !l.people;
+    return `<div class="pay-item">
+      <div class="pay-info">
+        <div class="pay-name" style="${zero ? 'color:var(--text-faint)' : ''}">${l.title}</div>
+        <div class="pay-meta">${l.slug}${l.last_at ? ' · последний раз ' + diagDate(l.last_at) : ''}${l.saved ? ' · отложили ' + l.saved : ''}</div>
+      </div>
+      <div class="pay-amount" style="color:${zero ? 'var(--red)' : 'var(--lav-deep)'}">${l.people}</div>
+    </div>`;
+  }).join('');
+
+  const orphans = (d.orphans || []).length
+    ? `<div style="margin-top:14px;font-size:12px;color:var(--text-faint)">
+         Открытия по ключам, которых в библиотеке уже нет: ${(d.orphans||[]).map(o => o.slug + ' (' + o.people + ')').join(', ')}
+       </div>` : '';
+
+  const btn = (mode, label) => `<button class="action-btn${lectureStatsMode===mode ? ' primary' : ''}" onclick="setLectureStatsMode('${mode}')">${label}</button>`;
+
+  el.innerHTML = `
+    <div class="popup-stats" style="margin-bottom:12px">
+      <div class="popup-stat"><div class="popup-stat-label">Лекций</div><div class="popup-stat-val">${d.total_lectures||0}</div></div>
+      <div class="popup-stat"><div class="popup-stat-label">Открытий</div><div class="popup-stat-val accent">${d.total_opens||0}</div></div>
+      <div class="popup-stat"><div class="popup-stat-label">Людей</div><div class="popup-stat-val">${d.total_people||0}</div></div>
+      <div class="popup-stat"><div class="popup-stat-label">С нулём</div><div class="popup-stat-val">${d.zero_count||0}</div></div>
+    </div>
+    <div class="actions-grid" style="margin-bottom:12px">
+      ${btn('all','Все лекции')}${btn('zero','Только нулевые')}
+    </div>
+    <div style="border-radius:14px;overflow:hidden;background:var(--stat-bg);border:1px solid var(--border)">
+      ${rows || '<div class="empty">Пусто</div>'}
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:var(--text-faint);line-height:1.5">
+      Число справа — сколько людей открыли лекцию. Повторные открытия тем же человеком не считаются,
+      поэтому «открытий» и «людей» здесь одно и то же. «Открыл» значит «нажал ссылку», а не «досмотрел».
+    </div>
+    ${orphans}`;
 }
 
 function renderPopupPayments(u){
