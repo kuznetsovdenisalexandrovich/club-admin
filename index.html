@@ -3518,6 +3518,20 @@ async function startViewSession(){
   }
 }
 
+function showViewLink(url, blocked){
+  const btn = document.getElementById('view-start-btn');
+  if(!btn) return;
+  let el = document.getElementById('view-link-row');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'view-link-row';
+    el.style.cssText = 'margin:-4px 0 10px;font-size:11px;line-height:1.5;color:var(--text-faint);word-break:break-all';
+    btn.parentNode.insertBefore(el, btn.nextSibling);
+  }
+  el.innerHTML = (blocked ? '<b style="color:var(--red)">Браузер заблокировал окно — открой вручную:</b><br>' : 'Открыт адрес:<br>')
+    + '<a href="' + url + '" target="_blank" style="color:var(--lav-deep)">' + url + '</a>';
+}
+
 function resetViewButton(){
   const btn = document.getElementById('view-start-btn');
   if(btn){ btn.disabled = false; btn.textContent = 'Смотреть глазами'; }
@@ -3537,7 +3551,11 @@ function waitForViewConfirm(id, minutes){
         resetViewButton();
         // Отдельная вкладка, а не текущая: дашборд должен остаться открытым —
         // из него же просмотр и останавливается
-        window.open(d.url, '_blank');
+        const win = window.open(d.url, '_blank');
+        // Ссылку показываем ВСЕГДА, даже когда вкладка открылась: если откроется
+        // не то (старая копия приложения на другом адресе), по ней сразу видно,
+        // куда мы вообще пошли. И она же спасает, если браузер заблокировал окно
+        showViewLink(d.url, !win);
         return;
       }
       if(d.status === 'denied'){ resetViewButton(); alert('Просмотр отклонён в боте'); return; }
