@@ -3765,23 +3765,17 @@ function renderTeaserList(){
    показывает результат текстом, а не молча меняет вид. */
 let liveAdminState = null;
 
-function openLivePopup(){
+async function openLivePopup(){
   document.getElementById('live-popup-overlay').classList.add('open');
+  const sel = document.getElementById('live-admin-event');
+  if (sel) sel.innerHTML = '<option value="">Загружаю трансляции…</option>';
   loadLiveAdminState();
-  loadKinescopeEvents();   // тот же список, что и в расписании
-  // Переносим варианты в наш селект: список грузится асинхронно
-  setTimeout(function(){
-    const src = document.getElementById('sched-event-live');
-    const dst = document.getElementById('live-admin-event');
-    if (!src || !dst) return;
-    let html = '<option value="">Выбери трансляцию Kinescope</option>';
-    for (let i = 1; i < src.options.length; i++){
-      const o = src.options[i];
-      html += '<option value="' + o.value + '" data-code="' + (o.getAttribute('data-code')||'') + '">'
-            + o.textContent + '</option>';
-    }
-    dst.innerHTML = html;
-  }, 900);
+  // ДОЖИДАЕМСЯ загрузки, а не угадываем паузу. Список наполняет сам
+  // loadKinescopeEvents — он знает про наш селект (см. массив sels)
+  await loadKinescopeEvents();
+  if (sel && sel.options.length <= 1){
+    sel.innerHTML = '<option value="">Трансляций не нашлось — нажми «Связь с Kinescope»</option>';
+  }
 }
 
 function closeLivePopup(){
@@ -4029,7 +4023,11 @@ let kinescopeEvents = [];
 let kinescopeLoadError = '';
 
 async function loadKinescopeEvents(){
-  const sels = ['sched-event-live', 'sched-rule-live'];
+  // Список пульта эфира наполняется ТЕМ ЖЕ загрузчиком. Раньше он копировал
+  // варианты из соседнего селекта по таймеру — и это была гонка: успел ответ
+  // Kinescope за 900мс, список есть; не успел — пусто. Ровно те же грабли, что
+  // с каталогом карточек. Правильно: один источник данных, никаких таймеров
+  const sels = ['sched-event-live', 'sched-rule-live', 'live-admin-event'];
   try{
     const r = await fetch(API + '/admin/kinescope/events?x_admin_token=' + ADMIN_TOKEN);
     const d = await r.json();
@@ -4048,7 +4046,9 @@ async function loadKinescopeEvents(){
     const el = document.getElementById(id);
     if (!el) return;
     const keep = el.value;
-    let html = '<option value="">Без трансляции — обычное событие</option>';
+    let html = id === 'live-admin-event'
+      ? '<option value="">Выбери трансляцию Kinescope</option>'
+      : '<option value="">Без трансляции — обычное событие</option>';
     kinescopeEvents.forEach(function(ev){
       const mark = ev.stream_status === 'started' ? ' • идёт' : '';
       html += '<option value="' + ev.id + '" data-code="' + ev.play_code + '">'
