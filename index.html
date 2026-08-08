@@ -1643,6 +1643,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <div class="section-title" style="margin:16px 0 6px;font-size:13px">Обслуживание</div>
       <button class="action-btn" onclick="liveWebhookSetup()">Завести вебхук Kinescope</button>
       <button class="action-btn" onclick="liveWebhookList()" style="margin-left:6px">Показать вебхуки</button>
+      <button class="action-btn" onclick="liveWebhookLog()" style="margin-left:6px">Что нам присылали</button>
       <div class="pay-meta" style="margin-top:6px">Вебхук нужен, чтобы апп знал, что поток РЕАЛЬНО пошёл, а не только что по расписанию пора.</div>
     </div>
   </div>
@@ -4021,6 +4022,19 @@ async function liveWebhookSetup(){
       });
       alert(msg);
     }
+  }catch(e){ alert('Ошибка: ' + (e && e.message || e)); }
+}
+
+/* Сырые вебхуки от Kinescope. Нужны, когда пульт говорит «потока нет», а эфир
+   идёт: сразу видно, приходят ли уведомления вообще и какой они формы */
+async function liveWebhookLog(){
+  try{
+    const r = await fetch(API + '/admin/kinescope/webhook-log?limit=10&x_admin_token=' + ADMIN_TOKEN);
+    const d = await r.json();
+    if (!d.count){ alert('Kinescope нам ещё ничего не присылал.\n\n' + (d.hint || '')); return; }
+    alert('Последние ' + d.count + ':\n\n' + (d.items || []).map(function(i){
+      return i.when + '\n' + i.body;
+    }).join('\n\n———\n\n').slice(0, 3000));
   }catch(e){ alert('Ошибка: ' + (e && e.message || e)); }
 }
 
