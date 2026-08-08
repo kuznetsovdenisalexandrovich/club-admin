@@ -1604,13 +1604,11 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
      Пульт на время трансляции. Три кнопки — начать, закрыть бесплатную
      часть, завершить — плюс живой статус и список точек ретрансляции
      с отметкой «открытая»: именно отмеченные гаснут при закрытии. -->
-<div class="popup-overlay" id="live-popup-overlay">
-  <div class="popup-card" style="max-width:560px">
-    <div class="popup-head">
-      <div class="popup-title">Эфир</div>
-      <button class="popup-close" onclick="closeLivePopup()">✕</button>
-    </div>
-    <div class="popup-body">
+<div class="popup-overlay popup-centered" id="live-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeLivePopup()">
+  <div class="popup" style="max-width:560px">
+    <button class="popup-close-x" onclick="closeLivePopup()" title="Закрыть">✕</button>
+    <div class="popup-body" style="padding-top:20px">
+      <div class="popup-section-title" style="margin-top:0">Эфир</div>
       <div id="live-admin-status" class="card" style="padding:12px;margin-bottom:12px">
         <div class="loading">Загрузка...</div>
       </div>
