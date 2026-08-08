@@ -1046,6 +1046,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <button class="action-btn" onclick="openSettingsPopup()">Настройки клуба</button>
         <button class="action-btn" onclick="openRegistrationReport()">Статистика</button>
         <button class="action-btn" onclick="openLectureStats()">Статистика лекций</button>
+        <button class="action-btn" onclick="openViewLog()">Журнал просмотров</button>
         <button class="action-btn" onclick="openBulkPointsPopup()">Раздать баллы всем</button>
         <button class="action-btn" onclick="openLevelConfigPopup()">Настроить уровни</button>
         <button class="action-btn" onclick="openRewardCatalogPopup()">Управление наградами</button>
@@ -1890,6 +1891,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 
       <!-- Диагностика: снимок участника глазами приложения -->
       <div class="popup-section-title">Диагностика</div>
+      <button class="action-btn" id="view-start-btn" style="width:100%;margin-bottom:10px" onclick="startViewSession()">Смотреть глазами</button>
       <div id="popup-diag" style="border-radius:14px;overflow:hidden;background:var(--stat-bg);border:1px solid var(--border)"></div>
 
       <!-- Лента активности -->
@@ -2007,6 +2009,17 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     <div class="popup-section-title" style="margin-top:0">Статистика лекций</div>
     <div id="lecture-stats-body"><div class="loading">Загрузка...</div></div>
     <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)" onclick="closeLectureStats()">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<div class="popup-overlay" id="view-log-overlay" onclick="if(overlayShouldClose(event,this)) closeViewLog()">
+  <div class="popup" style="max-width:480px">
+    <div class="popup-handle"></div>
+    <div class="popup-body">
+    <div class="popup-section-title" style="margin-top:0">Журнал просмотров</div>
+    <div id="view-log-body"><div class="loading">Загрузка...</div></div>
+    <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)" onclick="closeViewLog()">Закрыть</button>
     </div>
   </div>
 </div>
@@ -2764,6 +2777,7 @@ function openPopup(uid){
   document.getElementById('popup-input-notes').value=u.notes||'';
   loadActivity(u.telegram_id);
   loadSnapshot(u.telegram_id);
+  resetViewButton();
   document.getElementById('sub-action-result').style.display='none';
   document.getElementById('action-result').style.display='none';
   document.getElementById('payload-row').classList.remove('visible');
@@ -3472,6 +3486,118 @@ function renderLectureStats(){
       поэтому «открытий» и «людей» здесь одно и то же. «Открыл» значит «нажал ссылку», а не «досмотрел».
     </div>
     ${orphans}`;
+}
+
+/* ── ПРОСМОТР ГЛАЗАМИ УЧАСТНИКА (09.08.2026) ──────────────────────────────────
+   Дашборд только просит ссылку и ждёт, пока Denis нажмёт «Разрешить» в боте.
+   Всё право решать — на сервере: до подтверждения токен не работает вообще. */
+
+let viewPollTimer = null;
+
+async function startViewSession(){
+  if(!currentUser || !currentUser.telegram_id){ alert('У карточки нет telegram_id'); return; }
+  const name = currentUser.full_name || currentUser.name || 'участника';
+  if(!confirm(`Открыть приложение глазами: ${name}?\n\nПридёт подтверждение в бот — без него просмотр не откроется.`)) return;
+
+  const btn = document.getElementById('view-start-btn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Жду подтверждения в боте...'; }
+  try{
+    const r = await fetch(API + '/admin/view/start?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({telegram_id: currentUser.telegram_id})
+    });
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.detail || 'Не получилось');
+    if(!d.bot_configured){
+      throw new Error('Бот не настроен на сервере (ADMIN_CHAT_ID / TELEGRAM_BOT_TOKEN) — подтверждение не придёт');
+    }
+    waitForViewConfirm(d.id, d.confirm_minutes || 3);
+  }catch(e){
+    resetViewButton();
+    alert(e.message || 'Не получилось');
+  }
+}
+
+function resetViewButton(){
+  const btn = document.getElementById('view-start-btn');
+  if(btn){ btn.disabled = false; btn.textContent = 'Смотреть глазами'; }
+  if(viewPollTimer){ clearInterval(viewPollTimer); viewPollTimer = null; }
+}
+
+function waitForViewConfirm(id, minutes){
+  let waited = 0;
+  const limit = minutes * 60;
+  if(viewPollTimer) clearInterval(viewPollTimer);
+  viewPollTimer = setInterval(async function(){
+    waited += 2;
+    const btn = document.getElementById('view-start-btn');
+    try{
+      const d = await fetch(API + '/admin/view/status?id=' + id + '&x_admin_token=' + ADMIN_TOKEN).then(r=>r.json());
+      if(d.status === 'confirmed'){
+        resetViewButton();
+        // Отдельная вкладка, а не текущая: дашборд должен остаться открытым —
+        // из него же просмотр и останавливается
+        window.open(d.url, '_blank');
+        return;
+      }
+      if(d.status === 'denied'){ resetViewButton(); alert('Просмотр отклонён в боте'); return; }
+      if(d.status === 'expired' || waited >= limit){
+        resetViewButton();
+        alert('Подтверждение не пришло вовремя — попробуй ещё раз');
+        return;
+      }
+      if(btn) btn.textContent = `Жду подтверждения... ${Math.max(0, limit - waited)} с`;
+    }catch(e){ /* сеть моргнула — просто ждём следующего круга */ }
+  }, 2000);
+}
+
+/* ── Журнал просмотров ── */
+
+function openViewLog(){
+  document.getElementById('view-log-overlay').classList.add('open');
+  loadViewLog();
+}
+function closeViewLog(){ document.getElementById('view-log-overlay').classList.remove('open'); }
+
+async function loadViewLog(){
+  const el = document.getElementById('view-log-body');
+  el.innerHTML = '<div class="loading">Загрузка...</div>';
+  try{
+    const d = await fetch(API + '/admin/view/list?x_admin_token=' + ADMIN_TOKEN).then(r=>r.json());
+    const rows = (d.sessions || []).map(s => {
+      const badge = s.alive ? '<span class="badge badge-warn">' + s.state + '</span>'
+                            : '<span class="badge">' + s.state + '</span>';
+      const blocked = s.blocked_writes
+        ? ` · отклонено записей ${s.blocked_writes}` : '';
+      return `<div class="pay-item">
+        <div class="pay-info">
+          <div class="pay-name">${s.name || s.telegram_id} ${badge}</div>
+          <div class="pay-meta">${diagDate(s.created_at)} · запросов ${s.requests}${blocked}</div>
+        </div>
+        ${s.alive ? `<button class="action-btn danger" style="flex:none;padding:6px 10px" onclick="revokeView(${s.id})">Стоп</button>` : ''}
+      </div>`;
+    }).join('');
+    el.innerHTML = `
+      <div style="margin-bottom:10px;font-size:12px;color:var(--text-faint);line-height:1.5">
+        Просмотр не пишет в базу ничего: отметки, баллы и события участника остаются нетронутыми.
+        Счётчик «отклонено записей» — сколько попыток записи сторож завернул.
+      </div>
+      ${d.alive_count ? '<button class="popup-save" style="background:var(--red);color:#fff;margin-bottom:10px" onclick="revokeView(null)">Прекратить все просмотры</button>' : ''}
+      <div style="border-radius:14px;overflow:hidden;background:var(--stat-bg);border:1px solid var(--border)">
+        ${rows || '<div class="empty">Просмотров ещё не было</div>'}
+      </div>`;
+  }catch(e){ el.innerHTML = '<div class="empty">Не удалось загрузить</div>'; }
+}
+
+async function revokeView(id){
+  const body = id ? {id: id} : {all: true};
+  if(!id && !confirm('Прекратить все открытые просмотры?')) return;
+  try{
+    await fetch(API + '/admin/view/revoke?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    loadViewLog();
+  }catch(e){ alert('Не получилось'); }
 }
 
 function renderPopupPayments(u){
