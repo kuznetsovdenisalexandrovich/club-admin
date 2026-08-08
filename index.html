@@ -1617,10 +1617,12 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <input class="popup-input" type="text" id="sched-event-link" placeholder="Ссылка (необязательно)" style="margin-bottom:0">
         <input class="popup-input" type="text" id="sched-event-category" list="sched-cat-list" placeholder="Категория (напр. Книжный клуб) — определяет цвет тега" style="margin-bottom:0">
         <div style="display:flex;gap:8px">
-          <input class="popup-input" type="text" id="sched-event-live" placeholder="ID трансляции в Kinescope (если это эфир)" style="margin-bottom:0;flex:2">
+          <select class="popup-input" id="sched-event-live" style="margin-bottom:0;flex:2">
+            <option value="">Без трансляции — обычное событие</option>
+          </select>
           <input class="popup-input" type="number" id="sched-event-duration" placeholder="Минут" min="10" max="600" style="margin-bottom:0;flex:1">
         </div>
-        <div class="pay-meta" style="margin:-2px 2px 2px">Заполни ID трансляции — на главной аппа появится видеоблок с плеером. Пусто — обычное событие, человек просто перейдёт по ссылке. Длительность нужна, чтобы понимать, идёт ли событие прямо сейчас (по умолчанию 120 минут).</div>
+        <div class="pay-meta" style="margin:-2px 2px 2px" id="sched-event-live-hint">Выбери трансляцию — на главной аппа появится видеоблок с плеером. Без неё это обычное событие: человек просто перейдёт по ссылке. Длительность нужна, чтобы понимать, идёт ли событие прямо сейчас (по умолчанию 120 минут).</div>
         <button class="popup-save" id="sched-event-submit-btn" onclick="saveOneOffEvent()">Добавить событие</button>
       </div>
       <div id="sched-oneoff-list" style="margin-top:14px"></div>
@@ -1646,16 +1648,19 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <input class="popup-input" type="text" id="sched-rule-link" placeholder="Ссылка (необязательно)" style="margin-bottom:0">
         <input class="popup-input" type="text" id="sched-rule-category" list="sched-cat-list" placeholder="Категория (напр. Пятничные встречи) — определяет цвет тега" style="margin-bottom:0">
         <div style="display:flex;gap:8px">
-          <input class="popup-input" type="text" id="sched-rule-live" placeholder="ID трансляции в Kinescope (если это эфир)" style="margin-bottom:0;flex:2">
+          <select class="popup-input" id="sched-rule-live" style="margin-bottom:0;flex:2">
+            <option value="">Без трансляции — обычное событие</option>
+          </select>
           <input class="popup-input" type="number" id="sched-rule-duration" placeholder="Минут" min="10" max="600" style="margin-bottom:0;flex:1">
         </div>
-        <div class="pay-meta" style="margin:-2px 2px 2px">Для повторяющегося эфира ID обычно меняется от раза к разу — тогда удобнее заводить эфиры разовыми событиями, а правилом держать регулярные встречи без трансляции.</div>
+        <div class="pay-meta" style="margin:-2px 2px 2px">У повторяющегося эфира трансляция обычно своя каждый раз — тогда удобнее заводить эфиры разовыми событиями, а правилом держать регулярные встречи без стрима.</div>
         <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-dim);padding:2px 2px 4px">
           <input type="checkbox" id="sched-rule-active" checked style="width:16px;height:16px"> Активно
         </label>
         <button class="popup-save" id="sched-rule-submit-btn" onclick="saveScheduleRule()">Добавить правило</button>
       </div>
       <datalist id="sched-cat-list"></datalist>
+      <button class="action-btn" style="margin-top:10px" onclick="checkKinescopeHealth()">Связь с Kinescope</button>
       <div id="sched-rules-list" style="margin-top:14px"></div>
     </div>
 
@@ -3633,6 +3638,7 @@ function showAdminDayDetails(dateStr){
 
 function openSchedulePopup(){
   document.getElementById('schedule-popup-overlay').classList.add('open');
+  loadKinescopeEvents();
   loadScheduleEvents();
   loadScheduleRules();
   loadAdminCalendarMonth();
@@ -3692,6 +3698,75 @@ function renderTeaserList(){
     </div>`).join('');
 }
 
+
+/* ── Трансляции Kinescope в редакторе расписания ─────────────────────────
+   Раньше тут было текстовое поле «вставь ID». Оказалось, у Kinescope ДВА
+   похожих идентификатора: UUID события (им управляют через API) и короткий
+   код плеера (из него строится ссылка встраивания). Перепутать их легко, а
+   ошибка вылезает только в момент эфира. Поэтому список приходит с бэкенда,
+   и мы кладём в форму СРАЗУ ОБА значения. */
+let kinescopeEvents = [];
+let kinescopeLoadError = '';
+
+async function loadKinescopeEvents(){
+  const sels = ['sched-event-live', 'sched-rule-live'];
+  try{
+    const r = await fetch(API + '/admin/kinescope/events?x_admin_token=' + ADMIN_TOKEN);
+    const d = await r.json();
+    if (!d.ok){
+      kinescopeLoadError = d.error || 'не удалось получить список';
+      kinescopeEvents = [];
+    } else {
+      kinescopeEvents = d.events || [];
+      kinescopeLoadError = '';
+    }
+  } catch(e){
+    kinescopeLoadError = 'нет связи с бэкендом: ' + (e && e.message || e);
+    kinescopeEvents = [];
+  }
+  sels.forEach(function(id){
+    const el = document.getElementById(id);
+    if (!el) return;
+    const keep = el.value;
+    let html = '<option value="">Без трансляции — обычное событие</option>';
+    kinescopeEvents.forEach(function(ev){
+      const mark = ev.stream_status === 'started' ? ' • идёт' : '';
+      html += '<option value="' + ev.id + '" data-code="' + ev.play_code + '">'
+            + (ev.name || 'Без названия') + mark + '</option>';
+    });
+    el.innerHTML = html;
+    el.value = keep;
+  });
+  const hint = document.getElementById('sched-event-live-hint');
+  if (hint && kinescopeLoadError){
+    hint.innerHTML = '<span style="color:#e8614a">Не получилось загрузить список трансляций: '
+      + kinescopeLoadError + '</span><br>Проверь KINESCOPE_TOKEN на Railway. Подробности — кнопка «Связь с Kinescope» ниже.';
+  }
+}
+
+/* Код плеера берём из выбранного пункта, а не просим Denis'а его искать */
+function pickedPlayCode(selectId){
+  const el = document.getElementById(selectId);
+  if (!el) return '';
+  const opt = el.options[el.selectedIndex];
+  return (opt && opt.getAttribute('data-code')) || '';
+}
+
+async function checkKinescopeHealth(){
+  try{
+    const r = await fetch(API + '/admin/kinescope/health?x_admin_token=' + ADMIN_TOKEN);
+    const d = await r.json();
+    let msg = 'Токен задан: ' + (d.token_set ? 'да' : 'НЕТ') + '\n\n';
+    Object.keys(d.checks || {}).forEach(function(k){ msg += k + ': ' + d.checks[k] + '\n'; });
+    const le = d.last_error || {};
+    if (le.when) msg += '\nПоследняя ошибка (' + le.when + ')\nгде: ' + le.where + '\nчто: ' + le.detail;
+    else msg += '\nОшибок не было.';
+    alert(msg);
+  } catch(e){
+    alert('Не удалось спросить бэкенд: ' + (e && e.message || e));
+  }
+}
+
 function editOneOffEvent(e){
   editingScheduleEventId=e.id;
   document.getElementById('sched-event-date').value=e.event_date;
@@ -3742,6 +3817,7 @@ async function saveOneOffEvent(){
   const link=document.getElementById('sched-event-link').value.trim();
   const category=document.getElementById('sched-event-category').value.trim();
   const live_event_id=document.getElementById('sched-event-live').value.trim();
+  const live_play_code=pickedPlayCode('sched-event-live');
   const duration_min=parseInt(document.getElementById('sched-event-duration').value)||120;
   if(!event_date || !title){ alert('Заполни дату и название'); return; }
   if(live_event_id && !event_time){ alert('У эфира нужно время начала — иначе апп не поймёт, когда показывать блок'); return; }
@@ -3750,7 +3826,7 @@ async function saveOneOffEvent(){
     const r=await fetch(API+'/schedule/events'+(isEdit?'/'+editingScheduleEventId:'')+'?x_admin_token='+ADMIN_TOKEN,{
       method:isEdit?'PUT':'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({event_date,event_time,title,description,link,category,live_event_id,duration_min})
+      body:JSON.stringify({event_date,event_time,title,description,link,category,live_event_id,live_play_code,duration_min})
     });
     if(!r.ok){ alert('Ошибка сохранения'); return; }
     resetOneOffForm();
@@ -3846,6 +3922,7 @@ async function saveScheduleRule(){
   const link=document.getElementById('sched-rule-link').value.trim();
   const category=document.getElementById('sched-rule-category').value.trim();
   const live_event_id=document.getElementById('sched-rule-live').value.trim();
+  const live_play_code=pickedPlayCode('sched-rule-live');
   const duration_min=parseInt(document.getElementById('sched-rule-duration').value)||120;
   const active=document.getElementById('sched-rule-active').checked;
   if(!title){ alert('Заполни название'); return; }
@@ -3855,7 +3932,7 @@ async function saveScheduleRule(){
     const r=await fetch(API+'/schedule/rules'+(isEdit?'/'+editingScheduleRuleId:'')+'?x_admin_token='+ADMIN_TOKEN,{
       method:isEdit?'PUT':'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({weekday,event_time,title,description,link,category,live_event_id,duration_min,active})
+      body:JSON.stringify({weekday,event_time,title,description,link,category,live_event_id,live_play_code,duration_min,active})
     });
     if(!r.ok){ alert('Ошибка сохранения'); return; }
     resetScheduleRuleForm();
