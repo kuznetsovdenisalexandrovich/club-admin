@@ -1016,7 +1016,10 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
   <div class="section">
     <div class="section-head">
       <div class="section-title">Расписание</div>
-      <button class="action-btn" style="padding:5px 10px;font-size:11px" onclick="openSchedulePopup()">Управлять</button>
+      <div style="display:flex;gap:6px">
+        <button class="action-btn" style="padding:5px 10px;font-size:11px" onclick="openLivePopup()">Эфир</button>
+        <button class="action-btn" style="padding:5px 10px;font-size:11px" onclick="openSchedulePopup()">Управлять</button>
+      </div>
     </div>
     <div class="card" style="padding:14px">
       <div class="admcal-header">
@@ -1596,6 +1599,46 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 </div>
 
 <!-- Schedule Popup -->
+
+<!-- ── ЭФИР ────────────────────────────────────────────────────────────
+     Пульт на время трансляции. Три кнопки — начать, закрыть бесплатную
+     часть, завершить — плюс живой статус и список точек ретрансляции
+     с отметкой «открытая»: именно отмеченные гаснут при закрытии. -->
+<div class="popup-overlay" id="live-popup-overlay">
+  <div class="popup-card" style="max-width:560px">
+    <div class="popup-head">
+      <div class="popup-title">Эфир</div>
+      <button class="popup-close" onclick="closeLivePopup()">✕</button>
+    </div>
+    <div class="popup-body">
+      <div id="live-admin-status" class="card" style="padding:12px;margin-bottom:12px">
+        <div class="loading">Загрузка...</div>
+      </div>
+
+      <div id="live-admin-start" style="display:none">
+        <select class="popup-input" id="live-admin-event" style="margin-bottom:8px">
+          <option value="">Выбери трансляцию Kinescope</option>
+        </select>
+        <input class="popup-input" type="text" id="live-admin-title" placeholder="Название эфира (увидят участники)" style="margin-bottom:8px">
+        <button class="popup-save" onclick="liveStart()">Начать эфир</button>
+        <div class="pay-meta" style="margin-top:6px">Открывает сессию: с этого момента апп показывает блок, а кнопки ниже становятся активны. OBS запускай как обычно.</div>
+      </div>
+
+      <div id="live-admin-running" style="display:none">
+        <div class="section-title" style="margin:14px 0 6px;font-size:13px">Точки ретрансляции</div>
+        <div id="live-admin-restreams"></div>
+        <div class="pay-meta" style="margin:4px 2px 12px">Отметь ОТКРЫТЫЕ площадки — их погасит кнопка ниже. Закрытые продолжат идти.</div>
+        <button class="popup-save" id="live-close-free-btn" onclick="liveCloseFree()" style="margin-bottom:8px">Закрыть бесплатную часть</button>
+        <button class="popup-save" onclick="liveFinish()" style="background:#e8614a">Завершить эфир</button>
+      </div>
+
+      <div class="section-title" style="margin:16px 0 6px;font-size:13px">Обслуживание</div>
+      <button class="action-btn" onclick="liveWebhookSetup()">Завести вебхук Kinescope</button>
+      <button class="action-btn" onclick="liveWebhookList()" style="margin-left:6px">Показать вебхуки</button>
+      <div class="pay-meta" style="margin-top:6px">Вебхук нужен, чтобы апп знал, что поток РЕАЛЬНО пошёл, а не только что по расписанию пора.</div>
+    </div>
+  </div>
+</div>
 <div class="popup-overlay" id="schedule-popup-overlay">
   <div class="popup" id="schedule-popup">
     <div class="popup-handle"></div>
@@ -3704,6 +3747,182 @@ function renderTeaserList(){
     </div>`).join('');
 }
 
+
+
+/* ── ПУЛЬТ ЭФИРА ────────────────────────────────────────────────────────
+   Denis просил максимально подробную диагностику: «тут много движущихся
+   частей, надо быстро находить неисправности». Поэтому каждая операция
+   показывает результат текстом, а не молча меняет вид. */
+let liveAdminState = null;
+
+function openLivePopup(){
+  document.getElementById('live-popup-overlay').classList.add('open');
+  loadLiveAdminState();
+  loadKinescopeEvents();   // тот же список, что и в расписании
+  // Переносим варианты в наш селект: список грузится асинхронно
+  setTimeout(function(){
+    const src = document.getElementById('sched-event-live');
+    const dst = document.getElementById('live-admin-event');
+    if (!src || !dst) return;
+    let html = '<option value="">Выбери трансляцию Kinescope</option>';
+    for (let i = 1; i < src.options.length; i++){
+      const o = src.options[i];
+      html += '<option value="' + o.value + '" data-code="' + (o.getAttribute('data-code')||'') + '">'
+            + o.textContent + '</option>';
+    }
+    dst.innerHTML = html;
+  }, 900);
+}
+
+function closeLivePopup(){
+  document.getElementById('live-popup-overlay').classList.remove('open');
+}
+
+async function loadLiveAdminState(){
+  const box = document.getElementById('live-admin-status');
+  try{
+    const r = await fetch(API + '/admin/live/state?x_admin_token=' + ADMIN_TOKEN);
+    const d = await r.json();
+    liveAdminState = d;
+    renderLiveAdmin();
+  }catch(e){
+    box.innerHTML = '<div class="pay-meta" style="color:#e8614a">Нет связи с бэкендом: '
+      + (e && e.message || e) + '</div>';
+  }
+}
+
+function renderLiveAdmin(){
+  const d = liveAdminState || {};
+  const box = document.getElementById('live-admin-status');
+  const startBox = document.getElementById('live-admin-start');
+  const runBox = document.getElementById('live-admin-running');
+
+  if (!d.active){
+    const last = d.last || {};
+    box.innerHTML = '<div class="pay-name">Эфир не идёт</div>'
+      + (last.title ? '<div class="pay-meta">Последний: ' + last.title
+          + (last.finished_at ? ' · завершён ' + last.finished_at : '') + '</div>' : '');
+    startBox.style.display = 'block';
+    runBox.style.display = 'none';
+    return;
+  }
+
+  const s = d.session || {};
+  const streaming = s.is_streaming
+    ? '<span class="badge badge-ok">поток идёт</span>'
+    : '<span class="badge badge-err">потока нет</span>';
+  const free = s.free_open
+    ? '<span class="badge badge-ok">бесплатная часть открыта</span>'
+    : '<span class="badge badge-err">только для участников</span>';
+  box.innerHTML = '<div class="pay-name">' + (s.title || 'Эфир') + '</div>'
+    + '<div style="margin:6px 0">' + streaming + ' ' + free + '</div>'
+    + '<div class="pay-meta">Начат: ' + (s.started_at || '—')
+    + (s.stream_status ? ' · статус Kinescope: ' + s.stream_status : ' · вебхук ещё не приходил')
+    + '</div>'
+    + (s.last_error ? '<div class="pay-meta" style="color:#e8614a;margin-top:6px">Последняя ошибка: '
+        + s.last_error + '</div>' : '');
+
+  startBox.style.display = 'none';
+  runBox.style.display = 'block';
+
+  const rs = s.restreams || [];
+  const el = document.getElementById('live-admin-restreams');
+  if (!rs.length){
+    el.innerHTML = '<div class="pay-meta">Точек ретрансляции у этой трансляции нет. '
+      + 'Заведи их в Kinescope — тогда сможем гасить открытые отсюда.</div>';
+  } else {
+    el.innerHTML = rs.map(function(r){
+      return '<label class="pay-item" style="cursor:pointer">'
+        + '<input type="checkbox" ' + (r.open ? 'checked' : '') + (r.killed ? ' disabled' : '')
+        + ' onchange="liveToggleOpen()" data-rid="' + r.id + '" style="flex-shrink:0">'
+        + '<div style="flex:1;min-width:0">'
+        + '<div class="pay-name">' + (r.name || r.url || r.id) + '</div>'
+        + '<div class="pay-meta">' + (r.killed ? 'погашена' : 'работает') + '</div>'
+        + '</div></label>';
+    }).join('');
+  }
+  document.getElementById('live-close-free-btn').disabled = !s.free_open;
+}
+
+async function liveToggleOpen(){
+  const ids = [];
+  document.querySelectorAll('#live-admin-restreams input[type=checkbox]').forEach(function(c){
+    if (c.checked) ids.push(c.getAttribute('data-rid'));
+  });
+  try{
+    await fetch(API + '/admin/live/mark-open?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({restream_ids: ids})
+    });
+  }catch(e){ alert('Не сохранилось: ' + (e && e.message || e)); }
+}
+
+async function liveStart(){
+  const sel = document.getElementById('live-admin-event');
+  const opt = sel.options[sel.selectedIndex];
+  const live_event_id = sel.value;
+  const play_code = (opt && opt.getAttribute('data-code')) || '';
+  const title = document.getElementById('live-admin-title').value.trim();
+  if (!live_event_id){ alert('Выбери трансляцию'); return; }
+  if (!play_code){ alert('У этой трансляции нет кода плеера — апп не сможет её показать'); return; }
+  try{
+    const r = await fetch(API + '/admin/live/start?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({live_event_id, play_code, title})
+    });
+    const d = await r.json();
+    if (!d.ok){ alert('Не начали: ' + (d.error || 'неизвестно')); }
+    loadLiveAdminState();
+  }catch(e){ alert('Ошибка: ' + (e && e.message || e)); }
+}
+
+async function liveCloseFree(){
+  if (!confirm('Закрыть бесплатную часть? Не-участники потеряют плеер, отмеченные площадки погаснут.')) return;
+  try{
+    const r = await fetch(API + '/admin/live/close-free?x_admin_token=' + ADMIN_TOKEN, {method:'POST'});
+    const d = await r.json();
+    if (d.problems && d.problems.length){
+      alert('Флаг переключён, но часть площадок не погасла:\n\n' + d.problems.join('\n'));
+    }
+    loadLiveAdminState();
+  }catch(e){ alert('Ошибка: ' + (e && e.message || e)); }
+}
+
+async function liveFinish(){
+  if (!confirm('Завершить эфир? Погаснут все площадки, блок в аппе исчезнет.')) return;
+  try{
+    const r = await fetch(API + '/admin/live/finish?x_admin_token=' + ADMIN_TOKEN, {method:'POST'});
+    const d = await r.json();
+    if (d.problems && d.problems.length){
+      alert('Эфир завершён, но были ошибки:\n\n' + d.problems.join('\n'));
+    }
+    loadLiveAdminState();
+  }catch(e){ alert('Ошибка: ' + (e && e.message || e)); }
+}
+
+async function liveWebhookSetup(){
+  try{
+    const r = await fetch(API + '/admin/kinescope/webhook-setup?x_admin_token=' + ADMIN_TOKEN, {method:'POST'});
+    const d = await r.json();
+    if (d.ok){
+      alert('Вебхук заведён на адрес:\n' + d.target);
+    } else {
+      let msg = 'Не получилось завести вебхук. Что пробовали:\n\n';
+      (d.tried || []).forEach(function(t){
+        msg += JSON.stringify(t.body) + '\n→ ' + t.response + '\n\n';
+      });
+      alert(msg);
+    }
+  }catch(e){ alert('Ошибка: ' + (e && e.message || e)); }
+}
+
+async function liveWebhookList(){
+  try{
+    const r = await fetch(API + '/admin/kinescope/webhooks?x_admin_token=' + ADMIN_TOKEN);
+    const d = await r.json();
+    alert(JSON.stringify(d.data, null, 2).slice(0, 1500));
+  }catch(e){ alert('Ошибка: ' + (e && e.message || e)); }
+}
 
 /* ── Трансляции Kinescope в редакторе расписания ─────────────────────────
    Раньше тут было текстовое поле «вставь ID». Оказалось, у Kinescope ДВА
