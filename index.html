@@ -1617,9 +1617,13 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <select class="popup-input" id="live-admin-event" style="margin-bottom:8px">
           <option value="">Выбери трансляцию Kinescope</option>
         </select>
-        <input class="popup-input" type="text" id="live-admin-title" placeholder="Название эфира (увидят участники)" style="margin-bottom:8px">
-        <button class="popup-save" onclick="liveStart()">Начать эфир</button>
-        <div class="pay-meta" style="margin-top:6px">Открывает сессию: с этого момента апп показывает блок, а кнопки ниже становятся активны. OBS запускай как обычно.</div>
+        <input class="popup-input" type="text" id="live-admin-title" placeholder="Название эфира (увидят участники и площадки)" style="margin-bottom:8px">
+        <textarea class="popup-input" id="live-admin-desc" placeholder="Описание — уйдёт в трансляции ВК" style="margin-bottom:8px;min-height:60px"></textarea>
+        <button class="popup-save" onclick="liveAutoStart()">Начать эфир и завести площадки</button>
+        <div class="pay-meta" style="margin-top:6px">Создаёт трансляции во всех настроенных сообществах ВК, забирает свежие ключи и прописывает их точками ретрансляции в Kinescope. Дальше остаётся запустить OBS.</div>
+        <button class="action-btn" style="margin-top:8px" onclick="liveStart()">Только открыть сессию</button>
+        <div class="pay-meta" style="margin-top:4px">Если площадки заведены руками и надо просто включить блок в аппе.</div>
+        <button class="action-btn" style="margin-top:8px" onclick="liveShowTargets()">Какие площадки настроены</button>
       </div>
 
       <div id="live-admin-running" style="display:none">
@@ -3871,6 +3875,49 @@ async function liveStart(){
     const d = await r.json();
     if (!d.ok){ alert('Не начали: ' + (d.error || 'неизвестно')); }
     loadLiveAdminState();
+  }catch(e){ alert('Ошибка: ' + (e && e.message || e)); }
+}
+
+
+async function liveAutoStart(){
+  const sel = document.getElementById('live-admin-event');
+  const opt = sel.options[sel.selectedIndex];
+  const live_event_id = sel.value;
+  const play_code = (opt && opt.getAttribute('data-code')) || '';
+  const title = document.getElementById('live-admin-title').value.trim();
+  const description = document.getElementById('live-admin-desc').value.trim();
+  if (!live_event_id){ alert('Выбери трансляцию'); return; }
+  if (!play_code){ alert('У этой трансляции нет кода плеера — апп не сможет её показать'); return; }
+  if (!title){ alert('Впиши название — оно уйдёт и в приложение, и в ВК'); return; }
+  if (!confirm('Создать трансляции во всех настроенных сообществах ВК и завести точки ретрансляции?')) return;
+  try{
+    const r = await fetch(API + '/admin/live/auto-start?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({live_event_id, play_code, title, description})
+    });
+    const d = await r.json();
+    let msg = (d.steps || []).join('\n');
+    if (d.obs && d.obs.rtmp_link){
+      msg += '\n\nДЛЯ OBS:\nСервер: ' + d.obs.rtmp_link + '\nКлюч: ' + (d.obs.streamkey || '');
+    }
+    if ((d.links || []).length){
+      msg += '\n\nССЫЛКИ НА ТРАНСЛЯЦИИ:\n' + d.links.map(function(l){ return l.label + ': ' + l.link; }).join('\n');
+    }
+    alert(msg || 'Готово');
+    loadLiveAdminState();
+  }catch(e){ alert('Ошибка: ' + (e && e.message || e)); }
+}
+
+async function liveShowTargets(){
+  try{
+    const r = await fetch(API + '/admin/live/targets?x_admin_token=' + ADMIN_TOKEN);
+    const d = await r.json();
+    let msg = 'ВКонтакте:\n' + ((d.vk||[]).map(function(t){
+      return '  • ' + t.label + (t.open ? ' (открытая)' : ' (закрытая)'); }).join('\n') || '  — не настроено');
+    msg += '\n\nTelegram:\n' + ((d.tg||[]).map(function(t){
+      return '  • ' + t.label + (t.open ? ' (открытый)' : ' (закрытый)'); }).join('\n') || '  — не настроено');
+    if ((d.hints||[]).length) msg += '\n\n' + d.hints.join('\n');
+    alert(msg);
   }catch(e){ alert('Ошибка: ' + (e && e.message || e)); }
 }
 
