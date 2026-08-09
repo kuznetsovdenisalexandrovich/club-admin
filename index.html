@@ -282,6 +282,23 @@ header{padding:calc(max(env(safe-area-inset-top), 8px) + 20px) 0 16px;display:fl
 .actions-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
 .action-btn{padding:10px 8px;border-radius:14px;border:1px solid var(--border);background:var(--stat-bg);font-size:12px;font-weight:600;font-family:var(--body);color:var(--text);cursor:pointer;text-align:center;transition:all .15s;line-height:1.3}
 .tools-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:stretch;padding:14px}
+/* ── Чат эфира в пульте: одна строка на сообщение, прижат к низу ──────────
+   Прижатие делает `margin-top:auto` у первого элемента, а НЕ
+   `justify-content:flex-end` — второе в прокручиваемом блоке обрезает верх,
+   когда сообщений становится больше высоты окна */
+.chat-box{max-height:260px;overflow-y:auto;margin-bottom:8px;display:flex;flex-direction:column;
+  gap:2px;border-radius:12px;background:var(--stat-bg);border:1px solid var(--border);padding:8px 10px}
+.chat-box > *:first-child{margin-top:auto}
+.chat-line{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12.5px;line-height:1.35}
+.chat-name{flex:none;font-weight:700}
+.chat-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-dim)}
+.chat-lvl{flex:none;min-width:16px;height:16px;line-height:16px;text-align:center;padding:0 4px;
+  border-radius:999px;background:var(--lav-deep);color:#fff;font-size:9.5px;font-weight:700}
+.chat-ico{flex:none;width:24px;height:24px;display:flex;align-items:center;justify-content:center;
+  border:0;border-radius:8px;background:transparent;color:var(--text-faint);cursor:pointer;padding:0}
+.chat-ico:hover{background:var(--input-bg);color:var(--text)}
+.chat-ico.danger:hover{color:var(--red)}
+
 .tools-grid .action-btn{padding:12px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tools-grid .action-btn--lav{background:var(--lav-deep)!important;color:#fff!important;border:none!important;box-shadow:none!important;font-family:var(--disp);font-weight:700}
 .action-btn:active{opacity:.75;transform:scale(0.97)}
@@ -1639,11 +1656,10 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <div id="live-admin-restreams"></div>
         <div class="pay-meta" style="margin:4px 2px 12px">Отметь ОТКРЫТЫЕ площадки — их погасит кнопка ниже. Закрытые продолжат идти.</div>
         <div class="section-title" style="margin:14px 0 6px;font-size:13px">Чат эфира</div>
-        <div id="live-chat-admin" style="max-height:240px;overflow-y:auto;margin-bottom:8px"></div>
+        <div id="live-chat-admin" class="chat-box"></div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
           <button class="action-btn" onclick="chatSetSlow()">Медленный режим</button>
           <button class="action-btn" id="chat-toggle-btn" onclick="chatToggleOpen()">Закрыть чат</button>
-          <button class="action-btn" onclick="loadChatAdmin()">Обновить</button>
         </div>
         <button class="popup-save" id="live-close-free-btn" onclick="liveCloseFree()" style="margin-bottom:8px">Закрыть бесплатную часть</button>
         <button class="popup-save" onclick="liveFinish()" style="background:#e8614a">Завершить эфир</button>
@@ -4115,6 +4131,8 @@ let liveAdminState = null;
 
 async function openLivePopup(){
   document.getElementById('live-popup-overlay').classList.add('open');
+  chatAdminLastId = 0;
+  startChatAdminPoll();
   const sel = document.getElementById('live-admin-event');
   if (sel) sel.innerHTML = '<option value="">Загружаю трансляции…</option>';
   loadLiveAdminState();
@@ -4128,6 +4146,7 @@ async function openLivePopup(){
 
 function closeLivePopup(){
   document.getElementById('live-popup-overlay').classList.remove('open');
+  stopChatAdminPoll();
 }
 
 async function loadLiveAdminState(){
@@ -4203,35 +4222,83 @@ function renderLiveAdmin(){
    ровно три и все в одно нажатие: убрать сообщение, заглушить автора,
    притормозить весь чат. Ничего не удаляем безвозвратно. */
 let chatAdminState = null;
+let chatAdminLastId = 0;
+let chatAdminMuted = [];
+let chatAdminTimer = null;
 
-async function loadChatAdmin(){
+/* Иконки рисуем сами, а не эмодзи: в интерфейсе клуба эмодзи не используем,
+   а два одинаковых по весу значка рядом со строкой должны быть одного размера */
+const ICON_HIDE = '<svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 5 L15 15 M15 5 L5 15"/></svg>';
+const ICON_MUTE = '<svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8 H7 L11 4 V16 L7 12 H4 Z"/><path d="M14 8 L18 12 M18 8 L14 12"/></svg>';
+
+function chatMsgHtml(m, muted){
+  const isMuted = (muted || []).indexOf(m.telegram_id) >= 0;
+  const lvl = (m.level && m.level > 0)
+    ? '<span class="chat-lvl">' + m.level + '</span>' : '';
+  return '<div class="chat-line" id="chatmsg-' + m.id + '"' + (m.hidden ? ' style="opacity:.4"' : '') + '>'
+    + lvl
+    + '<b class="chat-name">' + escapeHtmlAdm(m.name) + (m.from_admin ? ' · ты' : '') + '</b>'
+    + '<span class="chat-text">' + escapeHtmlAdm(m.text) + '</span>'
+    + (isMuted ? '<span class="badge badge-err" style="flex:none">заглушён</span>' : '')
+    + '<button class="chat-ico" title="' + (m.hidden ? 'Вернуть сообщение' : 'Убрать сообщение') + '"'
+    + ' onclick="chatHide(' + m.id + ',' + (!m.hidden) + ')">' + ICON_HIDE + '</button>'
+    + (m.telegram_id ? '<button class="chat-ico' + (isMuted ? '' : ' danger') + '" title="'
+        + (isMuted ? 'Вернуть голос' : 'Заглушить автора') + '" onclick="chatMute('
+        + m.telegram_id + ',' + (!isMuted) + ')">' + ICON_MUTE + '</button>' : '')
+    + '</div>';
+}
+
+async function loadChatAdmin(incremental){
   const box = document.getElementById('live-chat-admin');
   if (!box) return;
   try{
-    const r = await fetch(API + '/admin/live/chat?limit=60&x_admin_token=' + ADMIN_TOKEN);
+    const since = incremental ? chatAdminLastId : 0;
+    const r = await fetch(API + '/admin/live/chat?limit=60&since_id=' + since
+                          + '&x_admin_token=' + ADMIN_TOKEN);
     const d = await r.json();
     chatAdminState = d;
-    if (!d.active){ box.innerHTML = '<div class="pay-meta">Эфир не идёт</div>'; return; }
-    const muted = d.muted || [];
-    box.innerHTML = (d.messages || []).map(function(m){
-      const isMuted = muted.indexOf(m.telegram_id) >= 0;
-      return '<div class="pay-item" style="' + (m.hidden ? 'opacity:.45' : '') + '">'
-        + '<div style="flex:1;min-width:0">'
-        + '<div class="pay-name">' + escapeHtmlAdm(m.name) + (m.from_admin ? ' · ты' : '')
-        + (isMuted ? ' <span class="badge badge-err">заглушён</span>' : '') + '</div>'
-        + '<div class="pay-meta" style="white-space:normal">' + escapeHtmlAdm(m.text) + '</div>'
-        + '</div>'
-        + '<button class="action-btn" style="flex-shrink:0" onclick="chatHide(' + m.id + ',' + (!m.hidden) + ')">'
-        + (m.hidden ? 'Вернуть' : 'Убрать') + '</button>'
-        + (m.telegram_id ? '<button class="action-btn danger" style="flex-shrink:0" onclick="chatMute('
-            + m.telegram_id + ',' + (!isMuted) + ')">' + (isMuted ? 'Вернуть голос' : 'Заглушить') + '</button>' : '')
-        + '</div>';
-    }).join('') || '<div class="pay-meta">Сообщений пока нет</div>';
+    if (!d.active){
+      box.innerHTML = '<div class="pay-meta">Эфир не идёт</div>';
+      chatAdminLastId = 0;
+      return;
+    }
+    chatAdminMuted = d.muted || [];
+    const msgs = d.messages || [];
+    // Прокручиваем вниз, только если и так стояли внизу — иначе выдёргивали бы
+    // Denis'а из чтения старых сообщений каждым новым
+    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 50;
+    if (!incremental || !chatAdminLastId){
+      box.innerHTML = msgs.map(function(m){ return chatMsgHtml(m, chatAdminMuted); }).join('')
+        || '<div class="pay-meta">Сообщений пока нет</div>';
+      box.scrollTop = box.scrollHeight;
+    } else if (msgs.length){
+      const empty = box.querySelector('.pay-meta');
+      if (empty) box.innerHTML = '';
+      box.insertAdjacentHTML('beforeend',
+        msgs.map(function(m){ return chatMsgHtml(m, chatAdminMuted); }).join(''));
+      if (atBottom) box.scrollTop = box.scrollHeight;
+    }
+    if (d.last_id) chatAdminLastId = d.last_id;
     const btn = document.getElementById('chat-toggle-btn');
     if (btn) btn.textContent = d.chat_open ? 'Закрыть чат' : 'Открыть чат';
   }catch(e){
-    box.innerHTML = '<div class="pay-meta" style="color:#e8614a">Не загрузился: ' + (e && e.message || e) + '</div>';
+    if (!incremental){
+      box.innerHTML = '<div class="pay-meta" style="color:#e8614a">Не загрузился: ' + (e && e.message || e) + '</div>';
+    }
+    // при автообновлении молчим: сеть моргнула, следующий круг через несколько секунд
   }
+}
+
+/* Автообновление живёт ТОЛЬКО пока открыт пульт: закрыли — таймер снят.
+   Тянем инкрементально (`since_id`), поэтому почти всегда ответ пустой */
+const CHAT_ADMIN_POLL_MS = 6000;
+
+function startChatAdminPoll(){
+  stopChatAdminPoll();
+  chatAdminTimer = setInterval(function(){ loadChatAdmin(true); }, CHAT_ADMIN_POLL_MS);
+}
+function stopChatAdminPoll(){
+  if (chatAdminTimer){ clearInterval(chatAdminTimer); chatAdminTimer = null; }
 }
 
 function escapeHtmlAdm(v){
