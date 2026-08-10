@@ -2136,32 +2136,94 @@ function openDupes(){
 }
 function closeDupes(){ document.getElementById('dupes-overlay').classList.remove('open'); }
 
-function dupeRow(r, keepId){
+function dupeRow(r, keepId, group){
+  const isKeep = r.user_id === keepId;
   const marks = [];
-  if(r.user_id === keepId) marks.push('<span class="badge badge-act">главная</span>');
+  if(isKeep) marks.push('<span class="badge badge-act">главная</span>');
   if(r.is_member) marks.push('<span class="badge badge-ok">подписка</span>');
   if(!r.telegram_id && !r.vk_id) marks.push('<span class="badge badge-warn">без мессенджера</span>');
+  if(!r.payments) marks.push('<span class="badge badge-warn">без платежей</span>');
   const bits = [
     r.phone ? 'тел ' + r.phone : '',
     r.profile_id ? 'profile ' + r.profile_id : '',
     r.telegram_id ? 'tg ' + r.telegram_id : '',
     r.vk_id ? 'вк ' + r.vk_id : '',
     r.email || '',
-    r.next_payment_date ? 'платёж ' + r.next_payment_date : '',
+    r.payments ? 'платежей ' + r.payments : '',
+    r.next_payment_date ? 'следующий ' + r.next_payment_date : '',
     r.created_at ? 'заведена ' + r.created_at.slice(0,10) : '',
   ].filter(Boolean).join(' · ');
+
+  // Действия — только у НЕглавной карточки: главная остаётся, вторая уезжает в неё
+  let actions = '';
+  if(group && !isKeep){
+    actions = '<div style="display:flex;gap:8px;margin-top:8px">'
+      + '<button class="action-btn" style="padding:4px 10px;font-size:11px" '
+      + 'onclick="event.stopPropagation();mergeDupe(' + group.keep_user_id + ',' + r.user_id + ',' + jsArg(group.weight) + ')">Склеить в главную</button>'
+      + (r.payments ? ''
+         : '<button class="action-btn" style="padding:4px 10px;font-size:11px" '
+           + 'onclick="event.stopPropagation();dropDupe(' + r.user_id + ')">Удалить</button>')
+      + '</div>';
+  }
   return '<div class="pay-item" style="cursor:pointer" onclick="closeDupes();openPopup(' + r.user_id + ')">'
     + '<div class="pay-info">'
     + '<div class="pay-name">' + (r.name || '—') + ' ' + marks.join(' ') + '</div>'
     + '<div class="pay-meta">' + bits + '</div>'
+    + actions
     + '</div></div>';
 }
+
+// Склейка НЕОБРАТИМА, поэтому показываем словами, что именно останется. Правило
+// сервера: главная сохраняет свои значения, из второй доезжает только то, чего
+// у главной нет. Исключение — если profile_id есть только у второй: тогда данные
+// подписки берутся оттуда, иначе в карточке остаётся мусор вроде "Ручная оплата".
+async function mergeDupe(keepId, dropId, weight){
+  const keep = DUPES_INDEX[keepId] || {}, drop = DUPES_INDEX[dropId] || {};
+  const gained = [];
+  ['phone','profile_id','email','telegram_id','vk_id','salebot_client_id'].forEach(f => {
+    if(!keep[f] && drop[f]) gained.push(f + ' → ' + drop[f]);
+  });
+  let text = 'Останется карточка «' + (keep.name || keep.user_id) + '» (id ' + keepId + ').\n'
+    + 'Карточка «' + (drop.name || dropId) + '» (id ' + dropId + ') исчезнет, её платежи и баллы перейдут в главную.\n\n'
+    + (gained.length ? 'Главная получит: ' + gained.join(', ') : 'Новых полей у главной не появится — все уже заполнены.')
+    + '\n\nДействие необратимо.';
+  if(weight === 'weak') text = 'ВНИМАНИЕ: совпало только имя или username. Убедись, что это один человек.\n\n' + text;
+  if(!confirm(text)) return;
+  try{
+    const r = await fetch(API+'/users/merge?x_admin_token='+ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({keep_user_id: keepId, drop_user_id: dropId}),
+    });
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.detail || 'сервер отказал');
+    loadDupes();
+  }catch(e){ alert('Не склеилось: ' + e.message); }
+}
+
+// Удаление предлагается только там, где за карточкой нет успешных платежей.
+// Сервер проверяет это ещё раз сам — на случай, если данные на экране устарели.
+async function dropDupe(userId){
+  const u = DUPES_INDEX[userId] || {};
+  if(!confirm('Удалить карточку «' + (u.name || userId) + '» (id ' + userId + ') насовсем?\n'
+    + 'За ней не числится успешных платежей. Действие необратимо.')) return;
+  try{
+    const r = await fetch(API+'/users/'+userId+'?x_admin_token='+ADMIN_TOKEN, {method:'DELETE'});
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.detail || 'сервер отказал');
+    loadDupes();
+  }catch(e){ alert('Не удалилось: ' + e.message); }
+}
+
+let DUPES_INDEX = {};   // user_id → строка, нужен для предпросмотра склейки
 
 async function loadDupes(){
   const el = document.getElementById('dupes-body');
   el.innerHTML = '<div class="loading">Загрузка...</div>';
   try{
     const d = await fetch(API+'/users/duplicates?x_admin_token='+ADMIN_TOKEN).then(r=>r.json());
+    DUPES_INDEX = {};
+    (d.groups||[]).forEach(g => g.rows.forEach(r => { DUPES_INDEX[r.user_id] = r; }));
+    (d.orphans||[]).forEach(r => { DUPES_INDEX[r.user_id] = r; });
     let h = '<div class="pay-meta" style="margin-bottom:12px">'
       + 'Групп: ' + d.count + ' · надёжных: ' + d.strong + ' · по имени: ' + d.weak
       + ' · без мессенджера: ' + d.orphans_count + '</div>';
@@ -2181,7 +2243,7 @@ async function loadDupes(){
       h += '<div style="margin-bottom:16px">'
         + '<div class="popup-section-title" style="margin-bottom:6px">'
         + 'Совпал ' + g.label + ': ' + g.value + flag + weak + '</div>'
-        + g.rows.map(r => dupeRow(r, g.keep_user_id)).join('')
+        + g.rows.map(r => dupeRow(r, g.keep_user_id, g)).join('')
         + '</div>';
     });
 
@@ -2191,7 +2253,7 @@ async function loadDupes(){
         + 'Оплата есть, мессенджера нет</div>'
         + '<div class="pay-meta" style="margin-bottom:8px">'
         + 'На эти карточки легла оплата, но открыть приложение с них некому.</div>'
-        + d.orphans.map(r => dupeRow(r, 0)).join('')
+        + d.orphans.map(r => dupeRow(r, 0, null)).join('')
         + '</div>';
     }
     el.innerHTML = h;
