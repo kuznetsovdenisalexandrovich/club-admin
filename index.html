@@ -1508,6 +1508,21 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <button class="action-btn" onclick="setElKind('plate')" id="el-kind-plate">Плашки</button>
           <button class="action-btn" onclick="openComposer()" style="margin-left:auto">Проба сборки</button>
         </div>
+        <!-- Кирпичики ЭКРАНА ОТКРЫТИЯ. Хранятся там же, где кирпичики карточки:
+             загрузка, правка и удаление у них общие. -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
+          <span style="font-size:11px;color:var(--text-faint);margin-right:2px">Экран открытия:</span>
+          <button class="action-btn" onclick="setElKind('stage')" id="el-kind-stage">Задники</button>
+          <button class="action-btn" onclick="setElKind('back')" id="el-kind-back">Рубашки</button>
+          <button class="action-btn" onclick="setElKind('cta')" id="el-kind-cta">Кнопки</button>
+          <button class="action-btn" onclick="setElKind('close')" id="el-kind-close">Крестики</button>
+          <button class="action-btn" onclick="setElKind('sigil')" id="el-kind-sigil">Знаки</button>
+          <button class="action-btn" onclick="setElKind('screen')" id="el-kind-screen"
+                  style="font-weight:600">Готовые экраны</button>
+        </div>
+        <!-- Подсказка ключами сезонов: связь идёт по строке, и «s2 » с пробелом
+             тихо выкинул бы элемент из сезона -->
+        <datalist id="series-datalist"></datalist>
         <div id="el-list"><div class="loading">Загрузка...</div></div>
         <div id="el-editor-slot" style="margin-top:12px"></div>
         <div id="composer-slot" style="margin-top:12px"></div>
@@ -2055,6 +2070,8 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 const API        = 'https://club-backend-production-fc7f.up.railway.app';
+// Стенд экрана открытия в приложении — им же показывается превью в конструкторе
+const APP_LAB_URL = 'https://kuznetsovdenisalexandrovich.github.io/club-app/pack-lab.html';
 const ADMIN_TOKEN = 'club2024secretkey';
 let allUsers=[], allPayments=[], revenueChart=null, currentPeriod='month', currentUser=null, pendingAction=null;
 
@@ -6359,6 +6376,14 @@ async function drawRaffle(key){
 
 /* КЛАСС КАРТОЧКИ — из какого слоя механики она приходит. Всё, кроме обычной,
    исключено из паков: Знак, выпавший случайно, обесценил бы полку заслуг */
+/* Подписи темы человеческим языком: коды light/dark/any в редакторе карточки
+   ничего не говорят тому, кто не читал наш код */
+const CARD_THEME_LABELS = {
+  any:   'Как получится (по арту или редкости)',
+  dark:  'Тёмный',
+  light: 'Светлый'
+};
+
 const CARD_CLASS_LABELS = {
   regular:  'Из пака за продление',
   prologue: 'Пролог — гостю за тест',
@@ -6425,6 +6450,16 @@ function cardEditorHtml(c, idx){
       + '</div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
         + sel('Редкость','rarity',c.rarity,RARITY_LABELS)
+        // ⚠️ ТЕМА ЭКРАНА ОТКРЫТИЯ. "any" = «решай сам»: у собранной конструктором
+        // возьмётся тема её арта, у остальных — прежняя раскладка по редкости.
+        // light/dark здесь — РУЧНОЕ ПЕРЕОПРЕДЕЛЕНИЕ, оно главнее арта.
+        // Нужно в первую очередь карточкам, залитым целой картинкой: у них нет
+        // рецепта, и спросить тему больше не у кого
+        + sel('Экран открытия','theme', c.theme || 'any', CARD_THEME_LABELS)
+        + (c.theme === 'any' && c.theme_effective
+           ? '<div style="flex-basis:100%;font-size:11px;color:var(--text-faint);margin-top:-4px">'
+             + 'Сейчас берётся от арта: ' + elEsc(c.theme_effective) + '</div>'
+           : '')
         + f('Вес в колоде','weight',c.weight,'number','min="0"')
         + f('Лимит выдач','monthly_limit',c.monthly_limit,'number','min="0"')
         + f('за сколько мес','limit_period_months',c.limit_period_months||1,'number','min="1"')
@@ -6453,7 +6488,7 @@ function addCardType(){
   cardTypes.push({ key:key, god:'', title:'Новая карточка', description:'', rarity:'common',
                    weight:100, monthly_limit:0, limit_period_months:1, effect_type:'points', effect_points:50,
                    reward_key:'', media_url:'', image_url:'', image_full_url:'', personal:false, active:true, secret:false,
-                   card_class:'regular', badge_trigger:'', badge_threshold:0,
+                   card_class:'regular', badge_trigger:'', badge_threshold:0, theme:'any',
                    issued_this_month:0, _unsaved:true });
   cardsPage = 0;
   openCardEditor(key);
@@ -6480,6 +6515,7 @@ async function saveCardType(idx){
     card_class: v('card_class') || 'regular',
     badge_trigger: v('badge_trigger') || '',
     badge_threshold: parseInt(v('badge_threshold'),10) || 0,
+    theme: v('theme') || 'any',
   };
   if (!payload.key){ alert('Нужен ключ карточки'); return; }
 
@@ -7693,15 +7729,27 @@ function renderUniqueCards(){
 
 function setElKind(kind){ elKind = kind; elExpanded = null; loadElements(); }
 
+/* Наполняем подсказку сезонов тем, что уже загрузил список серий. Отдельного
+   запроса не делаем: если серии ещё не грузились, подсказка просто пустая,
+   а поле остаётся обычным вводом */
+function fillSeriesDatalist(){
+  var dl = document.getElementById('series-datalist');
+  if (!dl || !window.seriesList) return;
+  dl.innerHTML = (seriesList || []).map(function(x){
+    return '<option value="' + elEsc(x.key) + '">' + elEsc(x.title || x.key) + '</option>';
+  }).join('');
+}
+
 async function loadElements(){
   var box = document.getElementById('el-list');
-  ['frame','art','plate'].forEach(function(k){
+  ['frame','art','plate','stage','back','cta','close','sigil','screen'].forEach(function(k){
     var b = document.getElementById('el-kind-' + k);
     if (b) b.style.opacity = (k === elKind) ? '1' : '.55';
   });
   try {
     elementsCache = await fetch(API + '/cards/admin/elements?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN))
       .then(function(r){ return r.json(); });
+    fillSeriesDatalist();
     renderElements();
   } catch(e){
     box.innerHTML = '<div style="color:var(--text-faint);font-size:12px">Не загрузилось: ' + elEsc(e.message) + '</div>';
@@ -7717,6 +7765,26 @@ function renderElements(){
     h += '<div style="font-size:12px;color:var(--text-faint)">Пока ничего не загружено.</div>';
   } else {
     h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px">';
+    if (elKind === 'screen') {
+      // ⚠️ У НАБОРА НЕТ СВОЕЙ КАРТИНКИ — сетка превьюшек показала бы пустые
+      // квадраты. Показываем список: тема, сезон и сколько гнёзд заполнено
+      h = h.replace('+ загрузить', '+ новый экран');
+      h += '<div style="display:flex;flex-direction:column;gap:6px">';
+      rows.forEach(function(e){
+        var n = Object.keys(e.layout || {}).length;
+        h += '<div style="border:1px solid var(--line);border-radius:10px;padding:9px 11px;cursor:pointer;'
+          + 'display:flex;gap:10px;align-items:center" onclick="openElementEditor(' + jsArg(e.key) + ')">'
+          + '<div style="flex:1;min-width:0">'
+          + '<div style="font-size:13px">' + elEsc(e.title || e.key) + '</div>'
+          + '<div style="font-size:11px;color:var(--text-faint)">' + elEsc(e.theme)
+          + (e.series_key ? ' · сезон ' + elEsc(e.series_key) : ' · на все времена')
+          + ' · картинок: ' + n + '</div></div></div>';
+      });
+      h += '</div>';
+      box.innerHTML = h;
+      document.getElementById('el-editor-slot').innerHTML = (elExpanded === null) ? '' : elementEditorHtml(elExpanded);
+      return;
+    }
     rows.forEach(function(e){
       h += '<div style="border:1px solid var(--line);border-radius:10px;padding:6px;cursor:pointer;text-align:center"'
         + ' onclick="openElementEditor(' + jsArg(e.key) + ')">'
@@ -7742,7 +7810,94 @@ function openElementEditor(key){
   document.getElementById('el-editor-slot').innerHTML = elementEditorHtml(elExpanded);
 }
 
+/* ГНЁЗДА ЭКРАНА. Имена совпадают с теми, что понимают сервер и приложение —
+   по дороге ничего не переводится. Значение — какой ВИД элемента сюда годится. */
+var SCREEN_SLOTS = [
+  ['stage',  'stage', 'Задник сцены'],
+  ['back',   'back',  'Рубашка карты'],
+  ['ctaOpen','cta',   'Кнопка, пока есть что открывать'],
+  ['ctaDone','cta',   'Кнопка, когда всё вскрыто'],
+  ['cta',    'cta',   'Кнопка обычная (если надписи не запечены)'],
+  ['close',  'close', 'Крестик закрытия'],
+  ['sigil',  'sigil', 'Знак, видный до вспышки']
+];
+
+/* Редактор ГОТОВОГО ЭКРАНА. Своей картинки у него нет — он связывает уже
+   загруженные элементы, поэтому здесь выпадающие списки, а не поле файла. */
+function screenEditorHtml(key){
+  var e = findElement(key) || { key:'', kind:'screen', title:'', theme:'dark',
+                                series_key:'', layout:{}, sort_order:100 };
+  var isNew = !key;
+  var lay = e.layout || {};
+  var rows = SCREEN_SLOTS.map(function(sl){
+    var slot = sl[0], kind = sl[1], label = sl[2];
+    var opts = elementsCache.filter(function(x){ return x.kind === kind; });
+    return '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl(label)
+      + '<select id="sf-' + slot + '" onchange="screenPreview()" style="' + elInput() + '">'
+      + '<option value="">— нет —</option>'
+      + opts.map(function(x){
+          return '<option value="' + elEsc(x.key) + '"' + (lay[slot] === x.key ? ' selected' : '') + '>'
+               + elEsc(x.title || x.key) + '</option>'; }).join('')
+      + '</select></label>';
+  }).join('');
+  return '<div style="border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px">'
+    + '<div style="font-size:11px;color:var(--text-faint)">'
+    + 'Экран — это НАБОР целиком: задник, рубашка и кнопка выбираются вместе и вместе показываются. '
+    + 'Пустое гнездо не беда — приложение возьмёт свою картинку.</div>'
+    + '<label style="display:flex;flex-direction:column;gap:3px">'
+      + elLbl('Ключ: латиница, цифры, слеш. Например screen/s2-dark')
+      + '<input id="ef-key" value="' + elEsc(e.key) + '" ' + (isNew ? '' : 'readonly') + ' style="' + elInput() + '"></label>'
+    + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Название для себя')
+      + '<input id="ef-title" value="' + elEsc(e.title) + '" style="' + elInput() + '"></label>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:130px">' + elLbl('Для какой темы')
+        + '<select id="ef-theme" onchange="screenPreview()" style="' + elInput() + '">'
+        + ['dark','light','legendary'].map(function(t){
+            return '<option value="' + t + '"' + (e.theme === t ? ' selected' : '') + '>' + t + '</option>'; }).join('')
+        + '</select></label>'
+      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:130px">' + elLbl('Сезон (пусто — на все времена)')
+        + '<input id="ef-series" value="' + elEsc(e.series_key) + '" list="series-datalist" style="' + elInput() + '"></label>'
+    + '</div>'
+    + rows
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+      + '<button class="action-btn" onclick="screenPreview(true)">Показать превью</button>'
+      + '<span style="font-size:11px;color:var(--text-faint)">Это НАСТОЯЩИЙ экран приложения, а не рисунок рядом</span>'
+    + '</div>'
+    + '<div id="sf-preview"></div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + '<button class="action-btn" onclick="saveElement()">Сохранить</button>'
+      + '<button class="action-btn" onclick="elExpanded=null;renderElements()">Отмена</button>'
+      + (isNew ? '' : '<button class="action-btn" style="margin-left:auto" onclick="deleteElement(' + jsArg(e.key) + ')">Удалить</button>')
+    + '</div><div id="ef-status" style="font-size:11px;color:var(--text-faint)"></div></div>';
+}
+
+/* ⚠️ ПРЕВЬЮ — ЭТО НАСТОЯЩИЙ ЭКРАН ПРИЛОЖЕНИЯ В РАМКЕ, а не нарисованная здесь
+   копия. Копия разошлась бы с продуктом за неделю, и решения принимались бы
+   по картинке, которой не существует. Выбранные адреса уезжают в стенд
+   приложения через адресную строку. */
+function screenPreview(force){
+  var box = document.getElementById('sf-preview');
+  if (!box) return;
+  var v = function(id){ var el = document.getElementById(id); return el ? el.value : ''; };
+  var slots = {};
+  SCREEN_SLOTS.forEach(function(sl){
+    var key = v('sf-' + sl[0]);
+    if (!key) return;
+    var el = findElement(key);
+    if (el && el.url) slots[sl[0]] = el.url;
+  });
+  if (!force && !box.firstChild) return;      // не открываем сами, только обновляем
+  if (!Object.keys(slots).length){
+    box.innerHTML = '<div style="font-size:11px;color:var(--text-faint)">Выбери хотя бы одну картинку.</div>';
+    return;
+  }
+  var payload = encodeURIComponent(JSON.stringify({ theme: v('ef-theme') || 'dark', slots: slots }));
+  box.innerHTML = '<iframe src="' + APP_LAB_URL + '#preview=' + payload + '" '
+    + 'style="width:100%;max-width:390px;height:620px;border:1px solid var(--line);border-radius:14px;background:#000"></iframe>';
+}
+
 function elementEditorHtml(key){
+  if (elKind === 'screen') return screenEditorHtml(key);
   var e = findElement(key) || { key:'', kind:elKind, title:'', url:'', theme:'light',
                                 style:'', god:'', series_key:'', plate_mode:'key', layout:{}, sort_order:100 };
   var isNew = !key;
@@ -7765,6 +7920,12 @@ function elementEditorHtml(key){
         + '</select></label>'
       + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:110px">' + elLbl('Стиль: holo, emboss, gold')
         + '<input id="ef-style" value="' + elEsc(e.style) + '" style="' + elInput() + '"></label>'
+      /* ⚠️ ПОЛЕ СЕЗОНА ОБЯЗАНО БЫТЬ, РАЗ ОНО УХОДИТ НА СЕРВЕР. Без него
+         сохранение отправляло бы пустую строку и СТИРАЛО сезон у артов,
+         которым он проставлен. Молча: ошибки нет, просто арт выпадает из
+         своей серии. */
+      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:110px">' + elLbl('Сезон (пусто — общий)')
+        + '<input id="ef-series" value="' + elEsc(e.series_key) + '" list="series-datalist" style="' + elInput() + '"></label>'
     + '</div>'
     + (elKind === 'frame' ? '' :
        '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Бог')
@@ -7791,12 +7952,40 @@ function elementEditorHtml(key){
 }
 
 /* Арты ужимаем в браузере, рамки и плашки отдаём как есть: сжатие съело бы
-   альфу у рамки и тиснение у плашки */
+   альфу у рамки и тиснение у плашки.
+
+   ⚠️ КАРТИНКИ ЭКРАНА — ОТДЕЛЬНЫЙ СЛУЧАЙ, И ИХ НЕЛЬЗЯ СЛАТЬ СЫРЫМ PNG.
+   Задник от нейросети приходит 1024×1536 и весит несколько мегабайт; его
+   качает КАЖДЫЙ участник при КАЖДОМ вскрытии. Жмём в WebP: он держит
+   полупрозрачность (в отличие от JPEG) и даёт ~100 КБ вместо 3 МБ.
+   Рамки и плашки САМОЙ КАРТОЧКИ по-прежнему уходят как есть — там сжатие
+   съедает тиснение, и это проверено. */
+var REVEAL_UPLOAD_KINDS = { stage:1, back:1, cta:1, close:1, sigil:1 };
+
 function readElementFile(file, kind){
   return new Promise(function(resolve, reject){
     var fr = new FileReader();
     fr.onerror = function(){ reject(new Error('файл не прочитался')); };
     fr.onload = function(){
+      if (REVEAL_UPLOAD_KINDS[kind]) {
+        var im = new Image();
+        im.onload = function(){
+          var max = 1200, kk = Math.min(1, max / Math.max(im.width, im.height));
+          var cv = document.createElement('canvas');
+          cv.width = Math.round(im.width * kk); cv.height = Math.round(im.height * kk);
+          // ⚠️ Фон НЕ заливаем: у задника и рубашки края бывают прозрачными,
+          // и белая подложка вылезла бы каймой вокруг картинки
+          cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
+          var out = cv.toDataURL('image/webp', 0.82);
+          // ⚠️ Если браузер WebP не умеет, toDataURL молча вернёт PNG —
+          // проверяем ЧТО ПОЛУЧИЛОСЬ, а не что просили
+          if (out.indexOf('data:image/webp') === 0) { resolve({ data: out, ext: 'webp' }); }
+          else { resolve({ data: fr.result, ext: 'png' }); }
+        };
+        im.onerror = function(){ reject(new Error('картинка не открылась')); };
+        im.src = fr.result;
+        return;
+      }
       if (kind !== 'art') { resolve({ data: fr.result, ext: 'png' }); return; }
       var img = new Image();
       img.onload = function(){
@@ -7830,6 +8019,25 @@ async function saveElement(){
 
   st.textContent = 'Сохраняю…';
   try {
+    // ⚠️ У ГОТОВОГО ЭКРАНА НЕТ ФАЙЛА — он связывает уже загруженные элементы.
+    // Сервер тоже это проверяет; здесь просто не даём отправить лишнего.
+    if (elKind === 'screen') {
+      var lay = {};
+      SCREEN_SLOTS.forEach(function(sl){
+        var val = v('sf-' + sl[0]).trim();
+        if (val) lay[sl[0]] = val;
+      });
+      var sp = { key: key, kind: 'screen', title: v('ef-title').trim(),
+                 theme: v('ef-theme') || 'dark', style: '', god: '',
+                 series_key: v('ef-series').trim(), plate_mode: 'key', layout: lay };
+      var sr = await fetch(API + '/cards/admin/elements?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(sp) });
+      var sd = await sr.json().catch(function(){ return {}; });
+      if (!sr.ok) throw new Error(sd.detail || ('сервер ответил ' + sr.status));
+      elExpanded = null;
+      await loadElements();
+      return;
+    }
     var fileEl = document.getElementById('ef-file');
     if (fileEl && fileEl.files && fileEl.files[0]) {
       st.textContent = 'Загружаю файл…';
@@ -7843,7 +8051,7 @@ async function saveElement(){
     var payload = { key: key, kind: elKind, title: v('ef-title').trim(),
                     theme: v('ef-theme') || 'light', style: v('ef-style').trim(),
                     god: v('ef-god').trim(), plate_mode: v('ef-plate-mode') || 'key',
-                    layout: layout };
+                    series_key: v('ef-series').trim(), layout: layout };
     var r = await fetch(API + '/cards/admin/elements?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     var d = await r.json().catch(function(){ return {}; });
