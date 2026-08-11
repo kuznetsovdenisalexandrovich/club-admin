@@ -1069,6 +1069,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <button class="action-btn" onclick="openLevelConfigPopup()">Настроить уровни</button>
         <button class="action-btn" onclick="openRewardCatalogPopup()">Управление наградами</button>
         <button class="action-btn" onclick="openCardsPopup()">Колода карточек</button>
+        <button class="action-btn" onclick="openScreensPopup()">Экраны открытия</button>
         <button class="action-btn" onclick="openRafflePopup()">Розыгрыши</button>
         <button class="action-btn" onclick="openNudgesPopup()">Дожимные рассылки</button>
         <button class="action-btn" onclick="openBonusPopup()">Бонусы за вступление</button>
@@ -1508,17 +1509,9 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <button class="action-btn" onclick="setElKind('plate')" id="el-kind-plate">Плашки</button>
           <button class="action-btn" onclick="openComposer()" style="margin-left:auto">Проба сборки</button>
         </div>
-        <!-- Кирпичики ЭКРАНА ОТКРЫТИЯ. Хранятся там же, где кирпичики карточки:
-             загрузка, правка и удаление у них общие. -->
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
-          <span style="font-size:11px;color:var(--text-faint);margin-right:2px">Экран открытия:</span>
-          <button class="action-btn" onclick="setElKind('stage')" id="el-kind-stage">Задники</button>
-          <button class="action-btn" onclick="setElKind('back')" id="el-kind-back">Рубашки</button>
-          <button class="action-btn" onclick="setElKind('cta')" id="el-kind-cta">Кнопки</button>
-          <button class="action-btn" onclick="setElKind('close')" id="el-kind-close">Крестики</button>
-          <button class="action-btn" onclick="setElKind('sigil')" id="el-kind-sigil">Знаки</button>
-          <button class="action-btn" onclick="setElKind('screen')" id="el-kind-screen"
-                  style="font-weight:600">Готовые экраны</button>
+        <!-- ⚠️ Кирпичики ЭКРАНА ОТКРЫТИЯ жили здесь до 12.08.2026 и переехали
+             в свой раздел «Экраны открытия»: работа над экраном и работа над
+             карточкой — разные занятия, и мешать их в одном попапе неудобно. -->
         </div>
         <!-- Подсказка ключами сезонов: связь идёт по строке, и «s2 » с пробелом
              тихо выкинул бы элемент из сезона -->
@@ -1529,6 +1522,37 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       </div>
 
       <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closeCardsPopup()">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ЭКРАНЫ ОТКРЫТИЯ ══════════════════════════════════════════════════════
+     Отдельный раздел, а не вкладка в карточках: работа над оформлением экрана
+     и работа над колодой — разные занятия.
+     Экран здесь ОДНА СУЩНОСТЬ с полями под файлы, а не набор ссылок на
+     отдельно загруженные кирпичики. Ключи элементов выписываются сами из
+     имени экрана — вводить и запоминать их вручную незачем. -->
+<div class="popup-overlay" id="screens-popup-overlay">
+  <div class="popup" id="screens-popup">
+    <div class="popup-handle"></div>
+    <div class="popup-body" style="padding-top:0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div class="popup-section-title" style="margin-top:0;margin-bottom:0">Экраны открытия</div>
+        <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeScreensPopup()">&times;</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-faint);margin-bottom:10px">
+        Экран — это оформление, которое участник видит при вскрытии пака.
+        Участнику случайно достаётся один экран на каждую тему из текущего сезона.
+        Незаполненное поле не беда: приложение возьмёт свою картинку.
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+        <button class="action-btn" onclick="openScreenEditor('')">+ новый экран</button>
+        <button class="action-btn" onclick="loadScreens()" style="margin-left:auto">Обновить</button>
+      </div>
+      <datalist id="series-datalist-screens"></datalist>
+      <div id="screens-list"><div class="loading">Загрузка...</div></div>
+      <div id="screen-editor-slot" style="margin-top:12px"></div>
+      <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closeScreensPopup()">Закрыть</button>
     </div>
   </div>
 </div>
@@ -7765,26 +7789,6 @@ function renderElements(){
     h += '<div style="font-size:12px;color:var(--text-faint)">Пока ничего не загружено.</div>';
   } else {
     h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px">';
-    if (elKind === 'screen') {
-      // ⚠️ У НАБОРА НЕТ СВОЕЙ КАРТИНКИ — сетка превьюшек показала бы пустые
-      // квадраты. Показываем список: тема, сезон и сколько гнёзд заполнено
-      h = h.replace('+ загрузить', '+ новый экран');
-      h += '<div style="display:flex;flex-direction:column;gap:6px">';
-      rows.forEach(function(e){
-        var n = Object.keys(e.layout || {}).length;
-        h += '<div style="border:1px solid var(--line);border-radius:10px;padding:9px 11px;cursor:pointer;'
-          + 'display:flex;gap:10px;align-items:center" onclick="openElementEditor(' + jsArg(e.key) + ')">'
-          + '<div style="flex:1;min-width:0">'
-          + '<div style="font-size:13px">' + elEsc(e.title || e.key) + '</div>'
-          + '<div style="font-size:11px;color:var(--text-faint)">' + elEsc(e.theme)
-          + (e.series_key ? ' · сезон ' + elEsc(e.series_key) : ' · на все времена')
-          + ' · картинок: ' + n + '</div></div></div>';
-      });
-      h += '</div>';
-      box.innerHTML = h;
-      document.getElementById('el-editor-slot').innerHTML = (elExpanded === null) ? '' : elementEditorHtml(elExpanded);
-      return;
-    }
     rows.forEach(function(e){
       h += '<div style="border:1px solid var(--line);border-radius:10px;padding:6px;cursor:pointer;text-align:center"'
         + ' onclick="openElementEditor(' + jsArg(e.key) + ')">'
@@ -7810,94 +7814,7 @@ function openElementEditor(key){
   document.getElementById('el-editor-slot').innerHTML = elementEditorHtml(elExpanded);
 }
 
-/* ГНЁЗДА ЭКРАНА. Имена совпадают с теми, что понимают сервер и приложение —
-   по дороге ничего не переводится. Значение — какой ВИД элемента сюда годится. */
-var SCREEN_SLOTS = [
-  ['stage',  'stage', 'Задник сцены'],
-  ['back',   'back',  'Рубашка карты'],
-  ['ctaOpen','cta',   'Кнопка, пока есть что открывать'],
-  ['ctaDone','cta',   'Кнопка, когда всё вскрыто'],
-  ['cta',    'cta',   'Кнопка обычная (если надписи не запечены)'],
-  ['close',  'close', 'Крестик закрытия'],
-  ['sigil',  'sigil', 'Знак, видный до вспышки']
-];
-
-/* Редактор ГОТОВОГО ЭКРАНА. Своей картинки у него нет — он связывает уже
-   загруженные элементы, поэтому здесь выпадающие списки, а не поле файла. */
-function screenEditorHtml(key){
-  var e = findElement(key) || { key:'', kind:'screen', title:'', theme:'dark',
-                                series_key:'', layout:{}, sort_order:100 };
-  var isNew = !key;
-  var lay = e.layout || {};
-  var rows = SCREEN_SLOTS.map(function(sl){
-    var slot = sl[0], kind = sl[1], label = sl[2];
-    var opts = elementsCache.filter(function(x){ return x.kind === kind; });
-    return '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl(label)
-      + '<select id="sf-' + slot + '" onchange="screenPreview()" style="' + elInput() + '">'
-      + '<option value="">— нет —</option>'
-      + opts.map(function(x){
-          return '<option value="' + elEsc(x.key) + '"' + (lay[slot] === x.key ? ' selected' : '') + '>'
-               + elEsc(x.title || x.key) + '</option>'; }).join('')
-      + '</select></label>';
-  }).join('');
-  return '<div style="border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px">'
-    + '<div style="font-size:11px;color:var(--text-faint)">'
-    + 'Экран — это НАБОР целиком: задник, рубашка и кнопка выбираются вместе и вместе показываются. '
-    + 'Пустое гнездо не беда — приложение возьмёт свою картинку.</div>'
-    + '<label style="display:flex;flex-direction:column;gap:3px">'
-      + elLbl('Ключ: латиница, цифры, слеш. Например screen/s2-dark')
-      + '<input id="ef-key" value="' + elEsc(e.key) + '" ' + (isNew ? '' : 'readonly') + ' style="' + elInput() + '"></label>'
-    + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Название для себя')
-      + '<input id="ef-title" value="' + elEsc(e.title) + '" style="' + elInput() + '"></label>'
-    + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
-      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:130px">' + elLbl('Для какой темы')
-        + '<select id="ef-theme" onchange="screenPreview()" style="' + elInput() + '">'
-        + ['dark','light','legendary'].map(function(t){
-            return '<option value="' + t + '"' + (e.theme === t ? ' selected' : '') + '>' + t + '</option>'; }).join('')
-        + '</select></label>'
-      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:130px">' + elLbl('Сезон (пусто — на все времена)')
-        + '<input id="ef-series" value="' + elEsc(e.series_key) + '" list="series-datalist" style="' + elInput() + '"></label>'
-    + '</div>'
-    + rows
-    + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
-      + '<button class="action-btn" onclick="screenPreview(true)">Показать превью</button>'
-      + '<span style="font-size:11px;color:var(--text-faint)">Это НАСТОЯЩИЙ экран приложения, а не рисунок рядом</span>'
-    + '</div>'
-    + '<div id="sf-preview"></div>'
-    + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
-      + '<button class="action-btn" onclick="saveElement()">Сохранить</button>'
-      + '<button class="action-btn" onclick="elExpanded=null;renderElements()">Отмена</button>'
-      + (isNew ? '' : '<button class="action-btn" style="margin-left:auto" onclick="deleteElement(' + jsArg(e.key) + ')">Удалить</button>')
-    + '</div><div id="ef-status" style="font-size:11px;color:var(--text-faint)"></div></div>';
-}
-
-/* ⚠️ ПРЕВЬЮ — ЭТО НАСТОЯЩИЙ ЭКРАН ПРИЛОЖЕНИЯ В РАМКЕ, а не нарисованная здесь
-   копия. Копия разошлась бы с продуктом за неделю, и решения принимались бы
-   по картинке, которой не существует. Выбранные адреса уезжают в стенд
-   приложения через адресную строку. */
-function screenPreview(force){
-  var box = document.getElementById('sf-preview');
-  if (!box) return;
-  var v = function(id){ var el = document.getElementById(id); return el ? el.value : ''; };
-  var slots = {};
-  SCREEN_SLOTS.forEach(function(sl){
-    var key = v('sf-' + sl[0]);
-    if (!key) return;
-    var el = findElement(key);
-    if (el && el.url) slots[sl[0]] = el.url;
-  });
-  if (!force && !box.firstChild) return;      // не открываем сами, только обновляем
-  if (!Object.keys(slots).length){
-    box.innerHTML = '<div style="font-size:11px;color:var(--text-faint)">Выбери хотя бы одну картинку.</div>';
-    return;
-  }
-  var payload = encodeURIComponent(JSON.stringify({ theme: v('ef-theme') || 'dark', slots: slots }));
-  box.innerHTML = '<iframe src="' + APP_LAB_URL + '#preview=' + payload + '" '
-    + 'style="width:100%;max-width:390px;height:620px;border:1px solid var(--line);border-radius:14px;background:#000"></iframe>';
-}
-
 function elementEditorHtml(key){
-  if (elKind === 'screen') return screenEditorHtml(key);
   var e = findElement(key) || { key:'', kind:elKind, title:'', url:'', theme:'light',
                                 style:'', god:'', series_key:'', plate_mode:'key', layout:{}, sort_order:100 };
   var isNew = !key;
@@ -7960,7 +7877,7 @@ function elementEditorHtml(key){
    полупрозрачность (в отличие от JPEG) и даёт ~100 КБ вместо 3 МБ.
    Рамки и плашки САМОЙ КАРТОЧКИ по-прежнему уходят как есть — там сжатие
    съедает тиснение, и это проверено. */
-var REVEAL_UPLOAD_KINDS = { stage:1, back:1, cta:1, close:1, sigil:1 };
+var REVEAL_UPLOAD_KINDS = { stage:1, back:1, cta:1, close:1, sigil:1, ornament:1 };
 
 function readElementFile(file, kind){
   return new Promise(function(resolve, reject){
@@ -8019,25 +7936,6 @@ async function saveElement(){
 
   st.textContent = 'Сохраняю…';
   try {
-    // ⚠️ У ГОТОВОГО ЭКРАНА НЕТ ФАЙЛА — он связывает уже загруженные элементы.
-    // Сервер тоже это проверяет; здесь просто не даём отправить лишнего.
-    if (elKind === 'screen') {
-      var lay = {};
-      SCREEN_SLOTS.forEach(function(sl){
-        var val = v('sf-' + sl[0]).trim();
-        if (val) lay[sl[0]] = val;
-      });
-      var sp = { key: key, kind: 'screen', title: v('ef-title').trim(),
-                 theme: v('ef-theme') || 'dark', style: '', god: '',
-                 series_key: v('ef-series').trim(), plate_mode: 'key', layout: lay };
-      var sr = await fetch(API + '/cards/admin/elements?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
-        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(sp) });
-      var sd = await sr.json().catch(function(){ return {}; });
-      if (!sr.ok) throw new Error(sd.detail || ('сервер ответил ' + sr.status));
-      elExpanded = null;
-      await loadElements();
-      return;
-    }
     var fileEl = document.getElementById('ef-file');
     if (fileEl && fileEl.files && fileEl.files[0]) {
       st.textContent = 'Загружаю файл…';
@@ -8059,6 +7957,262 @@ async function saveElement(){
     elExpanded = null;
     await loadElements();
   } catch(e){ st.textContent = 'Не сохранилось: ' + e.message; }
+}
+
+
+/* ══ ЭКРАНЫ ОТКРЫТИЯ ═══════════════════════════════════════════════════════
+   Экран — ОДНА СУЩНОСТЬ с полями под файлы. Кирпичики (задник, рубашка,
+   кнопки, крестик, орнамент, знак) на сервере по-прежнему живут отдельными
+   элементами — иначе пришлось бы городить вторую систему хранения, — но
+   здесь это спрятано: поля загрузки стоят прямо в экране, а ключи элементов
+   выписываются САМИ из имени экрана.
+
+   ⚠️ КЛЮЧИ НЕ ВВОДЯТСЯ РУКАМИ. Denis 12.08.2026: «мне не нравится, что я
+   должен ключи вводить сам и запоминать». Ключ элемента = вид + слаг экрана
+   (`stage/dark-01`), ключ экрана = `screen/<слаг>`. Слаг берётся из имени.
+   Побочная польза: перезалил файл в то же поле — он перезаписал прежний, а
+   не наплодил близнецов с номерами. */
+var SCREEN_FIELDS = [
+  ['stage',   'stage',    'Фон'],
+  ['back',    'back',     'Рубашка'],
+  ['ctaOpen', 'cta',      'Кнопка «Следующая карта»'],
+  ['ctaDone', 'cta',      'Кнопка «Посмотреть»'],
+  ['close',   'close',    'Крестик'],
+  ['ornament','ornament', 'Орнамент'],
+  ['sigil',   'sigil',    'Знак']
+];
+
+var screensCache = [];      // строки kind=screen
+var screenParts  = {};      // ключ элемента -> элемент, чтобы показывать превьюшки
+var screenOpen   = null;    // какой экран сейчас правится
+
+/* Слаг из имени: латиница и цифры, остальное в дефис. Кириллица переводится
+   по таблице — иначе «Тёмный-01» дал бы пустой ключ, и экран молча не
+   сохранился бы. */
+function screenSlug(name){
+  var map = {а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'e',ж:'zh',з:'z',и:'i',й:'y',
+             к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',
+             х:'h',ц:'c',ч:'ch',ш:'sh',щ:'sch',ъ:'',ы:'y',ь:'',э:'e',ю:'yu',я:'ya'};
+  var out = String(name || '').toLowerCase().split('').map(function(ch){
+    if (map[ch] !== undefined) return map[ch];
+    return /[a-z0-9]/.test(ch) ? ch : '-';
+  }).join('');
+  out = out.replace(/-+/g, '-').replace(/^-|-$/g, '');
+  return out || ('screen-' + Date.now().toString(36));
+}
+
+async function openScreensPopup(){
+  document.getElementById('screens-popup-overlay').classList.add('open');
+  await loadScreens();
+}
+function closeScreensPopup(){
+  document.getElementById('screens-popup-overlay').classList.remove('open');
+  screenOpen = null;
+  document.getElementById('screen-editor-slot').innerHTML = '';
+}
+
+async function loadScreens(){
+  var box = document.getElementById('screens-list');
+  try {
+    var all = await fetch(API + '/cards/admin/elements?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN))
+      .then(function(r){ return r.json(); });
+    screensCache = all.filter(function(e){ return e.kind === 'screen'; });
+    screenParts = {};
+    all.forEach(function(e){ screenParts[e.key] = e; });
+    fillScreenSeriesList();
+    renderScreens();
+  } catch(e){
+    box.innerHTML = '<div style="color:var(--text-faint);font-size:12px">Не загрузилось: ' + elEsc(e.message) + '</div>';
+  }
+}
+
+function fillScreenSeriesList(){
+  var dl = document.getElementById('series-datalist-screens');
+  if (!dl || !window.seriesList) return;
+  dl.innerHTML = (seriesList || []).map(function(x){
+    return '<option value="' + elEsc(x.key) + '">' + elEsc(x.title || x.key) + '</option>';
+  }).join('');
+}
+
+function renderScreens(){
+  var box = document.getElementById('screens-list');
+  if (!screensCache.length){
+    box.innerHTML = '<div style="font-size:12px;color:var(--text-faint)">Пока ни одного экрана. Всё, что видит участник, берётся из запасного комплекта в приложении.</div>';
+  } else {
+    box.innerHTML = screensCache.map(function(e){
+      var lay = e.layout || {};
+      var filled = SCREEN_FIELDS.filter(function(f){ return lay[f[0]]; }).length;
+      var first = screenParts[lay.stage || ''] || screenParts[lay.back || ''];
+      return '<div style="border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:6px;cursor:pointer;'
+        + 'display:flex;gap:10px;align-items:center" onclick="openScreenEditor(' + jsArg(e.key) + ')">'
+        + (first && first.url
+            ? '<img src="' + elEsc(first.url) + '" style="width:44px;height:60px;object-fit:cover;border-radius:6px;flex:none;background:var(--surface)">'
+            : '<div style="width:44px;height:60px;border-radius:6px;flex:none;background:var(--surface)"></div>')
+        + '<div style="flex:1;min-width:0">'
+        + '<div style="font-size:13px">' + elEsc(e.title || e.key) + (e.active ? '' : ' · выключен') + '</div>'
+        + '<div style="font-size:11px;color:var(--text-faint)">' + elEsc(e.theme)
+        + (e.series_key ? ' · сезон ' + elEsc(e.series_key) : ' · на все времена')
+        + ' · заполнено ' + filled + ' из ' + SCREEN_FIELDS.length + '</div></div></div>';
+    }).join('');
+  }
+  document.getElementById('screen-editor-slot').innerHTML =
+    (screenOpen === null) ? '' : screenEditorHtml(screenOpen);
+}
+
+function openScreenEditor(key){
+  screenOpen = key || '';
+  document.getElementById('screen-editor-slot').innerHTML = screenEditorHtml(screenOpen);
+}
+
+function findScreen(key){
+  var out = null;
+  screensCache.forEach(function(e){ if (e.key === key) out = e; });
+  return out;
+}
+
+function screenEditorHtml(key){
+  var e = findScreen(key) || { key:'', title:'', theme:'dark', series_key:'', layout:{}, active:true };
+  var isNew = !key;
+  var lay = e.layout || {};
+  var rows = SCREEN_FIELDS.map(function(f){
+    var slot = f[0], label = f[2];
+    var el = screenParts[lay[slot] || ''];
+    return '<div style="display:flex;gap:9px;align-items:center;padding:7px 0;border-top:1px solid var(--line)">'
+      + (el && el.url
+          ? '<img src="' + elEsc(el.url) + '" style="width:42px;height:42px;object-fit:contain;border-radius:6px;flex:none;background:var(--surface)">'
+          : '<div style="width:42px;height:42px;border-radius:6px;flex:none;background:var(--surface)"></div>')
+      + '<div style="flex:1;min-width:0">'
+        + '<div style="font-size:12px">' + label + '</div>'
+        + '<input type="file" accept="image/*" id="sc-file-' + slot + '" style="font-size:11px;max-width:100%">'
+      + '</div>'
+      + (el ? '<button class="action-btn" style="flex:none;font-size:11px;padding:5px 8px" onclick="clearScreenSlot(' + jsArg(slot) + ')">убрать</button>' : '')
+      + '</div>';
+  }).join('');
+  return '<div style="border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px">'
+    + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Название экрана — например Dark-01')
+      + '<input id="sc-title" value="' + elEsc(e.title) + '" style="' + elInput() + '"></label>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:130px">' + elLbl('Для какой темы')
+        + '<select id="sc-theme" style="' + elInput() + '">'
+        + ['dark','light','legendary'].map(function(t){
+            return '<option value="' + t + '"' + (e.theme === t ? ' selected' : '') + '>' + t + '</option>'; }).join('')
+        + '</select></label>'
+      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:130px">' + elLbl('Сезон (пусто — на все времена)')
+        + '<input id="sc-series" value="' + elEsc(e.series_key) + '" list="series-datalist-screens" style="' + elInput() + '"></label>'
+    + '</div>'
+    + '<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer">'
+      + '<input type="checkbox" id="sc-active" ' + (e.active ? 'checked' : '') + '> Участвует в показе</label>'
+    + rows
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-top:1px solid var(--line);padding-top:10px">'
+      + '<button class="action-btn" onclick="saveScreen()">Сохранить</button>'
+      + '<button class="action-btn" onclick="screenOpen=null;renderScreens()">Отмена</button>'
+      + (isNew ? '' : '<button class="action-btn" onclick="refreshScreenPreview()">Обновить превью</button>')
+      + (isNew ? '' : '<button class="action-btn" style="margin-left:auto" onclick="deleteScreen(' + jsArg(e.key) + ')">Удалить</button>')
+    + '</div>'
+    + '<div id="sc-status" style="font-size:11px;color:var(--text-faint)"></div>'
+    + (isNew
+        ? '<div style="font-size:11px;color:var(--text-faint)">Превью появится после первого сохранения.</div>'
+        : '<div id="sc-preview">' + screenPreviewHtml(e) + '</div>')
+    + '</div>';
+}
+
+/* ⚠️ ПРЕВЬЮ — НАСТОЯЩИЙ ЭКРАН ПРИЛОЖЕНИЯ В РАМКЕ, не нарисованная здесь
+   копия: копия разошлась бы с продуктом за неделю, и решения принимались бы
+   по картинке, которой не существует. */
+function screenPreviewHtml(e){
+  var lay = e.layout || {}, slots = {};
+  SCREEN_FIELDS.forEach(function(f){
+    var el = screenParts[lay[f[0]] || ''];
+    if (el && el.url) slots[f[0]] = el.url;
+  });
+  if (!Object.keys(slots).length){
+    return '<div style="font-size:11px;color:var(--text-faint)">Загрузи хотя бы одну картинку — здесь появится настоящий экран.</div>';
+  }
+  // Метка времени в адресе — иначе браузер показал бы прошлое превью из кэша
+  var payload = encodeURIComponent(JSON.stringify({ theme: e.theme || 'dark', slots: slots }));
+  return '<iframe src="' + APP_LAB_URL + '?t=' + Date.now() + '#preview=' + payload + '" '
+    + 'style="width:100%;max-width:390px;height:620px;border:1px solid var(--line);border-radius:14px;background:#000"></iframe>';
+}
+
+function refreshScreenPreview(){
+  var e = findScreen(screenOpen);
+  var box = document.getElementById('sc-preview');
+  if (e && box) box.innerHTML = screenPreviewHtml(e);
+}
+
+async function clearScreenSlot(slot){
+  var e = findScreen(screenOpen);
+  if (!e) return;
+  var lay = Object.assign({}, e.layout || {});
+  delete lay[slot];
+  e.layout = lay;
+  await putScreen(e);
+  await loadScreens();
+}
+
+/* Сохранение: сначала файлы (каждый — элемент с автоключом), потом сам экран.
+   ⚠️ ИМЕННО В ТАКОМ ПОРЯДКЕ: сервер проверяет ссылки экрана при сохранении и
+   отказал бы, сославшись на несуществующий элемент. */
+async function saveScreen(){
+  var v = function(id){ var el = document.getElementById(id); return el ? el.value : ''; };
+  var st = document.getElementById('sc-status');
+  var title = v('sc-title').trim();
+  if (!title){ st.textContent = 'Дай экрану название'; return; }
+
+  var old  = findScreen(screenOpen);
+  var slug = old ? old.key.replace(/^screen\//, '') : screenSlug(title);
+  var key  = 'screen/' + slug;
+  var lay  = Object.assign({}, (old && old.layout) || {});
+  var theme = v('sc-theme') || 'dark';
+
+  try {
+    for (var i = 0; i < SCREEN_FIELDS.length; i++){
+      var slot = SCREEN_FIELDS[i][0], kind = SCREEN_FIELDS[i][1];
+      var fileEl = document.getElementById('sc-file-' + slot);
+      if (!fileEl || !fileEl.files || !fileEl.files[0]) continue;
+      st.textContent = 'Загружаю: ' + SCREEN_FIELDS[i][2] + '…';
+      var elKey = kind + '/' + slug + '-' + slot;      // ключ выписан сам
+      var got = await readElementFile(fileEl.files[0], kind);
+      var ur = await fetch(API + '/cards/admin/elements/upload?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ key: elKey, kind: kind, image_base64: got.data, ext: got.ext }) });
+      var ud = await ur.json().catch(function(){ return {}; });
+      if (!ur.ok) throw new Error(ud.detail || ('загрузка не прошла, ' + ur.status));
+      // Тема и сезон у кирпичика те же, что у экрана — своей жизни у него нет
+      await fetch(API + '/cards/admin/elements?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ key: elKey, kind: kind, title: title + ' · ' + SCREEN_FIELDS[i][2],
+                               theme: theme, style: '', god: '', series_key: v('sc-series').trim(),
+                               plate_mode: 'key', layout: {}, active: true, sort_order: 100 }) });
+      lay[slot] = elKey;
+    }
+    st.textContent = 'Сохраняю экран…';
+    await putScreen({ key: key, title: title, theme: theme,
+                      series_key: v('sc-series').trim(), layout: lay,
+                      active: document.getElementById('sc-active').checked });
+    screenOpen = key;
+    await loadScreens();
+    var st2 = document.getElementById('sc-status');
+    if (st2) st2.textContent = 'Готово.';
+  } catch(e){ st.textContent = 'Не сохранилось: ' + e.message; }
+}
+
+async function putScreen(e){
+  var r = await fetch(API + '/cards/admin/elements?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ key: e.key, kind: 'screen', title: e.title || '', theme: e.theme || 'dark',
+                           style: '', god: '', series_key: e.series_key || '', plate_mode: 'key',
+                           layout: e.layout || {}, active: e.active !== false, sort_order: 100 }) });
+  var d = await r.json().catch(function(){ return {}; });
+  if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
+}
+
+async function deleteScreen(key){
+  if (!confirm('Удалить экран «' + key + '»? Загруженные картинки останутся.')) return;
+  await fetch(API + '/cards/admin/elements?key=' + encodeURIComponent(key)
+    + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), { method:'DELETE' });
+  screenOpen = null;
+  loadScreens();
 }
 
 async function deleteElement(key){
