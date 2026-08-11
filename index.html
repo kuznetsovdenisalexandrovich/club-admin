@@ -7879,12 +7879,45 @@ function elementEditorHtml(key){
    съедает тиснение, и это проверено. */
 var REVEAL_UPLOAD_KINDS = { stage:1, back:1, cta:1, close:1, sigil:1, ornament:1, pedestal:1 };
 
+/* Анимация ли это — смотрим ПО БАЙТАМ, а не по расширению: файл с именем
+   .png вполне может быть APNG, а .webp — анимированным.
+     APNG  — чанк acTL до первого IDAT
+     WebP  — чанк ANMF
+     GIF   — считаем анимацией всегда, разбирать смысла нет
+   Читаем начало файла: маркеры лежат в первых килобайтах. */
+function looksAnimated(dataUrl){
+  try {
+    var head = String(dataUrl).slice(0, 60);
+    if (head.indexOf('image/gif') >= 0) return true;
+    var b64 = String(dataUrl).split(',')[1] || '';
+    var bin = atob(b64.slice(0, 8000));          // ~6 КБ начала — маркеры там
+    if (head.indexOf('image/png') >= 0){
+      var idat = bin.indexOf('IDAT');
+      var actl = bin.indexOf('acTL');
+      return actl >= 0 && (idat < 0 || actl < idat);
+    }
+    if (head.indexOf('image/webp') >= 0) return bin.indexOf('ANMF') >= 0 || bin.indexOf('ANIM') >= 0;
+  } catch(e){}
+  return false;
+}
+function animExt(dataUrl){
+  var head = String(dataUrl).slice(0, 60);
+  if (head.indexOf('image/gif')  >= 0) return 'gif';
+  if (head.indexOf('image/webp') >= 0) return 'webp';
+  return 'png';
+}
+
 function readElementFile(file, kind){
   return new Promise(function(resolve, reject){
     var fr = new FileReader();
     fr.onerror = function(){ reject(new Error('файл не прочитался')); };
     fr.onload = function(){
       if (REVEAL_UPLOAD_KINDS[kind]) {
+        /* ⚠️⚠️ АНИМИРОВАННЫЙ ФАЙЛ ЧЕРЕЗ ХОЛСТ ПРОПУСКАТЬ НЕЛЬЗЯ. Холст берёт
+           ОДИН кадр — анимация превратилась бы в неподвижную картинку МОЛЧА:
+           ни ошибки, ни предупреждения, просто «почему-то не двигается».
+           Такой файл отдаём как есть, пусть весит больше. */
+        if (looksAnimated(fr.result)) { resolve({ data: fr.result, ext: animExt(fr.result) }); return; }
         var im = new Image();
         im.onload = function(){
           var max = 1200, kk = Math.min(1, max / Math.max(im.width, im.height));
@@ -7989,7 +8022,7 @@ var SCREEN_FIELDS = [
   ['cta',      'cta',      'Кнопка без надписи (одна на все три состояния)'],
   ['close',    'close',    'Крестик закрытия'],
   ['ornament', 'ornament', 'Орнамент — рамка поверх сцены'],
-  ['sigil',    'sigil',    'Сигил — узор за стопкой до вспышки']
+  ['sigil',    'sigil',    'Узор за стопкой — виден ДО вспышки, пока бог неизвестен']
 ];
 
 var screensCache = [];      // строки kind=screen
