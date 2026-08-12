@@ -8100,11 +8100,13 @@ function renderScreens(){
   }
   document.getElementById('screen-editor-slot').innerHTML =
     (screenOpen === null) ? '' : screenEditorHtml(screenOpen);
+  fitScreenPreview();
 }
 
 function openScreenEditor(key){
   screenOpen = key || '';
   document.getElementById('screen-editor-slot').innerHTML = screenEditorHtml(screenOpen);
+  fitScreenPreview();      // рамка уже в разметке — сразу подгоняем масштаб
 }
 
 function findScreen(key){
@@ -8181,21 +8183,44 @@ function screenPreviewHtml(e){
      начинают чинить то, что не сломано.
      Держим внутри честные 390×844 (iPhone 14/15) и УМЕНЬШАЕМ целиком —
      пропорции сохраняются, а в дашборд помещается. */
-  var W = 390, H = 844, BOX = 340, k = BOX / W;
-  return '<div style="width:' + BOX + 'px;height:' + Math.round(H * k) + 'px;max-width:100%;'
-    +      'overflow:hidden;border:1px solid var(--line);border-radius:14px;background:#000">'
-    + '<iframe src="' + APP_LAB_URL + '?t=' + Date.now() + '#preview=' + payload + '" '
-    +   'style="width:' + W + 'px;height:' + H + 'px;border:0;display:block;'
-    +   'transform:scale(' + k.toFixed(4) + ');transform-origin:top left"></iframe>'
-    + '<div style="font-size:10px;color:var(--text-faint);margin-top:4px">'
-    +   'Показано как на телефоне ' + W + '×' + H + ', уменьшено до ' + Math.round(k * 100) + '%'
-    + '</div></div>';
+  /* ⚠️⚠️ МАСШТАБ НЕЛЬЗЯ ЗАШИВАТЬ ЧИСЛОМ. Было `width:340px; max-width:100%`
+     и жёсткий scale(340/390): на узком экране рамка сжималась до 300, а
+     картинка внутри оставалась 340 — правый край срезался, высота не
+     менялась, и всё выглядело вытянутым. Denis это и увидел во второй раз.
+     Теперь ширину МЕРЯЕМ у самой рамки и пересчитываем масштаб — и при
+     показе, и при повороте телефона. */
+  var W = 390, H = 844;
+  return '<div id="sc-frame" style="width:100%;max-width:' + W + 'px;aspect-ratio:' + W + '/' + H + ';'
+    +      'position:relative;overflow:hidden;border:1px solid var(--line);border-radius:14px;background:#000">'
+    + '<iframe id="sc-frame-inner" src="' + APP_LAB_URL + '?t=' + Date.now() + '#preview=' + payload + '" '
+    +   'style="position:absolute;top:0;left:0;width:' + W + 'px;height:' + H + 'px;border:0;display:block;'
+    +   'transform-origin:top left"></iframe>'
+    + '</div>'
+    + '<div id="sc-frame-note" style="font-size:10px;color:var(--text-faint);margin-top:4px">'
+    +   'Показано как на телефоне ' + W + '×' + H
+    + '</div>';
 }
+
+/* Подгоняем масштаб под настоящую ширину рамки. Зовётся после каждой
+   отрисовки превью и на изменение размера окна. */
+function fitScreenPreview(){
+  var box = document.getElementById('sc-frame');
+  var fr  = document.getElementById('sc-frame-inner');
+  if (!box || !fr) return;
+  var k = box.clientWidth / 390;
+  if (!(k > 0)) return;
+  fr.style.transform = 'scale(' + k.toFixed(4) + ')';
+  var note = document.getElementById('sc-frame-note');
+  if (note) note.textContent = 'Показано как на телефоне 390×844, уменьшено до ' + Math.round(k * 100) + '%';
+}
+window.addEventListener('resize', fitScreenPreview);
+
+
 
 function refreshScreenPreview(){
   var e = findScreen(screenOpen);
   var box = document.getElementById('sc-preview');
-  if (e && box) box.innerHTML = screenPreviewHtml(e);
+  if (e && box){ box.innerHTML = screenPreviewHtml(e); fitScreenPreview(); }
 }
 
 async function clearScreenSlot(slot){
