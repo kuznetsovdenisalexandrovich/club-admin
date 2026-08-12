@@ -8204,6 +8204,11 @@ async function saveScreen(){
 
   var old  = findScreen(screenOpen);
   var slug = old ? old.key.replace(/^screen\//, '') : screenSlug(title);
+  // Последняя застава перед сервером: правило то же, что у него
+  if (!/^[a-z0-9_-]{1,60}$/.test(slug)){
+    st.textContent = 'Из названия «' + title + '» не получилось имя для файлов. Добавь в него латинские буквы или цифры.';
+    return;
+  }
   var key  = 'screen/' + slug;
   var lay  = Object.assign({}, (old && old.layout) || {});
   var theme = v('sc-theme') || 'dark';
@@ -8214,7 +8219,12 @@ async function saveScreen(){
       var fileEl = document.getElementById('sc-file-' + slot);
       if (!fileEl || !fileEl.files || !fileEl.files[0]) continue;
       st.textContent = 'Загружаю: ' + SCREEN_FIELDS[i][2] + '…';
-      var elKey = kind + '/' + slug + '-' + slot;      // ключ выписан сам
+      /* ⚠️ ГНЕЗДО ПИШЕТСЯ В КЛЮЧ СТРОЧНЫМИ. Имена гнёзд — ctaStart, ctaNext,
+         ctaDone — с большой буквой посередине, а сервер принимает ключ только
+         из строчных букв. Без toLowerCase() сохранение падало с «Ключ
+         элемента: латиница, цифры, дефис, подчёркивание, слеш», и по тексту
+         совершенно непонятно, что не так: буквы-то латинские. */
+      var elKey = kind + '/' + slug + '-' + slot.toLowerCase();   // ключ выписан сам
       var got = await readElementFile(fileEl.files[0], kind);
       var ur = await fetch(API + '/cards/admin/elements/upload?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
         method:'POST', headers:{'Content-Type':'application/json'},
