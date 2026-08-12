@@ -8189,9 +8189,16 @@ function screenPreviewHtml(e){
      менялась, и всё выглядело вытянутым. Denis это и увидел во второй раз.
      Теперь ширину МЕРЯЕМ у самой рамки и пересчитываем масштаб — и при
      показе, и при повороте телефона. */
+  /* ⚠️⚠️ ОКНО ОГРАНИЧИВАЕМ И ПО ШИРИНЕ, И ПО ВЫСОТЕ. Сначала я держал только
+     ширину — на телефоне превью занимало 97% экрана: ни формы над ним, ни
+     кнопок под ним не видно. Denis: «ты просто само окошко растянул в полтора
+     два раза больше по высоте, чем нужно».
+     Масштаб = наименьшее из «влезть по ширине» и «влезть по высоте» —
+     пропорции телефона сохраняются, а окно остаётся размером с картинку,
+     а не с целый экран. */
   var W = 390, H = 844;
-  return '<div id="sc-frame" style="width:100%;max-width:' + W + 'px;aspect-ratio:' + W + '/' + H + ';'
-    +      'position:relative;overflow:hidden;border:1px solid var(--line);border-radius:14px;background:#000">'
+  return '<div id="sc-frame" style="position:relative;overflow:hidden;'
+    +      'border:1px solid var(--line);border-radius:14px;background:#000">'
     + '<iframe id="sc-frame-inner" src="' + APP_LAB_URL + '?t=' + Date.now() + '#preview=' + payload + '" '
     +   'style="position:absolute;top:0;left:0;width:' + W + 'px;height:' + H + 'px;border:0;display:block;'
     +   'transform-origin:top left"></iframe>'
@@ -8201,14 +8208,21 @@ function screenPreviewHtml(e){
     + '</div>';
 }
 
-/* Подгоняем масштаб под настоящую ширину рамки. Зовётся после каждой
-   отрисовки превью и на изменение размера окна. */
+/* Считаем масштаб от НАСТОЯЩЕГО места: сколько дал родитель по ширине и
+   сколько мы готовы занять по высоте. Зовётся после каждой отрисовки превью
+   и на изменение размера окна. */
 function fitScreenPreview(){
   var box = document.getElementById('sc-frame');
   var fr  = document.getElementById('sc-frame-inner');
-  if (!box || !fr) return;
-  var k = box.clientWidth / 390;
+  if (!box || !fr || !box.parentNode) return;
+  var availW = box.parentNode.clientWidth || 390;
+  // ⚠️ Не больше 55% высоты окна: превью — часть формы, а не сама форма.
+  // И не больше 460 px на большом мониторе, иначе оно там разъезжается
+  var availH = Math.min(460, Math.round((window.innerHeight || 800) * 0.55));
+  var k = Math.min(availW / 390, availH / 844);
   if (!(k > 0)) return;
+  box.style.width  = Math.round(390 * k) + 'px';
+  box.style.height = Math.round(844 * k) + 'px';
   fr.style.transform = 'scale(' + k.toFixed(4) + ')';
   var note = document.getElementById('sc-frame-note');
   if (note) note.textContent = 'Показано как на телефоне 390×844, уменьшено до ' + Math.round(k * 100) + '%';
