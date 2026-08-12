@@ -1704,6 +1704,15 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <button class="action-btn" onclick="chatSetSlow()">Медленный режим</button>
           <button class="action-btn" id="chat-toggle-btn" onclick="chatToggleOpen()">Закрыть чат</button>
         </div>
+        <div class="section-title" style="margin:14px 0 6px;font-size:13px">Анонс по площадкам</div>
+        <div id="live-announce-targets"></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">
+          <button class="action-btn" onclick="announcePreview()">Показать, что уйдёт</button>
+          <button class="action-btn" onclick="announceSend()">Разослать анонс</button>
+          <button class="action-btn" onclick="openTargetsPopup()">Настроить площадки</button>
+        </div>
+        <div id="live-announce-out" class="pay-meta" style="margin:0 2px 12px"></div>
+
         <div class="section-title" style="margin:14px 0 6px;font-size:13px">Кнопка поверх чата</div>
         <input class="popup-input" type="text" id="live-practice-url" placeholder="Ссылка — телемост, страница, что угодно" style="margin-bottom:6px">
         <input class="popup-input" type="text" id="live-practice-label" placeholder="Надпись на кнопке (пусто — «Подключиться к практике»)" style="margin-bottom:6px">
@@ -1721,6 +1730,44 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <button class="action-btn" onclick="liveWebhookList()" style="margin-left:6px">Показать вебхуки</button>
       <button class="action-btn" onclick="liveWebhookLog()" style="margin-left:6px">Что нам присылали</button>
       <div class="pay-meta" style="margin-top:6px">Вебхук нужен, чтобы апп знал, что поток РЕАЛЬНО пошёл, а не только что по расписанию пора.</div>
+    </div>
+  </div>
+</div>
+<div class="popup-overlay" id="targets-popup-overlay">
+  <div class="popup" id="targets-popup">
+    <div class="popup-handle"></div>
+    <div class="popup-body" style="padding-top:0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div class="popup-section-title" style="margin:0">Площадки для анонса</div>
+        <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeTargetsPopup()"><svg width="14" height="14" viewBox="0 0 14 14" style="display:block"><path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+      </div>
+      <div id="targets-tokens" class="pay-meta" style="margin-bottom:10px"></div>
+      <div id="targets-list"></div>
+      <div class="section-title" style="margin:14px 0 6px;font-size:13px" id="target-form-title">Новая площадка</div>
+      <input class="popup-input" type="hidden" id="target-id">
+      <input class="popup-input" type="text" id="target-name" placeholder="Название — как ты сам её называешь" style="margin-bottom:6px">
+      <select class="popup-input" id="target-method" style="margin-bottom:6px" onchange="renderTargetHint()">
+        <option value="tg_channel">Telegram — канал или чат (бот должен быть админом)</option>
+        <option value="vk_wall">ВКонтакте — стена сообщества</option>
+        <option value="vk_chat">ВКонтакте — беседа</option>
+      </select>
+      <input class="popup-input" type="text" id="target-address" placeholder="Адрес" style="margin-bottom:6px">
+      <div class="pay-meta" id="target-hint" style="margin:-2px 2px 6px"></div>
+      <select class="popup-input" id="target-token" style="margin-bottom:6px">
+        <option value="closed">Ключ закрытого сообщества ВК</option>
+        <option value="open">Ключ открытого сообщества ВК</option>
+      </select>
+      <select class="popup-input" id="target-link" style="margin-bottom:6px">
+        <option value="app">Ссылка — диплинк в приложение</option>
+        <option value="vk">Ссылка — трансляция в этом же сообществе ВК</option>
+        <option value="none">Без ссылки</option>
+      </select>
+      <input class="popup-input" type="text" id="target-button" placeholder="Надпись кнопки (только Telegram, пусто — без кнопки)" style="margin-bottom:6px">
+      <textarea class="popup-input" id="target-template" rows="4" placeholder="Текст поста" style="margin-bottom:4px;resize:vertical"></textarea>
+      <div class="pay-meta" style="margin:0 2px 8px">Метки подставятся сами: {название} · {ссылка} · {время} · {дата}. Пустой текст — возьмётся стандартный.</div>
+      <label class="pay-item" style="cursor:pointer;margin-bottom:8px"><input type="checkbox" id="target-active" checked style="flex-shrink:0"><div style="flex:1">Участвует в рассылке</div></label>
+      <button class="popup-save" onclick="saveTarget()">Сохранить площадку</button>
+      <button class="action-btn" onclick="resetTargetForm()" style="margin-top:6px">Очистить форму</button>
     </div>
   </div>
 </div>
@@ -4347,6 +4394,7 @@ async function openLivePopup(){
   const sel = document.getElementById('live-admin-event');
   if (sel) sel.innerHTML = '<option value="">Загружаю трансляции…</option>';
   loadLiveAdminState();
+  loadTargets();
   // ДОЖИДАЕМСЯ загрузки, а не угадываем паузу. Список наполняет сам
   // loadKinescopeEvents — он знает про наш селект (см. массив sels)
   await loadKinescopeEvents();
@@ -4426,6 +4474,212 @@ function renderLiveAdmin(){
   }
   document.getElementById('live-close-free-btn').disabled = !s.free_open;
   renderPracticeAdmin(s);
+}
+
+/* ── Анонс эфира по площадкам ────────────────────────────────────────────
+   Ссылку в каждую точку подставляет БЭКЕНД: он же создавал трансляции ВК и
+   один знает их адреса. Дашборд только выбирает, куда слать, и показывает,
+   что именно уйдёт. */
+const TARGET_METHOD_LABELS = {
+  tg_channel: 'Telegram', vk_wall: 'стена ВК', vk_chat: 'беседа ВК'
+};
+const TARGET_LINK_LABELS = {
+  app: 'диплинк в приложение', vk: 'трансляция ВК', none: 'без ссылки'
+};
+let targetsCache = [];
+
+async function loadTargets(){
+  try{
+    const r = await fetch(API + '/admin/broadcast/targets?x_admin_token=' + ADMIN_TOKEN);
+    const d = await r.json();
+    targetsCache = d.targets || [];
+    renderAnnounceTargets();
+    renderTargetsList(d.tokens || {});
+  }catch(e){
+    const box = document.getElementById('live-announce-targets');
+    if (box) box.innerHTML = '<div class="pay-meta" style="color:#e8614a">Не смог прочитать площадки: '
+      + (e && e.message || e) + '</div>';
+  }
+}
+
+/* Галочки в пульте: по умолчанию отмечены активные. Перед конкретным эфиром
+   любую можно снять — например, когда эфир только для клуба */
+function renderAnnounceTargets(){
+  const box = document.getElementById('live-announce-targets');
+  if (!box) return;
+  if (!targetsCache.length){
+    box.innerHTML = '<div class="pay-meta">Площадок пока нет. Нажми «Настроить площадки» и заведи их — тогда анонс будет уходить одним нажатием.</div>';
+    return;
+  }
+  box.innerHTML = targetsCache.map(function(t){
+    return '<label class="pay-item" style="cursor:pointer">'
+      + '<input type="checkbox" class="ann-t" value="' + t.id + '" ' + (t.active ? 'checked' : '') + ' style="flex-shrink:0">'
+      + '<div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(t.name) + '</div>'
+      + '<div class="pay-meta">' + (TARGET_METHOD_LABELS[t.method] || t.method) + ' · ' + (TARGET_LINK_LABELS[t.link_mode] || '')
+      + (t.last_ok_at ? ' · последний раз ' + t.last_ok_at : '')
+      + (t.last_error ? ' · <span style="color:#e8614a">ошибка: ' + escapeHtmlAdm(t.last_error.slice(0, 60)) + '</span>' : '')
+      + '</div></div></label>';
+  }).join('');
+}
+
+function checkedTargetIds(){
+  return Array.from(document.querySelectorAll('.ann-t:checked')).map(function(el){ return Number(el.value); });
+}
+
+async function announceCall(preview){
+  const out = document.getElementById('live-announce-out');
+  const ids = checkedTargetIds();
+  if (!ids.length){ out.textContent = 'Ни одна площадка не отмечена.'; return null; }
+  out.textContent = preview ? 'Собираю тексты…' : 'Рассылаю…';
+  try{
+    const r = await fetch(API + '/admin/live/announce?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ target_ids: ids, preview: !!preview })
+    });
+    const d = await r.json();
+    if (!r.ok){ out.innerHTML = '<span style="color:#e8614a">' + (d.detail || 'Не получилось') + '</span>'; return null; }
+    return d;
+  }catch(e){
+    out.innerHTML = '<span style="color:#e8614a">Нет связи с бэкендом: ' + (e && e.message || e) + '</span>';
+    return null;
+  }
+}
+
+/* СНАЧАЛА ПОСМОТРЕТЬ, ПОТОМ ОТПРАВИТЬ. Пост уходит живым людям и отозвать его
+   нельзя — предпросмотр собирается ТЕМ ЖЕ кодом, что и настоящая отправка */
+async function announcePreview(){
+  const d = await announceCall(true);
+  if (!d) return;
+  document.getElementById('live-announce-out').innerHTML = (d.items || []).map(function(i){
+    return '<div style="margin:8px 0;padding:8px;border-radius:10px;background:rgba(127,127,127,.08)">'
+      + '<div class="pay-name">' + escapeHtmlAdm(i.name) + '</div>'
+      + '<div style="white-space:pre-wrap;font-size:12px;margin:4px 0">' + escapeHtmlAdm(i.text) + '</div>'
+      + '<div class="pay-meta">Ссылка: ' + escapeHtmlAdm(i.link || '— нет —') + '</div></div>';
+  }).join('');
+}
+
+async function announceSend(){
+  const ids = checkedTargetIds();
+  if (!ids.length){ document.getElementById('live-announce-out').textContent = 'Ни одна площадка не отмечена.'; return; }
+  if (!confirm('Разослать анонс в ' + ids.length + ' мест? Отозвать посты будет нельзя.')) return;
+  const d = await announceCall(false);
+  if (!d) return;
+  document.getElementById('live-announce-out').innerHTML =
+    '<div class="pay-name">Ушло: ' + d.sent + ' · не ушло: ' + d.failed + '</div>'
+    + (d.report || []).map(function(x){
+        return '<div class="pay-meta"' + (x.ok ? '' : ' style="color:#e8614a"') + '>'
+          + escapeHtmlAdm(x.name) + ' — ' + (x.ok ? 'ок' : escapeHtmlAdm(x.error || 'ошибка')) + '</div>';
+      }).join('');
+  loadTargets();
+}
+
+/* ── Справочник площадок ─────────────────────────────────────────────── */
+function openTargetsPopup(){
+  document.getElementById('targets-popup-overlay').classList.add('open');
+  resetTargetForm();
+  loadTargets();
+}
+
+function closeTargetsPopup(){
+  document.getElementById('targets-popup-overlay').classList.remove('open');
+}
+
+function renderTargetsList(tokens){
+  const tb = document.getElementById('targets-tokens');
+  if (tb){
+    // ЧТО БЭКЕНД ВИДИТ, а не что умеет: без ключа отправка молча не пойдёт,
+    // и узнать это лучше до эфира
+    const miss = [];
+    if (!tokens.telegram_bot) miss.push('BOT_TOKEN (Telegram)');
+    if (!tokens.vk_closed) miss.push('VK_GROUP_TOKEN');
+    if (!tokens.vk_open) miss.push('VK_OPEN_GROUP_TOKEN');
+    tb.innerHTML = miss.length
+      ? '<span style="color:#e8614a">Не хватает ключей: ' + miss.join(', ') + ' — площадки на них отправить не смогут.</span>'
+      : 'Все ключи на месте.';
+  }
+  const box = document.getElementById('targets-list');
+  if (!box) return;
+  box.innerHTML = targetsCache.length ? targetsCache.map(function(t){
+    return '<div class="pay-item">'
+      + '<div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(t.name)
+      + (t.active ? '' : ' <span class="badge badge-err">выключена</span>') + '</div>'
+      + '<div class="pay-meta">' + (TARGET_METHOD_LABELS[t.method] || t.method) + ' · ' + escapeHtmlAdm(t.address)
+      + ' · ' + (TARGET_LINK_LABELS[t.link_mode] || '') + '</div></div>'
+      + '<button class="action-btn" onclick="editTarget(' + t.id + ')">Править</button>'
+      + '<button class="action-btn" onclick="deleteTarget(' + t.id + ')">Удалить</button>'
+      + '</div>';
+  }).join('') : '<div class="pay-meta">Пока пусто.</div>';
+}
+
+function renderTargetHint(){
+  const m = document.getElementById('target-method').value;
+  const hints = {
+    tg_channel: 'Адрес канала — число вида -1002094168989. Бот обязан быть в канале администратором с правом публикации.',
+    vk_wall: 'Адрес — номер сообщества БЕЗ минуса, например 232119632. Минус подставится сам.',
+    vk_chat: 'Адрес беседы — peer_id, обычно 2000000000 плюс номер беседы.'
+  };
+  document.getElementById('target-hint').textContent = hints[m] || '';
+}
+
+function resetTargetForm(){
+  document.getElementById('target-form-title').textContent = 'Новая площадка';
+  ['target-id','target-name','target-address','target-button','target-template'].forEach(function(id){
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('target-method').value = 'tg_channel';
+  document.getElementById('target-token').value = 'closed';
+  document.getElementById('target-link').value = 'app';
+  document.getElementById('target-active').checked = true;
+  renderTargetHint();
+}
+
+function editTarget(id){
+  const t = targetsCache.find(function(x){ return x.id === id; });
+  if (!t) return;
+  document.getElementById('target-form-title').textContent = 'Правим: ' + t.name;
+  document.getElementById('target-id').value = t.id;
+  document.getElementById('target-name').value = t.name;
+  document.getElementById('target-method').value = t.method;
+  document.getElementById('target-address').value = t.address;
+  document.getElementById('target-token').value = t.token_key;
+  document.getElementById('target-link').value = t.link_mode;
+  document.getElementById('target-button').value = t.button;
+  document.getElementById('target-template').value = t.template;
+  document.getElementById('target-active').checked = t.active;
+  renderTargetHint();
+}
+
+async function saveTarget(){
+  const idRaw = document.getElementById('target-id').value;
+  const body = {
+    id: idRaw ? Number(idRaw) : null,
+    name: document.getElementById('target-name').value,
+    method: document.getElementById('target-method').value,
+    address: document.getElementById('target-address').value,
+    token_key: document.getElementById('target-token').value,
+    link_mode: document.getElementById('target-link').value,
+    button: document.getElementById('target-button').value,
+    template: document.getElementById('target-template').value,
+    active: document.getElementById('target-active').checked
+  };
+  try{
+    const r = await fetch(API + '/admin/broadcast/target?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (!r.ok){ alert(d.detail || 'Не получилось сохранить'); return; }
+    resetTargetForm();
+    loadTargets();
+  }catch(e){ alert('Нет связи с бэкендом: ' + (e && e.message || e)); }
+}
+
+async function deleteTarget(id){
+  const t = targetsCache.find(function(x){ return x.id === id; });
+  if (!confirm('Удалить площадку «' + (t ? t.name : id) + '»?')) return;
+  try{
+    await fetch(API + '/admin/broadcast/target/' + id + '?x_admin_token=' + ADMIN_TOKEN, { method:'DELETE' });
+    loadTargets();
+  }catch(e){ alert('Нет связи с бэкендом: ' + (e && e.message || e)); }
 }
 
 /* ── Кнопка действия поверх чата эфира ───────────────────────────────────
