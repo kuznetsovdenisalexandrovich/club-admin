@@ -1704,6 +1704,14 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <button class="action-btn" onclick="chatSetSlow()">Медленный режим</button>
           <button class="action-btn" id="chat-toggle-btn" onclick="chatToggleOpen()">Закрыть чат</button>
         </div>
+        <div class="section-title" style="margin:14px 0 6px;font-size:13px">Кнопка поверх чата</div>
+        <input class="popup-input" type="text" id="live-practice-url" placeholder="Ссылка — телемост, страница, что угодно" style="margin-bottom:6px">
+        <input class="popup-input" type="text" id="live-practice-label" placeholder="Надпись на кнопке (пусто — «Подключиться к практике»)" style="margin-bottom:6px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+          <button class="action-btn" onclick="livePracticeSave()">Сохранить ссылку</button>
+          <button class="action-btn" id="live-practice-toggle" onclick="livePracticeToggle()">Показать кнопку</button>
+        </div>
+        <div class="pay-meta" id="live-practice-state" style="margin:0 2px 12px">Кнопка появится у всех, кто смотрит эфир, в течение нескольких секунд.</div>
         <button class="popup-save" id="live-close-free-btn" onclick="liveCloseFree()" style="margin-bottom:8px">Закрыть бесплатную часть</button>
         <button class="popup-save" onclick="liveFinish()" style="background:#e8614a">Завершить эфир</button>
       </div>
@@ -4417,6 +4425,60 @@ function renderLiveAdmin(){
     }).join('');
   }
   document.getElementById('live-close-free-btn').disabled = !s.free_open;
+  renderPracticeAdmin(s);
+}
+
+/* ── Кнопка действия поверх чата эфира ───────────────────────────────────
+   Ссылка своя у каждого эфира, поэтому живёт на сессии и вписывается перед
+   стартом. Показывается только по нажатию Denis'а: момент «лекция кончилась,
+   пора на практику» знает он один. */
+function renderPracticeAdmin(s){
+  const url = document.getElementById('live-practice-url');
+  const lab = document.getElementById('live-practice-label');
+  const btn = document.getElementById('live-practice-toggle');
+  const st  = document.getElementById('live-practice-state');
+  if (!url || !btn) return;
+  // Поля НЕ затираем, пока в них печатают: опрос статуса идёт раз в несколько
+  // секунд и иначе выдирал бы ссылку прямо из-под пальцев
+  if (document.activeElement !== url) url.value = s.practice_url || '';
+  if (document.activeElement !== lab) lab.value = s.practice_label || '';
+  const on = !!s.practice_on;
+  btn.textContent = on ? 'Убрать кнопку' : 'Показать кнопку';
+  btn.style.background = on ? '#e8614a' : '';
+  btn.style.color = on ? '#fff' : '';
+  st.textContent = on
+    ? 'Кнопка сейчас видна участникам. Надпись: ' + (s.practice_label || 'Подключиться к практике')
+    : 'Кнопка скрыта. Впиши ссылку и нажми «Показать кнопку» — она появится у всех за несколько секунд.';
+}
+
+async function livePracticeSend(on){
+  const url = (document.getElementById('live-practice-url').value || '').trim();
+  const label = (document.getElementById('live-practice-label').value || '').trim();
+  try{
+    const r = await fetch(API + '/admin/live/practice?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ url: url, label: label, on: on })
+    });
+    const d = await r.json();
+    if (!r.ok){ alert(d.detail || 'Не получилось сохранить'); return; }
+    // Обновляем ЛОКАЛЬНОЕ состояние ответом сервера, а не своими ожиданиями:
+    // сервер мог дописать https:// или обрезать длинную надпись
+    if (liveAdminState) liveAdminState.session = d.session;
+    renderPracticeAdmin(d.session || {});
+  }catch(e){
+    alert('Нет связи с бэкендом: ' + (e && e.message || e));
+  }
+}
+
+function livePracticeSave(){
+  // Сохранение НЕ включает кнопку: ссылку часто вписывают заранее, до эфира
+  const on = !!(liveAdminState && liveAdminState.session && liveAdminState.session.practice_on);
+  livePracticeSend(on);
+}
+
+function livePracticeToggle(){
+  const on = !!(liveAdminState && liveAdminState.session && liveAdminState.session.practice_on);
+  livePracticeSend(!on);
 }
 
 
