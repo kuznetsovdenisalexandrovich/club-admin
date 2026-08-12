@@ -8019,7 +8019,7 @@ var SCREEN_FIELDS = [
   ['ctaStart', 'cta',      'Кнопка: пока ничего не вскрыто'],
   ['ctaNext',  'cta',      'Кнопка: часть вскрыта, есть ещё'],
   ['ctaDone',  'cta',      'Кнопка: вскрыты все'],
-  ['cta',      'cta',      'Кнопка без надписи (одна на все три состояния)'],
+  ['cta',      'cta',      'Кнопка без надписи — под «Посмотреть», «Забрать» и как запасная'],
   ['close',    'close',    'Крестик закрытия'],
   ['ornament', 'ornament', 'Орнамент — рамка поверх сцены'],
   ['sigil',    'sigil',    'Узор за стопкой — виден ДО вспышки, пока бог неизвестен']
@@ -8173,8 +8173,23 @@ function screenPreviewHtml(e){
   }
   // Метка времени в адресе — иначе браузер показал бы прошлое превью из кэша
   var payload = encodeURIComponent(JSON.stringify({ theme: e.theme || 'dark', slots: slots }));
-  return '<iframe src="' + APP_LAB_URL + '?t=' + Date.now() + '#preview=' + payload + '" '
-    + 'style="width:100%;max-width:390px;height:620px;border:1px solid var(--line);border-radius:14px;background:#000"></iframe>';
+  /* ⚠️⚠️ РАМА ОБЯЗАНА БЫТЬ ПРОПОРЦИЙ НАСТОЯЩЕГО ТЕЛЕФОНА. Сначала я поставил
+     390×620 — «примерно телефон». Экран внутри сплющивался по высоте: карта
+     считается от ШИРИНЫ вида, а места по вертикали оказывалось на треть
+     меньше, и она лезла вверх, на заголовок. Denis это и увидел.
+     Превью, которое врёт про раскладку, хуже отсутствия превью: по нему
+     начинают чинить то, что не сломано.
+     Держим внутри честные 390×844 (iPhone 14/15) и УМЕНЬШАЕМ целиком —
+     пропорции сохраняются, а в дашборд помещается. */
+  var W = 390, H = 844, BOX = 340, k = BOX / W;
+  return '<div style="width:' + BOX + 'px;height:' + Math.round(H * k) + 'px;max-width:100%;'
+    +      'overflow:hidden;border:1px solid var(--line);border-radius:14px;background:#000">'
+    + '<iframe src="' + APP_LAB_URL + '?t=' + Date.now() + '#preview=' + payload + '" '
+    +   'style="width:' + W + 'px;height:' + H + 'px;border:0;display:block;'
+    +   'transform:scale(' + k.toFixed(4) + ');transform-origin:top left"></iframe>'
+    + '<div style="font-size:10px;color:var(--text-faint);margin-top:4px">'
+    +   'Показано как на телефоне ' + W + '×' + H + ', уменьшено до ' + Math.round(k * 100) + '%'
+    + '</div></div>';
 }
 
 function refreshScreenPreview(){
