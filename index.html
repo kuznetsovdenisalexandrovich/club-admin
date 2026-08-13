@@ -1750,6 +1750,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <option value="tg_channel">Telegram — канал или чат (бот должен быть админом)</option>
         <option value="vk_wall">ВКонтакте — стена сообщества</option>
         <option value="vk_chat">ВКонтакте — беседа</option>
+        <option value="vk_channel">ВКонтакте — канал сообщества</option>
       </select>
       <input class="popup-input" type="text" id="target-address" placeholder="Адрес" style="margin-bottom:6px">
       <div class="pay-meta" id="target-hint" style="margin:-2px 2px 6px"></div>
@@ -1764,7 +1765,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       </select>
       <input class="popup-input" type="text" id="target-button" placeholder="Надпись кнопки (только Telegram, пусто — без кнопки)" style="margin-bottom:6px">
       <textarea class="popup-input" id="target-template" rows="4" placeholder="Текст поста" style="margin-bottom:4px;resize:vertical"></textarea>
-      <div class="pay-meta" style="margin:0 2px 8px">Метки подставятся сами: {название} · {ссылка} · {время} · {дата}. Пустой текст — возьмётся стандартный.</div>
+      <div class="pay-meta" style="margin:0 2px 8px">Метки подставятся сами: {название} · {ссылка} · {время} · {дата}. Отдельно можно ставить рядом: {ссылка_вк} — трансляция ВК, {ссылка_апп} — приложение внутри ВК, {ссылка_тг} — приложение в Telegram. Пустой текст — возьмётся стандартный.</div>
       <label class="pay-item" style="cursor:pointer;margin-bottom:8px"><input type="checkbox" id="target-active" checked style="flex-shrink:0"><div style="flex:1">Участвует в рассылке</div></label>
       <button class="popup-save" onclick="saveTarget()">Сохранить площадку</button>
       <button class="action-btn" onclick="resetTargetForm()" style="margin-top:6px">Очистить форму</button>
@@ -4481,7 +4482,7 @@ function renderLiveAdmin(){
    один знает их адреса. Дашборд только выбирает, куда слать, и показывает,
    что именно уйдёт. */
 const TARGET_METHOD_LABELS = {
-  tg_channel: 'Telegram', vk_wall: 'стена ВК', vk_chat: 'беседа ВК'
+  tg_channel: 'Telegram', vk_wall: 'стена ВК', vk_chat: 'беседа ВК', vk_channel: 'канал ВК'
 };
 const TARGET_LINK_LABELS = {
   app: 'диплинк в приложение', vk: 'трансляция ВК', none: 'без ссылки'
@@ -4605,6 +4606,7 @@ function renderTargetsList(tokens){
       + (t.active ? '' : ' <span class="badge badge-err">выключена</span>') + '</div>'
       + '<div class="pay-meta">' + (TARGET_METHOD_LABELS[t.method] || t.method) + ' · ' + escapeHtmlAdm(t.address)
       + ' · ' + (TARGET_LINK_LABELS[t.link_mode] || '') + '</div></div>'
+      + '<button class="action-btn" onclick="testTarget(' + t.id + ')">Проверить</button>'
       + '<button class="action-btn" onclick="editTarget(' + t.id + ')">Править</button>'
       + '<button class="action-btn" onclick="deleteTarget(' + t.id + ')">Удалить</button>'
       + '</div>';
@@ -4616,7 +4618,8 @@ function renderTargetHint(){
   const hints = {
     tg_channel: 'Адрес канала — число вида -1002094168989. Бот обязан быть в канале администратором с правом публикации.',
     vk_wall: 'Адрес — номер сообщества БЕЗ минуса, например 232119632. Минус подставится сам.',
-    vk_chat: 'Адрес беседы — peer_id, обычно 2000000000 плюс номер беседы.'
+    vk_chat: 'Адрес беседы — число из ссылки vk.ru/im/convo/2000000180, то есть 2000000180.',
+    vk_channel: 'Адрес канала — число из ссылки vk.ru/im/channels/-237934122, вместе с минусом. Поддержка каналов в API не подтверждена: проверь кнопкой «Проверить» до эфира.'
   };
   document.getElementById('target-hint').textContent = hints[m] || '';
 }
@@ -4669,6 +4672,27 @@ async function saveTarget(){
     const d = await r.json();
     if (!r.ok){ alert(d.detail || 'Не получилось сохранить'); return; }
     resetTargetForm();
+    loadTargets();
+  }catch(e){ alert('Нет связи с бэкендом: ' + (e && e.message || e)); }
+}
+
+/* ⚠️ ПРОВЕРКА ПЛОЩАДКИ БЕЗ ЭФИРА. Настраивать адреса Denis будет заранее, а
+   рассылка требует активной сессии — заставлять его начинать эфир ради
+   проверки адреса значит однажды пустить в эфир пустой поток. Отдельная
+   ручка шлёт короткое сообщение и возвращает ответ площадки как есть.
+   Это же единственный способ выяснить, принимают ли «каналы ВК» сообщения. */
+async function testTarget(id){
+  const t = targetsCache.find(function(x){ return x.id === id; });
+  if (!confirm('Отправить проверочное сообщение в «' + (t ? t.name : id) + '»? Оно уйдёт по-настоящему.')) return;
+  try{
+    const r = await fetch(API + '/admin/broadcast/test?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ target_id: id })
+    });
+    const d = await r.json();
+    // Ответ площадки показываем ЦЕЛИКОМ: текст ошибки ВК и Telegram — это
+    // документация, по ней сразу видно, дело в правах, адресе или способе
+    alert(d.ok ? 'Дошло. Проверь площадку.' : 'Не дошло:\n\n' + (d.error || d.detail || 'без объяснения'));
     loadTargets();
   }catch(e){ alert('Нет связи с бэкендом: ' + (e && e.message || e)); }
 }
