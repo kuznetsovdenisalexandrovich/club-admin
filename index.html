@@ -1046,6 +1046,18 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
        нет: до начала минуты. -->
   <button class="popup-save live-big-btn" onclick="openLivePopup()">Эфир</button>
 
+  <!-- ⚠️ АТРИБУЦИЯ ПРОДАЖ (13.08.2026). Раздел уровня «Расписания» и «Эфира» —
+       свой попап, своя кнопка сюда, отчёт открывается сразу с данными. -->
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">Источники продаж</div>
+      <div style="display:flex;gap:6px">
+        <button class="action-btn" style="padding:5px 10px;font-size:11px" onclick="openAttributionPopup()">Отчёт</button>
+      </div>
+    </div>
+    <div class="pay-meta" style="margin:0 2px 4px">Какой рилс, пост или выпуск журнала привёл к оплате — и откуда вообще берутся новые люди.</div>
+  </div>
+
   <div class="section">
     <div class="section-head">
       <div class="section-title">Расписание</div>
@@ -1766,6 +1778,52 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     </div>
   </div>
 </div>
+<div class="popup-overlay" id="attribution-popup-overlay">
+  <div class="popup" id="attribution-popup">
+    <div class="popup-handle"></div>
+    <div class="popup-body" style="padding-top:0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div class="popup-section-title" style="margin:0">Источники продаж</div>
+        <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeAttributionPopup()"><svg width="14" height="14" viewBox="0 0 14 14" style="display:block"><path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+      </div>
+
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button class="action-btn" onclick="setAttrPeriod(7)">7 дней</button>
+        <button class="action-btn" onclick="setAttrPeriod(30)">30 дней</button>
+        <button class="action-btn" onclick="setAttrPeriod(90)">90 дней</button>
+      </div>
+      <div id="attr-summary" class="pay-meta" style="margin-bottom:10px">—</div>
+
+      <div class="section-title" style="margin:8px 0 6px;font-size:13px">По каналу первого касания</div>
+      <div id="attr-first-list"></div>
+
+      <div class="section-title" style="margin:14px 0 6px;font-size:13px">По единице, которая дожала</div>
+      <div id="attr-last-list"></div>
+
+      <div class="section-title" style="margin:16px 0 6px;font-size:13px">Единицы контента</div>
+      <div id="attr-sources-list"></div>
+      <input class="popup-input" type="hidden" id="attr-id">
+      <input class="popup-input" type="text" id="attr-code" placeholder="Код для ссылки — латиницей, напр. reel-avgust-3" style="margin-bottom:6px">
+      <input class="popup-input" type="text" id="attr-title" placeholder="Название — как ты сам её называешь" style="margin-bottom:6px">
+      <select class="popup-input" id="attr-channel" style="margin-bottom:6px">
+        <option value="reel">Рилс</option>
+        <option value="tg_post">Пост в Telegram</option>
+        <option value="dzen">Дзен</option>
+        <option value="magazine">Журнал</option>
+        <option value="vk_ads">Реклама ВК</option>
+        <option value="yandex">Реклама Яндекс</option>
+        <option value="other">Другое</option>
+      </select>
+      <div class="pay-meta" style="margin:0 2px 8px">Для рекламы можно сразу вписать UTM — пригодится, когда подключишь кабинеты:</div>
+      <input class="popup-input" type="text" id="attr-utm-source" placeholder="utm_source" style="margin-bottom:6px">
+      <input class="popup-input" type="text" id="attr-utm-medium" placeholder="utm_medium" style="margin-bottom:6px">
+      <input class="popup-input" type="text" id="attr-utm-campaign" placeholder="utm_campaign" style="margin-bottom:8px">
+      <button class="popup-save" onclick="saveAttrSource()">Сохранить единицу</button>
+      <button class="action-btn" onclick="resetAttrForm()" style="margin-top:6px">Очистить форму</button>
+      <div id="attr-link-out" class="pay-meta" style="margin-top:8px"></div>
+    </div>
+  </div>
+</div>
 <div class="popup-overlay" id="targets-popup-overlay">
   <div class="popup" id="targets-popup">
     <div class="popup-handle"></div>
@@ -1784,6 +1842,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <option value="vk_wall">ВКонтакте — стена сообщества</option>
         <option value="vk_chat">ВКонтакте — беседа</option>
         <option value="vk_channel">ВКонтакте — канал сообщества</option>
+        <option value="salebot_list">Бот — подписчики списка (Telegram и ВК разом)</option>
       </select>
       <input class="popup-input" type="text" id="target-address" placeholder="Адрес" style="margin-bottom:6px">
       <div class="pay-meta" id="target-hint" style="margin:-2px 2px 6px"></div>
@@ -4560,12 +4619,161 @@ async function deleteHandout(){
   }catch(e){ alert('Нет связи с бэкендом: ' + (e && e.message || e)); }
 }
 
+/* ── Атрибуция продаж ─────────────────────────────────────────────────────
+   Отчёт и справочник единиц контента в одном попапе: заводишь рилс здесь же,
+   рядом видишь, что уже принесло деньги — не нужно прыгать между экранами. */
+let attrSourcesCache = [];
+let attrPeriodDays = 30;
+
+function openAttributionPopup(){
+  document.getElementById('attribution-popup-overlay').classList.add('open');
+  resetAttrForm();
+  loadAttrSources();
+  loadAttrReport();
+}
+function closeAttributionPopup(){
+  document.getElementById('attribution-popup-overlay').classList.remove('open');
+}
+
+function setAttrPeriod(d){
+  attrPeriodDays = d;
+  loadAttrReport();
+}
+
+const ATTR_CHANNEL_LABELS = {
+  reel:'рилс', tg_post:'пост в TG', dzen:'Дзен', magazine:'журнал',
+  vk_ads:'реклама ВК', yandex:'реклама Яндекс', other:'другое'
+};
+
+async function loadAttrReport(){
+  const box = document.getElementById('attr-summary');
+  box.textContent = 'Считаю…';
+  try{
+    const r = await fetch(API + '/admin/attribution/report?days=' + attrPeriodDays + '&x_admin_token=' + ADMIN_TOKEN);
+    const d = await r.json();
+    if (!r.ok){ box.textContent = d.detail || 'Не получилось'; return; }
+    box.textContent = 'Платежей за ' + d.days + ' дн.: ' + d.total_payments
+      + (d.untagged_payments ? ' · без метки: ' + d.untagged_payments : '');
+    renderAttrList('attr-first-list', d.by_first_touch);
+    renderAttrList('attr-last-list', d.by_last_touch);
+  }catch(e){
+    box.textContent = 'Нет связи с бэкендом: ' + (e && e.message || e);
+  }
+}
+
+function renderAttrList(boxId, rows){
+  const box = document.getElementById(boxId);
+  if (!box) return;
+  if (!rows || !rows.length){
+    box.innerHTML = '<div class="pay-meta">Пока пусто.</div>';
+    return;
+  }
+  box.innerHTML = rows.map(function(r){
+    return '<div class="pay-item">'
+      + '<div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(r.title) + '</div>'
+      + '<div class="pay-meta">' + (ATTR_CHANNEL_LABELS[r.channel] || r.channel || '—') + ' · ' + r.count + ' продаж</div></div>'
+      + '<div class="pay-name">' + Math.round(r.sum).toLocaleString('ru-RU') + ' ₽</div>'
+      + '</div>';
+  }).join('');
+}
+
+async function loadAttrSources(){
+  try{
+    const r = await fetch(API + '/admin/attribution/sources?x_admin_token=' + ADMIN_TOKEN);
+    const d = await r.json();
+    attrSourcesCache = d.sources || [];
+    renderAttrSourcesList();
+  }catch(e){
+    document.getElementById('attr-sources-list').innerHTML =
+      '<div class="pay-meta" style="color:#e8614a">Не смог прочитать: ' + (e && e.message || e) + '</div>';
+  }
+}
+
+function renderAttrSourcesList(){
+  const box = document.getElementById('attr-sources-list');
+  if (!box) return;
+  box.innerHTML = attrSourcesCache.length ? attrSourcesCache.map(function(a){
+    return '<div class="pay-item">'
+      + '<div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(a.title)
+      + (a.active ? '' : ' <span class="badge badge-err">выключена</span>') + '</div>'
+      + '<div class="pay-meta">' + (ATTR_CHANNEL_LABELS[a.channel] || a.channel) + ' · код: ' + escapeHtmlAdm(a.code) + '</div></div>'
+      + '<button class="action-btn" onclick="copyAttrLink(\'' + a.code + '\')">Ссылка</button>'
+      + '<button class="action-btn" onclick="editAttrSource(' + a.id + ')">Править</button>'
+      + '<button class="action-btn" onclick="deleteAttrSource(' + a.id + ')">Удалить</button>'
+      + '</div>';
+  }).join('') : '<div class="pay-meta">Пока пусто — заведи первую ниже.</div>';
+}
+
+function attrDeeplink(code){
+  return 'https://t.me/youselllikeagod_bot/app?startapp=u_' + code;
+}
+
+function copyAttrLink(code){
+  const link = attrDeeplink(code);
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link);
+  document.getElementById('attr-link-out').textContent = 'Скопировано: ' + link;
+}
+
+function resetAttrForm(){
+  ['attr-id','attr-code','attr-title','attr-utm-source','attr-utm-medium','attr-utm-campaign'].forEach(function(id){
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('attr-channel').value = 'reel';
+  document.getElementById('attr-link-out').textContent = '';
+}
+
+function editAttrSource(id){
+  const a = attrSourcesCache.find(function(x){ return x.id === id; });
+  if (!a) return;
+  document.getElementById('attr-id').value = a.id;
+  document.getElementById('attr-code').value = a.code;
+  document.getElementById('attr-title').value = a.title;
+  document.getElementById('attr-channel').value = a.channel || 'other';
+  document.getElementById('attr-utm-source').value = a.utm_source;
+  document.getElementById('attr-utm-medium').value = a.utm_medium;
+  document.getElementById('attr-utm-campaign').value = a.utm_campaign;
+  document.getElementById('attr-link-out').textContent = attrDeeplink(a.code);
+}
+
+async function saveAttrSource(){
+  const idRaw = document.getElementById('attr-id').value;
+  const body = {
+    id: idRaw ? Number(idRaw) : null,
+    code: document.getElementById('attr-code').value,
+    title: document.getElementById('attr-title').value,
+    channel: document.getElementById('attr-channel').value,
+    utm_source: document.getElementById('attr-utm-source').value,
+    utm_medium: document.getElementById('attr-utm-medium').value,
+    utm_campaign: document.getElementById('attr-utm-campaign').value,
+    active: true
+  };
+  try{
+    const r = await fetch(API + '/admin/attribution/source?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (!r.ok){ alert(d.detail || 'Не получилось сохранить'); return; }
+    document.getElementById('attr-link-out').textContent = 'Готово. Ссылка: ' + d.deeplink;
+    loadAttrSources();
+  }catch(e){ alert('Нет связи с бэкендом: ' + (e && e.message || e)); }
+}
+
+async function deleteAttrSource(id){
+  const a = attrSourcesCache.find(function(x){ return x.id === id; });
+  if (!confirm('Удалить «' + (a ? a.title : id) + '»? Уже случившиеся продажи не потеряются, но код перестанет работать в новых ссылках.')) return;
+  try{
+    await fetch(API + '/admin/attribution/source/' + id + '?x_admin_token=' + ADMIN_TOKEN, { method:'DELETE' });
+    loadAttrSources();
+  }catch(e){ alert('Нет связи с бэкендом: ' + (e && e.message || e)); }
+}
+
 /* ── Анонс эфира по площадкам ────────────────────────────────────────────
    Ссылку в каждую точку подставляет БЭКЕНД: он же создавал трансляции ВК и
    один знает их адреса. Дашборд только выбирает, куда слать, и показывает,
    что именно уйдёт. */
 const TARGET_METHOD_LABELS = {
-  tg_channel: 'Telegram', vk_wall: 'стена ВК', vk_chat: 'беседа ВК', vk_channel: 'канал ВК'
+  tg_channel: 'Telegram', vk_wall: 'стена ВК', vk_chat: 'беседа ВК', vk_channel: 'канал ВК',
+  salebot_list: 'подписчики бота'
 };
 const TARGET_LINK_LABELS = {
   app: 'диплинк в приложение', vk: 'трансляция ВК', none: 'без ссылки'
@@ -4652,7 +4860,8 @@ async function announceSend(){
     '<div class="pay-name">Ушло: ' + d.sent + ' · не ушло: ' + d.failed + '</div>'
     + (d.report || []).map(function(x){
         return '<div class="pay-meta"' + (x.ok ? '' : ' style="color:#e8614a"') + '>'
-          + escapeHtmlAdm(x.name) + ' — ' + (x.ok ? 'ок' : escapeHtmlAdm(x.error || 'ошибка')) + '</div>';
+          + escapeHtmlAdm(x.name) + ' — ' + (x.ok ? ('ок' + (x.note ? ', ' + escapeHtmlAdm(x.note) : ''))
+                                                     : escapeHtmlAdm(x.error || 'ошибка')) + '</div>';
       }).join('');
   loadTargets();
 }
@@ -4702,7 +4911,8 @@ function renderTargetHint(){
     tg_channel: 'Адрес канала — число вида -1002094168989. Бот обязан быть в канале администратором с правом публикации.',
     vk_wall: 'Адрес — номер сообщества БЕЗ минуса, например 232119632. Минус подставится сам.',
     vk_chat: 'Адрес беседы — число из ссылки vk.ru/im/convo/2000000180, то есть 2000000180.',
-    vk_channel: 'Адрес канала — число из ссылки vk.ru/im/channels/-237934122, вместе с минусом. Поддержка каналов в API не подтверждена: проверь кнопкой «Проверить» до эфира.'
+    vk_channel: 'Адрес канала — число из ссылки vk.ru/im/channels/-237934122, вместе с минусом. Поддержка каналов в API не подтверждена: проверь кнопкой «Проверить» до эфира.',
+    salebot_list: 'Адрес — номер списка Salebot, например 2100153 («Уведомления о живых занятиях»). Уходит подписчикам бота СРАЗУ в Telegram и ВК, с кнопками. Ссылки подставляются сами: на трансляцию ВК и в приложение.'
   };
   document.getElementById('target-hint').textContent = hints[m] || '';
 }
