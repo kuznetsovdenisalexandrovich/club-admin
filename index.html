@@ -1818,6 +1818,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <input class="popup-input" type="text" id="attr-utm-source" placeholder="utm_source" style="margin-bottom:6px">
       <input class="popup-input" type="text" id="attr-utm-medium" placeholder="utm_medium" style="margin-bottom:6px">
       <input class="popup-input" type="text" id="attr-utm-campaign" placeholder="utm_campaign" style="margin-bottom:8px">
+      <input class="popup-input" type="text" id="attr-lecture-slug" placeholder="Ключ лекции (необязательно) — после оплаты покажем именно её" style="margin-bottom:8px">
       <button class="popup-save" onclick="saveAttrSource()">Сохранить единицу</button>
       <button class="action-btn" onclick="resetAttrForm()" style="margin-top:6px">Очистить форму</button>
       <div id="attr-link-out" class="pay-meta" style="margin-top:8px"></div>
@@ -4696,7 +4697,8 @@ function renderAttrSourcesList(){
     return '<div class="pay-item">'
       + '<div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(a.title)
       + (a.active ? '' : ' <span class="badge badge-err">выключена</span>') + '</div>'
-      + '<div class="pay-meta">' + (ATTR_CHANNEL_LABELS[a.channel] || a.channel) + ' · код: ' + escapeHtmlAdm(a.code) + '</div></div>'
+      + '<div class="pay-meta">' + (ATTR_CHANNEL_LABELS[a.channel] || a.channel) + ' · код: ' + escapeHtmlAdm(a.code)
+      + (a.lecture_slug ? ' · ведёт к лекции: ' + escapeHtmlAdm(a.lecture_slug) : '') + '</div></div>'
       + '<button class="action-btn" onclick="copyAttrLink(\'' + a.code + '\')">Ссылка</button>'
       + '<button class="action-btn" onclick="editAttrSource(' + a.id + ')">Править</button>'
       + '<button class="action-btn" onclick="deleteAttrSource(' + a.id + ')">Удалить</button>'
@@ -4715,7 +4717,7 @@ function copyAttrLink(code){
 }
 
 function resetAttrForm(){
-  ['attr-id','attr-code','attr-title','attr-utm-source','attr-utm-medium','attr-utm-campaign'].forEach(function(id){
+  ['attr-id','attr-code','attr-title','attr-utm-source','attr-utm-medium','attr-utm-campaign','attr-lecture-slug'].forEach(function(id){
     document.getElementById(id).value = '';
   });
   document.getElementById('attr-channel').value = 'reel';
@@ -4732,6 +4734,7 @@ function editAttrSource(id){
   document.getElementById('attr-utm-source').value = a.utm_source;
   document.getElementById('attr-utm-medium').value = a.utm_medium;
   document.getElementById('attr-utm-campaign').value = a.utm_campaign;
+  document.getElementById('attr-lecture-slug').value = a.lecture_slug || '';
   document.getElementById('attr-link-out').textContent = attrDeeplink(a.code);
 }
 
@@ -4745,6 +4748,7 @@ async function saveAttrSource(){
     utm_source: document.getElementById('attr-utm-source').value,
     utm_medium: document.getElementById('attr-utm-medium').value,
     utm_campaign: document.getElementById('attr-utm-campaign').value,
+    lecture_slug: document.getElementById('attr-lecture-slug').value,
     active: true
   };
   try{
