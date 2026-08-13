@@ -1692,6 +1692,14 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <button class="action-btn" style="margin-top:8px" onclick="liveStart()">Только открыть сессию</button>
         <div class="pay-meta" style="margin-top:4px">Если площадки заведены руками и надо просто включить блок в аппе.</div>
         <button class="action-btn" style="margin-top:8px" onclick="liveShowTargets()">Какие площадки настроены</button>
+
+        <!-- ⚠️ СПРАВОЧНИК ПЛОЩАДОК АНОНСА НУЖЕН ДО ЭФИРА, А НЕ ВО ВРЕМЯ. Сначала
+             я положил эту кнопку только в блок идущего эфира — и Denis не смог
+             завести площадки, не начав вещать. Настройка и проверка адресов
+             доступны всегда; эфира требует ТОЛЬКО сама рассылка. -->
+        <div class="section-title" style="margin:14px 0 6px;font-size:13px">Анонс по площадкам</div>
+        <button class="action-btn" onclick="openTargetsPopup()">Настроить площадки</button>
+        <div class="pay-meta" style="margin-top:4px">Куда уходит анонс эфира. Здесь же кнопка «Проверить» — она шлёт тестовое сообщение прямо сейчас, эфир для этого не нужен.</div>
       </div>
 
       <div id="live-admin-running" style="display:none">
