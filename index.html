@@ -1728,6 +1728,21 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <!-- ⚠️ ЗАГРУЗКА ДО ЭФИРА. Файл готовят заранее, поэтому поле стоит
              здесь, а не в блоке идущего эфира: загруженное ляжет в заготовку и
              переедет на сессию, когда эфир начнётся. -->
+        <!-- ⚠️ ЗАПИСЬ ЭФИРА — СВОЙ КОД, НЕ КОД ЖИВОГО СОБЫТИЯ. После эфира
+             плеер живого события пуст (поймано 13.08.2026: чёрный экран у
+             участников), запись живёт отдельным видео в библиотеке. -->
+        <div class="section-title" style="margin:14px 0 6px;font-size:13px">Запись прошедшего эфира</div>
+        <div id="record-state" class="pay-meta" style="margin:0 2px 6px">—</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+          <button class="action-btn" onclick="findRecordVideos()">Найти запись в Kinescope</button>
+        </div>
+        <div id="record-list" style="margin-bottom:6px"></div>
+        <input class="popup-input" type="text" id="record-code" placeholder="Или вставь ссылку/код записи вручную" style="margin-bottom:6px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+          <button class="action-btn" onclick="saveRecordCode()">Привязать запись</button>
+          <button class="action-btn" onclick="clearRecordCode()">Убрать запись</button>
+        </div>
+
         <div class="section-title" style="margin:14px 0 6px;font-size:13px">Раздаточный файл</div>
         <div id="handout-state" class="pay-meta" style="margin:0 2px 6px">—</div>
         <input class="popup-input" type="text" id="handout-name" placeholder="Надпись на кнопке (пусто — «Скачать майндкарту»)" style="margin-bottom:6px">
@@ -4578,6 +4593,66 @@ async function checkTelegramLink(){
     const d = await r.json();
     alert((d.verdict || '') + '\n\n' + JSON.stringify(d, null, 1));
   }catch(e){ alert('Нет связи с бэкендом: ' + (e && e.message || e)); }
+}
+
+/* ── Запись прошедшего эфира ──────────────────────────────────────────────
+   У Kinescope живое событие и его запись — РАЗНЫЕ сущности со своими кодами.
+   После эфира плеер живого события пуст, поэтому запись надо найти в
+   библиотеке и привязать к сессии. */
+async function findRecordVideos(){
+  const box = document.getElementById('record-list');
+  box.innerHTML = '<div class="pay-meta">Спрашиваю Kinescope…</div>';
+  try{
+    const r = await fetch(API + '/admin/kinescope/recent-videos?x_admin_token=' + ADMIN_TOKEN);
+    const d = await r.json();
+    if (!d.ok){
+      // Показываем НАСТОЯЩИЕ ответы Kinescope, а не «не получилось»: по ним
+      // видно, какой адрес их API принимает
+      box.innerHTML = '<div class="pay-meta" style="color:#e8614a">' + escapeHtmlAdm(d.hint || 'Не отдал список') + '</div>'
+        + '<div class="pay-meta" style="white-space:pre-wrap;font-size:11px">' + escapeHtmlAdm(JSON.stringify(d.attempts || [], null, 1)) + '</div>';
+      return;
+    }
+    box.innerHTML = (d.videos || []).length ? d.videos.map(function(v){
+      return '<div class="pay-item">'
+        + '<div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(v.title) + '</div>'
+        + '<div class="pay-meta">' + escapeHtmlAdm(v.created_at || '') + ' · код: ' + escapeHtmlAdm(v.code) + '</div></div>'
+        + '<button class="action-btn" onclick="pickRecord(\'' + v.code + '\')">Это она</button>'
+        + '</div>';
+    }).join('') : '<div class="pay-meta">Библиотека пуста.</div>';
+  }catch(e){
+    box.innerHTML = '<div class="pay-meta" style="color:#e8614a">Нет связи: ' + (e && e.message || e) + '</div>';
+  }
+}
+
+function pickRecord(code){
+  document.getElementById('record-code').value = code;
+  saveRecordCode();
+}
+
+async function saveRecordCode(){
+  const code = (document.getElementById('record-code').value || '').trim();
+  await sendRecordCode(code);
+}
+
+async function clearRecordCode(){
+  if (!confirm('Убрать запись? Участники перестанут её видеть.')) return;
+  document.getElementById('record-code').value = '';
+  await sendRecordCode('');
+}
+
+async function sendRecordCode(code){
+  const box = document.getElementById('record-state');
+  try{
+    const r = await fetch(API + '/admin/live/record?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ code: code })
+    });
+    const d = await r.json();
+    if (!r.ok){ box.textContent = d.detail || 'Не получилось'; return; }
+    box.textContent = d.record_code
+      ? ('Привязана к эфиру «' + (d.title || '') + '», код ' + d.record_code)
+      : 'Запись не привязана — участники её не увидят.';
+  }catch(e){ box.textContent = 'Нет связи с бэкендом: ' + (e && e.message || e); }
 }
 
 /* ── Раздаточный файл эфира ──────────────────────────────────────────────
