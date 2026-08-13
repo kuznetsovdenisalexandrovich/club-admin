@@ -277,6 +277,10 @@ header{padding:calc(max(env(safe-area-inset-top), 8px) + 20px) 0 16px;display:fl
 .popup-input::placeholder{color:var(--text-faint)}
 .popup-save{width:100%;padding:12px;border-radius:14px;background:var(--accent);color:white;font-family:var(--disp);font-weight:700;font-size:13px;border:none;cursor:pointer;margin-top:4px;transition:opacity .15s}
 .popup-save:active{opacity:.8}
+/* Кнопка пульта эфира: крупная и оранжевая, над расписанием */
+.live-big-btn{margin:0 0 12px;padding:16px;font-size:16px;
+  background:linear-gradient(135deg,#f0894a,#e2622f);
+  box-shadow:0 6px 18px rgba(226,98,47,.28)}
 
 /* Action buttons */
 .actions-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
@@ -1036,11 +1040,16 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     </div>
   </div>
 
+  <!-- ⚠️ ЭФИР — ОТДЕЛЬНОЙ КРУПНОЙ КНОПКОЙ НАД РАСПИСАНИЕМ (13.08.2026, просьба
+       Denis'а). Раньше это была одна из мелких кнопок в углу заголовка, наравне
+       с «Управлять», — а пульт эфира открывают в момент, когда времени искать
+       нет: до начала минуты. -->
+  <button class="popup-save live-big-btn" onclick="openLivePopup()">Эфир</button>
+
   <div class="section">
     <div class="section-head">
       <div class="section-title">Расписание</div>
       <div style="display:flex;gap:6px">
-        <button class="action-btn" style="padding:5px 10px;font-size:11px" onclick="openLivePopup()">Эфир</button>
         <button class="action-btn" style="padding:5px 10px;font-size:11px" onclick="openSchedulePopup()">Управлять</button>
       </div>
     </div>
@@ -1698,8 +1707,24 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
              завести площадки, не начав вещать. Настройка и проверка адресов
              доступны всегда; эфира требует ТОЛЬКО сама рассылка. -->
         <div class="section-title" style="margin:14px 0 6px;font-size:13px">Анонс по площадкам</div>
-        <button class="action-btn" onclick="openTargetsPopup()">Настроить площадки</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="action-btn" onclick="openTargetsPopup()">Настроить площадки</button>
+          <button class="action-btn" onclick="checkTelegramLink()">Проверить связь с Telegram</button>
+        </div>
         <div class="pay-meta" style="margin-top:4px">Куда уходит анонс эфира. Здесь же кнопка «Проверить» — она шлёт тестовое сообщение прямо сейчас, эфир для этого не нужен.</div>
+
+        <!-- ⚠️ ЗАГРУЗКА ДО ЭФИРА. Файл готовят заранее, поэтому поле стоит
+             здесь, а не в блоке идущего эфира: загруженное ляжет в заготовку и
+             переедет на сессию, когда эфир начнётся. -->
+        <div class="section-title" style="margin:14px 0 6px;font-size:13px">Раздаточный файл</div>
+        <div id="handout-state" class="pay-meta" style="margin:0 2px 6px">—</div>
+        <input class="popup-input" type="text" id="handout-name" placeholder="Надпись на кнопке (пусто — «Скачать майндкарту»)" style="margin-bottom:6px">
+        <input type="file" id="handout-file" accept="application/pdf,.pdf" style="margin-bottom:6px;font-size:12px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="action-btn" onclick="uploadHandout()">Загрузить PDF</button>
+          <button class="action-btn" onclick="deleteHandout()">Убрать файл</button>
+        </div>
+        <div class="pay-meta" style="margin-top:4px">До 25 МБ, только PDF. Участники увидят кнопку под окном эфира, гостям она откроет оплату.</div>
       </div>
 
       <div id="live-admin-running" style="display:none">
@@ -4483,6 +4508,56 @@ function renderLiveAdmin(){
   }
   document.getElementById('live-close-free-btn').disabled = !s.free_open;
   renderPracticeAdmin(s);
+}
+
+/* Отвечает ли Telegram с нашего сервера. Разводит две причины, которые со
+   стороны выглядят одинаково: «сервер не достучался» и «бот не имеет прав». */
+async function checkTelegramLink(){
+  try{
+    const r = await fetch(API + '/admin/telegram/check?chat_id=-1002094168989&x_admin_token=' + ADMIN_TOKEN);
+    const d = await r.json();
+    alert((d.verdict || '') + '\n\n' + JSON.stringify(d, null, 1));
+  }catch(e){ alert('Нет связи с бэкендом: ' + (e && e.message || e)); }
+}
+
+/* ── Раздаточный файл эфира ──────────────────────────────────────────────
+   Читаем файл на стороне браузера и отправляем текстом: свой эндпоинт
+   загрузки принимает JSON, и заводить ради одного PDF отдельную многочастную
+   форму незачем. Двадцать пять мегабайт в base64 разрастаются до тридцати
+   трёх — для одного файла терпимо. */
+async function uploadHandout(){
+  const input = document.getElementById('handout-file');
+  const file = input && input.files && input.files[0];
+  if (!file){ alert('Сначала выбери PDF'); return; }
+  if (file.size > 25 * 1024 * 1024){ alert('Файл больше 25 МБ — сожми его'); return; }
+  const box = document.getElementById('handout-state');
+  box.textContent = 'Загружаю…';
+  try{
+    const b64 = await new Promise(function(resolve, reject){
+      const r = new FileReader();
+      r.onload = function(){ resolve(String(r.result).split(',')[1] || ''); };
+      r.onerror = function(){ reject(new Error('не смог прочитать файл')); };
+      r.readAsDataURL(file);
+    });
+    const r = await fetch(API + '/admin/live/handout?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ file_base64: b64, name: (document.getElementById('handout-name').value || '').trim() })
+    });
+    const d = await r.json();
+    if (!r.ok){ box.textContent = d.detail || 'Не получилось загрузить'; return; }
+    box.textContent = 'Загружено ' + Math.round((d.size || 0) / 1024) + ' КБ, ' + d.where + '. Надпись: ' + d.name;
+    input.value = '';
+  }catch(e){
+    box.textContent = 'Ошибка: ' + (e && e.message || e);
+  }
+}
+
+async function deleteHandout(){
+  if (!confirm('Убрать раздаточный файл?')) return;
+  try{
+    await fetch(API + '/admin/live/handout?x_admin_token=' + ADMIN_TOKEN, { method:'DELETE' });
+    document.getElementById('handout-state').textContent = 'Файла нет.';
+  }catch(e){ alert('Нет связи с бэкендом: ' + (e && e.message || e)); }
 }
 
 /* ── Анонс эфира по площадкам ────────────────────────────────────────────
