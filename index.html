@@ -964,6 +964,17 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
   appearance:none !important; -webkit-appearance:none !important;
 }
 .switch input[type="checkbox"]::after{ content:none !important; }
+
+/* ── Генератор ссылок ─────────────────────────────────────────────────────── */
+.lg-chip{padding:7px 13px;border-radius:9px;border:1px solid var(--border);background:var(--input-bg);
+  color:var(--text);font-size:12.5px;cursor:pointer;user-select:none}
+.lg-chip.on{background:var(--lav-deep,#7c6cf0);border-color:var(--lav-deep,#7c6cf0);color:#fff}
+.lg-chip.off{opacity:.45;cursor:not-allowed}
+.lg-result{padding:13px 14px;border-radius:11px;border:1px dashed var(--border);background:var(--input-bg);
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.5;
+  word-break:break-all;cursor:pointer;min-height:22px}
+.lg-result.lg-bad{border-color:#d9534f;color:#d9534f;cursor:default}
+.lg-copied{border-style:solid;border-color:#2e9e63;color:#2e9e63}
 </style>
 </head>
 
@@ -1095,6 +1106,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <button class="action-btn" onclick="openNudgesPopup()">Дожимные рассылки</button>
         <button class="action-btn" onclick="openBonusPopup()">Бонусы за вступление</button>
         <button class="action-btn" onclick="openRefPostsPopup()">Посты для приглашений</button>
+        <button class="action-btn" onclick="openLinkGenPopup()">Генератор ссылок</button>
         <button class="action-btn" onclick="openTextsPopup()">Тексты приложения</button>
         <button class="action-btn" onclick="openHelpDocsPopup()">Справка клуба</button>
       </div>
@@ -1358,6 +1370,35 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <div id="nudges-tab-scenarios"><div class="loading">Загрузка...</div></div>
       <div id="nudges-tab-chain" style="display:none"></div>
       <div id="nudges-tab-stats" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<div class="popup-overlay popup-centered" id="linkgen-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeLinkGenPopup()">
+  <div class="popup" style="max-width:600px">
+    <button class="popup-close-x" onclick="closeLinkGenPopup()" title="Закрыть">&#10005;</button>
+    <div class="popup-body" style="padding-top:20px">
+      <div class="popup-section-title" style="margin-top:0">Генератор ссылок</div>
+      <div style="font-size:11.5px;color:var(--text-faint);margin-bottom:12px;line-height:1.5">
+        Выбери площадку и куда вести. Ссылка собирается сама — у каждой площадки свой синтаксис,
+        и руками их легко перепутать.
+      </div>
+
+      <div class="pay-meta" style="margin-bottom:6px">Площадка</div>
+      <div id="lg-platforms" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
+
+      <div class="pay-meta" style="margin-bottom:6px">Куда вести</div>
+      <select id="lg-action" class="popup-input" onchange="lgBuild()"></select>
+
+      <div id="lg-param-slot" style="margin-top:10px"></div>
+
+      <div style="margin-top:16px">
+        <div class="pay-meta" style="margin-bottom:6px">Готовая ссылка</div>
+        <div id="lg-result" class="lg-result" onclick="lgCopy(this)">&mdash;</div>
+        <div id="lg-note" style="font-size:11.5px;line-height:1.5;margin-top:8px"></div>
+      </div>
+
+      <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closeLinkGenPopup()">Закрыть</button>
     </div>
   </div>
 </div>
@@ -9657,6 +9698,387 @@ async function deleteRefPost(id){
 var textsData = { items: [], total: 0, pending: 0, changed: 0 };
 var textsFilter = 'pending';
 var textsDrafts = {};    // ключ → что сейчас в поле, до сохранения
+
+
+/* ═══ ГЕНЕРАТОР ССЫЛОК ══════════════════════════════════════════════════════
+   Одно место, где собираются все ссылки в приложение. Смысл не в удобстве,
+   а в том, что у площадок РАЗНЫЙ СИНТАКСИС, и руками их путают:
+
+     Telegram  https://t.me/<бот>/app?startapp=<нагрузка>
+     MAX       https://max.ru/<бот>?startapp=<нагрузка>
+     ВК        https://vk.com/app<id>#<нагрузка>      ← после решётки!
+     Веб       https://<адрес аппа>/?u=<код>          ← только метка источника
+
+   ⚠️ ИСТОЧНИК ИСТИНЫ — СЕРВЕР, А НЕ ЭТОТ ФАЙЛ. `GET /admin/link-config`
+   отдаёт адреса площадок из переменных окружения (там же, где их берёт сам
+   бэкенд) и список маршрутов, вычитанный из таблицы DEEPLINKS БОЕВОГО
+   приложения. Раньше обе вещи были копиями и расходились молча: сменили
+   бота — генератор выдавал старого, добавили диплинк — не знал о нём.
+
+   Константы ниже — ЗАПАСНОЙ ВАРИАНТ на случай, когда сервер недоступен или
+   приложение не отдало таблицу. Лучше слегка устаревшая ссылка, чем пустой
+   экран, но признак `lgFromServer` показывает, что данные не живые. */
+
+const LG_TG_BOT   = 'youselllikeagod_bot';
+const LG_VK_APP   = '54715238';
+const LG_MAX_BOT  = 'id616616492674_bot';
+const LG_WEB_APP  = 'https://kuznetsovdenisalexandrovich.github.io/club-app/';
+
+/* Живые значения — заполняются из /admin/link-config */
+let lgCfg = { tg_bot:'', vk_app_id:'', max_bot:'', app_url:'' };
+let lgFromServer = false;      // адреса пришли с сервера
+let lgRoutesLive = false;      // маршруты вычитаны из приложения
+
+/* Маршруты. САМ СПИСОК теперь приходит с сервера (см. lgApplyConfig) — этот
+   набор остаётся запасным и заодно даёт человеческие названия: в таблице
+   DEEPLINKS их нет, там только ключи. Новый диплинк подхватится сам, но
+   покажется сырым ключом, пока сюда не впишут название — это видно в списке
+   и служит напоминанием, а не поломкой. */
+const LG_ACTIONS = [
+  { group: 'Открытая часть — годится для рекламы' },
+  { key:'film',       title:'Фильм о клубе',              guests:true,  param:'unit_opt' },
+  { key:'club',       title:'О клубе',                    guests:true  },
+  { key:'library',    title:'Библиотека лекций',          guests:true  },
+  { key:'magazine',   title:'Журнал',                     guests:true  },
+  { key:'live',       title:'Эфир (куда вести — решает сервер)', guests:true },
+  { key:'quiz',       title:'Тест «Кто ты из боженек»',   guests:true  },
+  { key:'points',     title:'Страница про баллы',         guests:true  },
+  { key:'levels',     title:'Уровни',                     guests:true  },
+  { key:'deck-rules', title:'Правила колоды',             guests:true  },
+  { key:'bonuses',    title:'Главная (бонусы)',           guests:true  },
+  { key:'guide',      title:'Справка клуба',              guests:true  },
+  { key:'help',       title:'Помощь с оплатой',           guests:true  },
+  { key:'support',    title:'Написать в поддержку',       guests:true  },
+
+  { group: 'С параметром' },
+  { key:'bonus',      title:'Конкретный бонус',           guests:true,  param:'bonus'  },
+  { key:'pay',        title:'Оплата с меткой источника',  guests:true,  param:'paytag' },
+  { key:'u',          title:'Только метка источника (мягкая)', guests:true, param:'unit' },
+
+  { group: 'Только участникам — гость упрётся в пейвол' },
+  { key:'schedule',   title:'Расписание',                 guests:false },
+  { key:'cards',      title:'Колода карточек',            guests:false },
+  { key:'plan',       title:'Личный план',                guests:false },
+  { key:'rewards',    title:'Награды',                    guests:false },
+  { key:'profile',    title:'Профиль',                    guests:false },
+  { key:'subscription',title:'Управление подпиской',      guests:false },
+  { key:'notifications',title:'Уведомления',              guests:false },
+  { key:'ai',         title:'ИИ-помощник',                guests:false },
+  { key:'access',     title:'Доступ в закрытые группы',   guests:false },
+  { key:'vk',         title:'Получить доступ в ВК',       guests:false },
+  { key:'howto',      title:'Как пользоваться клубом',    guests:false },
+  { key:'tour',       title:'Тур по приложению',          guests:false },
+];
+
+const LG_PLATFORMS = [
+  { id:'tg',  title:'Telegram' },
+  { id:'vk',  title:'ВКонтакте' },
+  { id:'max', title:'MAX' },
+  { id:'web', title:'Веб (реклама)' },
+];
+
+let lgPlatform  = 'tg';
+let lgParamKind = null;
+/* Действующий набор действий: сперва запасной, после ответа сервера — слитый */
+let LG_ROUTES   = LG_ACTIONS.slice();
+let lgBonuses  = [];
+let lgUnits    = [];
+
+async function openLinkGenPopup(){
+  document.getElementById('linkgen-popup-overlay').classList.add('open');
+  lgRenderPlatforms();
+  lgRenderActions();
+  lgRenderParam(true);
+  lgBuild();
+  // Сеть — после первой отрисовки: попап открывается сразу, а не ждёт ответа
+  await lgLoadConfig();
+  lgRenderActions();
+  lgLoadLists();
+  lgBuild();
+}
+
+function closeLinkGenPopup(){
+  document.getElementById('linkgen-popup-overlay').classList.remove('open');
+}
+
+/* Адреса площадок и живой список маршрутов. Ходим до списков бонусов, потому
+   что от конфигурации зависит сам набор действий в выпадашке */
+async function lgLoadConfig(){
+  try {
+    const r = await fetch(API + '/admin/link-config?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    if (!r.ok) return;
+    const d = await r.json();
+    lgCfg = {
+      tg_bot:    d.tg_bot    || '',
+      vk_app_id: d.vk_app_id || '',
+      max_bot:   d.max_bot   || '',
+      app_url:   d.app_url   || '',
+    };
+    lgFromServer = true;
+    lgApplyRoutes(d.routes || [], d.routes_source === 'app');
+  } catch(e){ /* остаёмся на запасных значениях — они лучше пустоты */ }
+}
+
+/* Маршруты с сервера + названия отсюда.
+   ⚠️ ПОРЯДОК И ГРУППЫ БЕРЁМ ИЗ СВОЕГО СПИСКА, А ФАКТ СУЩЕСТВОВАНИЯ — ИЗ
+   СЕРВЕРНОГО. Иначе новый диплинк либо не появится вовсе, либо свалится в
+   конец без группы. Флаг `guests` — только серверный: он в приложении и есть
+   правда, наша копия могла устареть. */
+function lgApplyRoutes(routes, live){
+  lgRoutesLive = !!live;
+  if (!routes.length) return;                 // сервер не смог — остаёмся на своём
+
+  const byKey = {};
+  routes.forEach(function(r){ byKey[r.key] = r; });
+
+  const merged = [];
+  let lastGroup = null;
+  LG_ACTIONS.forEach(function(a){
+    if (a.group){ lastGroup = a; return; }
+    if (a.param) {                             // параметрические не из таблицы
+      if (lastGroup){ merged.push(lastGroup); lastGroup = null; }
+      merged.push(a);
+      return;
+    }
+    const live = byKey[a.key];
+    if (!live) return;                         // диплинк убрали из приложения
+    if (lastGroup){ merged.push(lastGroup); lastGroup = null; }
+    merged.push({ key: a.key, title: a.title, guests: live.guests });
+    delete byKey[a.key];
+  });
+
+  // Всё, что осталось, — новые диплинки, о которых дашборд не знал
+  const extra = Object.keys(byKey);
+  if (extra.length){
+    merged.push({ group: 'Новые в приложении — названия ещё не заведены' });
+    extra.forEach(function(k){
+      merged.push({ key: k, title: k, guests: byKey[k].guests });
+    });
+  }
+  LG_ROUTES = merged;
+}
+
+/* Списки для выпадашек берём из уже существующих эндпоинтов — ключи бонусов
+   и коды единиц вписывать руками нельзя, там опечатка не видна глазами */
+async function lgLoadLists(){
+  try {
+    const r = await fetch(API + '/bonuses/admin?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    lgBonuses = r.ok ? await r.json() : [];
+  } catch(e){ lgBonuses = []; }
+  try {
+    const r2 = await fetch(API + '/admin/attribution/sources?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    const d2 = r2.ok ? await r2.json() : {};
+    lgUnits = (d2 && d2.sources) ? d2.sources : [];
+  } catch(e){ lgUnits = []; }
+  lgRenderParam(true);
+  lgBuild();
+}
+
+function lgRenderPlatforms(){
+  document.getElementById('lg-platforms').innerHTML = LG_PLATFORMS.map(function(p){
+    return '<div class="lg-chip' + (p.id === lgPlatform ? ' on' : '') +
+           '" onclick="lgPickPlatform(\'' + p.id + '\')">' + p.title + '</div>';
+  }).join('');
+}
+
+function lgPickPlatform(id){
+  lgPlatform = id;
+  lgRenderPlatforms();
+  lgRenderParam();
+  lgBuild();
+}
+
+function lgRenderActions(){
+  const sel = document.getElementById('lg-action');
+  const prev = sel.value;
+  let html = '', open = false;
+  LG_ROUTES.forEach(function(a){
+    if (a.group){
+      if (open) html += '</optgroup>';
+      html += '<optgroup label="' + a.group + '">';
+      open = true;
+      return;
+    }
+    html += '<option value="' + a.key + '">' + a.title + '</option>';
+  });
+  if (open) html += '</optgroup>';
+  sel.innerHTML = html;
+  // выбор человека переживает перерисовку списка после ответа сервера
+  if (prev){
+    sel.value = prev;
+    if (!sel.value) sel.selectedIndex = 0;
+  }
+}
+
+function lgAction(){
+  const key = document.getElementById('lg-action').value;
+  for (let i = 0; i < LG_ROUTES.length; i++){
+    if (LG_ROUTES[i].key === key) return LG_ROUTES[i];
+  }
+  return null;
+}
+
+/* Поле параметра появляется только там, где оно нужно. Веб-площадка умеет
+   ТОЛЬКО метку источника: в приложение по прямому адресу иначе не передать
+   ни бонус, ни маршрут — там нет параметра запуска, только строка запроса */
+function lgRenderParam(force){
+  const slot = document.getElementById('lg-param-slot');
+  const a = lgAction();
+  const kind = (lgPlatform === 'web') ? 'unit' : (a ? (a.param || '') : '');
+  /* ⚠️ ПЕРЕРИСОВЫВАЕМ, ТОЛЬКО КОГДА СМЕНИЛСЯ ВИД ПОЛЯ. Иначе перерисовка на
+     каждый ввод символа сбрасывала бы фокус, а смена площадки стирала бы уже
+     введённую метку — при том же виде поля её надо сохранить */
+  if (kind === lgParamKind && !force) return;
+  lgParamKind = kind;
+  if (!kind){ slot.innerHTML = ''; return; }
+
+  if (kind === 'bonus'){
+    const opts = lgBonuses.length
+      ? lgBonuses.map(function(b){
+          return '<option value="' + b.key + '">' + (b.title || b.key) + (b.active ? '' : ' (выключен)') + '</option>';
+        }).join('')
+      : '<option value="">Бонусов пока нет</option>';
+    slot.innerHTML = '<div class="pay-meta" style="margin-bottom:6px">Какой бонус открыть</div>' +
+      '<select id="lg-param" class="popup-input" onchange="lgBuild()">' + opts + '</select>';
+  } else if (kind === 'unit' || kind === 'unit_opt'){
+    const head = (kind === 'unit_opt')
+      ? 'Единица контента (необязательно — без неё просто ссылка на фильм)'
+      : 'Единица контента';
+    const empty = (kind === 'unit_opt') ? '<option value="">— без метки —</option>' : '';
+    const opts = lgUnits.length
+      ? lgUnits.map(function(u){
+          return '<option value="' + u.code + '">' + (u.title || u.code) + ' · ' + u.code + '</option>';
+        }).join('')
+      : '<option value="">Единиц пока нет — заведи их в отчёте по источникам</option>';
+    slot.innerHTML = '<div class="pay-meta" style="margin-bottom:6px">' + head + '</div>' +
+      '<select id="lg-param" class="popup-input" onchange="lgBuild()">' + empty + opts + '</select>';
+  } else if (kind === 'paytag'){
+    slot.innerHTML = '<div class="pay-meta" style="margin-bottom:6px">Метка источника (латиница, цифры, дефис, подчёркивание)</div>' +
+      '<input id="lg-param" class="popup-input" placeholder="magazine_pilot" oninput="lgBuild()">';
+  }
+}
+
+function lgParamValue(){
+  const el = document.getElementById('lg-param');
+  return el ? (el.value || '').trim() : '';
+}
+
+/* ⚠️ ДОПУСТИМЫ ТОЛЬКО ЛАТИНИЦА, ЦИФРЫ, ДЕФИС И ПОДЧЁРКИВАНИЕ. MAX молча
+   выбрасывает всё остальное из ссылки — переход получается битым, а причина
+   не видна. Поэтому проверяем на нашей стороне и говорим прямо */
+function lgBadChars(v){
+  return /[^a-zA-Z0-9_-]/.test(v);
+}
+
+function lgBuild(){
+  const out  = document.getElementById('lg-result');
+  const note = document.getElementById('lg-note');
+  const a    = lgAction();
+  out.classList.remove('lg-copied');
+  if (!a){ out.textContent = '—'; note.innerHTML = ''; return; }
+
+  lgRenderParam();
+
+  const kind  = (lgPlatform === 'web') ? 'unit' : (a.param || '');
+  const value = kind ? lgParamValue() : '';
+  const notes = [];
+
+  function fail(msg){
+    out.textContent = msg;
+    out.classList.add('lg-bad');
+    note.innerHTML = '';
+  }
+
+  if (kind === 'bonus' && !value)  return fail('Выбери бонус');
+  if (kind === 'paytag' && !value) return fail('Впиши метку источника');
+  if (kind === 'unit' && !value)   return fail('Выбери единицу контента');
+  if (value && lgBadChars(value))  return fail('В метке есть недопустимые символы — только латиница, цифры, дефис, подчёркивание');
+
+  // Полезная нагрузка: то, что приложение прочитает из параметра запуска
+  let payload = a.key;
+  if (a.key === 'bonus') payload = 'bonus_' + value;
+  else if (a.key === 'pay') payload = 'pay_' + value;
+  else if (a.key === 'u')   payload = 'u_' + value;
+  else if (a.key === 'film' && value) payload = 'film_' + value;
+
+  let url = '';
+  /* ⚠️ ЗАПАСНЫЕ КОНСТАНТЫ — ТОЛЬКО КОГДА СЕРВЕР МОЛЧИТ. Если он ответил,
+     верим ему целиком, включая ПУСТОЕ значение: пусто означает «площадка на
+     сервере не настроена», и подставлять туда зашитое значение нельзя — мы
+     выдали бы ссылку на площадку, о которой сам бэкенд не знает, и она
+     молча не сработала бы у человека. Первый стенд поймал ровно это. */
+  const tgBot  = lgFromServer ? lgCfg.tg_bot    : LG_TG_BOT;
+  const vkApp  = lgFromServer ? lgCfg.vk_app_id : LG_VK_APP;
+  const maxBot = lgFromServer ? lgCfg.max_bot   : LG_MAX_BOT;
+  const webApp = (lgFromServer ? lgCfg.app_url : LG_WEB_APP) || LG_WEB_APP;
+
+  if (lgPlatform === 'tg' && !tgBot) return fail('Telegram не настроен: на сервере пусто имя бота');
+
+  // ⚠️ ПЛОЩАДКА БЕЗ АДРЕСА — ЭТО НЕ ССЫЛКА, А ЛОВУШКА. На сервере VK_APP_ID и
+  // MAX_BOT_NAME могут быть пустыми (площадка ещё не настроена) — тогда
+  // говорим прямо, а не выдаём «https://max.ru/?startapp=...»
+  if (lgPlatform === 'max' && !maxBot) return fail('MAX не настроен: на сервере пуста переменная MAX_BOT_NAME');
+  if (lgPlatform === 'vk'  && !vkApp)  return fail('ВК не настроен: на сервере пуста переменная VK_APP_ID');
+
+  if (lgPlatform === 'tg')       url = 'https://t.me/' + tgBot + '/app?startapp=' + payload;
+  else if (lgPlatform === 'max') url = 'https://max.ru/' + maxBot + '?startapp=' + payload;
+  else if (lgPlatform === 'vk')  url = 'https://vk.com/app' + vkApp + '#' + payload;
+  else                           url = webApp.replace(/\/+$/, '/') + '?u=' + encodeURIComponent(value);
+
+  out.textContent = url;
+  out.classList.remove('lg-bad');
+
+  if (!a.guests){
+    notes.push('<span style="color:#d9534f">Только для участников: гость упрётся в пейвол. ' +
+               'Метка при этом запишется, но в рекламу такую ссылку давать не стоит.</span>');
+  }
+  if (lgPlatform === 'web'){
+    notes.push('Прямой адрес приложения. Маршруты сюда передать нельзя — только метку источника, ' +
+               'зато рядом работают обычные utm.');
+  }
+  if (lgPlatform === 'vk'){
+    notes.push('У ВК полезная нагрузка идёт после решётки — это не опечатка.');
+  }
+  if (a.key === 'live'){
+    notes.push('Одна ссылка навсегда: идёт эфир — откроется плеер, недавно прошёл — запись, иначе библиотека.');
+  }
+  if (!lgFromServer){
+    notes.push('<span style="color:#d9534f">Сервер не ответил — адреса площадок взяты из запасных. ' +
+               'Проверь ссылку глазами.</span>');
+  } else if (!lgRoutesLive){
+    notes.push('Список действий запасной: приложение не отдало таблицу диплинков. ' +
+               'Адреса площадок при этом живые.');
+  }
+  notes.push('Нажми на ссылку, чтобы скопировать.');
+  note.innerHTML = notes.join('<br>');
+}
+
+function lgCopy(el){
+  const url = el.textContent || '';
+  if (!url || el.classList.contains('lg-bad')) return;
+  const done = function(){
+    el.classList.add('lg-copied');
+    setTimeout(function(){ el.classList.remove('lg-copied'); }, 1100);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(done).catch(function(){ lgCopyFallback(url, done); });
+  } else {
+    lgCopyFallback(url, done);
+  }
+}
+
+/* Внутри вебвью и по http буфер обмена бывает запрещён — старый способ
+   через временное поле работает почти везде */
+function lgCopyFallback(url, done){
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    done();
+  } catch(e){ alert('Не удалось скопировать: ' + url); }
+}
 
 function openTextsPopup(){
   document.getElementById('texts-popup-overlay').classList.add('open');
