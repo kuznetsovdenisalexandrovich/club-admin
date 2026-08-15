@@ -2654,15 +2654,56 @@ async function loadSettings(){
       </div>
       <input type="number" min="1" value="${s.insights_unlock_level || 2}" style="width:56px;text-align:center;padding:8px 6px;border-radius:10px;border:1px solid var(--line);background:var(--stat-bg);color:var(--text);font-family:inherit" onchange="saveNumericSetting('insights_unlock_level', this.value)">
     </div>`;
-    el.innerHTML = toggles + numericRow;
+    /* Ознакомительная часть аудио для НЕ участников (15.08.2026).
+       ⚠️ ЭТО НЕ КОСМЕТИКА В ПЛЕЕРЕ: по этому числу сервер РЕЖЕТ отдельный
+       файл превью, а гостю уходит ссылка именно на него. Ноль — гостям аудио
+       не давать вовсе. После смены длины старым занятиям превью надо
+       пересобрать кнопкой ниже. */
+    const audioRow = `<div class="pay-item">
+      <div class="pay-info">
+        <div class="pay-name">Ознакомительная часть аудио, минут</div>
+        <div class="pay-meta">Сколько минут занятия слышит человек без подписки. 0 — не давать вовсе</div>
+      </div>
+      <input type="number" min="0" value="${s.audio_preview_minutes || 10}" style="width:56px;text-align:center;padding:8px 6px;border-radius:10px;border:1px solid var(--line);background:var(--stat-bg);color:var(--text);font-family:inherit" onchange="saveNumericSetting('audio_preview_minutes', this.value, 0)">
+    </div>`;
+
+    /* Какое занятие библиотеки считать фильмом о клубе.
+       ⚠️ ЗАШИВАТЬ SLUG В КОД НЕЛЬЗЯ: перезальёшь фильм под другим ключом —
+       ссылка `?startapp=film` тихо перестанет работать, и искать причину
+       будем в коде, а не здесь. */
+    const filmRow = `<div class="pay-item" style="align-items:flex-start">
+      <div class="pay-info">
+        <div class="pay-name">Занятие с фильмом о клубе</div>
+        <div class="pay-meta">Ключ занятия из библиотеки. По ссылке «фильм» участник попадёт на него, а неузнанный — на экран воронки</div>
+      </div>
+      <input type="text" value="${(s.film_lecture_slug || '').replace(/"/g,'&quot;')}" placeholder="funnels_p01_l02_lecture" style="width:190px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--stat-bg);color:var(--text);font-family:inherit;font-size:12px" onchange="saveTextSetting('film_lecture_slug', this.value)">
+    </div>`;
+
+    el.innerHTML = toggles + numericRow + audioRow + filmRow;
   }catch(e){ el.innerHTML='<div class="empty">Не удалось загрузить</div>'; }
 }
 
-async function saveNumericSetting(key, value){
+async function saveNumericSetting(key, value, min){
+  /* ⚠️ `parseInt(value) || 1` ПРЕВРАЩАЛ НОЛЬ В ЕДИНИЦУ. Для уровней это было
+     незаметно (ноль там и не нужен), но у длины аудио-превью ноль значит
+     «гостям не давать вовсе» — и молча становился одной минутой. Нижняя
+     граница теперь приходит аргументом, по умолчанию прежняя. */
+  const lo = (typeof min === 'number') ? min : 1;
+  let n = parseInt(value, 10);
+  if (!isFinite(n) || n < lo) n = lo;
   try{
     await fetch(API+'/settings?x_admin_token='+ADMIN_TOKEN,{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({[key]: String(parseInt(value,10)||1)})
+      body: JSON.stringify({[key]: String(n)})
+    });
+  }catch(e){ alert('Не получилось сохранить'); }
+}
+
+async function saveTextSetting(key, value){
+  try{
+    await fetch(API+'/settings?x_admin_token='+ADMIN_TOKEN,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({[key]: String(value || '').trim()})
     });
   }catch(e){ alert('Не получилось сохранить'); }
 }
