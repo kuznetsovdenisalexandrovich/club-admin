@@ -9273,11 +9273,14 @@ function pstGeom(){
   /* Плашки. Сначала те, что откололись и живут по своим координатам,
      остальные — автоукладкой в полосу, как раньше */
   var plates = L.plates || {};
-  var order = ['name','archetype','role','motto','behind'];
+  var pscale = Math.max(0.2, Math.min(3, parseFloat(L.plates_scale) || 1));
+  var hidden = L.hidden || [];
+  var order = PST_PLATES;
   var auto = [], items = {};
   order.forEach(function(slot){
     var sz = pstSlotSize(slot);
-    if (!sz) return;
+    /* скрытая плашка выбывает ДО расчёта — иначе занимала бы место в полосе */
+    if (!sz || hidden.indexOf(slot) >= 0) return;
     var sg = pstPack[slot].geometry || {};
     var base = sg.field || { x: 0, y: 0, w: sz.w, h: sz.h };
     var k = ((L.rows[slot] || {}).fw || 0.4) * PST_W / Math.max(1, base.w);
@@ -9288,7 +9291,7 @@ function pstGeom(){
   g.plates = {};
   Object.keys(plates).forEach(function(slot){
     var it = items[slot]; if (!it) return;
-    var k = it.k, b = it.base;
+    var k = it.k * pscale, b = it.base;
     var fw = b.w * k, fx0 = b.x * k;
     var px = parseFloat(plates[slot].x) * PST_W - (fx0 + fw / 2);
     var py = parseFloat(plates[slot].y) * PST_H;
@@ -9306,8 +9309,10 @@ function pstGeom(){
     need += gap * (auto.length - 1);
     var squeeze = need > 0 ? Math.min(1, bandH / need) : 1;
     var y = band[0] * PST_H + Math.max(0, bandH - need * squeeze) / 2;
+    /* ⚠️ ОБЩИЙ МАСШТАБ — ПОСЛЕ УЖАТИЯ: заложенный в запрос места, он
+       гасился бы автоужатием, и ползунок не двигал бы ничего */
     auto.forEach(function(slot){
-      var it = items[slot], k = it.k * squeeze;
+      var it = items[slot], k = it.k * squeeze * pscale;
       var b = it.base, fw = b.w * k, fx0 = b.x * k;
       var px = PST_W / 2 - (fx0 + fw / 2);
       g.plates[slot] = { x: px, y: y, w: it.sz.w * k, h: it.sz.h * k,
@@ -9348,10 +9353,13 @@ function pstArtUrl(){
 }
 
 /* Слои, которые можно выбрать. Порядок — снизу вверх, как рисует сервер */
+var PST_PLATES = ['name','archetype','role','motto','behind'];
+
 var PST_LAYERS = [
   { id:'scene', name:'Сцена (фон)' },
   { id:'art',   name:'Портрет' },
   { id:'frame', name:'Рамка карточки' },
+  { id:'plates-all', name:'Все плашки разом', group:true },
   { id:'name',  name:'Плашка имени' },
   { id:'archetype', name:'Плашка кода' },
   { id:'role',  name:'Плашка роли' },
@@ -9414,8 +9422,10 @@ function pstLiveDraw(){
   put('pst-live-art', g.art);
   put('pst-live-frame', g.frame);
   var texts = { archetype: 'pst-archetype', role: 'pst-role', motto: 'pst-motto', behind: 'pst-behind' };
-  ['name','archetype','role','motto','behind'].forEach(function(s){
+  PST_PLATES.forEach(function(s){
     var b = g.plates && g.plates[s];
+    var im = document.getElementById('pst-live-' + s);
+    if (im) im.style.display = b ? 'block' : 'none';
     put('pst-live-' + s, b);
     var t = document.getElementById('pst-live-t-' + s);
     if (!t) return;
@@ -9448,6 +9458,20 @@ function pstLiveDraw(){
 function pstSelBox(g){
   if (pstSel === 'art') return g.art;
   if (pstSel === 'qr') return g.qr;
+  if (pstSel === 'plates-all'){
+    /* Общая рамка — объединение всех плашек, включая откреплённые */
+    var b = null;
+    Object.keys(g.plates || {}).forEach(function(k){
+      var p = g.plates[k];
+      if (!b) b = { x: p.x, y: p.y, w: p.w, h: p.h };
+      else {
+        var x2 = Math.max(b.x + b.w, p.x + p.w), y2 = Math.max(b.y + b.h, p.y + p.h);
+        b.x = Math.min(b.x, p.x); b.y = Math.min(b.y, p.y);
+        b.w = x2 - b.x; b.h = y2 - b.y;
+      }
+    });
+    return b;
+  }
   if (g.plates && g.plates[pstSel]) return g.plates[pstSel];
   return g[pstSel] || null;
 }
@@ -9455,6 +9479,9 @@ function pstSelBox(g){
 function pstSelInfo(){
   var L = pstLayout, s = pstSel;
   var f = function(v){ return (Math.round(v * 1000) / 1000); };
+  if (s === 'plates-all')
+    return 'общий масштаб ' + f(L.plates_scale || 1) + ' · двигает всю стопку сразу'
+         + ' · скрытых: ' + (L.hidden || []).length;
   if (s === 'art') return 'масштаб ' + f(L.art.scale) + ' · сдвиг ' + f(L.art.dx) + ' / ' + f(L.art.dy);
   if (s === 'qr') return 'размер ' + f(L.qr.w) + ' · центр ' + f(L.qr.cx) + ' / ' + f(L.qr.cy);
   if (['scene','frame','fx'].indexOf(s) >= 0)
@@ -9490,6 +9517,17 @@ function pstPin(slot){
   var sq = g.squeeze || 1;
   if (sq < 1) pstLayout.rows[slot].fw = Math.round((pstLayout.rows[slot].fw || 0.4) * sq * 1000) / 1000;
   pstLayout.plates[slot] = { x: (b.field.x + b.field.w / 2) / PST_W, y: b.y / PST_H };
+}
+
+/* ⚠️ ЛИШНЯЯ ПЛАШКА УБИРАЕТСЯ, А НЕ УМЕНЬШАЕТСЯ ДО НУЛЯ: пять штук стопкой
+   съедают половину постера, и «одна-две покрупнее» набирается именно так —
+   снять галочки с ненужных и растянуть оставшиеся общим масштабом */
+function pstToggle(slot){
+  if (!pstLayout) return;
+  pstLayout.hidden = pstLayout.hidden || [];
+  var i = pstLayout.hidden.indexOf(slot);
+  if (i >= 0) pstLayout.hidden.splice(i, 1); else pstLayout.hidden.push(slot);
+  pstRenderLayout();
 }
 
 function pstUnpin(slot){
@@ -9534,7 +9572,18 @@ function pstMove(e){
   var isPlate = ['name','archetype','role','motto','behind'].indexOf(s) >= 0;
 
   if (pstDrag.what === 'move'){
-    if (s === 'qr'){ pstLayout.qr.cx = rnd(S.qr.cx + ddx); pstLayout.qr.cy = rnd(S.qr.cy + ddy); }
+    if (s === 'plates-all'){
+      /* Двигаем полосу автоукладки И каждую откреплённую — одним жестом,
+         иначе половина плашек уехала бы, а половина осталась */
+      var bh = S.band[1] - S.band[0];
+      var top = Math.max(0, Math.min(1 - bh, S.band[0] + ddy));
+      pstLayout.band = [rnd(top), rnd(top + bh)];
+      pstLayout.plates = {};
+      Object.keys(S.plates || {}).forEach(function(k){
+        pstLayout.plates[k] = { x: rnd(S.plates[k].x + ddx), y: rnd(S.plates[k].y + ddy) };
+      });
+    }
+    else if (s === 'qr'){ pstLayout.qr.cx = rnd(S.qr.cx + ddx); pstLayout.qr.cy = rnd(S.qr.cy + ddy); }
     else if (s === 'art'){
       /* сдвиг портрета считается ОТ ОКНА, а не от холста, — как на сервере */
       var g = pstGeom();
@@ -9554,7 +9603,9 @@ function pstMove(e){
     var d0 = Math.hypot(pstDrag.x0 - c.x, pstDrag.y0 - c.y);
     var d1 = Math.hypot(x - c.x, y - c.y);
     var f = d0 > 0.005 ? d1 / d0 : 1;
-    if (s === 'qr') pstLayout.qr.w = rnd(Math.max(0.04, Math.min(0.6, S.qr.w * f)));
+    if (s === 'plates-all')
+      pstLayout.plates_scale = rnd(Math.max(0.2, Math.min(3, (S.plates_scale || 1) * f)));
+    else if (s === 'qr') pstLayout.qr.w = rnd(Math.max(0.04, Math.min(0.6, S.qr.w * f)));
     else if (s === 'art') pstLayout.art.scale = rnd(Math.max(0.5, Math.min(3, S.art.scale * f)));
     else if (isPlate){
       var fw = ((S.rows[s] || {}).fw) || 0.4;
@@ -9580,9 +9631,11 @@ function pstWheel(e){
   e.preventDefault();
   var f = e.deltaY < 0 ? 1.03 : 1 / 1.03, s = pstSel;
   var rnd = function(v){ return Math.round(v * 1000) / 1000; };
-  if (s === 'qr') pstLayout.qr.w = rnd(Math.max(0.04, Math.min(0.6, pstLayout.qr.w * f)));
+  if (s === 'plates-all')
+    pstLayout.plates_scale = rnd(Math.max(0.2, Math.min(3, (pstLayout.plates_scale || 1) * f)));
+  else if (s === 'qr') pstLayout.qr.w = rnd(Math.max(0.04, Math.min(0.6, pstLayout.qr.w * f)));
   else if (s === 'art') pstLayout.art.scale = rnd(Math.max(0.5, Math.min(3, pstLayout.art.scale * f)));
-  else if (['name','archetype','role','motto','behind'].indexOf(s) >= 0)
+  else if (PST_PLATES.indexOf(s) >= 0)
     pstLayout.rows[s].fw = rnd(Math.max(0.1, Math.min(0.9, (pstLayout.rows[s].fw || 0.4) * f)));
   else pstLayout[s].scale = rnd(Math.max(0.2, Math.min(3, pstLayout[s].scale * f)));
   pstLiveDraw();
@@ -9594,6 +9647,8 @@ function pstRenderLayout(){
   var L = pstLayout;
   if (!L) return;
   L.plates = L.plates || {};
+  L.hidden = L.hidden || [];
+  if (L.plates_scale == null) L.plates_scale = 1;
   ['scene','frame','fx'].forEach(function(k){ L[k] = L[k] || { scale:1, dx:0, dy:0 }; });
 
   var live = document.getElementById('pst-live');
@@ -9616,11 +9671,19 @@ function pstRenderLayout(){
     + '<div id="pst-layer-list" style="display:flex;flex-wrap:wrap;gap:4px">';
   PST_LAYERS.forEach(function(l){
     var loaded = l.id === 'art' ? true : !!(pstPack && pstPack[l.id] && pstPack[l.id].url);
+    var isPlate = PST_PLATES.indexOf(l.id) >= 0;
+    var off = isPlate && (L.hidden || []).indexOf(l.id) >= 0;
     h += '<div data-layer="' + l.id + '" onclick="pstSelect(\'' + l.id + '\')"'
       + ' style="padding:5px 9px;border-radius:8px;cursor:pointer;font-size:12px;'
+      + 'display:flex;align-items:center;gap:6px;'
       + 'border:1px solid var(--line);' + (loaded ? '' : 'opacity:.45;')
+      + (l.group ? 'font-weight:700;' : '')
       + 'background:' + (pstSel === l.id ? 'var(--lav-dim)' : 'transparent') + '">'
-      + elEsc(l.name) + (loaded ? '' : ' · нет') + '</div>';
+      + (isPlate ? '<input type="checkbox" ' + (off ? '' : 'checked')
+                 + ' onclick="event.stopPropagation();pstToggle(\'' + l.id + '\')" '
+                 + 'title="показывать плашку" style="margin:0">' : '')
+      + '<span' + (off ? ' style="text-decoration:line-through;opacity:.55"' : '') + '>'
+      + elEsc(l.name) + '</span>' + (loaded ? '' : ' · нет') + '</div>';
   });
   h += '</div>'
     + '<div id="pst-sel-info" style="font-size:11px;color:var(--text-faint)"></div>'
@@ -9644,9 +9707,10 @@ function pstRenderLayout(){
 function pstSelScale(){
   var L = pstLayout, s = pstSel;
   if (!L) return 1;
+  if (s === 'plates-all') return L.plates_scale || 1;
   if (s === 'qr') return L.qr.w;
   if (s === 'art') return L.art.scale;
-  if (['name','archetype','role','motto','behind'].indexOf(s) >= 0) return (L.rows[s] || {}).fw || 0.4;
+  if (PST_PLATES.indexOf(s) >= 0) return (L.rows[s] || {}).fw || 0.4;
   return (L[s] || {}).scale || 1;
 }
 
@@ -9664,9 +9728,10 @@ function pstOnSlide(el){
   var n = parseFloat(el.value), s = pstSel;
   if (el.id === 'pl-gap') L.gap = n;
   else if (el.id === 'pl-sel-scale'){
-    if (s === 'qr') L.qr.w = n;
+    if (s === 'plates-all') L.plates_scale = n;
+    else if (s === 'qr') L.qr.w = n;
     else if (s === 'art') L.art.scale = n;
-    else if (['name','archetype','role','motto','behind'].indexOf(s) >= 0) L.rows[s].fw = n;
+    else if (PST_PLATES.indexOf(s) >= 0) L.rows[s].fw = n;
     else L[s].scale = n;
   }
   pstLiveDraw();
