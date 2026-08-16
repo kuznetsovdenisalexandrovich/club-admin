@@ -1570,7 +1570,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <button class="action-btn" onclick="setElKind('frame')" id="el-kind-frame">Рамки</button>
           <button class="action-btn" onclick="setElKind('art')" id="el-kind-art">Арты</button>
           <button class="action-btn" onclick="setElKind('plate')" id="el-kind-plate">Плашки</button>
-          <button class="action-btn" onclick="showPacksTab()">Паки богов</button>
+          <button class="action-btn" onclick="showPacksTab()">Постеры</button>
           <button class="action-btn" onclick="openComposer()" style="margin-left:auto">Проба сборки</button>
         </div>
         <!-- ⚠️ Кирпичики ЭКРАНА ОТКРЫТИЯ жили здесь до 12.08.2026 и переехали
@@ -1593,10 +1593,34 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
            Слоты определяются по номеру в имени файла, а НЕ по порядку
            перетаскивания: порядок браузер не гарантирует (файлы приходят
            в порядке выделения), а номер в скобках детерминирован. -->
+      <!-- ══ ПОСТЕРЫ ═══════════════════════════════════════════════════════
+           Тот же пантеон, что и у карточек: строка на бога. Внутри бога —
+           его пак ассетов и сборка постера. -->
       <div id="cards-tab-packs" style="display:none">
+
+        <div id="pk-list-view">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+            <input id="pk-list-series" list="series-datalist" placeholder="сезон (пусто = на все времена)"
+                   style="flex:1;min-width:180px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text)">
+            <button class="action-btn" onclick="pstLoadList()">Обновить</button>
+          </div>
+          <div id="pst-list"><div class="loading">Загрузка...</div></div>
+        </div>
+
+        <div id="pk-edit-view" style="display:none">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+          <button class="action-btn" onclick="pstBackToList()">← Ко всем богам</button>
+          <div id="pst-title" style="font-weight:600"></div>
+        </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
-          <input id="pk-god" placeholder="ключ бога, напр. persey"
+          <!-- ⚠️ ИМЯ БОГА, А НЕ ЛАТИНСКИЙ КЛЮЧ. Боги в базе живут под
+               кириллическими именами без отдельного ключа: God.name — он же и
+               идентификатор, и CardType.god хранит ровно его. Пак обязан
+               привязываться к тому же имени, иначе не найдёт свои карточки.
+               Подсказка — из уже загруженного справочника богов -->
+          <input id="pk-god" list="pk-gods-datalist" placeholder="имя бога, напр. Персей"
                  style="flex:1;min-width:150px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text)">
+          <datalist id="pk-gods-datalist"></datalist>
           <!-- ⚠️ ПУСТОЙ СЕЗОН = «НА ВСЕ ВРЕМЕНА», то же соглашение, что у
                экранов открытия пака. Заполнять его нужно только когда у бога
                появится ВТОРОЕ оформление — иначе второй сезон затрёт первый -->
@@ -1624,6 +1648,38 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 
         <div id="pk-status" style="margin-top:10px;font-size:13px"></div>
         <div id="pk-grid" style="margin-top:12px"></div>
+
+        <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+          <div style="font-weight:600;margin-bottom:8px">Сборка постера</div>
+          <!-- ⚠️ АРТ ПО УМОЛЧАНИЮ БЕРЁТСЯ САМ: сначала чистый портрет бога, а
+               нет его — готовая карточка целиком, и тогда свою рамку поверх мы
+               не рисуем. Список нужен, чтобы подставить другой осознанно и
+               видеть, что именно уйдёт в окно -->
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+            <select id="pst-art" onchange="pstArtChanged()"
+                    style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text)">
+              <option value="">арт бога — выбрать автоматически</option>
+            </select>
+            <img id="pst-art-thumb" style="height:44px;border-radius:6px;display:none">
+          </div>
+          <!-- Имя не спрашиваем: оно запечено в плашку самим GPT -->
+          <input id="pst-archetype" placeholder="код архетипа"
+                 style="width:100%;margin-bottom:6px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text)">
+          <input id="pst-role" placeholder="роль (коротко, до ~30 символов)"
+                 style="width:100%;margin-bottom:6px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text)">
+          <input id="pst-motto" placeholder="девиз (пусто — возьмём из раздела «Боги»)"
+                 style="width:100%;margin-bottom:6px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text)">
+          <input id="pst-behind" placeholder="«за плечом»"
+                 style="width:100%;margin-bottom:8px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text)">
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="action-btn" onclick="pstPreview()">Собрать превью</button>
+            <button class="action-btn" onclick="pstSave()">Сохранить постер</button>
+            <button class="action-btn" onclick="pstDelete()" style="margin-left:auto">Удалить постер</button>
+          </div>
+          <div id="pst-notes" style="margin-top:8px;font-size:13px"></div>
+          <div id="pst-preview" style="margin-top:10px"></div>
+        </div>
+        </div>
       </div>
 
       <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closeCardsPopup()">Закрыть</button>
@@ -5979,7 +6035,9 @@ function insertEmoji(fieldId, pickerId, emoji){
 }
 
 function escapeHtmlText(s){
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // ⚠️ Пришло не строкой — раньше падало на .replace. Списки богов и заметок
+  // сборки могут содержать пустые значения, и падение рвало бы весь рендер
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 function richNodeToTelegramHtml(node){
@@ -8746,8 +8804,6 @@ async function pkUpload(files){
   var god = pkGod();
   var st = document.getElementById('pk-status');
   if (!god){ st.textContent = 'Сначала впиши ключ бога'; return; }
-  if (!/^[a-z0-9_-]{1,60}$/.test(god)){
-    st.textContent = 'Ключ бога: латиница, цифры, дефис, подчёркивание'; return; }
   var ser = pkSeries();
   if (ser && !/^[a-z0-9_-]{1,60}$/.test(ser)){
     st.textContent = 'Ключ сезона: латиница, цифры, дефис, подчёркивание'; return; }
@@ -8872,6 +8928,18 @@ async function pkDropSlot(slot){
   await pkLoad();
 }
 
+/* Имена богов в подсказку. Берём уже загруженный справочник, своего запроса
+   не делаем: если боги ещё не грузились, подсказка просто пустая, а поле
+   остаётся обычным вводом — как это уже сделано для сезонов */
+function pkFillGods(){
+  var dl = document.getElementById('pk-gods-datalist');
+  if (!dl) return;
+  var names = (window.godsList || []).map(function(g){ return g.name; })
+                                     .filter(function(n){ return n; });
+  dl.innerHTML = names.map(function(n){
+    return '<option value="' + n.replace(/"/g, '&quot;') + '">'; }).join('');
+}
+
 async function pkLoadKnown(){
   try {
     var r = await fetch(API + '/cards/admin/asset-pack?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
@@ -8881,7 +8949,7 @@ async function pkLoadKnown(){
     sel.innerHTML = '<option value="">— уже загружены —</option>'
       + (d.gods || []).map(function(g){
           var ser = g.series_key || '';
-          return '<option value="' + g.god + '|' + ser + '">' + g.god
+          return '<option value="' + String(g.god).replace(/"/g, '&quot;') + '|' + ser + '">' + g.god
                + (ser ? ' · ' + ser : ' · все времена')
                + ' (' + g.slots + '/9' + (g.complete ? '' : ', неполный') + ')</option>';
         }).join('');
@@ -8922,18 +8990,247 @@ function pkInit(){
     var el = document.getElementById(id);
     if (el) el.addEventListener('change', function(){ pkState = {}; pkLoad(); });
   });
+  pkFillGods();
   fillSeriesDatalist();
   pkLoadKnown();
 }
 
-/* Показ вкладки паков. Отдельной кнопкой секции не заводим: паки — часть
-   работы над оформлением карточек, живут рядом с элементами */
+
+/* ══ ПОСТЕРЫ: ПАНТЕОН И РЕДАКТОР ══════════════════════════════════════════
+   Список идёт ОТ СПРАВОЧНИКА БОГОВ, а не от загруженных паков: иначе бог без
+   пака просто не появился бы, и было бы не видно, сколько работы осталось. */
+
+var pstRows = [];
+
+function pstSeries(){
+  var e = document.getElementById('pk-list-series');
+  return (e ? e.value : '').trim();
+}
+
+async function pstLoadList(){
+  var box = document.getElementById('pst-list');
+  if (!box) return;
+  box.innerHTML = '<div class="loading">Загрузка...</div>';
+  try {
+    var r = await fetch(API + '/cards/admin/posters?series_key=' + encodeURIComponent(pstSeries())
+                        + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    var d = await r.json();
+    pstRows = d.gods || [];
+    pstRenderList();
+  } catch(e){
+    box.innerHTML = '<div style="color:#c66">Не загрузилось: ' + e.message + '</div>';
+  }
+}
+
+function pstRenderList(){
+  var box = document.getElementById('pst-list');
+  if (!pstRows.length){
+    box.innerHTML = '<div style="opacity:.7">Богов пока нет — заведи их в разделе «Боги»</div>';
+    return;
+  }
+  box.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">'
+    + pstRows.map(function(g){
+        var state = g.poster_url ? 'постер собран'
+                  : (g.pack_complete ? 'пак полный, постера нет'
+                                     : 'пак ' + g.slots + '/9');
+        var color = g.poster_url ? '#5a5' : (g.pack_complete ? 'var(--text)' : '#c66');
+        return '<div style="border:1px solid var(--border);border-radius:10px;padding:8px;cursor:pointer" '
+             + 'onclick="pstOpen(' + jsArg(g.god) + ')">'
+             + '<div style="height:150px;display:flex;align-items:center;justify-content:center;'
+             + 'background:var(--border);border-radius:6px;overflow:hidden">'
+             + (g.poster_url
+                 ? '<img src="' + g.poster_url + '" style="max-width:100%;max-height:150px;object-fit:contain">'
+                 : '<span style="opacity:.5;font-size:12px">нет постера</span>')
+             + '</div>'
+             + '<div style="font-weight:600;font-size:13px;margin-top:6px">' + escapeHtmlText(g.god) + '</div>'
+             + '<div style="font-size:11px;color:' + color + '">' + state + '</div>'
+             + '</div>';
+      }).join('') + '</div>';
+}
+
+function pstRowFor(god){
+  var out = null;
+  pstRows.forEach(function(g){ if (g.god === god) out = g; });
+  return out;
+}
+
+/* Открыть бога: переключаем на редактор, подтягиваем пак и сохранённые тексты */
+function pstOpen(god){
+  document.getElementById('pk-list-view').style.display = 'none';
+  document.getElementById('pk-edit-view').style.display = 'block';
+  document.getElementById('pst-title').textContent = god;
+  document.getElementById('pk-god').value = god;
+  document.getElementById('pk-series').value = pstSeries();
+  pkState = {};
+
+  var row = pstRowFor(god) || {};
+  var t = row.texts || {};
+  ['archetype','role','motto','behind'].forEach(function(k){
+    var el = document.getElementById('pst-' + k);
+    if (el) el.value = t[k] || '';
+  });
+  document.getElementById('pst-notes').innerHTML = '';
+  pstLoadArts(god).then(function(){
+    /* ⚠️ ВОЗВРАЩАЕМ СОХРАНЁННЫЙ ВЫБОР ПОСЛЕ загрузки списка: поставить
+       значение в пустой select нельзя, оно тихо сбрасывается на пустое */
+    var saved = (row.layout || {}).art_url || '';
+    var sel = document.getElementById('pst-art');
+    if (saved && sel){
+      var has = false;
+      for (var i = 0; i < sel.options.length; i++) if (sel.options[i].value === saved) has = true;
+      if (!has){
+        var o = document.createElement('option');
+        o.value = saved; o.textContent = 'сохранённый арт';
+        sel.appendChild(o);
+      }
+      sel.value = saved;
+      pstArtChanged();
+    }
+  });
+  document.getElementById('pst-preview').innerHTML = row.poster_url
+    ? '<img src="' + row.poster_url + '?t=' + Date.now() + '" style="max-width:340px;width:100%;border-radius:10px">'
+    : '';
+  pkInit();
+  pkLoad();
+}
+
+function pstBackToList(){
+  document.getElementById('pk-edit-view').style.display = 'none';
+  document.getElementById('pk-list-view').style.display = 'block';
+  pstLoadList();
+}
+
+var pstArts = [];
+
+/* Список артов бога. ⚠️ ГРУЗИМ ПРИ ОТКРЫТИИ БОГА, А НЕ ПРИ СБОРКЕ: увидеть,
+   что подставится, надо ДО того, как жать «собрать» */
+async function pstLoadArts(god){
+  var sel = document.getElementById('pst-art');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">арт бога — выбрать автоматически</option>';
+  pstArts = [];
+  try {
+    var r = await fetch(API + '/cards/admin/poster-arts?god=' + encodeURIComponent(god)
+                        + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    var d = await r.json();
+    pstArts = d.arts || [];
+    var auto = (d.auto || {});
+    if (auto.url){
+      sel.options[0].text = 'арт бога — автоматически'
+        + (auto.framed ? ' (готовая карточка целиком)' : ' (чистый арт)');
+    } else {
+      sel.options[0].text = 'арт бога — автоматически (нечего подставить)';
+    }
+    pstArts.forEach(function(a){
+      var o = document.createElement('option');
+      o.value = a.url; o.textContent = a.title;
+      sel.appendChild(o);
+    });
+  } catch(e){}
+  pstArtChanged();
+}
+
+function pstArtChanged(){
+  var sel = document.getElementById('pst-art');
+  var th = document.getElementById('pst-art-thumb');
+  if (!sel || !th) return;
+  if (sel.value){ th.src = sel.value; th.style.display = 'block'; }
+  else { th.removeAttribute('src'); th.style.display = 'none'; }
+}
+
+function pstBody(commit){
+  var v = function(id){ var e = document.getElementById(id); return e ? e.value.trim() : ''; };
+  return { god: pkGod(), series_key: pkSeries(),
+           archetype: v('pst-archetype'), role: v('pst-role'),
+           motto: v('pst-motto'), behind: v('pst-behind'),
+           art_url: v('pst-art'), commit: !!commit };
+}
+
+async function pstCompose(commit){
+  var notes = document.getElementById('pst-notes');
+  var prev = document.getElementById('pst-preview');
+  if (!pkGod()){ notes.innerHTML = '<span style="color:#c66">Не выбран бог</span>'; return null; }
+  notes.textContent = commit ? 'Сохраняю…' : 'Собираю…';
+  try {
+    var r = await fetch(API + '/cards/admin/poster-compose?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(pstBody(commit)) });
+    var d = await r.json().catch(function(){ return {}; });
+    if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
+    /* Замечания сборки показываем ВСЕГДА, даже когда всё получилось: «арт —
+       готовая карточка, свою рамку не рисуем» это не ошибка, но знать об этом
+       нужно, иначе непонятно, почему рамка выглядит иначе */
+    var head = '';
+    if (d.art){
+      head = d.art.url
+        ? '<span style="opacity:.75">Арт: '
+          + (d.art.manual ? 'выбран вручную' : 'подобран автоматически')
+          + (d.art.framed ? ', готовая карточка целиком' : ', чистый портрет') + '</span><br>'
+        : '<span style="color:#c66">Арта нет — окно осталось пустым</span><br>';
+    }
+    notes.innerHTML = head + ((d.notes || []).length
+      ? '<span style="color:#c66">' + (d.notes || []).map(escapeHtmlText).join('<br>') + '</span>'
+      : '<span style="color:#5a5">Готово</span>');
+    return d;
+  } catch(e){
+    notes.innerHTML = '<span style="color:#c66">Не собралось: ' + e.message + '</span>';
+    return null;
+  }
+}
+
+async function pstPreview(){
+  var d = await pstCompose(false);
+  if (!d || !d.preview_base64) return;
+  /* ⚠️ ПРЕВЬЮ ИЗ base64, А НЕ ССЫЛКОЙ: несохранённой сборки в хранилище нет,
+     и ссылаться пока не на что */
+  document.getElementById('pst-preview').innerHTML =
+    '<img src="data:image/jpeg;base64,' + d.preview_base64
+    + '" style="max-width:340px;width:100%;border-radius:10px">';
+  var m = document.getElementById('pst-motto');
+  if (m && !m.value && d.motto) m.placeholder = 'из «Богов»: ' + d.motto;
+}
+
+async function pstSave(){
+  var d = await pstCompose(true);
+  if (!d || !d.url) return;
+  /* ⚠️ ХВОСТ СО ВРЕМЕНЕМ ОБЯЗАТЕЛЕН: имя файла постера не меняется, и без
+     него браузер показал бы прежнюю картинку из кэша, а Denis решил бы, что
+     сборка не сработала */
+  document.getElementById('pst-preview').innerHTML =
+    '<img src="' + d.url + '?t=' + Date.now() + '" style="max-width:340px;width:100%;border-radius:10px">';
+}
+
+async function pstDelete(){
+  var god = pkGod();
+  if (!god) return;
+  if (!confirm('Удалить собранный постер «' + god + '»? Пак ассетов останется.')) return;
+  var notes = document.getElementById('pst-notes');
+  try {
+    var r = await fetch(API + '/cards/admin/posters?god=' + encodeURIComponent(god)
+                        + '&series_key=' + encodeURIComponent(pkSeries())
+                        + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), { method:'DELETE' });
+    var d = await r.json().catch(function(){ return {}; });
+    if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
+    document.getElementById('pst-preview').innerHTML = '';
+    notes.innerHTML = '<span style="opacity:.75">Постер удалён, пак на месте</span>';
+  } catch(e){
+    notes.innerHTML = '<span style="color:#c66">Не удалилось: ' + e.message + '</span>';
+  }
+}
+
+/* Показ вкладки постеров. Отдельной кнопкой секции не заводим: постеры —
+   часть работы над оформлением, живут рядом с элементами.
+   ⚠️ ОТКРЫВАЕМСЯ ВСЕГДА СО СПИСКА, а не на том боге, где были в прошлый раз:
+   иначе после перезагрузки страницы редактор показывал бы пустого бога */
 function showPacksTab(){
   hideAllCardTabs();
   var el = document.getElementById('cards-tab-packs');
   if (el) el.style.display = 'block';
-  pkInit();
-  pkLoad();
+  document.getElementById('pk-edit-view').style.display = 'none';
+  document.getElementById('pk-list-view').style.display = 'block';
+  pkFillGods();
+  fillSeriesDatalist();
+  pstLoadList();
 }
 
 
