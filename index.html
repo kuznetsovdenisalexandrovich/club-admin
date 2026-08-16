@@ -1682,6 +1682,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
             <button class="action-btn" onclick="pstDelete()" style="margin-left:auto">Удалить шаблон</button>
           </div>
           <div id="pst-notes" style="margin-top:8px;font-size:13px"></div>
+          <div id="pst-layout"></div>
           <div id="pst-preview" style="margin-top:10px"></div>
         </div>
         </div>
@@ -9092,6 +9093,7 @@ function pstOpen(god){
       pstArtChanged();
     }
   });
+  pstLoadLayout(god);
   document.getElementById('pst-preview').innerHTML = row.poster_url
     ? '<img src="' + row.poster_url + '?t=' + Date.now() + '" style="max-width:340px;width:100%;border-radius:10px">'
     : '';
@@ -9148,7 +9150,101 @@ function pstBody(commit){
   return { god: pkGod(), series_key: pkSeries(),
            archetype: v('pst-archetype'), role: v('pst-role'),
            motto: v('pst-motto'), behind: v('pst-behind'),
-           art_url: v('pst-art'), commit: !!commit };
+           art_url: v('pst-art'), layout: pstLayoutFromForm(), commit: !!commit };
+}
+
+/* ═══ РЕДАКТОР РАСКЛАДКИ ═══════════════════════════════════════════════════
+   Числа те же, по которым рисует сервер: доли холста, а не пиксели, — иначе
+   раскладка ломалась бы при смене размера постера.
+   ⚠️ ЗАЗОР МОЖЕТ БЫТЬ ОТРИЦАТЕЛЬНЫМ: плашки лягут внахлёст. Это осознанный
+   выход, когда декор съедает всю высоту, а портрет уходить под плашки не
+   должен. */
+var pstLayout = null;
+
+function pstNum(id, def){
+  var e = document.getElementById(id);
+  if (!e) return def;
+  var x = parseFloat(String(e.value).replace(',', '.'));
+  return isNaN(x) ? def : x;
+}
+
+function pstLayoutFromForm(){
+  if (!pstLayout) return {};
+  var rows = {};
+  Object.keys(pstLayout.rows || {}).forEach(function(k){
+    rows[k] = { fw: pstNum('pl-fw-' + k, pstLayout.rows[k].fw) };
+  });
+  return {
+    band: [pstNum('pl-band0', pstLayout.band[0]), pstNum('pl-band1', pstLayout.band[1])],
+    gap: pstNum('pl-gap', pstLayout.gap),
+    rows: rows,
+    qr: { cx: pstNum('pl-qr-cx', pstLayout.qr.cx), cy: pstNum('pl-qr-cy', pstLayout.qr.cy),
+          w: pstNum('pl-qr-w', pstLayout.qr.w) },
+    art: { scale: pstNum('pl-art-scale', pstLayout.art.scale),
+           dx: pstNum('pl-art-dx', pstLayout.art.dx),
+           dy: pstNum('pl-art-dy', pstLayout.art.dy) }
+  };
+}
+
+async function pstLoadLayout(god){
+  var box = document.getElementById('pst-layout');
+  if (!box) return;
+  try {
+    var d = await fetch(API + '/cards/admin/poster-layout?god=' + encodeURIComponent(god)
+                        + '&series_key=' + encodeURIComponent(pstSeries())
+                        + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN)).then(function(r){ return r.json(); });
+    pstLayout = d.layout;
+    pstDefaults = d.defaults;
+  } catch(e){ return; }
+  pstRenderLayout();
+}
+
+var pstDefaults = null;
+
+function pstRenderLayout(){
+  var L = pstLayout;
+  if (!L) return;
+  var num = function(id, val, step){
+    return '<input id="' + id + '" type="number" step="' + (step || '0.005') + '" value="' + val + '" style="' + elInput() + '">';
+  };
+  var cell = function(label, id, val, step){
+    return '<div style="flex:1;min-width:92px">' + elLbl(label) + num(id, val, step) + '</div>';
+  };
+  var h = '<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:10px;display:flex;flex-direction:column;gap:8px">'
+    + '<div style="font-size:12px;font-weight:600">Размеры и положение</div>'
+    + '<div style="font-size:11px;color:var(--text-faint);line-height:1.45">'
+    + 'Числа — доли холста, от 0 до 1. Меняешь → «Собрать превью» → смотришь. '
+    + 'Зазор можно сделать отрицательным: плашки лягут внахлёст, зато не полезут на портрет.</div>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+      + cell('полоса плашек, верх', 'pl-band0', L.band[0])
+      + cell('низ', 'pl-band1', L.band[1])
+      + cell('зазор', 'pl-gap', L.gap, '0.002')
+    + '</div>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+      + cell('портрет: масштаб', 'pl-art-scale', L.art.scale, '0.02')
+      + cell('сдвиг вбок', 'pl-art-dx', L.art.dx, '0.01')
+      + cell('сдвиг вверх-вниз', 'pl-art-dy', L.art.dy, '0.01')
+    + '</div>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+      + cell('QR: центр по ширине', 'pl-qr-cx', L.qr.cx)
+      + cell('по высоте', 'pl-qr-cy', L.qr.cy)
+      + cell('размер', 'pl-qr-w', L.qr.w)
+    + '</div>'
+    + '<div style="font-size:11px;color:var(--text-faint)">Ширина плашек</div>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+  ['name','archetype','role','motto','behind'].forEach(function(k){
+    if (L.rows[k]) h += cell(k, 'pl-fw-' + k, L.rows[k].fw);
+  });
+  h += '</div>'
+    + '<button class="action-btn" onclick="pstResetLayout()">Вернуть значения по умолчанию</button>'
+    + '</div>';
+  document.getElementById('pst-layout').innerHTML = h;
+}
+
+function pstResetLayout(){
+  if (!pstDefaults) return;
+  pstLayout = JSON.parse(JSON.stringify(pstDefaults));
+  pstRenderLayout();
 }
 
 async function pstCompose(commit){
