@@ -11546,8 +11546,10 @@ function gmOpenRules(key){
   var h = '<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px">'
         + '<div style="font-size:12px;font-weight:600;margin-bottom:6px">Правила судьи</div>'
         + '<div style="font-size:11px;color:var(--text-faint);margin-bottom:8px;line-height:1.45">'
-        + 'Описание — это то, что читает модель. Цена — сколько процентов прибавить или отнять. '
-        + 'Мгновенная победа: сработало правило — партия выиграна сразу.</div>';
+        + 'Описание — это то, что читает модель. Цена — сколько процентов прибавить или отнять.<br>'
+        + '<b>Победа</b> — сработало правило, и партия выиграна с накопленным счётом: цель мини-игры достигнута. '
+        + '<b>Победа на сто</b> — выиграна на все проценты, добирать нечего. '
+        + 'Разрыв между ними и есть повод сыграть следующую ступень.</div>';
   rows.forEach(function(r){
     h += '<div style="border:1px solid var(--line);border-radius:10px;padding:9px;margin-bottom:8px;display:flex;flex-direction:column;gap:6px">'
       + '<div style="display:flex;gap:6px">'
@@ -11559,7 +11561,8 @@ function gmOpenRules(key){
       + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
         + '<span style="font-size:11px;color:var(--text-faint)">цена</span>'
         + '<input id="gr-delta-' + r.id + '" type="number" value="' + (r.delta || 0) + '" style="width:80px;' + elInput() + '">'
-        + '<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="gr-win-' + r.id + '"' + (r.instant_win ? ' checked' : '') + '> мгновенная победа</label>'
+        + '<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="gr-wins-' + r.id + '"' + (r.wins_game ? ' checked' : '') + '> победа</label>'
+        + '<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="gr-win-' + r.id + '"' + (r.instant_win ? ' checked' : '') + '> победа на сто</label>'
         + '<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="gr-on-' + r.id + '"' + (r.enabled ? ' checked' : '') + '> вкл</label>'
         + '<button class="action-btn" onclick="gmSaveRule(' + r.id + ',\'' + key + '\')">Сохранить</button>'
         + '<button class="action-btn" style="margin-left:auto" onclick="gmDelete(\'rule\',' + r.id + ')">Удалить</button>'
@@ -11581,7 +11584,8 @@ function gmNewRule(key){
 function gmSaveRule(id, key){
   gmSave('rule', { id: id, label: gmVal('gr-label-' + id), description: gmVal('gr-desc-' + id),
                    hint: gmVal('gr-hint-' + id), delta: gmNum('gr-delta-' + id, 0),
-                   instant_win: gmChk('gr-win-' + id), enabled: gmChk('gr-on-' + id) }, key);
+                   wins_game: gmChk('gr-wins-' + id), instant_win: gmChk('gr-win-' + id),
+                   enabled: gmChk('gr-on-' + id) }, key);
 }
 
 /* ═══ СТОП-ФРАЗЫ ═══
@@ -11702,7 +11706,7 @@ async function gmRunDry(key){
       + '<div style="font-size:12px;line-height:1.45">' + elEsc(r.answer) + '</div>'
       + '<div style="font-size:11px;color:var(--text-faint);margin-top:5px">'
         + '<b style="color:var(--text)">' + sign + r.delta + '%</b>'
-        + (r.instant_win ? ' · мгновенная победа' : '')
+        + (r.instant_win ? ' · победа на сто' : (r.wins_game ? ' · победа' : ''))
         + (r.rules.length ? ' · ' + elEsc(r.rules.join(', ')) : ' · правила не сработали')
         + (r.stops && r.stops.length ? ' · стоп-фразы: ' + elEsc(r.stops.join(', ')) : '')
         + (r.invented && r.invented.length ? ' · <span style="color:#e08">выдумал ключи: ' + elEsc(r.invented.join(', ')) + '</span>' : '')
