@@ -11680,12 +11680,48 @@ function gmNewGame(){
 }
 
 async function gmSave(kind, data, openKey){
+  /* ⚠️ БАГ, ПОЙМАННЫЙ DENIS'ОМ: сохранение правила перерисовывало весь
+     редактор из базы — и НЕСОХРАНЁННЫЕ правки самой игры (в том числе
+     промпты!) молча пропадали. Снимаем черновик формы до запроса и
+     возвращаем после перерисовки. */
+  var draft = gmGameDraft();
   await fetch(API + '/games/admin/save', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ kind: kind, data: data, x_admin_token: ADMIN_TOKEN })
   });
   if (openKey !== undefined) gmOpenKey = openKey;
-  gmLoad();
+  await gmLoad();
+  if (kind !== 'game') gmApplyDraft(draft);
+}
+
+var GM_GAME_FIELDS = ['gm-title','gm-desc','gm-intro','gm-win','gm-track','gm-step',
+                      'gm-stage','gm-scale','gm-start','gm-winscore','gm-turns',
+                      'gm-provider','gm-model','gm-mode','gm-cprompt','gm-jprompt'];
+
+function gmGameDraft(){
+  if (!document.getElementById('gm-title')) return null;
+  var d = { _checks: {} };
+  GM_GAME_FIELDS.forEach(function(id){
+    var e = document.getElementById(id);
+    if (e) d[id] = e.value;
+  });
+  ['gm-enabled','gm-free'].forEach(function(id){
+    var e = document.getElementById(id);
+    if (e) d._checks[id] = e.checked;
+  });
+  return d;
+}
+
+function gmApplyDraft(d){
+  if (!d) return;
+  GM_GAME_FIELDS.forEach(function(id){
+    var e = document.getElementById(id);
+    if (e && d[id] !== undefined) e.value = d[id];
+  });
+  Object.keys(d._checks).forEach(function(id){
+    var e = document.getElementById(id);
+    if (e) e.checked = d._checks[id];
+  });
 }
 
 async function gmDelete(kind, id){
@@ -11777,6 +11813,7 @@ function gmEdit(key){
      + '<button class="action-btn" onclick="gmOpenStops(\'' + g.key + '\')">Стоп-фразы</button>'
      + '<button class="action-btn" onclick="gmOpenMats(\'' + g.key + '\')">Материалы</button>'
      + '<button class="action-btn" onclick="gmOpenDry(\'' + g.key + '\')">Прогон на эталоне</button>'
+     + '<button class="action-btn" onclick="gmOpenPlay(\'' + g.key + '\')">Сыграть партию</button>'
      + '</div>';
   h += '<div id="gm-sub"></div></div>';
 
@@ -11969,6 +12006,147 @@ async function gmRunDry(key){
       + '</div></div>';
   });
   out.innerHTML = h;
+}
+
+/* ═══ ПРОБНАЯ ПАРТИЯ ═══════════════════════════════════════════════════════
+   Играем прямо здесь, тем же движком, что и участник. Партия помечается
+   как admin-test и в статистику не попадает — иначе собственные проверки
+   испортили бы долю побед.
+   ⚠️ Играем ВСЕГДА СОХРАНЁННУЮ версию: промпты живут на сервере. Правку
+   надо сохранить, а потом играть, иначе проверишь не то, что правил. */
+
+var gmPlay = { id: '', game: null, scale: 'Шанс', turns: 0, max: 5 };
+
+async function gmOpenPlay(key){
+  var g = (gmData.games || []).filter(function(x){ return x.key === key; })[0];
+  gmPlay = { id: '', game: g, scale: (g && g.scale_name) || 'Шанс', turns: 0,
+             max: (g && g.max_turns) || 5 };
+  document.getElementById('gm-sub').innerHTML =
+      '<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px">'
+    + '<div style="font-size:12px;font-weight:600;margin-bottom:6px">Пробная партия</div>'
+    + '<div style="font-size:11px;color:var(--text-faint);margin-bottom:8px;line-height:1.45">'
+    + 'Играешь тем же движком, что и участник, на сохранённой версии промптов. '
+    + 'Партия не попадёт в статистику.</div>'
+    + '<div id="gm-play-scale"></div>'
+    + '<div id="gm-play-log" style="display:flex;flex-direction:column;gap:8px;margin:8px 0"></div>'
+    + '<div id="gm-play-input"></div>'
+    + '</div>';
+  gmPlayStart(key);
+}
+
+async function gmPlayStart(key){
+  var log = document.getElementById('gm-play-log');
+  log.innerHTML = '<div class="loading">Начинаю…</div>';
+  var d;
+  try {
+    d = await fetch(API + '/games/session/start', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ game_key: key, guest_key: 'admin-' + Date.now(),
+                             x_admin_token: ADMIN_TOKEN })
+    }).then(function(r){ return r.json(); });
+  } catch(e){ log.innerHTML = gmPlayErr(e.message); return; }
+  if (!d || !d.session_id){ log.innerHTML = gmPlayErr(JSON.stringify(d)); return; }
+
+  gmPlay.id = d.session_id;
+  gmPlay.scale = d.scale_name || gmPlay.scale;
+  gmPlay.max = d.max_turns || gmPlay.max;
+  gmPlayScale(d.score);
+  log.innerHTML = d.intro
+    ? '<div style="font-size:12px;color:var(--text-faint);line-height:1.5">' + elEsc(d.intro) + '</div>'
+    : '';
+  gmPlayInput(true);
+}
+
+function gmPlayErr(msg){
+  return '<div style="font-size:12px;color:#c66">Не получилось: ' + elEsc(msg) + '</div>';
+}
+
+function gmPlayScale(score){
+  var box = document.getElementById('gm-play-scale');
+  if (!box) return;
+  var pct = Math.max(0, Math.min(100, score || 0));
+  box.innerHTML = '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-faint)">'
+      + '<span>' + elEsc(gmPlay.scale) + '</span><span>' + pct + '% · ход ' + gmPlay.turns + ' из ' + gmPlay.max + '</span></div>'
+    + '<div style="height:8px;border-radius:4px;background:var(--line);overflow:hidden">'
+      + '<div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,#c66,#e9a13b,#5a5)"></div></div>';
+}
+
+function gmPlayInput(on){
+  var box = document.getElementById('gm-play-input');
+  if (!box) return;
+  box.innerHTML = on
+    ? '<div style="display:flex;gap:6px">'
+        + '<textarea id="gm-play-text" placeholder="твоя реплика" style="min-height:52px;' + elInput() + '"></textarea>'
+        + '<button class="action-btn" onclick="gmPlayTurn()">Ход</button></div>'
+    : '<button class="action-btn" onclick="gmOpenPlay(gmPlay.game.key)">Сыграть заново</button>';
+}
+
+function gmPlayBubble(who, text, right){
+  return '<div style="align-self:' + (right ? 'flex-end' : 'flex-start') + ';max-width:82%;'
+    + 'background:' + (right ? 'var(--surface)' : 'var(--input-bg,var(--surface))') + ';'
+    + 'border:1px solid var(--line);border-radius:12px;padding:8px 10px;font-size:12.5px;line-height:1.45">'
+    + '<div style="font-size:10px;color:var(--text-faint);margin-bottom:3px">' + who + '</div>'
+    + elEsc(text) + '</div>';
+}
+
+async function gmPlayTurn(){
+  var el = document.getElementById('gm-play-text');
+  var text = el ? el.value.trim() : '';
+  if (!text) return;
+  var log = document.getElementById('gm-play-log');
+  log.insertAdjacentHTML('beforeend', gmPlayBubble('ты', text, true));
+  el.value = '';
+  gmPlayInput(false);
+  document.getElementById('gm-play-input').innerHTML = '<div class="loading">Клиент думает…</div>';
+
+  var d;
+  try {
+    d = await fetch(API + '/games/session/turn', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ session_id: gmPlay.id, text: text })
+    }).then(function(r){ return r.json(); });
+  } catch(e){ log.insertAdjacentHTML('beforeend', gmPlayErr(e.message)); gmPlayInput(true); return; }
+
+  if (!d || d.detail){ log.insertAdjacentHTML('beforeend', gmPlayErr((d && d.detail) || 'пусто')); gmPlayInput(true); return; }
+
+  if (d.kind === 'garbage'){
+    log.insertAdjacentHTML('beforeend', gmPlayBubble('клиент', d.client, false)
+      + '<div style="font-size:11px;color:var(--text-faint)">ход не засчитан — слишком коротко</div>');
+    gmPlayInput(true);
+    return;
+  }
+
+  gmPlay.turns = d.turn_no;
+  gmPlayScale(d.score);
+  var sign = d.delta > 0 ? '+' : '';
+  var why = (d.why || []).map(function(w){ return elEsc(w.label) + ' (' + (w.delta > 0 ? '+' : '') + w.delta + ')'; }).join(', ');
+  var stops = (d.stops || []).map(function(x){ return elEsc(x.phrase); }).join(', ');
+  log.insertAdjacentHTML('beforeend',
+      gmPlayBubble('клиент', d.client, false)
+    + '<div style="font-size:11px;color:var(--text-faint);line-height:1.5">'
+      + '<b style="color:var(--text)">' + sign + d.delta + '%</b>'
+      + (why ? ' · ' + why : ' · правила не сработали')
+      + (stops ? ' · стоп-фразы: ' + stops : '')
+      + (d.hint ? '<br>подсказка: ' + elEsc(d.hint) : '')
+    + '</div>');
+
+  if (d.finished){
+    var f = d.final || {};
+    log.insertAdjacentHTML('beforeend',
+        '<div style="border:1px solid var(--line);border-radius:10px;padding:9px;font-size:12px;line-height:1.5">'
+      + '<b>' + (d.status === 'won' ? 'Победа' : 'Партия окончена') + ' — ' + f.score + '%</b>'
+      + (f.perfect ? ' · на все сто' : '')
+      + (f.comment ? '<br>' + elEsc(f.comment) : '')
+      + (f.artifact ? '<br>формулировка: «' + elEsc(f.artifact) + '»' : '')
+      + ((f.missing || []).length ? '<br>можно добрать: ' + elEsc(f.missing.join(', ')) : '')
+      + (f.material ? '<br>материал: ' + elEsc(f.material.slug) + (f.material.timecode ? ' — ' + elEsc(f.material.timecode) : '') : '')
+      + (f.next_game ? '<br>дальше: ' + elEsc(f.next_game.title) : '')
+      + (f.champion ? '<br>чемпион — следующей ступени нет' : '')
+      + '</div>');
+    gmPlayInput(false);
+  } else {
+    gmPlayInput(true);
+  }
 }
 
 /* ═══ СТАТИСТИКА ═══
