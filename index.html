@@ -9093,9 +9093,10 @@ function pstOpen(god){
       pstArtChanged();
     }
   });
-  pstLoadLayout(god);
+  pstLoadLayoutAndPreview(god);
   document.getElementById('pst-preview').innerHTML = row.poster_url
-    ? '<img src="' + row.poster_url + '?t=' + Date.now() + '" style="max-width:340px;width:100%;border-radius:10px">'
+    ? pstPreviewShell('<img src="' + row.poster_url + '?t=' + Date.now()
+        + '" style="display:block;width:100%;border-radius:10px">')
     : '';
   pkInit();
   pkLoad();
@@ -9186,6 +9187,13 @@ function pstLayoutFromForm(){
   };
 }
 
+async function pstLoadLayoutAndPreview(god){
+  await pstLoadLayout(god);
+  /* ⚠️ СОБИРАЕМ СРАЗУ: пустой экран не даёт ни таскать зоны, ни понять,
+     что вообще происходит с этим богом */
+  if (pkGod()) pstPreview();
+}
+
 async function pstLoadLayout(god){
   var box = document.getElementById('pst-layout');
   if (!box) return;
@@ -9204,47 +9212,195 @@ var pstDefaults = null;
 function pstRenderLayout(){
   var L = pstLayout;
   if (!L) return;
-  var num = function(id, val, step){
-    return '<input id="' + id + '" type="number" step="' + (step || '0.005') + '" value="' + val + '" style="' + elInput() + '">';
+
+  /* Ползунок вместо поля ввода: видно и величину, и куда её крутить.
+     Цифра рядом остаётся — по ней проверяют и переносят настройку на другого бога */
+  var sl = function(label, id, val, min, max, step){
+    return '<div style="flex:1;min-width:150px">'
+      + '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-faint)">'
+        + '<span>' + label + '</span><span id="' + id + '-v">' + val + '</span></div>'
+      + '<input id="' + id + '" type="range" min="' + min + '" max="' + max + '" step="' + step + '"'
+      + ' value="' + val + '" oninput="pstOnSlide(this)" onchange="pstAutoPreview()"'
+      + ' style="width:100%">'
+      + '</div>';
   };
-  var cell = function(label, id, val, step){
-    return '<div style="flex:1;min-width:92px">' + elLbl(label) + num(id, val, step) + '</div>';
-  };
+
   var h = '<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:10px;display:flex;flex-direction:column;gap:8px">'
     + '<div style="font-size:12px;font-weight:600">Размеры и положение</div>'
     + '<div style="font-size:11px;color:var(--text-faint);line-height:1.45">'
-    + 'Числа — доли холста, от 0 до 1. Меняешь → «Собрать превью» → смотришь. '
-    + 'Зазор можно сделать отрицательным: плашки лягут внахлёст, зато не полезут на портрет.</div>'
-    + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
-      + cell('полоса плашек, верх', 'pl-band0', L.band[0])
-      + cell('низ', 'pl-band1', L.band[1])
-      + cell('зазор', 'pl-gap', L.gap, '0.002')
+    + 'Тяни прямо по картинке: <b>синюю рамку</b> — полоса плашек, <b>оранжевый квадрат</b> — QR. '
+    + 'Отпустил — постер пересобрался. Ползунки для остального.</div>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      + sl('зазор между плашками', 'pl-gap', L.gap, -0.06, 0.05, 0.002)
+      + sl('портрет: масштаб', 'pl-art-scale', L.art.scale, 0.5, 2, 0.02)
     + '</div>'
-    + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
-      + cell('портрет: масштаб', 'pl-art-scale', L.art.scale, '0.02')
-      + cell('сдвиг вбок', 'pl-art-dx', L.art.dx, '0.01')
-      + cell('сдвиг вверх-вниз', 'pl-art-dy', L.art.dy, '0.01')
-    + '</div>'
-    + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
-      + cell('QR: центр по ширине', 'pl-qr-cx', L.qr.cx)
-      + cell('по высоте', 'pl-qr-cy', L.qr.cy)
-      + cell('размер', 'pl-qr-w', L.qr.w)
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      + sl('портрет: вбок', 'pl-art-dx', L.art.dx, -0.5, 0.5, 0.01)
+      + sl('портрет: вверх-вниз', 'pl-art-dy', L.art.dy, -0.5, 0.5, 0.01)
+      + sl('размер QR', 'pl-qr-w', L.qr.w, 0.06, 0.30, 0.005)
     + '</div>'
     + '<div style="font-size:11px;color:var(--text-faint)">Ширина плашек</div>'
-    + '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap">';
   ['name','archetype','role','motto','behind'].forEach(function(k){
-    if (L.rows[k]) h += cell(k, 'pl-fw-' + k, L.rows[k].fw);
+    if (L.rows[k]) h += sl(k, 'pl-fw-' + k, L.rows[k].fw, 0.15, 0.75, 0.01);
   });
   h += '</div>'
-    + '<button class="action-btn" onclick="pstResetLayout()">Вернуть значения по умолчанию</button>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+      + '<button class="action-btn" onclick="pstResetLayout()">Вернуть по умолчанию</button>'
+      + '<label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-left:auto">'
+        + '<input type="checkbox" id="pl-auto" checked> пересобирать сразу</label>'
+    + '</div>'
     + '</div>';
   document.getElementById('pst-layout').innerHTML = h;
+  /* ⚠️ Скрытые поля с теми же id, что читает pstLayoutFromForm: полоса и центр
+     QR задаются перетаскиванием, но собирать тело запроса надо из одного места */
+  pstSyncHidden();
+  pstDrawOverlay();
+}
+
+/* Полоса и центр QR не имеют своих ползунков — их таскают по картинке.
+   Держим значения в скрытых полях, чтобы сборщик тела не знал о разнице */
+function pstSyncHidden(){
+  var box = document.getElementById('pst-layout');
+  if (!box || document.getElementById('pl-band0')) return;
+  var hid = document.createElement('div');
+  hid.style.display = 'none';
+  hid.innerHTML = ['pl-band0','pl-band1','pl-qr-cx','pl-qr-cy']
+    .map(function(id){ return '<input id="' + id + '">'; }).join('');
+  box.appendChild(hid);
+  pstPushHidden();
+}
+
+function pstPushHidden(){
+  var L = pstLayout; if (!L) return;
+  var set = function(id, v){ var e = document.getElementById(id); if (e) e.value = v; };
+  set('pl-band0', L.band[0]); set('pl-band1', L.band[1]);
+  set('pl-qr-cx', L.qr.cx);   set('pl-qr-cy', L.qr.cy);
+}
+
+function pstOnSlide(el){
+  var v = document.getElementById(el.id + '-v');
+  if (v) v.textContent = el.value;
+  var L = pstLayout; if (!L) return;
+  var n = parseFloat(el.value);
+  if (el.id === 'pl-gap') L.gap = n;
+  else if (el.id === 'pl-qr-w') { L.qr.w = n; pstDrawOverlay(); }
+  else if (el.id.indexOf('pl-art-') === 0) L.art[el.id.slice(7)] = n;
+  else if (el.id.indexOf('pl-fw-') === 0) L.rows[el.id.slice(6)].fw = n;
+}
+
+/* ═══ НАКЛАДКА ПОВЕРХ ПРЕВЬЮ ═══════════════════════════════════════════════
+   Зоны рисуются в ДОЛЯХ, ровно тех же, что уходят на сервер, — поэтому то,
+   что видно, и то, что соберётся, не могут разъехаться.
+   ⚠️ Высоты плашек считает сервер по самим картинкам, так что синяя рамка —
+   это отведённое место, а не точный контур. Итог всё равно смотрим на превью */
+function pstDrawOverlay(){
+  var wrap = document.getElementById('pst-frame');
+  var L = pstLayout;
+  if (!wrap || !L) return;
+  var band = document.getElementById('pst-ov-band');
+  var qr = document.getElementById('pst-ov-qr');
+  if (!band || !qr) return;
+  band.style.top = (L.band[0] * 100) + '%';
+  band.style.height = ((L.band[1] - L.band[0]) * 100) + '%';
+  var w = L.qr.w * 100;
+  qr.style.width = w + '%';
+  qr.style.paddingBottom = w + '%';
+  qr.style.left = (L.qr.cx * 100) + '%';
+  qr.style.top = (L.qr.cy * 100) + '%';
+}
+
+function pstPreviewShell(inner){
+  return '<div id="pst-frame" style="position:relative;max-width:340px;width:100%;'
+    + 'touch-action:none;user-select:none">'
+    + inner
+    + '<div id="pst-ov-band" onpointerdown="pstGrab(event,\'band\')" '
+      + 'style="position:absolute;left:2%;width:96%;border:2px solid rgba(90,150,255,.9);'
+      + 'border-radius:6px;background:rgba(90,150,255,.10);cursor:grab"></div>'
+    + '<div id="pst-ov-band-top" onpointerdown="pstGrab(event,\'band0\')" '
+      + 'style="position:absolute;left:2%;width:96%;height:14px;margin-top:-7px;cursor:ns-resize"></div>'
+    + '<div id="pst-ov-band-bot" onpointerdown="pstGrab(event,\'band1\')" '
+      + 'style="position:absolute;left:2%;width:96%;height:14px;margin-top:-7px;cursor:ns-resize"></div>'
+    + '<div id="pst-ov-qr" onpointerdown="pstGrab(event,\'qr\')" '
+      + 'style="position:absolute;transform:translate(-50%,-50%);border:2px solid rgba(255,150,60,.95);'
+      + 'border-radius:6px;background:rgba(255,150,60,.12);cursor:grab"></div>'
+    + '</div>';
+}
+
+var pstDrag = null;
+
+function pstGrab(e, what){
+  e.preventDefault(); e.stopPropagation();
+  var wrap = document.getElementById('pst-frame');
+  if (!wrap) return;
+  var r = wrap.getBoundingClientRect();
+  /* ⚠️ НУЛЕВОЙ ПРЯМОУГОЛЬНИК = ДЕЛЕНИЕ НА НОЛЬ и зона улетает в край: так
+     бывает, если картинка ещё не отрисовалась или блок скрыт */
+  if (!r.width || !r.height) return;
+  pstDrag = { what: what, r: r,
+              y0: (e.clientY - r.top) / r.height,
+              band: [pstLayout.band[0], pstLayout.band[1]] };
+  wrap.setPointerCapture && wrap.setPointerCapture(e.pointerId);
+  window.addEventListener('pointermove', pstMove);
+  window.addEventListener('pointerup', pstDrop);
+}
+
+function pstMove(e){
+  if (!pstDrag) return;
+  var r = pstDrag.r, L = pstLayout;
+  var x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+  var y = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+  var round = function(v){ return Math.round(v * 1000) / 1000; };
+  if (pstDrag.what === 'qr'){ L.qr.cx = round(x); L.qr.cy = round(y); }
+  else if (pstDrag.what === 'band0'){ L.band[0] = round(Math.min(y, L.band[1] - 0.05)); }
+  else if (pstDrag.what === 'band1'){ L.band[1] = round(Math.max(y, L.band[0] + 0.05)); }
+  else {
+    /* всю полосу двигаем целиком, сохраняя высоту */
+    var h = pstDrag.band[1] - pstDrag.band[0];
+    var top = Math.max(0, Math.min(1 - h, pstDrag.band[0] + (y - pstDrag.y0)));
+    L.band = [round(top), round(top + h)];
+  }
+  pstPushHidden();
+  pstDrawOverlay();
+  pstPlaceHandles();
+}
+
+function pstPlaceHandles(){
+  var L = pstLayout;
+  var t = document.getElementById('pst-ov-band-top');
+  var b = document.getElementById('pst-ov-band-bot');
+  if (t) t.style.top = (L.band[0] * 100) + '%';
+  if (b) b.style.top = (L.band[1] * 100) + '%';
+}
+
+function pstDrop(){
+  window.removeEventListener('pointermove', pstMove);
+  window.removeEventListener('pointerup', pstDrop);
+  if (!pstDrag) return;
+  pstDrag = null;
+  pstAutoPreview();
+}
+
+/* Пересборка идёт на сервере и занимает секунду-две, поэтому не на каждое
+   движение, а на отпускание — и с защитой от наложения запросов */
+var pstAutoTimer = null, pstBusy = false;
+
+function pstAutoPreview(){
+  var auto = document.getElementById('pl-auto');
+  if (auto && !auto.checked) return;
+  clearTimeout(pstAutoTimer);
+  pstAutoTimer = setTimeout(function(){
+    if (pstBusy){ pstAutoPreview(); return; }
+    pstBusy = true;
+    pstPreview().finally(function(){ pstBusy = false; });
+  }, 350);
 }
 
 function pstResetLayout(){
   if (!pstDefaults) return;
   pstLayout = JSON.parse(JSON.stringify(pstDefaults));
   pstRenderLayout();
+  pstAutoPreview();
 }
 
 async function pstCompose(commit){
@@ -9284,9 +9440,11 @@ async function pstPreview(){
   if (!d || !d.preview_base64) return;
   /* ⚠️ ПРЕВЬЮ ИЗ base64, А НЕ ССЫЛКОЙ: несохранённой сборки в хранилище нет,
      и ссылаться пока не на что */
-  document.getElementById('pst-preview').innerHTML =
+  document.getElementById('pst-preview').innerHTML = pstPreviewShell(
     '<img src="data:image/jpeg;base64,' + d.preview_base64
-    + '" style="max-width:340px;width:100%;border-radius:10px">';
+    + '" style="display:block;width:100%;border-radius:10px">');
+  pstDrawOverlay();
+  pstPlaceHandles();
   var m = document.getElementById('pst-motto');
   if (m && !m.value && d.motto) m.placeholder = 'из «Богов»: ' + d.motto;
 }
@@ -9300,8 +9458,10 @@ async function pstSave(){
   /* ⚠️ ХВОСТ СО ВРЕМЕНЕМ ОБЯЗАТЕЛЕН: имя файла постера не меняется, и без
      него браузер показал бы прежнюю картинку из кэша, а Denis решил бы, что
      сборка не сработала */
-  document.getElementById('pst-preview').innerHTML =
-    '<img src="' + d.url + '?t=' + Date.now() + '" style="max-width:340px;width:100%;border-radius:10px">';
+  document.getElementById('pst-preview').innerHTML = pstPreviewShell(
+    '<img src="' + d.url + '?t=' + Date.now() + '" style="display:block;width:100%;border-radius:10px">');
+  pstDrawOverlay();
+  pstPlaceHandles();
 }
 
 async function pstDelete(){
