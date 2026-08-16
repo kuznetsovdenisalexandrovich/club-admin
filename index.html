@@ -8659,14 +8659,56 @@ function pkPickGod(v){
   pkLoad();
 }
 
-/* Номер из имени: «… (8).png» -> 8, без скобок -> 0 (сцена).
+/* Номер из имени: «… (8).png» -> 8, без скобок -> 0.
    ⚠️ Ищем ПОСЛЕДНИЕ скобки: в имени GPT есть и время «10_38_07 AM», и оно
    тоже может съехать в скобки при копировании. */
-function pkSlotFromName(name){
+function pkNumFromName(name){
   var base = String(name || '').replace(/\.[a-z0-9]+$/i, '');
   var m = base.match(/\((\d+)\)\s*$/);
-  var n = m ? parseInt(m[1], 10) : 0;
-  return PK_SLOTS[n] || null;
+  return m ? parseInt(m[1], 10) : 0;
+}
+
+/* Раскладка файлов по слотам.
+
+   ⚠️⚠️ НОМЕР В ИМЕНИ — ЭТО ПОРЯДКОВЫЙ НОМЕР, А НЕ НОМЕР СЛОТА. В части паков
+   GPT не нарисовал одну из текстовых плашек, и тогда ВСЁ, что идёт после
+   дырки, съезжает на позицию назад: рамка QR приезжает седьмым файлом,
+   передний план восьмым. Раскладка по абсолютному номеру тихо положила бы
+   передний план в слот QR — и не заметила бы: дыра в центре у него есть,
+   квадрат вписывается, придраться формально не к чему.
+
+   ПОЭТОМУ СЧИТАЕМ ОТ КРАЁВ: первый файл — сцена, второй — рамка, ПОСЛЕДНИЙ —
+   передний план, предпоследний — рамка QR. Всё, что осталось посередине, —
+   текстовые плашки, сколько бы их ни пришло.
+
+   ⚠️ Какая именно плашка пропала, знать НЕ НУЖНО: [stated] Denis 16.08 —
+   «я бы просто брал соседнюю плашку, они одинаковые». Недостающие слоты
+   заполняются копией соседней плашки, и вопрос «которой не хватает» исчезает
+   вместе с необходимостью на него отвечать. */
+function pkLayout(files){
+  var sorted = files.slice().sort(function(a, b){
+    return pkNumFromName(a.name) - pkNumFromName(b.name);
+  });
+  var n = sorted.length;
+  // сцена + рамка + хотя бы одна плашка + QR + передний план
+  if (n < 5) return { error: 'Файлов всего ' + n + ' — этого мало даже на урезанный пак' };
+  if (n > PK_SLOTS.length) return { error: 'Файлов ' + n + ', а слотов ' + PK_SLOTS.length };
+
+  var plateCount = n - 4;                       // без сцены, рамки, QR и переднего плана
+  var plates = PK_SLOTS.slice(2, 7);            // пять плашечных слотов
+  var out = {}, filled = [];
+  out.scene = sorted[0];
+  out.frame = sorted[1];
+  for (var i = 0; i < plateCount; i++) out[plates[i]] = sorted[2 + i];
+  out.qr = sorted[n - 2];
+  out.fx = sorted[n - 1];
+
+  // недостающие плашки — копией предыдущей
+  for (var j = plateCount; j < plates.length; j++){
+    out[plates[j]] = sorted[2 + plateCount - 1];
+    filled.push(PK_TITLES[plates[j]]);
+  }
+  return { byslot: out, filled: filled, plateCount: plateCount };
 }
 
 function pkReadFile(file){
@@ -8711,19 +8753,14 @@ async function pkUpload(files){
 
   /* Раскладка по слотам ДО отправки: пустые и задвоенные номера надо
      показать сразу, а не после того, как половина уже улетела */
-  var byslot = {}, unknown = [], dupes = [];
-  for (var i = 0; i < files.length; i++){
-    var slot = pkSlotFromName(files[i].name);
-    if (!slot){ unknown.push(files[i].name); continue; }
-    if (byslot[slot]) dupes.push(PK_TITLES[slot]);
-    byslot[slot] = files[i];
-  }
+  var lay = pkLayout(files);
+  if (lay.error){ st.innerHTML = '<span style="color:#c66">' + lay.error + '</span>'; return; }
+  var byslot = lay.byslot;
   var picked = PK_SLOTS.filter(function(s){ return byslot[s]; });
-  var problems = [];
-  if (unknown.length) problems.push('не разобрал номер: ' + unknown.join(', '));
-  if (dupes.length) problems.push('на один слот два файла: ' + dupes.join(', '));
-  if (problems.length){ st.innerHTML = '<span style="color:#c66">' + problems.join('<br>') + '</span>'; return; }
-  if (!picked.length){ st.textContent = 'Ни одного подходящего файла'; return; }
+  if (lay.filled.length){
+    st.innerHTML = '<span style="opacity:.8">Плашек пришло ' + lay.plateCount
+      + ' вместо 5 — недостающие беру копией соседней: ' + lay.filled.join(', ') + '</span>';
+  }
 
   var wrap = document.getElementById('pk-bar-wrap');
   var bar = document.getElementById('pk-bar');
@@ -8732,11 +8769,17 @@ async function pkUpload(files){
   st.textContent = '';
 
   var done = 0;
+  var cache = new Map();
   for (var j = 0; j < picked.length; j++){
     var slot = picked[j];
     barText.textContent = 'Отправляю ' + (j + 1) + ' из ' + picked.length + ' — ' + PK_TITLES[slot];
     try {
-      var dataUrl = await pkReadFile(byslot[slot]);
+      /* ⚠️ ОДИН ФАЙЛ МОЖЕТ ЕХАТЬ В ДВА СЛОТА (недостающая плашка — копия
+         соседней). Читаем каждый файл с диска ОДИН раз: повторное чтение
+         трёхмегабайтного PNG ради той же строки — лишние секунды на пустом
+         месте, а на медленном диске ещё и заметная пауза в полосе */
+      if (!cache.has(byslot[slot])) cache.set(byslot[slot], await pkReadFile(byslot[slot]));
+      var dataUrl = cache.get(byslot[slot]);
       /* Общая полоса, а не девять отдельных: доля закрытых файлов плюс
          доля текущего. Иначе полоса девять раз прыгала бы с нуля */
       var got = await pkSend(god, slot, dataUrl, byslot[slot].name, function(p){
