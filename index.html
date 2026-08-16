@@ -1595,7 +1595,12 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <div id="cards-tab-packs" style="display:none">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
           <input id="pk-god" placeholder="ключ бога, напр. persey"
-                 style="flex:1;min-width:180px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text)">
+                 style="flex:1;min-width:150px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text)">
+          <!-- ⚠️ ПУСТОЙ СЕЗОН = «НА ВСЕ ВРЕМЕНА», то же соглашение, что у
+               экранов открытия пака. Заполнять его нужно только когда у бога
+               появится ВТОРОЕ оформление — иначе второй сезон затрёт первый -->
+          <input id="pk-series" list="series-datalist" placeholder="сезон (пусто = на все времена)"
+                 style="flex:1;min-width:150px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text)">
           <select id="pk-known" onchange="pkPickGod(this.value)"
                   style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text)">
             <option value="">— уже загружены —</option>
@@ -8641,7 +8646,18 @@ var PK_TITLES = {
 var pkState = {};   // slot -> {url, geometry, warnings, filename}
 
 function pkGod(){ var e = document.getElementById('pk-god'); return (e ? e.value : '').trim(); }
-function pkPickGod(v){ if (!v) return; document.getElementById('pk-god').value = v; pkLoad(); }
+function pkSeries(){ var e = document.getElementById('pk-series'); return (e ? e.value : '').trim(); }
+/* Из выпадающего списка приходит пара «бог|сезон»: пак — это ПАРА, а не бог.
+   Иначе выбор Персея второго сезона открывал бы первый */
+function pkPickGod(v){
+  if (!v) return;
+  var parts = String(v).split('|');
+  document.getElementById('pk-god').value = parts[0] || '';
+  var ser = document.getElementById('pk-series');
+  if (ser) ser.value = parts[1] || '';
+  pkState = {};
+  pkLoad();
+}
 
 /* Номер из имени: «… (8).png» -> 8, без скобок -> 0 (сцена).
    ⚠️ Ищем ПОСЛЕДНИЕ скобки: в имени GPT есть и время «10_38_07 AM», и оно
@@ -8678,7 +8694,8 @@ function pkSend(god, slot, dataUrl, filename, onProgress){
       else rej(new Error(d.detail || ('сервер ответил ' + xhr.status)));
     };
     xhr.onerror = function(){ rej(new Error('сеть оборвалась')); };
-    xhr.send(JSON.stringify({ god: god, slot: slot, image_base64: dataUrl, filename: filename }));
+    xhr.send(JSON.stringify({ god: god, slot: slot, image_base64: dataUrl,
+                             filename: filename, series_key: pkSeries() }));
   });
 }
 
@@ -8688,6 +8705,9 @@ async function pkUpload(files){
   if (!god){ st.textContent = 'Сначала впиши ключ бога'; return; }
   if (!/^[a-z0-9_-]{1,60}$/.test(god)){
     st.textContent = 'Ключ бога: латиница, цифры, дефис, подчёркивание'; return; }
+  var ser = pkSeries();
+  if (ser && !/^[a-z0-9_-]{1,60}$/.test(ser)){
+    st.textContent = 'Ключ сезона: латиница, цифры, дефис, подчёркивание'; return; }
 
   /* Раскладка по слотам ДО отправки: пустые и задвоенные номера надо
      показать сразу, а не после того, как половина уже улетела */
@@ -8742,6 +8762,7 @@ async function pkLoad(){
   if (!god){ grid.innerHTML = ''; return; }
   try {
     var r = await fetch(API + '/cards/admin/asset-pack?god=' + encodeURIComponent(god)
+                        + '&series_key=' + encodeURIComponent(pkSeries())
                         + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
     var d = await r.json();
     pkRenderGrid(d);
@@ -8801,6 +8822,7 @@ async function pkDropSlot(slot){
   if (!god) return;
   await fetch(API + '/cards/admin/asset-pack?god=' + encodeURIComponent(god)
               + '&slot=' + encodeURIComponent(slot)
+              + '&series_key=' + encodeURIComponent(pkSeries())
               + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), { method:'DELETE' });
   delete pkState[slot];
   await pkLoad();
@@ -8814,8 +8836,11 @@ async function pkLoadKnown(){
     if (!sel) return;
     sel.innerHTML = '<option value="">— уже загружены —</option>'
       + (d.gods || []).map(function(g){
-          return '<option value="' + g.god + '">' + g.god + ' (' + g.slots + '/9'
-               + (g.complete ? '' : ', неполный') + ')</option>'; }).join('');
+          var ser = g.series_key || '';
+          return '<option value="' + g.god + '|' + ser + '">' + g.god
+               + (ser ? ' · ' + ser : ' · все времена')
+               + ' (' + g.slots + '/9' + (g.complete ? '' : ', неполный') + ')</option>';
+        }).join('');
   } catch(e){}
 }
 
@@ -8849,8 +8874,11 @@ function pkInit(){
     if (fl && fl.length) pkUpload(Array.prototype.slice.call(fl));
   });
 
-  var godInput = document.getElementById('pk-god');
-  if (godInput) godInput.addEventListener('change', function(){ pkState = {}; pkLoad(); });
+  ['pk-god','pk-series'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('change', function(){ pkState = {}; pkLoad(); });
+  });
+  fillSeriesDatalist();
   pkLoadKnown();
 }
 
