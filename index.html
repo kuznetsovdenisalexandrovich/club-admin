@@ -11696,7 +11696,8 @@ async function gmSave(kind, data, openKey){
 
 var GM_GAME_FIELDS = ['gm-title','gm-desc','gm-intro','gm-win','gm-track','gm-step',
                       'gm-stage','gm-scale','gm-start','gm-winscore','gm-turns',
-                      'gm-provider','gm-model','gm-mode','gm-cprompt','gm-jprompt'];
+                      'gm-provider','gm-model','gm-mode','gm-cprompt','gm-jprompt',
+                      'gm-extra'];
 
 function gmGameDraft(){
   if (!document.getElementById('gm-title')) return null;
@@ -11788,6 +11789,12 @@ function gmEdit(key){
        + '</select></div>'
      + '</div>';
 
+  h += elLbl('Настройки запроса к модели (JSON, можно пусто)')
+     + '<input id="gm-extra" value="' + elEsc(JSON.stringify(g.extra_params || {})) + '" style="' + elInput() + '">'
+     + '<div style="font-size:11px;color:var(--text-faint);line-height:1.45">'
+       + 'По умолчанию размышление модели ВЫКЛЮЧЕНО — с ним ход идёт десятки секунд. '
+       + 'Вернуть: <code>{"thinking":{"type":"enabled"}}</code>. Там же можно поднять <code>max_tokens</code>.</div>';
+
   h += elLbl('Промпт клиента — кого играет модель')
      + '<textarea id="gm-cprompt" style="min-height:150px;line-height:1.5;' + elInput() + '">' + elEsc(g.client_prompt) + '</textarea>';
   h += elLbl('Промпт судьи — правила и формат сервер добавит сам')
@@ -11820,6 +11827,15 @@ function gmEdit(key){
   document.getElementById('gm-editor').innerHTML = h;
 }
 
+/* ⚠️ БИТЫЙ JSON НЕ ДОЛЖЕН ЗАТИРАТЬ НАСТРОЙКУ: при опечатке оставляем то,
+   что уже сохранено, и говорим об этом вслух */
+function gmParseExtra(){
+  var raw = (gmVal('gm-extra') || '').trim();
+  if (!raw) return {};
+  try { return JSON.parse(raw); }
+  catch(e){ alert('Настройки запроса — не JSON, оставил прежние: ' + e.message); return undefined; }
+}
+
 function gmSaveGame(key){
   gmSave('game', {
     key: key, title: gmVal('gm-title'), description: gmVal('gm-desc'),
@@ -11829,6 +11845,7 @@ function gmSaveGame(key){
     win_score: gmNum('gm-winscore', 100), max_turns: gmNum('gm-turns', 5),
     provider: gmVal('gm-provider'), model: gmVal('gm-model'), judge_mode: gmVal('gm-mode'),
     client_prompt: gmVal('gm-cprompt'), judge_prompt: gmVal('gm-jprompt'),
+    extra_params: gmParseExtra(),
     enabled: gmChk('gm-enabled'), free_for_guests: gmChk('gm-free')
   }, key);
 }
