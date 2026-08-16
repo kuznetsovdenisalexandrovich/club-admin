@@ -11697,7 +11697,7 @@ async function gmSave(kind, data, openKey){
 var GM_GAME_FIELDS = ['gm-title','gm-desc','gm-intro','gm-win','gm-track','gm-step',
                       'gm-stage','gm-scale','gm-start','gm-winscore','gm-turns',
                       'gm-provider','gm-model','gm-mode','gm-cprompt','gm-jprompt',
-                      'gm-extra'];
+                      'gm-extra','gm-extram','gm-upsell'];
 
 function gmGameDraft(){
   if (!document.getElementById('gm-title')) return null;
@@ -11795,6 +11795,18 @@ function gmEdit(key){
        + 'По умолчанию размышление модели ВЫКЛЮЧЕНО — с ним ход идёт десятки секунд. '
        + 'Вернуть: <code>{"thinking":{"type":"enabled"}}</code>. Там же можно поднять <code>max_tokens</code>.</div>';
 
+  h += elLbl('Настройки для УЧАСТНИКОВ (накладываются поверх, JSON)')
+     + '<input id="gm-extram" value="' + elEsc(JSON.stringify(g.extra_member || {})) + '" style="' + elInput() + '">'
+     + '<div style="font-size:11px;color:var(--text-faint);line-height:1.45">'
+       + 'Сюда и идёт размышление: <code>{"thinking":{"type":"enabled"}}</code>. '
+       + 'Участнику судья думает и опирается на теорию из материалов, гостю отвечает быстро и общо.</div>';
+
+  h += elLbl('Что показать гостю в конце партии (приглашение в клуб)')
+     + '<textarea id="gm-upsell" style="min-height:44px;' + elInput() + '">' + elEsc(g.upsell_text) + '</textarea>'
+     + '<div style="font-size:11px;color:var(--text-faint);line-height:1.45">'
+       + 'Подставляется кодом дословно и только не-участникам. Модели этот текст не показываем — '
+       + 'она уже однажды выдумала занятие с тегом.</div>';
+
   h += elLbl('Промпт клиента — кого играет модель')
      + '<textarea id="gm-cprompt" style="min-height:150px;line-height:1.5;' + elInput() + '">' + elEsc(g.client_prompt) + '</textarea>';
   h += elLbl('Промпт судьи — правила и формат сервер добавит сам')
@@ -11829,8 +11841,8 @@ function gmEdit(key){
 
 /* ⚠️ БИТЫЙ JSON НЕ ДОЛЖЕН ЗАТИРАТЬ НАСТРОЙКУ: при опечатке оставляем то,
    что уже сохранено, и говорим об этом вслух */
-function gmParseExtra(){
-  var raw = (gmVal('gm-extra') || '').trim();
+function gmParseExtra(id){
+  var raw = (gmVal(id) || '').trim();
   if (!raw) return {};
   try { return JSON.parse(raw); }
   catch(e){ alert('Настройки запроса — не JSON, оставил прежние: ' + e.message); return undefined; }
@@ -11845,7 +11857,8 @@ function gmSaveGame(key){
     win_score: gmNum('gm-winscore', 100), max_turns: gmNum('gm-turns', 5),
     provider: gmVal('gm-provider'), model: gmVal('gm-model'), judge_mode: gmVal('gm-mode'),
     client_prompt: gmVal('gm-cprompt'), judge_prompt: gmVal('gm-jprompt'),
-    extra_params: gmParseExtra(),
+    extra_params: gmParseExtra('gm-extra'), extra_member: gmParseExtra('gm-extram'),
+    upsell_text: gmVal('gm-upsell'),
     enabled: gmChk('gm-enabled'), free_for_guests: gmChk('gm-free')
   }, key);
 }
@@ -11946,7 +11959,9 @@ function gmOpenMats(key){
         + '<div style="font-size:12px;font-weight:600;margin-bottom:6px">Материалы после партии</div>'
         + '<div style="font-size:11px;color:var(--text-faint);margin-bottom:8px;line-height:1.45">'
         + 'Судья выбирает только из этого списка. Пустое правило — материал на всю игру. '
-        + 'Таймкод важнее слага: попадание в минуту работает, ссылка на трёхчасовое занятие — нет.</div>';
+        + 'Таймкод важнее слага: попадание в минуту работает, ссылка на трёхчасовое занятие — нет.<br>'
+        + '<b>Выжимка</b> — тезисы занятия. Их видит судья, но <b>только когда играет участник</b>: '
+        + 'это и есть «версия с базой знаний клуба», которую мы обещаем гостю.</div>';
   rows.forEach(function(r){
     var opts = '<option value="">— на всю игру —</option>';
     rules.forEach(function(x){
@@ -11960,6 +11975,7 @@ function gmOpenMats(key){
       + '</div>'
       + '<input id="gmm-title-' + r.id + '" value="' + elEsc(r.title) + '" placeholder="как назвать в приложении" style="' + elInput() + '">'
       + '<textarea id="gmm-when-' + r.id + '" placeholder="когда советовать — это читает судья" style="min-height:40px;' + elInput() + '">' + elEsc(r.when_to) + '</textarea>'
+      + '<textarea id="gmm-theory-' + r.id + '" placeholder="выжимка из занятия: тезисы, на которые судья опирается в разборе (только для участников)" style="min-height:70px;' + elInput() + '">' + elEsc(r.theory) + '</textarea>'
       + '<div style="display:flex;gap:8px;align-items:center">'
         + '<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="gmm-on-' + r.id + '"' + (r.enabled ? ' checked' : '') + '> вкл</label>'
         + '<button class="action-btn" onclick="gmSaveMat(' + r.id + ',\'' + key + '\')">Сохранить</button>'
@@ -11974,7 +11990,8 @@ function gmOpenMats(key){
 function gmSaveMat(id, key){
   gmSave('material', { id: id, slug: gmVal('gmm-slug-' + id), timecode: gmVal('gmm-tc-' + id),
                        rule_key: gmVal('gmm-rule-' + id), title: gmVal('gmm-title-' + id),
-                       when_to: gmVal('gmm-when-' + id), enabled: gmChk('gmm-on-' + id) }, key);
+                       when_to: gmVal('gmm-when-' + id), theory: gmVal('gmm-theory-' + id),
+                       enabled: gmChk('gmm-on-' + id) }, key);
 }
 
 /* ═══ ПРОГОН НА ЭТАЛОНЕ ═══
@@ -12034,20 +12051,29 @@ async function gmRunDry(key){
 
 var gmPlay = { id: '', game: null, scale: 'Шанс', turns: 0, max: 5 };
 
+var gmPlayAsGuest = false;
+
 async function gmOpenPlay(key){
+  var chk = document.getElementById('gm-play-guest');
+  gmPlayAsGuest = !!(chk && chk.checked);
   var g = (gmData.games || []).filter(function(x){ return x.key === key; })[0];
   gmPlay = { id: '', game: g, scale: (g && g.scale_name) || 'Шанс', turns: 0,
              max: (g && g.max_turns) || 5 };
   document.getElementById('gm-sub').innerHTML =
       '<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px">'
-    + '<div style="font-size:12px;font-weight:600;margin-bottom:6px">Пробная партия</div>'
+    + '<div style="font-size:12px;font-weight:600;margin-bottom:6px">Пробная партия'
+      + (gmPlayAsGuest ? ' — глазами гостя' : ' — глазами участника') + '</div>'
     + '<div style="font-size:11px;color:var(--text-faint);margin-bottom:8px;line-height:1.45">'
     + 'Играешь тем же движком, что и участник, на сохранённой версии промптов. '
     + 'Партия не попадёт в статистику.</div>'
+    + '<label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:8px">'
+      + '<input type="checkbox" id="gm-play-guest" onchange="gmOpenPlay(gmPlay.game.key)"> играть глазами гостя</label>'
     + '<div id="gm-play-scale"></div>'
     + '<div id="gm-play-log" style="display:flex;flex-direction:column;gap:8px;margin:8px 0"></div>'
     + '<div id="gm-play-input"></div>'
     + '</div>';
+  var c2 = document.getElementById('gm-play-guest');
+  if (c2) c2.checked = gmPlayAsGuest;
   gmPlayStart(key);
 }
 
@@ -12059,7 +12085,7 @@ async function gmPlayStart(key){
     d = await fetch(API + '/games/session/start', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ game_key: key, guest_key: 'admin-' + Date.now(),
-                             x_admin_token: ADMIN_TOKEN })
+                             x_admin_token: ADMIN_TOKEN, as_guest: gmPlayAsGuest })
     }).then(function(r){ return r.json(); });
   } catch(e){ log.innerHTML = gmPlayErr(e.message); return; }
   if (!d || !d.session_id){ log.innerHTML = gmPlayErr(JSON.stringify(d)); return; }
@@ -12159,6 +12185,8 @@ async function gmPlayTurn(){
       + (f.material ? '<br>материал: ' + elEsc(f.material.slug) + (f.material.timecode ? ' — ' + elEsc(f.material.timecode) : '') : '')
       + (f.next_game ? '<br>дальше: ' + elEsc(f.next_game.title) : '')
       + (f.champion ? '<br>чемпион — следующей ступени нет' : '')
+      + (f.upsell ? '<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--line);color:var(--text-faint)">'
+          + elEsc(f.upsell) + '</div>' : '')
       + '</div>');
     gmPlayInput(false);
   } else {
