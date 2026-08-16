@@ -1109,6 +1109,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <button class="action-btn" onclick="openLinkGenPopup()">Генератор ссылок</button>
         <button class="action-btn" onclick="openTextsPopup()">Тексты приложения</button>
         <button class="action-btn" onclick="openHelpDocsPopup()">Справка клуба</button>
+        <button class="action-btn" onclick="openGamesPopup()">Конструктор игр</button>
       </div>
     </div>
   </div>
@@ -11051,7 +11052,426 @@ function wireShelfSwipe(pages){
 
   el.addEventListener('touchend', function(){ tracking = false; }, { passive: true });
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   КОНСТРУКТОР ИГР
+
+   Одна игра = запись в базе. Здесь заполняются промпты, шкала, правила,
+   стоп-фразы и материалы; кода на новую игру не добавляется.
+
+   ⚠️ КЛЮЧ ПРАВИЛА НЕИЗМЕНЯЕМ после создания: на него завязаны очки,
+   материалы и статистика. Поле ключа у сохранённого правила заблокировано —
+   сервер правку ключа всё равно отбросит, но лучше не давать её и глазами.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var gmData = { games: [], rules: [], stop_phrases: [], materials: [], stages: [] };
+var gmOpenKey = '';
+
+function openGamesPopup(){
+  document.getElementById('games-popup-overlay').classList.add('open');
+  gmLoad();
+}
+function closeGamesPopup(){
+  document.getElementById('games-popup-overlay').classList.remove('open');
+}
+
+async function gmLoad(){
+  try {
+    gmData = await fetch(API + '/games/admin/all?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN))
+      .then(function(r){ return r.json(); });
+  } catch(e){ gmData = { games: [], rules: [], stop_phrases: [], materials: [], stages: [] }; }
+  gmRenderList();
+  if (gmOpenKey) gmEdit(gmOpenKey);
+}
+
+function gmRenderList(){
+  var box = document.getElementById('gm-list');
+  var games = gmData.games || [];
+  if (!games.length){ box.innerHTML = '<div style="font-size:12px;color:var(--text-faint)">Пока ни одной игры.</div>'; return; }
+  var h = '<div style="display:flex;flex-direction:column;gap:8px">';
+  games.forEach(function(g){
+    var rules = (gmData.rules || []).filter(function(r){ return r.game_key === g.key; }).length;
+    var mats  = (gmData.materials || []).filter(function(m){ return m.game_key === g.key; }).length;
+    h += '<div style="border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;gap:10px;align-items:center">'
+      + '<div style="flex:1;min-width:0">'
+        + '<div style="font-size:13px;font-weight:600">' + elEsc(g.title || g.key) + (g.enabled ? '' : ' <span style="font-weight:400;color:var(--text-faint)">— выключена</span>') + '</div>'
+        + '<div style="font-size:11px;color:var(--text-faint);margin-top:2px">'
+          + elEsc(g.key) + (g.track ? ' · ' + elEsc(g.track) + ', ступень ' + (g.step || 1) : ' · сквозная')
+          + ' · правил: ' + rules + ' · материалов: ' + mats
+          + (g.free_for_guests ? ' · открыта гостю' : '')
+          + ' · промпт v' + (g.prompt_version || 1)
+        + '</div>'
+      + '</div>'
+      + '<button class="action-btn" onclick="gmEdit(\'' + g.key + '\')">Настроить</button>'
+      + '</div>';
+  });
+  box.innerHTML = h + '</div>';
+}
+
+function gmNewGame(){
+  var key = prompt('Ключ новой игры латиницей (например fokus). Потом его не поменять:');
+  if (!key) return;
+  key = key.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+  if (!key) return;
+  gmSave('game', { key: key, title: 'Новая игра', judge_mode: 'rules', scale_name: 'Шанс на успех',
+                   start_score: 50, win_score: 100, max_turns: 5, provider: 'deepseek',
+                   model: 'deepseek-v4-flash', enabled: false, step: 1 }, key);
+}
+
+async function gmSave(kind, data, openKey){
+  await fetch(API + '/games/admin/save', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ kind: kind, data: data, x_admin_token: ADMIN_TOKEN })
+  });
+  if (openKey !== undefined) gmOpenKey = openKey;
+  gmLoad();
+}
+
+async function gmDelete(kind, id){
+  if (!confirm('Удалить запись?')) return;
+  await fetch(API + '/games/admin/delete', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ kind: kind, id: id, x_admin_token: ADMIN_TOKEN })
+  });
+  gmLoad();
+}
+
+function gmVal(id){ var e = document.getElementById(id); return e ? e.value : ''; }
+function gmChk(id){ var e = document.getElementById(id); return !!(e && e.checked); }
+function gmNum(id, def){ var v = parseInt(gmVal(id), 10); return isNaN(v) ? def : v; }
+
+function gmEdit(key){
+  gmOpenKey = key;
+  var g = (gmData.games || []).filter(function(x){ return x.key === key; })[0];
+  if (!g){ document.getElementById('gm-editor').innerHTML = ''; return; }
+
+  var h = '<div style="border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px">';
+  h += '<div style="display:flex;align-items:center;gap:8px">'
+     + '<div style="font-size:13px;font-weight:600;flex:1">' + elEsc(g.key) + '</div>'
+     + '<button class="action-btn" onclick="gmOpenKey=\'\';document.getElementById(\'gm-editor\').innerHTML=\'\'">Свернуть</button>'
+     + '</div>';
+
+  h += elLbl('Название и описание для игрока')
+     + '<input id="gm-title" value="' + elEsc(g.title) + '" style="' + elInput() + '">'
+     + '<textarea id="gm-desc" style="min-height:50px;' + elInput() + '">' + elEsc(g.description) + '</textarea>';
+
+  h += elLbl('Текст перед стартом · текст победы')
+     + '<textarea id="gm-intro" style="min-height:44px;' + elInput() + '">' + elEsc(g.intro_text) + '</textarea>'
+     + '<textarea id="gm-win" style="min-height:44px;' + elInput() + '">' + elEsc(g.win_text) + '</textarea>';
+
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+     + '<div style="flex:1;min-width:120px">' + elLbl('Трек (лестница)')
+       + '<input id="gm-track" value="' + elEsc(g.track) + '" placeholder="presentation" style="' + elInput() + '"></div>'
+     + '<div style="width:90px">' + elLbl('Ступень')
+       + '<input id="gm-step" type="number" value="' + (g.step || 1) + '" style="' + elInput() + '"></div>'
+     + '<div style="flex:1;min-width:120px">' + elLbl('Этап')
+       + '<input id="gm-stage" value="' + elEsc(g.stage_key) + '" placeholder="present" style="' + elInput() + '"></div>'
+     + '</div>';
+
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+     + '<div style="flex:1;min-width:130px">' + elLbl('Название шкалы')
+       + '<input id="gm-scale" value="' + elEsc(g.scale_name) + '" style="' + elInput() + '"></div>'
+     + '<div style="width:80px">' + elLbl('Старт')
+       + '<input id="gm-start" type="number" value="' + (g.start_score || 50) + '" style="' + elInput() + '"></div>'
+     + '<div style="width:80px">' + elLbl('Победа')
+       + '<input id="gm-winscore" type="number" value="' + (g.win_score || 100) + '" style="' + elInput() + '"></div>'
+     + '<div style="width:80px">' + elLbl('Ходов')
+       + '<input id="gm-turns" type="number" value="' + (g.max_turns || 5) + '" style="' + elInput() + '"></div>'
+     + '</div>';
+
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+     + '<div style="flex:1;min-width:110px">' + elLbl('Провайдер')
+       + '<input id="gm-provider" value="' + elEsc(g.provider) + '" style="' + elInput() + '"></div>'
+     + '<div style="flex:1;min-width:140px">' + elLbl('Модель')
+       + '<input id="gm-model" value="' + elEsc(g.model) + '" style="' + elInput() + '"></div>'
+     + '<div style="flex:1;min-width:140px">' + elLbl('Режим судьи')
+       + '<select id="gm-mode" style="' + elInput() + '">'
+         + '<option value="rules"' + (g.judge_mode !== 'free' ? ' selected' : '') + '>по правилам (очки считает сервер)</option>'
+         + '<option value="free"' + (g.judge_mode === 'free' ? ' selected' : '') + '>свободный вердикт</option>'
+       + '</select></div>'
+     + '</div>';
+
+  h += elLbl('Промпт клиента — кого играет модель')
+     + '<textarea id="gm-cprompt" style="min-height:150px;line-height:1.5;' + elInput() + '">' + elEsc(g.client_prompt) + '</textarea>';
+  h += elLbl('Промпт судьи — правила и формат сервер добавит сам')
+     + '<textarea id="gm-jprompt" style="min-height:110px;line-height:1.5;' + elInput() + '">' + elEsc(g.judge_prompt) + '</textarea>';
+  h += '<div style="font-size:11px;color:var(--text-faint);line-height:1.45">'
+     + 'Правка любого промпта поднимает его версию. Каждая партия помнит, на какой версии сыграна — '
+     + 'иначе через месяц не понять, почему судья стал судить иначе. Сейчас: v' + (g.prompt_version || 1) + '</div>';
+
+  h += '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px">'
+     + '<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="gm-enabled"' + (g.enabled ? ' checked' : '') + '> Включена</label>'
+     + '<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="gm-free"' + (g.free_for_guests ? ' checked' : '') + '> Открыта гостю</label>'
+     + '</div>';
+  h += '<div style="font-size:11px;color:var(--text-faint);line-height:1.45">'
+     + 'Гостю открыта только первая ступень трека. Следующая открывается, если предыдущую он закрыл на 90% и выше, и так до третьей.</div>';
+
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+     + '<button class="popup-save" style="flex:1" onclick="gmSaveGame(\'' + g.key + '\')">Сохранить игру</button>'
+     + '<button class="action-btn danger" onclick="gmDelete(\'game\',\'' + g.key + '\')">Удалить</button>'
+     + '</div>';
+
+  h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">'
+     + '<button class="action-btn" onclick="gmOpenRules(\'' + g.key + '\')">Правила</button>'
+     + '<button class="action-btn" onclick="gmOpenStops(\'' + g.key + '\')">Стоп-фразы</button>'
+     + '<button class="action-btn" onclick="gmOpenMats(\'' + g.key + '\')">Материалы</button>'
+     + '<button class="action-btn" onclick="gmOpenDry(\'' + g.key + '\')">Прогон на эталоне</button>'
+     + '</div>';
+  h += '<div id="gm-sub"></div></div>';
+
+  document.getElementById('gm-editor').innerHTML = h;
+}
+
+function gmSaveGame(key){
+  gmSave('game', {
+    key: key, title: gmVal('gm-title'), description: gmVal('gm-desc'),
+    intro_text: gmVal('gm-intro'), win_text: gmVal('gm-win'),
+    track: gmVal('gm-track'), step: gmNum('gm-step', 1), stage_key: gmVal('gm-stage'),
+    scale_name: gmVal('gm-scale'), start_score: gmNum('gm-start', 50),
+    win_score: gmNum('gm-winscore', 100), max_turns: gmNum('gm-turns', 5),
+    provider: gmVal('gm-provider'), model: gmVal('gm-model'), judge_mode: gmVal('gm-mode'),
+    client_prompt: gmVal('gm-cprompt'), judge_prompt: gmVal('gm-jprompt'),
+    enabled: gmChk('gm-enabled'), free_for_guests: gmChk('gm-free')
+  }, key);
+}
+
+/* ═══ ПРАВИЛА ═══ */
+function gmOpenRules(key){
+  var rows = (gmData.rules || []).filter(function(r){ return r.game_key === key; });
+  var h = '<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px">'
+        + '<div style="font-size:12px;font-weight:600;margin-bottom:6px">Правила судьи</div>'
+        + '<div style="font-size:11px;color:var(--text-faint);margin-bottom:8px;line-height:1.45">'
+        + 'Описание — это то, что читает модель. Цена — сколько процентов прибавить или отнять. '
+        + 'Мгновенная победа: сработало правило — партия выиграна сразу.</div>';
+  rows.forEach(function(r){
+    h += '<div style="border:1px solid var(--line);border-radius:10px;padding:9px;margin-bottom:8px;display:flex;flex-direction:column;gap:6px">'
+      + '<div style="display:flex;gap:6px">'
+        + '<input value="' + elEsc(r.rule_key) + '" disabled style="width:130px;opacity:.6;' + elInput() + '">'
+        + '<input id="gr-label-' + r.id + '" value="' + elEsc(r.label) + '" placeholder="Что видит игрок" style="' + elInput() + '">'
+      + '</div>'
+      + '<textarea id="gr-desc-' + r.id + '" placeholder="Как объясняем модели" style="min-height:56px;' + elInput() + '">' + elEsc(r.description) + '</textarea>'
+      + '<textarea id="gr-hint-' + r.id + '" placeholder="Подсказка участнику после хода" style="min-height:38px;' + elInput() + '">' + elEsc(r.hint) + '</textarea>'
+      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+        + '<span style="font-size:11px;color:var(--text-faint)">цена</span>'
+        + '<input id="gr-delta-' + r.id + '" type="number" value="' + (r.delta || 0) + '" style="width:80px;' + elInput() + '">'
+        + '<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="gr-win-' + r.id + '"' + (r.instant_win ? ' checked' : '') + '> мгновенная победа</label>'
+        + '<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="gr-on-' + r.id + '"' + (r.enabled ? ' checked' : '') + '> вкл</label>'
+        + '<button class="action-btn" onclick="gmSaveRule(' + r.id + ',\'' + key + '\')">Сохранить</button>'
+        + '<button class="action-btn" style="margin-left:auto" onclick="gmDelete(\'rule\',' + r.id + ')">Удалить</button>'
+      + '</div></div>';
+  });
+  if (!rows.length) h += '<div style="font-size:12px;color:var(--text-faint)">Правил пока нет.</div>';
+  h += '<button class="action-btn" onclick="gmNewRule(\'' + key + '\')">+ правило</button></div>';
+  document.getElementById('gm-sub').innerHTML = h;
+}
+
+function gmNewRule(key){
+  var rk = prompt('Ключ правила латиницей (например result_scene). Потом его не поменять:');
+  if (!rk) return;
+  rk = rk.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+  if (!rk) return;
+  gmSave('rule', { game_key: key, rule_key: rk, label: '', description: '', delta: 0, enabled: true }, key);
+}
+
+function gmSaveRule(id, key){
+  gmSave('rule', { id: id, label: gmVal('gr-label-' + id), description: gmVal('gr-desc-' + id),
+                   hint: gmVal('gr-hint-' + id), delta: gmNum('gr-delta-' + id, 0),
+                   instant_win: gmChk('gr-win-' + id), enabled: gmChk('gr-on-' + id) }, key);
+}
+
+/* ═══ СТОП-ФРАЗЫ ═══
+   Ловятся совпадением текста ДО вызова модели: одинаково у всех и бесплатно.
+   Пустая игра = фраза общая для всех игр. */
+function gmOpenStops(key){
+  var rows = (gmData.stop_phrases || []).filter(function(r){ return (r.game_key || '') === (key || ''); });
+  var h = '<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px">'
+        + '<div style="font-size:12px;font-weight:600;margin-bottom:6px">' + (key ? 'Стоп-фразы игры' : 'Общие стоп-фразы') + '</div>'
+        + '<div style="font-size:11px;color:var(--text-faint);margin-bottom:8px;line-height:1.45">'
+        + '«Почему» и «чем заменить» показываются игроку дословно — модель их не сочиняет.</div>';
+  rows.forEach(function(r){
+    h += '<div style="border:1px solid var(--line);border-radius:10px;padding:9px;margin-bottom:8px;display:flex;flex-direction:column;gap:6px">'
+      + '<input id="gs-phrase-' + r.id + '" value="' + elEsc(r.phrase) + '" placeholder="фраза" style="' + elInput() + '">'
+      + '<textarea id="gs-why-' + r.id + '" placeholder="почему клиент напрягается" style="min-height:40px;' + elInput() + '">' + elEsc(r.why) + '</textarea>'
+      + '<textarea id="gs-repl-' + r.id + '" placeholder="чем заменить" style="min-height:40px;' + elInput() + '">' + elEsc(r.replace_with) + '</textarea>'
+      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+        + '<span style="font-size:11px;color:var(--text-faint)">цена</span>'
+        + '<input id="gs-delta-' + r.id + '" type="number" value="' + (r.delta || 0) + '" style="width:80px;' + elInput() + '">'
+        + '<input id="gs-slug-' + r.id + '" value="' + elEsc(r.slug) + '" placeholder="слаг" style="width:120px;' + elInput() + '">'
+        + '<input id="gs-tc-' + r.id + '" value="' + elEsc(r.timecode) + '" placeholder="таймкод" style="width:90px;' + elInput() + '">'
+        + '<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="gs-word-' + r.id + '"' + (r.whole_word ? ' checked' : '') + '> целым словом</label>'
+        + '<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="gs-on-' + r.id + '"' + (r.enabled ? ' checked' : '') + '> вкл</label>'
+        + '<button class="action-btn" onclick="gmSaveStop(' + r.id + ',\'' + (key || '') + '\')">Сохранить</button>'
+        + '<button class="action-btn" style="margin-left:auto" onclick="gmDelete(\'stopphrase\',' + r.id + ')">Удалить</button>'
+      + '</div></div>';
+  });
+  if (!rows.length) h += '<div style="font-size:12px;color:var(--text-faint)">Пока пусто.</div>';
+  h += '<button class="action-btn" onclick="gmSave(\'stopphrase\',{game_key:\'' + (key || '') + '\',phrase:\'\',delta:-10,enabled:true},\'' + (key || '') + '\')">+ фраза</button></div>';
+  var slot = document.getElementById('gm-sub');
+  if (slot) { slot.innerHTML = h; } else { document.getElementById('gm-editor').innerHTML = '<div id="gm-sub">' + h + '</div>'; }
+}
+
+function gmSaveStop(id, key){
+  gmSave('stopphrase', { id: id, phrase: gmVal('gs-phrase-' + id), why: gmVal('gs-why-' + id),
+                         replace_with: gmVal('gs-repl-' + id), delta: gmNum('gs-delta-' + id, -10),
+                         slug: gmVal('gs-slug-' + id), timecode: gmVal('gs-tc-' + id),
+                         whole_word: gmChk('gs-word-' + id), enabled: gmChk('gs-on-' + id) }, key);
+}
+
+/* ═══ МАТЕРИАЛЫ ═══
+   Закрытый список: судья может вернуть только слаг отсюда. Так модель
+   физически не может выдумать занятие, которого нет. */
+function gmOpenMats(key){
+  var rows = (gmData.materials || []).filter(function(r){ return r.game_key === key; });
+  var rules = (gmData.rules || []).filter(function(r){ return r.game_key === key; });
+  var h = '<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px">'
+        + '<div style="font-size:12px;font-weight:600;margin-bottom:6px">Материалы после партии</div>'
+        + '<div style="font-size:11px;color:var(--text-faint);margin-bottom:8px;line-height:1.45">'
+        + 'Судья выбирает только из этого списка. Пустое правило — материал на всю игру. '
+        + 'Таймкод важнее слага: попадание в минуту работает, ссылка на трёхчасовое занятие — нет.</div>';
+  rows.forEach(function(r){
+    var opts = '<option value="">— на всю игру —</option>';
+    rules.forEach(function(x){
+      opts += '<option value="' + x.rule_key + '"' + (x.rule_key === r.rule_key ? ' selected' : '') + '>' + elEsc(x.rule_key) + '</option>';
+    });
+    h += '<div style="border:1px solid var(--line);border-radius:10px;padding:9px;margin-bottom:8px;display:flex;flex-direction:column;gap:6px">'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+        + '<input id="gmm-slug-' + r.id + '" value="' + elEsc(r.slug) + '" placeholder="слаг лекции" style="flex:1;min-width:130px;' + elInput() + '">'
+        + '<input id="gmm-tc-' + r.id + '" value="' + elEsc(r.timecode) + '" placeholder="таймкод" style="width:100px;' + elInput() + '">'
+        + '<select id="gmm-rule-' + r.id + '" style="width:150px;' + elInput() + '">' + opts + '</select>'
+      + '</div>'
+      + '<input id="gmm-title-' + r.id + '" value="' + elEsc(r.title) + '" placeholder="как назвать в приложении" style="' + elInput() + '">'
+      + '<textarea id="gmm-when-' + r.id + '" placeholder="когда советовать — это читает судья" style="min-height:40px;' + elInput() + '">' + elEsc(r.when_to) + '</textarea>'
+      + '<div style="display:flex;gap:8px;align-items:center">'
+        + '<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="gmm-on-' + r.id + '"' + (r.enabled ? ' checked' : '') + '> вкл</label>'
+        + '<button class="action-btn" onclick="gmSaveMat(' + r.id + ',\'' + key + '\')">Сохранить</button>'
+        + '<button class="action-btn" style="margin-left:auto" onclick="gmDelete(\'material\',' + r.id + ')">Удалить</button>'
+      + '</div></div>';
+  });
+  if (!rows.length) h += '<div style="font-size:12px;color:var(--text-faint)">Пока пусто. Без материалов судья не будет упоминать занятия вообще — это правильно.</div>';
+  h += '<button class="action-btn" onclick="gmSave(\'material\',{game_key:\'' + key + '\',slug:\'\',enabled:true},\'' + key + '\')">+ материал</button></div>';
+  document.getElementById('gm-sub').innerHTML = h;
+}
+
+function gmSaveMat(id, key){
+  gmSave('material', { id: id, slug: gmVal('gmm-slug-' + id), timecode: gmVal('gmm-tc-' + id),
+                       rule_key: gmVal('gmm-rule-' + id), title: gmVal('gmm-title-' + id),
+                       when_to: gmVal('gmm-when-' + id), enabled: gmChk('gmm-on-' + id) }, key);
+}
+
+/* ═══ ПРОГОН НА ЭТАЛОНЕ ═══
+   Правишь промпт — жмёшь кнопку — видишь, изменилось ли решение судьи.
+   Без этого правка идёт вслепую и заметна только через месяц по конверсии. */
+function gmOpenDry(key){
+  var saved = '';
+  try { saved = localStorage.getItem('gm-dry-' + key) || ''; } catch(e){}
+  document.getElementById('gm-sub').innerHTML =
+      '<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px">'
+    + '<div style="font-size:12px;font-weight:600;margin-bottom:6px">Прогон на эталоне</div>'
+    + '<div style="font-size:11px;color:var(--text-faint);margin-bottom:8px;line-height:1.45">'
+    + 'По одному ответу игрока в строке — настоящие, как люди пишут. Модель судит их без партии.</div>'
+    + '<textarea id="gm-dry-in" style="min-height:120px;line-height:1.5;' + elInput() + '">' + elEsc(saved) + '</textarea>'
+    + '<button class="action-btn" style="margin-top:8px" onclick="gmRunDry(\'' + key + '\')">Прогнать</button>'
+    + '<div id="gm-dry-out" style="margin-top:10px"></div></div>';
+}
+
+async function gmRunDry(key){
+  var raw = gmVal('gm-dry-in');
+  try { localStorage.setItem('gm-dry-' + key, raw); } catch(e){}
+  var answers = raw.split('\n').map(function(s){ return s.trim(); }).filter(function(s){ return s.length > 3; });
+  if (!answers.length) return;
+  var out = document.getElementById('gm-dry-out');
+  out.innerHTML = '<div class="loading">Судья думает...</div>';
+  var res;
+  try {
+    res = await fetch(API + '/games/admin/dry-run', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ game_key: key, answers: answers, x_admin_token: ADMIN_TOKEN })
+    }).then(function(r){ return r.json(); });
+  } catch(e){ out.innerHTML = '<div style="font-size:12px;color:var(--text-faint)">Не получилось: ' + elEsc(String(e)) + '</div>'; return; }
+  if (!res || !res.results){ out.innerHTML = '<div style="font-size:12px;color:var(--text-faint)">' + elEsc(JSON.stringify(res)) + '</div>'; return; }
+
+  var h = '<div style="font-size:11px;color:var(--text-faint);margin-bottom:6px">Промпт v' + (res.prompt_version || 1) + '</div>';
+  res.results.forEach(function(r){
+    var sign = r.delta > 0 ? '+' : '';
+    h += '<div style="border:1px solid var(--line);border-radius:10px;padding:9px;margin-bottom:6px">'
+      + '<div style="font-size:12px;line-height:1.45">' + elEsc(r.answer) + '</div>'
+      + '<div style="font-size:11px;color:var(--text-faint);margin-top:5px">'
+        + '<b style="color:var(--text)">' + sign + r.delta + '%</b>'
+        + (r.instant_win ? ' · мгновенная победа' : '')
+        + (r.rules.length ? ' · ' + elEsc(r.rules.join(', ')) : ' · правила не сработали')
+        + (r.stops && r.stops.length ? ' · стоп-фразы: ' + elEsc(r.stops.join(', ')) : '')
+        + (r.invented && r.invented.length ? ' · <span style="color:#e08">выдумал ключи: ' + elEsc(r.invented.join(', ')) + '</span>' : '')
+      + '</div></div>';
+  });
+  out.innerHTML = h;
+}
+
+/* ═══ СТАТИСТИКА ═══
+   Брошенные партии считаются отдельно — иначе средние врут. */
+async function gmLoadStats(){
+  var box = document.getElementById('gm-editor');
+  box.innerHTML = '<div class="loading">Загрузка...</div>';
+  var s, sessions;
+  try {
+    s = await fetch(API + '/games/admin/stats?days=30&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN)).then(function(r){ return r.json(); });
+    sessions = await fetch(API + '/games/admin/sessions?limit=20&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN)).then(function(r){ return r.json(); });
+  } catch(e){ box.innerHTML = '<div style="font-size:12px;color:var(--text-faint)">Не получилось загрузить.</div>'; return; }
+
+  var h = '<div style="border:1px solid var(--line);border-radius:12px;padding:12px">'
+        + '<div style="font-size:13px;font-weight:600;margin-bottom:8px">За 30 дней</div>';
+  var keys = Object.keys(s.by_game || {});
+  if (!keys.length) h += '<div style="font-size:12px;color:var(--text-faint)">Партий пока нет.</div>';
+  keys.forEach(function(k){
+    var g = s.by_game[k];
+    var conv = g.finished ? Math.round(g.won * 100 / g.finished) : 0;
+    h += '<div style="border-top:1px solid var(--line);padding:8px 0">'
+      + '<div style="font-size:12px;font-weight:600">' + elEsc(k) + '</div>'
+      + '<div style="font-size:11px;color:var(--text-faint);margin-top:3px;line-height:1.5">'
+        + 'начато ' + g.started + ' · доиграно ' + g.finished + ' · брошено ' + g.abandoned
+        + '<br>побед ' + g.won + ' (' + conv + '% от доигранных) · средний счёт ' + g.avg_score
+      + '</div></div>';
+  });
+  h += '</div>';
+
+  h += '<div style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px">'
+     + '<div style="font-size:13px;font-weight:600;margin-bottom:8px">Последние партии</div>';
+  (sessions || []).forEach(function(x){
+    h += '<div style="border-top:1px solid var(--line);padding:7px 0;font-size:11px;color:var(--text-faint);line-height:1.5">'
+      + '<span style="color:var(--text)">' + elEsc(x.game_key) + '</span> · ' + x.score + '% · ' + elEsc(x.status)
+      + ' · ходов ' + x.turns + (x.member ? ' · участник' : ' · гость') + ' · v' + x.prompt_version
+      + (x.artifact ? '<br>«' + elEsc(x.artifact) + '»' : '')
+      + '</div>';
+  });
+  box.innerHTML = h + '</div>';
+}
 </script>
+
+<!-- ═══ КОНСТРУКТОР ИГР ═══════════════════════════════════════════════════
+     Игра здесь — ЗАПИСЬ, а не код. Всё, что отличает одну игру от другой,
+     заполняется в этом окне: промпты, шкала, правила, стоп-фразы, материалы.
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div class="popup-overlay popup-centered" id="games-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeGamesPopup()">
+  <div class="popup" style="max-width:760px">
+    <button class="popup-close-x" onclick="closeGamesPopup()" title="Закрыть">✕</button>
+    <div class="popup-body" style="padding-top:20px">
+      <div class="popup-section-title" style="margin-top:0">Конструктор игр</div>
+      <div style="font-size:11.5px;color:var(--text-faint);margin-bottom:10px;line-height:1.5">
+        Новая игра — это запись, а не доработка приложения. Судья не ставит оценку сам:
+        он называет только сработавшие правила, а проценты складывает сервер по их цене.
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+        <button class="action-btn" onclick="gmNewGame()">+ игра</button>
+        <button class="action-btn" onclick="gmOpenStops('')">Общие стоп-фразы</button>
+        <button class="action-btn" onclick="gmLoadStats()">Статистика</button>
+        <button class="action-btn" style="margin-left:auto" onclick="gmLoad()">Обновить</button>
+      </div>
+      <div id="gm-list"><div class="loading">Загрузка...</div></div>
+      <div id="gm-editor" style="margin-top:12px"></div>
+      <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closeGamesPopup()">Закрыть</button>
+    </div>
+  </div>
+</div>
+
 <div id="admin-zoom" onclick="closeAdminZoom()" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(12,10,21,.94);align-items:center;justify-content:center;padding:20px;cursor:zoom-out">
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
