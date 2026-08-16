@@ -1656,6 +1656,11 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
                не рисуем. Список нужен, чтобы подставить другой осознанно и
                видеть, что именно уйдёт в окно -->
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+            <div style="font-size:11px;color:var(--text-faint);line-height:1.45;margin-bottom:6px">
+              Поля ниже — <b>пробный текст</b>, чтобы посмотреть, как ляжет вёрстка.
+              В сохранённый шаблон он не попадает: участнику код архетипа, роль, девиз
+              и «за плечом» подставляются по результату его теста.
+            </div>
             <select id="pst-art" onchange="pstArtChanged()"
                     style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text)">
               <option value="">арт бога — выбрать автоматически</option>
@@ -1673,8 +1678,8 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
                  style="width:100%;margin-bottom:8px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text)">
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="action-btn" onclick="pstPreview()">Собрать превью</button>
-            <button class="action-btn" onclick="pstSave()">Сохранить постер</button>
-            <button class="action-btn" onclick="pstDelete()" style="margin-left:auto">Удалить постер</button>
+            <button class="action-btn" onclick="pstSave()">Сохранить шаблон</button>
+            <button class="action-btn" onclick="pstDelete()" style="margin-left:auto">Удалить шаблон</button>
           </div>
           <div id="pst-notes" style="margin-top:8px;font-size:13px"></div>
           <div id="pst-preview" style="margin-top:10px"></div>
@@ -9193,6 +9198,9 @@ async function pstPreview(){
 async function pstSave(){
   var d = await pstCompose(true);
   if (!d || !d.url) return;
+  /* ⚠️ СОХРАНЯЕТСЯ ШАБЛОН БЕЗ ТЕКСТА И QR: один пак обслуживает сотни постеров,
+     текст у каждого свой — по его исходу теста. Поэтому картинка после
+     сохранения выглядит пустой в текстовых плашках, и это правильно */
   /* ⚠️ ХВОСТ СО ВРЕМЕНЕМ ОБЯЗАТЕЛЕН: имя файла постера не меняется, и без
      него браузер показал бы прежнюю картинку из кэша, а Denis решил бы, что
      сборка не сработала */
