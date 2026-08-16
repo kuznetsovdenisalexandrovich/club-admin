@@ -1569,6 +1569,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <button class="action-btn" onclick="setElKind('frame')" id="el-kind-frame">Рамки</button>
           <button class="action-btn" onclick="setElKind('art')" id="el-kind-art">Арты</button>
           <button class="action-btn" onclick="setElKind('plate')" id="el-kind-plate">Плашки</button>
+          <button class="action-btn" onclick="showPacksTab()">Паки богов</button>
           <button class="action-btn" onclick="openComposer()" style="margin-left:auto">Проба сборки</button>
         </div>
         <!-- ⚠️ Кирпичики ЭКРАНА ОТКРЫТИЯ жили здесь до 12.08.2026 и переехали
@@ -1584,6 +1585,39 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <div id="el-list"><div class="loading">Загрузка...</div></div>
         <div id="el-editor-slot" style="margin-top:12px"></div>
         <div id="composer-slot" style="margin-top:12px"></div>
+      </div>
+
+      <!-- ══ ПАКИ БОГОВ ═══════════════════════════════════════════════════
+           Девять файлов от GPT на одного бога, загружаются ПАЧКОЙ.
+           Слоты определяются по номеру в имени файла, а НЕ по порядку
+           перетаскивания: порядок браузер не гарантирует (файлы приходят
+           в порядке выделения), а номер в скобках детерминирован. -->
+      <div id="cards-tab-packs" style="display:none">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+          <input id="pk-god" placeholder="ключ бога, напр. persey"
+                 style="flex:1;min-width:180px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text)">
+          <select id="pk-known" onchange="pkPickGod(this.value)"
+                  style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text)">
+            <option value="">— уже загружены —</option>
+          </select>
+        </div>
+
+        <div id="pk-drop"
+             style="border:2px dashed var(--border);border-radius:12px;padding:22px 14px;text-align:center;cursor:pointer;transition:.15s">
+          <div style="font-weight:600;margin-bottom:4px">Перетащи сюда девять файлов пака</div>
+          <div style="opacity:.65;font-size:13px">или нажми и выбери их в папке. Слоты определятся по номеру в имени</div>
+          <input type="file" id="pk-files" multiple accept="image/png,image/webp" style="display:none">
+        </div>
+
+        <div id="pk-bar-wrap" style="display:none;margin-top:12px">
+          <div style="height:8px;border-radius:6px;background:var(--border);overflow:hidden">
+            <div id="pk-bar" style="height:100%;width:0;background:var(--accent,#c9a227);transition:width .15s"></div>
+          </div>
+          <div id="pk-bar-text" style="margin-top:6px;font-size:13px;opacity:.75"></div>
+        </div>
+
+        <div id="pk-status" style="margin-top:10px;font-size:13px"></div>
+        <div id="pk-grid" style="margin-top:12px"></div>
       </div>
 
       <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closeCardsPopup()">Закрыть</button>
@@ -6229,7 +6263,7 @@ function closeCardsPopup(){
 var cardsSection = 'deck';
 var deckView = 'series';   // сезон — вид по умолчанию
 
-const CARD_TAB_IDS = ['deck','gods','sim','queue','grant','series','unique','elements'];
+const CARD_TAB_IDS = ['deck','gods','sim','queue','grant','series','unique','elements','packs'];
 
 function hideAllCardTabs(){
   CARD_TAB_IDS.forEach(function(t){
@@ -8579,6 +8613,257 @@ function renderUniqueCards(){
 /* ── Библиотека элементов ─────────────────────────────────────────────────── */
 
 function setElKind(kind){ elKind = kind; elExpanded = null; loadElements(); }
+
+/* ══ ПАКИ БОГОВ ═══════════════════════════════════════════════════════════
+   Девять файлов от GPT на одного бога: сцена, рамка, пять плашек, рамка QR,
+   передний план. Грузятся пачкой перетаскиванием.
+
+   ⚠️ СЛОТ ОПРЕДЕЛЯЕТСЯ ПО НОМЕРУ В ИМЕНИ, А НЕ ПО ПОРЯДКУ ПЕРЕТАСКИВАНИЯ.
+   Имена у GPT мусорные («ChatGPT Image Aug 16, 2026 at 10_38_07 AM (8)»),
+   зато суффикс (N) — ровно номер слота. Порядок файлов браузер НЕ
+   гарантирует: они приходят в порядке выделения, а не в том, как видно в
+   папке. Номер детерминирован, порядок — нет.
+
+   ⚠️ ОТПРАВКА ПО ФАЙЛУ ЗА РАЗ, А НЕ ОДНИМ ЗАПРОСОМ. Девять таких PNG весят
+   около 21 МБ, в base64 под тридцать — упереться в потолок тела запроса
+   проще простого. Плюс честная полоса вместо одного долгого молчания.
+
+   ⚠️ ПОЛОСА ЧЕРЕЗ XMLHttpRequest, А НЕ fetch. У fetch НЕТ прогресса
+   отправки — только скачивания. upload.onprogress есть только у XHR, ради
+   этого он тут и остался. */
+
+var PK_SLOTS = ['scene','frame','name','archetype','role','motto','behind','qr','fx'];
+var PK_TITLES = {
+  scene:'Сцена (фон)', frame:'Рамка карточки', name:'Плашка имени',
+  archetype:'Плашка кода архетипа', role:'Плашка роли', motto:'Плашка девиза',
+  behind:'Плашка «за плечом»', qr:'Рамка QR', fx:'Передний план'
+};
+var pkState = {};   // slot -> {url, geometry, warnings, filename}
+
+function pkGod(){ var e = document.getElementById('pk-god'); return (e ? e.value : '').trim(); }
+function pkPickGod(v){ if (!v) return; document.getElementById('pk-god').value = v; pkLoad(); }
+
+/* Номер из имени: «… (8).png» -> 8, без скобок -> 0 (сцена).
+   ⚠️ Ищем ПОСЛЕДНИЕ скобки: в имени GPT есть и время «10_38_07 AM», и оно
+   тоже может съехать в скобки при копировании. */
+function pkSlotFromName(name){
+  var base = String(name || '').replace(/\.[a-z0-9]+$/i, '');
+  var m = base.match(/\((\d+)\)\s*$/);
+  var n = m ? parseInt(m[1], 10) : 0;
+  return PK_SLOTS[n] || null;
+}
+
+function pkReadFile(file){
+  return new Promise(function(res, rej){
+    var fr = new FileReader();
+    fr.onload = function(){ res(String(fr.result)); };
+    fr.onerror = function(){ rej(new Error('файл не прочитался')); };
+    fr.readAsDataURL(file);
+  });
+}
+
+/* Одна отправка с прогрессом. Возвращает разобранный ответ сервера. */
+function pkSend(god, slot, dataUrl, filename, onProgress){
+  return new Promise(function(res, rej){
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', API + '/cards/admin/asset-pack/file?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.upload.onprogress = function(e){
+      if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
+    };
+    xhr.onload = function(){
+      var d = {};
+      try { d = JSON.parse(xhr.responseText); } catch(e){}
+      if (xhr.status >= 200 && xhr.status < 300) res(d);
+      else rej(new Error(d.detail || ('сервер ответил ' + xhr.status)));
+    };
+    xhr.onerror = function(){ rej(new Error('сеть оборвалась')); };
+    xhr.send(JSON.stringify({ god: god, slot: slot, image_base64: dataUrl, filename: filename }));
+  });
+}
+
+async function pkUpload(files){
+  var god = pkGod();
+  var st = document.getElementById('pk-status');
+  if (!god){ st.textContent = 'Сначала впиши ключ бога'; return; }
+  if (!/^[a-z0-9_-]{1,60}$/.test(god)){
+    st.textContent = 'Ключ бога: латиница, цифры, дефис, подчёркивание'; return; }
+
+  /* Раскладка по слотам ДО отправки: пустые и задвоенные номера надо
+     показать сразу, а не после того, как половина уже улетела */
+  var byslot = {}, unknown = [], dupes = [];
+  for (var i = 0; i < files.length; i++){
+    var slot = pkSlotFromName(files[i].name);
+    if (!slot){ unknown.push(files[i].name); continue; }
+    if (byslot[slot]) dupes.push(PK_TITLES[slot]);
+    byslot[slot] = files[i];
+  }
+  var picked = PK_SLOTS.filter(function(s){ return byslot[s]; });
+  var problems = [];
+  if (unknown.length) problems.push('не разобрал номер: ' + unknown.join(', '));
+  if (dupes.length) problems.push('на один слот два файла: ' + dupes.join(', '));
+  if (problems.length){ st.innerHTML = '<span style="color:#c66">' + problems.join('<br>') + '</span>'; return; }
+  if (!picked.length){ st.textContent = 'Ни одного подходящего файла'; return; }
+
+  var wrap = document.getElementById('pk-bar-wrap');
+  var bar = document.getElementById('pk-bar');
+  var barText = document.getElementById('pk-bar-text');
+  wrap.style.display = 'block';
+  st.textContent = '';
+
+  var done = 0;
+  for (var j = 0; j < picked.length; j++){
+    var slot = picked[j];
+    barText.textContent = 'Отправляю ' + (j + 1) + ' из ' + picked.length + ' — ' + PK_TITLES[slot];
+    try {
+      var dataUrl = await pkReadFile(byslot[slot]);
+      /* Общая полоса, а не девять отдельных: доля закрытых файлов плюс
+         доля текущего. Иначе полоса девять раз прыгала бы с нуля */
+      var got = await pkSend(god, slot, dataUrl, byslot[slot].name, function(p){
+        bar.style.width = Math.round((done + p) / picked.length * 100) + '%';
+      });
+      pkState[slot] = got;
+    } catch(e){
+      st.innerHTML = '<span style="color:#c66">' + PK_TITLES[slot] + ': ' + e.message + '</span>';
+      barText.textContent = 'Остановился на ' + (j + 1) + '-м файле';
+      return;
+    }
+    done++;
+    bar.style.width = Math.round(done / picked.length * 100) + '%';
+  }
+
+  barText.textContent = 'Готово: ' + done + ' из ' + PK_SLOTS.length + ' слотов';
+  await pkLoad();
+}
+
+async function pkLoad(){
+  var god = pkGod();
+  var grid = document.getElementById('pk-grid');
+  if (!god){ grid.innerHTML = ''; return; }
+  try {
+    var r = await fetch(API + '/cards/admin/asset-pack?god=' + encodeURIComponent(god)
+                        + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    var d = await r.json();
+    pkRenderGrid(d);
+  } catch(e){
+    grid.innerHTML = '<div style="color:#c66">Не загрузилось: ' + e.message + '</div>';
+  }
+}
+
+/* Сетка превью: девять клеток с подписью слота, замерами и предупреждениями.
+   ⚠️ ЭТО НЕ УКРАШЕНИЕ. Плашки между собой геометрией неразличимы (у GPT все
+   пять одного размера), автоматика их перепутать не заметит — ловит только
+   глаз. Одна секунда на пак против перепутанной плашки в продакшене. */
+function pkRenderGrid(d){
+  var grid = document.getElementById('pk-grid');
+  var slots = d.slots || [];
+  var html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">';
+  slots.forEach(function(s){
+    var live = pkState[s.slot] || {};
+    var warns = live.warnings || [];
+    var g = s.geometry || live.geometry || {};
+    var bits = [];
+    if (g.canvas) bits.push(g.canvas.w + '×' + g.canvas.h);
+    if (g.window) bits.push('окно ' + g.window.w + '×' + g.window.h);
+    if (g.square) bits.push('QR ' + g.square.w + '×' + g.square.h);
+    if (g.field) bits.push('поле ' + g.field.w + '×' + g.field.h);
+    if (g.resized_from) bits.push('было ' + g.resized_from[0] + '×' + g.resized_from[1]);
+
+    html += '<div style="border:1px solid ' + (warns.length ? '#c66' : 'var(--border)')
+         + ';border-radius:10px;padding:8px">'
+         + '<div style="height:96px;display:flex;align-items:center;justify-content:center;'
+         + 'background:repeating-conic-gradient(#0000 0% 25%,#8884 0% 50%) 50%/14px 14px;'
+         + 'border-radius:6px;overflow:hidden">'
+         + (s.url ? '<img src="' + s.url + '" style="max-width:100%;max-height:96px;object-fit:contain">'
+                  : '<span style="opacity:.5;font-size:12px">пусто</span>')
+         + '</div>'
+         + '<div style="font-weight:600;font-size:13px;margin-top:6px">' + PK_TITLES[s.slot] + '</div>'
+         + '<div style="font-size:11px;opacity:.65;line-height:1.4">' + (bits.join('<br>') || '—') + '</div>';
+    if (warns.length){
+      html += '<div style="font-size:11px;color:#c66;margin-top:4px">' + warns.join('<br>') + '</div>';
+    }
+    if (s.loaded){
+      html += '<button class="action-btn" style="margin-top:6px;font-size:11px;padding:3px 8px" '
+           + 'onclick="pkDropSlot(\'' + s.slot + '\')">Убрать</button>';
+    }
+    html += '</div>';
+  });
+  html += '</div>';
+  html += '<div style="margin-top:10px;font-size:13px;' + (d.complete ? 'color:#5a5' : 'opacity:.7') + '">'
+       + (d.complete ? 'Пак полный — все девять слотов на месте'
+                     : 'Загружено ' + slots.filter(function(s){ return s.loaded; }).length + ' из 9')
+       + '</div>';
+  grid.innerHTML = html;
+}
+
+async function pkDropSlot(slot){
+  var god = pkGod();
+  if (!god) return;
+  await fetch(API + '/cards/admin/asset-pack?god=' + encodeURIComponent(god)
+              + '&slot=' + encodeURIComponent(slot)
+              + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), { method:'DELETE' });
+  delete pkState[slot];
+  await pkLoad();
+}
+
+async function pkLoadKnown(){
+  try {
+    var r = await fetch(API + '/cards/admin/asset-pack?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    var d = await r.json();
+    var sel = document.getElementById('pk-known');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">— уже загружены —</option>'
+      + (d.gods || []).map(function(g){
+          return '<option value="' + g.god + '">' + g.god + ' (' + g.slots + '/9'
+               + (g.complete ? '' : ', неполный') + ')</option>'; }).join('');
+  } catch(e){}
+}
+
+function pkInit(){
+  var zone = document.getElementById('pk-drop');
+  var input = document.getElementById('pk-files');
+  if (!zone || !input || zone.dataset.ready) return;
+  zone.dataset.ready = '1';
+
+  zone.addEventListener('click', function(){ input.click(); });
+  input.addEventListener('change', function(){
+    if (input.files && input.files.length) pkUpload(Array.prototype.slice.call(input.files));
+    input.value = '';
+  });
+  /* ⚠️ dragover ОБЯЗАН гасить событие, иначе браузер просто откроет
+     брошенный файл как страницу и уведёт из дашборда */
+  ['dragenter','dragover'].forEach(function(ev){
+    zone.addEventListener(ev, function(e){
+      e.preventDefault(); e.stopPropagation();
+      zone.style.borderColor = 'var(--accent,#c9a227)';
+    });
+  });
+  ['dragleave','drop'].forEach(function(ev){
+    zone.addEventListener(ev, function(e){
+      e.preventDefault(); e.stopPropagation();
+      zone.style.borderColor = 'var(--border)';
+    });
+  });
+  zone.addEventListener('drop', function(e){
+    var fl = e.dataTransfer && e.dataTransfer.files;
+    if (fl && fl.length) pkUpload(Array.prototype.slice.call(fl));
+  });
+
+  var godInput = document.getElementById('pk-god');
+  if (godInput) godInput.addEventListener('change', function(){ pkState = {}; pkLoad(); });
+  pkLoadKnown();
+}
+
+/* Показ вкладки паков. Отдельной кнопкой секции не заводим: паки — часть
+   работы над оформлением карточек, живут рядом с элементами */
+function showPacksTab(){
+  hideAllCardTabs();
+  var el = document.getElementById('cards-tab-packs');
+  if (el) el.style.display = 'block';
+  pkInit();
+  pkLoad();
+}
+
 
 /* Наполняем подсказку сезонов тем, что уже загрузил список серий. Отдельного
    запроса не делаем: если серии ещё не грузились, подсказка просто пустая,
