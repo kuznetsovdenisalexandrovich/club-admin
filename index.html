@@ -1677,11 +1677,12 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <input id="pst-behind" placeholder="«за плечом»"
                  style="width:100%;margin-bottom:8px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text)">
           <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button class="action-btn" onclick="pstPreview()">Собрать превью</button>
+            <button class="action-btn" onclick="pstPreview()">Сверить рендером</button>
             <button class="action-btn" onclick="pstSave()">Сохранить шаблон</button>
             <button class="action-btn" onclick="pstDelete()" style="margin-left:auto">Удалить шаблон</button>
           </div>
           <div id="pst-notes" style="margin-top:8px;font-size:13px"></div>
+          <div id="pst-live" style="margin-top:10px"></div>
           <div id="pst-layout"></div>
           <div id="pst-preview" style="margin-top:10px"></div>
         </div>
@@ -9169,29 +9170,34 @@ function pstNum(id, def){
   return isNaN(x) ? def : x;
 }
 
+/* Раскладка уже полная и живёт в pstLayout — редактор правит её напрямую,
+   а не собирает заново из полей. Раньше числа жили в инпутах, и всякий новый
+   параметр требовал скрытого поля-двойника */
 function pstLayoutFromForm(){
-  if (!pstLayout) return {};
-  var rows = {};
-  Object.keys(pstLayout.rows || {}).forEach(function(k){
-    rows[k] = { fw: pstNum('pl-fw-' + k, pstLayout.rows[k].fw) };
-  });
-  return {
-    band: [pstNum('pl-band0', pstLayout.band[0]), pstNum('pl-band1', pstLayout.band[1])],
-    gap: pstNum('pl-gap', pstLayout.gap),
-    rows: rows,
-    qr: { cx: pstNum('pl-qr-cx', pstLayout.qr.cx), cy: pstNum('pl-qr-cy', pstLayout.qr.cy),
-          w: pstNum('pl-qr-w', pstLayout.qr.w) },
-    art: { scale: pstNum('pl-art-scale', pstLayout.art.scale),
-           dx: pstNum('pl-art-dx', pstLayout.art.dx),
-           dy: pstNum('pl-art-dy', pstLayout.art.dy) }
-  };
+  return pstLayout ? JSON.parse(JSON.stringify(pstLayout)) : {};
+}
+
+/* ⚠️ ПАК НУЖЕН ЦЕЛИКОМ: без адресов картинок живого стека не собрать.
+   `asset-pack` уже отдаёт и url (через /media/), и геометрию — ни одного
+   нового эндпоинта заводить не пришлось */
+var pstPack = null;
+
+async function pstLoadPack(god){
+  pstPack = null;
+  try {
+    var d = await fetch(API + '/cards/admin/asset-pack?god=' + encodeURIComponent(god)
+              + '&series_key=' + encodeURIComponent(pstSeries())
+              + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN))
+              .then(function(r){ return r.json(); });
+    var by = {};
+    (d.slots || []).forEach(function(s){ by[s.slot] = s; });
+    pstPack = by;
+  } catch(e){ pstPack = null; }
 }
 
 async function pstLoadLayoutAndPreview(god){
+  await pstLoadPack(god);
   await pstLoadLayout(god);
-  /* ⚠️ СОБИРАЕМ СРАЗУ: пустой экран не даёт ни таскать зоны, ни понять,
-     что вообще происходит с этим богом */
-  if (pkGod()) pstPreview();
 }
 
 async function pstLoadLayout(god){
@@ -9200,7 +9206,8 @@ async function pstLoadLayout(god){
   try {
     var d = await fetch(API + '/cards/admin/poster-layout?god=' + encodeURIComponent(god)
                         + '&series_key=' + encodeURIComponent(pstSeries())
-                        + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN)).then(function(r){ return r.json(); });
+                        + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN))
+                        .then(function(r){ return r.json(); });
     pstLayout = d.layout;
     pstDefaults = d.defaults;
   } catch(e){ return; }
@@ -9208,169 +9215,354 @@ async function pstLoadLayout(god){
 }
 
 var pstDefaults = null;
+var pstSel = 'frame';
 
-function pstRenderLayout(){
+/* ═══ ЖИВОЙ СТЕНД ══════════════════════════════════════════════════════════
+   Слои рисуются В БРАУЗЕРЕ теми же формулами, что на сервере, — отклик
+   мгновенный, сервер в перетаскивании не участвует вообще.
+   ⚠️ РАСХОЖДЕНИЕ С РЕНДЕРОМ — ГЛАВНЫЙ РИСК ЭТОГО ПОДХОДА, поэтому
+   расчёт вынесен в ОДНУ функцию pstGeom(): если правило меняется, оно
+   меняется в одном месте. Кнопка «Сверить рендером» рядом собирает
+   настоящую картинку сервером — глазами проверить, что сошлось.
+   ⚠️ ТЕКСТ В ЖИВОМ СТЕНДЕ ПРИБЛИЗИТЕЛЬНЫЙ: кегль подбирает Pillow
+   ужиманием, браузер так не умеет. Он здесь чтобы видеть, ВЛЕЗАЕТ ли. */
+var PST_W = 1080, PST_H = 1350;
+
+function pstSlotSize(slot){
+  var s = pstPack && pstPack[slot];
+  var c = s && s.geometry && s.geometry.canvas;
+  return c && c.w ? { w: c.w, h: c.h } : null;
+}
+
+/* Полноразмерный слой (сцена, рамка, передний план) — та же формула, что в
+   _poster_layer_box на сервере: масштаб ОТ ЦЕНТРА холста плюс сдвиг */
+function pstLayerBox(cfg){
+  var k = Math.max(0.2, Math.min(3, parseFloat((cfg || {}).scale) || 1));
+  var w = PST_W * k, h = PST_H * k;
+  return { x: (PST_W - w) / 2 + (parseFloat((cfg || {}).dx) || 0) * PST_W,
+           y: (PST_H - h) / 2 + (parseFloat((cfg || {}).dy) || 0) * PST_H,
+           w: w, h: h, k: k };
+}
+
+function pstGeom(){
   var L = pstLayout;
-  if (!L) return;
+  if (!L) return {};
+  var g = {};
+  g.scene = pstLayerBox(L.scene);
+  g.fx    = pstLayerBox(L.fx);
+  var fb  = pstLayerBox(L.frame);
+  g.frame = fb;
 
-  /* Ползунок вместо поля ввода: видно и величину, и куда её крутить.
-     Цифра рядом остаётся — по ней проверяют и переносят настройку на другого бога */
-  var sl = function(label, id, val, min, max, step){
-    return '<div style="flex:1;min-width:150px">'
-      + '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-faint)">'
-        + '<span>' + label + '</span><span id="' + id + '-v">' + val + '</span></div>'
-      + '<input id="' + id + '" type="range" min="' + min + '" max="' + max + '" step="' + step + '"'
-      + ' value="' + val + '" oninput="pstOnSlide(this)" onchange="pstAutoPreview()"'
-      + ' style="width:100%">'
-      + '</div>';
-  };
+  /* Окно рамки едет вместе с рамкой — зеркало _poster_layer_point */
+  var fg = pstPack && pstPack.frame && pstPack.frame.geometry;
+  var win = (fg && fg.window) || { x: 191, y: 142, w: 698, h: 1062 };
+  g.window = { x: fb.x + win.x * fb.k, y: fb.y + win.y * fb.k,
+               w: win.w * fb.k, h: win.h * fb.k };
 
-  var h = '<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:10px;display:flex;flex-direction:column;gap:8px">'
-    + '<div style="font-size:12px;font-weight:600">Размеры и положение</div>'
-    + '<div style="font-size:11px;color:var(--text-faint);line-height:1.45">'
-    + 'Тяни прямо по картинке: <b>синюю рамку</b> — полоса плашек, <b>оранжевый квадрат</b> — QR. '
-    + 'Отпустил — постер пересобрался. Ползунки для остального.</div>'
-    + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
-      + sl('зазор между плашками', 'pl-gap', L.gap, -0.06, 0.05, 0.002)
-      + sl('портрет: масштаб', 'pl-art-scale', L.art.scale, 0.5, 2, 0.02)
-    + '</div>'
-    + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
-      + sl('портрет: вбок', 'pl-art-dx', L.art.dx, -0.5, 0.5, 0.01)
-      + sl('портрет: вверх-вниз', 'pl-art-dy', L.art.dy, -0.5, 0.5, 0.01)
-      + sl('размер QR', 'pl-qr-w', L.qr.w, 0.06, 0.30, 0.005)
-    + '</div>'
-    + '<div style="font-size:11px;color:var(--text-faint)">Ширина плашек</div>'
-    + '<div style="display:flex;gap:10px;flex-wrap:wrap">';
-  ['name','archetype','role','motto','behind'].forEach(function(k){
-    if (L.rows[k]) h += sl(k, 'pl-fw-' + k, L.rows[k].fw, 0.15, 0.75, 0.01);
+  /* Портрет: вписать целиком в окно, затем масштаб и сдвиг ОТ ОКНА */
+  var art = pstArtSize();
+  if (art){
+    var kk = Math.min(g.window.w / art.w, g.window.h / art.h)
+             * Math.max(0.5, Math.min(3, parseFloat(L.art.scale) || 1));
+    var aw = art.w * kk, ah = art.h * kk;
+    g.art = { x: g.window.x + (g.window.w - aw) / 2 + (parseFloat(L.art.dx) || 0) * g.window.w,
+              y: g.window.y + (g.window.h - ah) / 2 + (parseFloat(L.art.dy) || 0) * g.window.h,
+              w: aw, h: ah };
+  }
+
+  /* Плашки. Сначала те, что откололись и живут по своим координатам,
+     остальные — автоукладкой в полосу, как раньше */
+  var plates = L.plates || {};
+  var order = ['name','archetype','role','motto','behind'];
+  var auto = [], items = {};
+  order.forEach(function(slot){
+    var sz = pstSlotSize(slot);
+    if (!sz) return;
+    var sg = pstPack[slot].geometry || {};
+    var base = sg.field || { x: 0, y: 0, w: sz.w, h: sz.h };
+    var k = ((L.rows[slot] || {}).fw || 0.4) * PST_W / Math.max(1, base.w);
+    items[slot] = { sz: sz, base: base, k: k };
+    if (!plates[slot]) auto.push(slot);
   });
-  h += '</div>'
-    + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
-      + '<button class="action-btn" onclick="pstResetLayout()">Вернуть по умолчанию</button>'
-      + '<label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-left:auto">'
-        + '<input type="checkbox" id="pl-auto" checked> пересобирать сразу</label>'
-    + '</div>'
-    + '</div>';
-  document.getElementById('pst-layout').innerHTML = h;
-  /* ⚠️ Скрытые поля с теми же id, что читает pstLayoutFromForm: полоса и центр
-     QR задаются перетаскиванием, но собирать тело запроса надо из одного места */
-  pstSyncHidden();
-  pstDrawOverlay();
+
+  g.plates = {};
+  Object.keys(plates).forEach(function(slot){
+    var it = items[slot]; if (!it) return;
+    var k = it.k, b = it.base;
+    var fw = b.w * k, fx0 = b.x * k;
+    var px = parseFloat(plates[slot].x) * PST_W - (fx0 + fw / 2);
+    var py = parseFloat(plates[slot].y) * PST_H;
+    g.plates[slot] = { x: px, y: py, w: it.sz.w * k, h: it.sz.h * k,
+                       field: { x: px + fx0, y: py + b.y * k, w: fw, h: b.h * k },
+                       pinned: true };
+  });
+
+  if (auto.length){
+    var band = L.band || [0.545, 0.985];
+    var gap = (L.gap == null ? 0.004 : L.gap) * PST_H;
+    var bandH = (band[1] - band[0]) * PST_H;
+    var need = 0;
+    auto.forEach(function(s){ need += items[s].sz.h * items[s].k; });
+    need += gap * (auto.length - 1);
+    var squeeze = need > 0 ? Math.min(1, bandH / need) : 1;
+    var y = band[0] * PST_H + Math.max(0, bandH - need * squeeze) / 2;
+    auto.forEach(function(slot){
+      var it = items[slot], k = it.k * squeeze;
+      var b = it.base, fw = b.w * k, fx0 = b.x * k;
+      var px = PST_W / 2 - (fx0 + fw / 2);
+      g.plates[slot] = { x: px, y: y, w: it.sz.w * k, h: it.sz.h * k,
+                         field: { x: px + fx0, y: y + b.y * k, w: fw, h: b.h * k },
+                         pinned: false };
+      y += it.sz.h * k + gap;
+    });
+    g.squeeze = squeeze;
+    g.band = { x: 0.02 * PST_W, y: band[0] * PST_H, w: 0.96 * PST_W, h: bandH };
+  }
+
+  /* QR — зеркало серверного расчёта: масштаб по дыре, центр по cx/cy */
+  var qsz = pstSlotSize('qr');
+  if (qsz){
+    var qg = pstPack.qr.geometry || {};
+    var qb = qg.square || { x: 0, y: 0, w: qsz.w, h: qsz.h };
+    var target = (L.qr.w || 0.135) * PST_W;
+    var qk = target / Math.max(1, qb.w);
+    var qx = L.qr.cx * PST_W - (qb.x * qk + target / 2);
+    var qy = L.qr.cy * PST_H - (qb.y * qk + qb.h * qk / 2);
+    g.qr = { x: qx, y: qy, w: qsz.w * qk, h: qsz.h * qk,
+             hole: { x: qx + qb.x * qk, y: qy + qb.y * qk, w: target, h: qb.h * qk } };
+  }
+  return g;
 }
 
-/* Полоса и центр QR не имеют своих ползунков — их таскают по картинке.
-   Держим значения в скрытых полях, чтобы сборщик тела не знал о разнице */
-function pstSyncHidden(){
-  var box = document.getElementById('pst-layout');
-  if (!box || document.getElementById('pl-band0')) return;
-  var hid = document.createElement('div');
-  hid.style.display = 'none';
-  hid.innerHTML = ['pl-band0','pl-band1','pl-qr-cx','pl-qr-cy']
-    .map(function(id){ return '<input id="' + id + '">'; }).join('');
-  box.appendChild(hid);
-  pstPushHidden();
+function pstArtSize(){
+  var im = document.getElementById('pst-live-art');
+  if (im && im.naturalWidth) return { w: im.naturalWidth, h: im.naturalHeight };
+  return null;
 }
 
-function pstPushHidden(){
-  var L = pstLayout; if (!L) return;
-  var set = function(id, v){ var e = document.getElementById(id); if (e) e.value = v; };
-  set('pl-band0', L.band[0]); set('pl-band1', L.band[1]);
-  set('pl-qr-cx', L.qr.cx);   set('pl-qr-cy', L.qr.cy);
+function pstArtUrl(){
+  var sel = document.getElementById('pst-art');
+  if (sel && sel.value) return sel.value;
+  var a = (pstArts || []).find(function(x){ return x.suggested; });
+  return a ? a.url : '';
 }
 
-function pstOnSlide(el){
-  var v = document.getElementById(el.id + '-v');
-  if (v) v.textContent = el.value;
-  var L = pstLayout; if (!L) return;
-  var n = parseFloat(el.value);
-  if (el.id === 'pl-gap') L.gap = n;
-  else if (el.id === 'pl-qr-w') { L.qr.w = n; pstDrawOverlay(); }
-  else if (el.id.indexOf('pl-art-') === 0) L.art[el.id.slice(7)] = n;
-  else if (el.id.indexOf('pl-fw-') === 0) L.rows[el.id.slice(6)].fw = n;
+/* Слои, которые можно выбрать. Порядок — снизу вверх, как рисует сервер */
+var PST_LAYERS = [
+  { id:'scene', name:'Сцена (фон)' },
+  { id:'art',   name:'Портрет' },
+  { id:'frame', name:'Рамка карточки' },
+  { id:'name',  name:'Плашка имени' },
+  { id:'archetype', name:'Плашка кода' },
+  { id:'role',  name:'Плашка роли' },
+  { id:'motto', name:'Плашка девиза' },
+  { id:'behind',name:'Плашка «за плечом»' },
+  { id:'qr',    name:'QR' },
+  { id:'fx',    name:'Передний план' }
+];
+
+function pstLiveShell(){
+  var pc = function(v, base){ return (v / base * 100) + '%'; };
+  var h = '<div id="pst-live-wrap" style="position:relative;max-width:340px;width:100%;'
+        + 'aspect-ratio:1080/1350;border-radius:10px;overflow:hidden;background:#efe9e1;'
+        + 'touch-action:none;user-select:none;cursor:grab" onwheel="pstWheel(event)">';
+  var img = function(id, src){
+    return '<img id="' + id + '" src="' + (src || '') + '" alt=""'
+         + ' style="position:absolute;display:' + (src ? 'block' : 'none') + ';pointer-events:none">';
+  };
+  var u = function(slot){ return (pstPack && pstPack[slot] && pstPack[slot].url) || ''; };
+  h += img('pst-live-scene', u('scene'));
+  h += img('pst-live-art', pstArtUrl());
+  h += img('pst-live-frame', u('frame'));
+  ['name','archetype','role','motto','behind'].forEach(function(s){
+    h += img('pst-live-' + s, u(s));
+    h += '<div id="pst-live-t-' + s + '" style="position:absolute;display:flex;align-items:center;'
+       + 'justify-content:center;text-align:center;pointer-events:none;overflow:hidden;'
+       + 'color:#5a3d0e;font-weight:600;line-height:1.15"></div>';
+  });
+  h += img('pst-live-qr', u('qr'));
+  h += '<div id="pst-live-qrhole" style="position:absolute;background:repeating-conic-gradient('
+     + '#2b2b2b 0% 25%,#f4f0ea 0% 50%) 50%/22% 22%;display:none"></div>';
+  h += img('pst-live-fx', u('fx'));
+  h += '<div id="pst-sel-box" style="position:absolute;border:2px solid #4a86ff;'
+     + 'box-shadow:0 0 0 9999px rgba(0,0,0,0);border-radius:4px;display:none" '
+     + 'onpointerdown="pstGrab(event,\'move\')">'
+     + ['nw','ne','sw','se'].map(function(c){
+         return '<div class="pst-h" data-c="' + c + '" onpointerdown="pstGrab(event,\'' + c + '\')" '
+              + 'style="position:absolute;width:16px;height:16px;background:#fff;border:2px solid #4a86ff;'
+              + 'border-radius:50%;' + (c[0]==='n'?'top:-9px':'bottom:-9px') + ';'
+              + (c[1]==='w'?'left:-9px':'right:-9px') + ';cursor:' + c + '-resize"></div>';
+       }).join('')
+     + '</div>';
+  h += '</div>';
+  return h;
 }
 
-/* ═══ НАКЛАДКА ПОВЕРХ ПРЕВЬЮ ═══════════════════════════════════════════════
-   Зоны рисуются в ДОЛЯХ, ровно тех же, что уходят на сервер, — поэтому то,
-   что видно, и то, что соберётся, не могут разъехаться.
-   ⚠️ Высоты плашек считает сервер по самим картинкам, так что синяя рамка —
-   это отведённое место, а не точный контур. Итог всё равно смотрим на превью */
-function pstDrawOverlay(){
-  var wrap = document.getElementById('pst-frame');
-  var L = pstLayout;
-  if (!wrap || !L) return;
-  var band = document.getElementById('pst-ov-band');
-  var qr = document.getElementById('pst-ov-qr');
-  if (!band || !qr) return;
-  band.style.top = (L.band[0] * 100) + '%';
-  band.style.height = ((L.band[1] - L.band[0]) * 100) + '%';
-  var w = L.qr.w * 100;
-  qr.style.width = w + '%';
-  qr.style.paddingBottom = w + '%';
-  qr.style.left = (L.qr.cx * 100) + '%';
-  qr.style.top = (L.qr.cy * 100) + '%';
+function pstLiveDraw(){
+  var wrap = document.getElementById('pst-live-wrap');
+  if (!wrap || !pstLayout) return;
+  var g = pstGeom();
+  var put = function(id, box){
+    var el = document.getElementById(id);
+    if (!el || !box) return;
+    el.style.left = (box.x / PST_W * 100) + '%';
+    el.style.top = (box.y / PST_H * 100) + '%';
+    el.style.width = (box.w / PST_W * 100) + '%';
+    el.style.height = (box.h / PST_H * 100) + '%';
+  };
+  put('pst-live-scene', g.scene);
+  put('pst-live-art', g.art);
+  put('pst-live-frame', g.frame);
+  var texts = { archetype: 'pst-archetype', role: 'pst-role', motto: 'pst-motto', behind: 'pst-behind' };
+  ['name','archetype','role','motto','behind'].forEach(function(s){
+    var b = g.plates && g.plates[s];
+    put('pst-live-' + s, b);
+    var t = document.getElementById('pst-live-t-' + s);
+    if (!t) return;
+    if (!b || s === 'name'){ t.style.display = 'none'; return; }
+    t.style.display = 'flex';
+    t.style.left = (b.field.x / PST_W * 100) + '%';
+    t.style.top = (b.field.y / PST_H * 100) + '%';
+    t.style.width = (b.field.w / PST_W * 100) + '%';
+    t.style.height = (b.field.h / PST_H * 100) + '%';
+    /* кегль в долях ширины стенда, чтобы масштабировался вместе с превью */
+    t.style.fontSize = (b.field.h / PST_H * wrap.clientHeight * 0.42) + 'px';
+    var src = document.getElementById(texts[s]);
+    t.textContent = src ? (src.value || '') : '';
+  });
+  put('pst-live-qr', g.qr);
+  var hole = document.getElementById('pst-live-qrhole');
+  if (hole && g.qr){ hole.style.display = 'block'; put('pst-live-qrhole', g.qr.hole); }
+  put('pst-live-fx', g.fx);
+
+  var sb = document.getElementById('pst-sel-box');
+  var box = pstSelBox(g);
+  if (sb){
+    if (box){ sb.style.display = 'block'; put('pst-sel-box', box); }
+    else sb.style.display = 'none';
+  }
+  var lbl = document.getElementById('pst-sel-info');
+  if (lbl) lbl.innerHTML = pstSelInfo();
 }
 
-function pstPreviewShell(inner){
-  return '<div id="pst-frame" style="position:relative;max-width:340px;width:100%;'
-    + 'touch-action:none;user-select:none">'
-    + inner
-    + '<div id="pst-ov-band" onpointerdown="pstGrab(event,\'band\')" '
-      + 'style="position:absolute;left:2%;width:96%;border:2px solid rgba(90,150,255,.9);'
-      + 'border-radius:6px;background:rgba(90,150,255,.10);cursor:grab"></div>'
-    + '<div id="pst-ov-band-top" onpointerdown="pstGrab(event,\'band0\')" '
-      + 'style="position:absolute;left:2%;width:96%;height:14px;margin-top:-7px;cursor:ns-resize"></div>'
-    + '<div id="pst-ov-band-bot" onpointerdown="pstGrab(event,\'band1\')" '
-      + 'style="position:absolute;left:2%;width:96%;height:14px;margin-top:-7px;cursor:ns-resize"></div>'
-    + '<div id="pst-ov-qr" onpointerdown="pstGrab(event,\'qr\')" '
-      + 'style="position:absolute;transform:translate(-50%,-50%);border:2px solid rgba(255,150,60,.95);'
-      + 'border-radius:6px;background:rgba(255,150,60,.12);cursor:grab"></div>'
-    + '</div>';
+function pstSelBox(g){
+  if (pstSel === 'art') return g.art;
+  if (pstSel === 'qr') return g.qr;
+  if (g.plates && g.plates[pstSel]) return g.plates[pstSel];
+  return g[pstSel] || null;
 }
 
+function pstSelInfo(){
+  var L = pstLayout, s = pstSel;
+  var f = function(v){ return (Math.round(v * 1000) / 1000); };
+  if (s === 'art') return 'масштаб ' + f(L.art.scale) + ' · сдвиг ' + f(L.art.dx) + ' / ' + f(L.art.dy);
+  if (s === 'qr') return 'размер ' + f(L.qr.w) + ' · центр ' + f(L.qr.cx) + ' / ' + f(L.qr.cy);
+  if (['scene','frame','fx'].indexOf(s) >= 0)
+    return 'масштаб ' + f(L[s].scale) + ' · сдвиг ' + f(L[s].dx) + ' / ' + f(L[s].dy);
+  var p = (L.plates || {})[s];
+  return p ? ('своё место ' + f(p.x) + ' / ' + f(p.y) + ' · ширина ' + f((L.rows[s]||{}).fw)
+              + ' <a href="#" onclick="pstUnpin(\'' + s + '\');return false">вернуть в полосу</a>')
+           : ('в автоукладке · ширина ' + f((L.rows[s]||{}).fw));
+}
+
+function pstSelect(id){
+  pstSel = id;
+  var box = document.getElementById('pst-layer-list');
+  if (box) Array.prototype.forEach.call(box.children, function(el){
+    el.style.background = el.dataset.layer === id ? 'var(--lav-dim)' : 'transparent';
+  });
+  pstLiveDraw();
+}
+
+/* ⚠️ ПЛАШКА ОТКАЛЫВАЕТСЯ ПРИ ПЕРВОМ ЖЕ ПЕРЕТАСКИВАНИИ. Иначе автоукладка
+   вернула бы её на место при следующей сборке, и это выглядело бы как баг */
+function pstPin(slot){
+  var g = pstGeom();
+  var b = g.plates && g.plates[slot];
+  if (!b) return;
+  pstLayout.plates = pstLayout.plates || {};
+  if (pstLayout.plates[slot]) return;
+  /* ⚠️⚠️ ШИРИНУ ФИКСИРУЕМ С УЧЁТОМ ОБЩЕГО УЖАТИЯ. В автоукладке все плашки
+     ужимаются разом, чтобы влезть в полосу (squeeze), а открепившаяся из
+     этого расчёта выходит — и без пересчёта она в тот же миг раздувалась бы
+     в полтора-два раза прямо под курсором. Поймано прогоном, глазами это
+     выглядело бы как «редактор дёргает плашку». */
+  var sq = g.squeeze || 1;
+  if (sq < 1) pstLayout.rows[slot].fw = Math.round((pstLayout.rows[slot].fw || 0.4) * sq * 1000) / 1000;
+  pstLayout.plates[slot] = { x: (b.field.x + b.field.w / 2) / PST_W, y: b.y / PST_H };
+}
+
+function pstUnpin(slot){
+  if (pstLayout && pstLayout.plates) delete pstLayout.plates[slot];
+  pstLiveDraw();
+}
+
+/* ═══ ПЕРЕТАСКИВАНИЕ И МАСШТАБ ═════════════════════════════════════════════
+   Правки идут прямо в pstLayout и перерисовывают стенд — ни одного запроса
+   на сервер. Углы тянут масштаб, середина двигает. */
 var pstDrag = null;
 
 function pstGrab(e, what){
   e.preventDefault(); e.stopPropagation();
-  var wrap = document.getElementById('pst-frame');
-  if (!wrap) return;
+  var wrap = document.getElementById('pst-live-wrap');
+  if (!wrap || !pstLayout) return;
   var r = wrap.getBoundingClientRect();
-  /* ⚠️ НУЛЕВОЙ ПРЯМОУГОЛЬНИК = ДЕЛЕНИЕ НА НОЛЬ и зона улетает в край: так
-     бывает, если картинка ещё не отрисовалась или блок скрыт */
+  /* ⚠️ НУЛЕВОЙ ПРЯМОУГОЛЬНИК = ДЕЛЕНИЕ НА НОЛЬ и слой улетает в край:
+     так бывает, если блок ещё скрыт или картинка не отрисовалась */
   if (!r.width || !r.height) return;
-  pstDrag = { what: what, r: r,
+  var g = pstGeom(), box = pstSelBox(g);
+  if (!box) return;
+  pstDrag = { what: what, r: r, box: box,
+              x0: (e.clientX - r.left) / r.width,
               y0: (e.clientY - r.top) / r.height,
-              band: [pstLayout.band[0], pstLayout.band[1]] };
+              snap: JSON.parse(JSON.stringify(pstLayout)) };
+  if (['name','archetype','role','motto','behind'].indexOf(pstSel) >= 0 && what === 'move'){
+    pstPin(pstSel);
+    pstDrag.snap = JSON.parse(JSON.stringify(pstLayout));
+  }
   wrap.setPointerCapture && wrap.setPointerCapture(e.pointerId);
   window.addEventListener('pointermove', pstMove);
   window.addEventListener('pointerup', pstDrop);
 }
 
 function pstMove(e){
-  if (!pstDrag) return;
-  var r = pstDrag.r, L = pstLayout;
-  var x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
-  var y = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
-  var round = function(v){ return Math.round(v * 1000) / 1000; };
-  if (pstDrag.what === 'qr'){ L.qr.cx = round(x); L.qr.cy = round(y); }
-  else if (pstDrag.what === 'band0'){ L.band[0] = round(Math.min(y, L.band[1] - 0.05)); }
-  else if (pstDrag.what === 'band1'){ L.band[1] = round(Math.max(y, L.band[0] + 0.05)); }
-  else {
-    /* всю полосу двигаем целиком, сохраняя высоту */
-    var h = pstDrag.band[1] - pstDrag.band[0];
-    var top = Math.max(0, Math.min(1 - h, pstDrag.band[0] + (y - pstDrag.y0)));
-    L.band = [round(top), round(top + h)];
-  }
-  pstPushHidden();
-  pstDrawOverlay();
-  pstPlaceHandles();
-}
+  if (!pstDrag || !pstLayout) return;
+  var r = pstDrag.r, S = pstDrag.snap, s = pstSel;
+  var x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+  var ddx = x - pstDrag.x0, ddy = y - pstDrag.y0;
+  var rnd = function(v){ return Math.round(v * 1000) / 1000; };
+  var isPlate = ['name','archetype','role','motto','behind'].indexOf(s) >= 0;
 
-function pstPlaceHandles(){
-  var L = pstLayout;
-  var t = document.getElementById('pst-ov-band-top');
-  var b = document.getElementById('pst-ov-band-bot');
-  if (t) t.style.top = (L.band[0] * 100) + '%';
-  if (b) b.style.top = (L.band[1] * 100) + '%';
+  if (pstDrag.what === 'move'){
+    if (s === 'qr'){ pstLayout.qr.cx = rnd(S.qr.cx + ddx); pstLayout.qr.cy = rnd(S.qr.cy + ddy); }
+    else if (s === 'art'){
+      /* сдвиг портрета считается ОТ ОКНА, а не от холста, — как на сервере */
+      var g = pstGeom();
+      pstLayout.art.dx = rnd(S.art.dx + ddx * PST_W / Math.max(1, g.window.w));
+      pstLayout.art.dy = rnd(S.art.dy + ddy * PST_H / Math.max(1, g.window.h));
+    }
+    else if (isPlate){
+      var p = (S.plates || {})[s] || { x: 0.5, y: 0.5 };
+      pstLayout.plates[s] = { x: rnd(p.x + ddx), y: rnd(p.y + ddy) };
+    }
+    else { pstLayout[s].dx = rnd(S[s].dx + ddx); pstLayout[s].dy = rnd(S[s].dy + ddy); }
+  } else {
+    /* Угол: масштаб от того, насколько курсор ушёл от центра выделения.
+       ⚠️ Знак берём по стороне угла, иначе тяга влево увеличивала бы объект */
+    var c = { x: (pstDrag.box.x + pstDrag.box.w / 2) / PST_W,
+              y: (pstDrag.box.y + pstDrag.box.h / 2) / PST_H };
+    var d0 = Math.hypot(pstDrag.x0 - c.x, pstDrag.y0 - c.y);
+    var d1 = Math.hypot(x - c.x, y - c.y);
+    var f = d0 > 0.005 ? d1 / d0 : 1;
+    if (s === 'qr') pstLayout.qr.w = rnd(Math.max(0.04, Math.min(0.6, S.qr.w * f)));
+    else if (s === 'art') pstLayout.art.scale = rnd(Math.max(0.5, Math.min(3, S.art.scale * f)));
+    else if (isPlate){
+      var fw = ((S.rows[s] || {}).fw) || 0.4;
+      pstLayout.rows[s].fw = rnd(Math.max(0.1, Math.min(0.9, fw * f)));
+    }
+    else pstLayout[s].scale = rnd(Math.max(0.2, Math.min(3, S[s].scale * f)));
+  }
+  pstLiveDraw();
 }
 
 function pstDrop(){
@@ -9378,11 +9570,116 @@ function pstDrop(){
   window.removeEventListener('pointerup', pstDrop);
   if (!pstDrag) return;
   pstDrag = null;
+  pstSyncSliders();
   pstAutoPreview();
 }
 
-/* Пересборка идёт на сервере и занимает секунду-две, поэтому не на каждое
-   движение, а на отпускание — и с защитой от наложения запросов */
+/* Колесо — тот же масштаб, но без прицеливания в угол */
+function pstWheel(e){
+  if (!pstLayout) return;
+  e.preventDefault();
+  var f = e.deltaY < 0 ? 1.03 : 1 / 1.03, s = pstSel;
+  var rnd = function(v){ return Math.round(v * 1000) / 1000; };
+  if (s === 'qr') pstLayout.qr.w = rnd(Math.max(0.04, Math.min(0.6, pstLayout.qr.w * f)));
+  else if (s === 'art') pstLayout.art.scale = rnd(Math.max(0.5, Math.min(3, pstLayout.art.scale * f)));
+  else if (['name','archetype','role','motto','behind'].indexOf(s) >= 0)
+    pstLayout.rows[s].fw = rnd(Math.max(0.1, Math.min(0.9, (pstLayout.rows[s].fw || 0.4) * f)));
+  else pstLayout[s].scale = rnd(Math.max(0.2, Math.min(3, pstLayout[s].scale * f)));
+  pstLiveDraw();
+  pstSyncSliders();
+}
+
+/* ═══ ПАНЕЛЬ ═══════════════════════════════════════════════════════════════ */
+function pstRenderLayout(){
+  var L = pstLayout;
+  if (!L) return;
+  L.plates = L.plates || {};
+  ['scene','frame','fx'].forEach(function(k){ L[k] = L[k] || { scale:1, dx:0, dy:0 }; });
+
+  var live = document.getElementById('pst-live');
+  if (live) live.innerHTML = pstLiveShell();
+
+  var sl = function(label, id, val, min, max, step){
+    return '<div style="flex:1;min-width:150px">'
+      + '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-faint)">'
+        + '<span>' + label + '</span><span id="' + id + '-v">' + val + '</span></div>'
+      + '<input id="' + id + '" type="range" min="' + min + '" max="' + max + '" step="' + step + '"'
+      + ' value="' + val + '" oninput="pstOnSlide(this)" style="width:100%">'
+      + '</div>';
+  };
+
+  var h = '<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:10px;display:flex;flex-direction:column;gap:8px">'
+    + '<div style="font-size:12px;font-weight:600">Слои постера</div>'
+    + '<div style="font-size:11px;color:var(--text-faint);line-height:1.45">'
+    + 'Выбери слой и тяни прямо по картинке: середина двигает, углы и колесо мыши — масштаб. '
+    + 'Результат виден сразу. Плашка, которую подвинули, выходит из автоукладки.</div>'
+    + '<div id="pst-layer-list" style="display:flex;flex-wrap:wrap;gap:4px">';
+  PST_LAYERS.forEach(function(l){
+    var loaded = l.id === 'art' ? true : !!(pstPack && pstPack[l.id] && pstPack[l.id].url);
+    h += '<div data-layer="' + l.id + '" onclick="pstSelect(\'' + l.id + '\')"'
+      + ' style="padding:5px 9px;border-radius:8px;cursor:pointer;font-size:12px;'
+      + 'border:1px solid var(--line);' + (loaded ? '' : 'opacity:.45;')
+      + 'background:' + (pstSel === l.id ? 'var(--lav-dim)' : 'transparent') + '">'
+      + elEsc(l.name) + (loaded ? '' : ' · нет') + '</div>';
+  });
+  h += '</div>'
+    + '<div id="pst-sel-info" style="font-size:11px;color:var(--text-faint)"></div>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      + sl('зазор в автоукладке', 'pl-gap', L.gap, -0.06, 0.05, 0.002)
+      + sl('масштаб выбранного', 'pl-sel-scale', pstSelScale(), 0.1, 3, 0.01)
+    + '</div>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
+      + '<button class="action-btn" onclick="pstResetLayout()">Вернуть по умолчанию</button>'
+      + '<button class="action-btn" onclick="pstPreview()">Сверить рендером</button>'
+      + '<label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-left:auto">'
+        + '<input type="checkbox" id="pl-auto"> сверять после каждой правки</label>'
+    + '</div>'
+    + '</div>';
+  document.getElementById('pst-layout').innerHTML = h;
+  pstLiveDraw();
+}
+
+/* Масштаб выбранного слоя в понятиях этого слоя: у плашки это ширина поля,
+   у QR — размер кода, у остальных — собственный масштаб */
+function pstSelScale(){
+  var L = pstLayout, s = pstSel;
+  if (!L) return 1;
+  if (s === 'qr') return L.qr.w;
+  if (s === 'art') return L.art.scale;
+  if (['name','archetype','role','motto','behind'].indexOf(s) >= 0) return (L.rows[s] || {}).fw || 0.4;
+  return (L[s] || {}).scale || 1;
+}
+
+function pstSyncSliders(){
+  var e = document.getElementById('pl-sel-scale');
+  if (e){ e.value = pstSelScale(); var v = document.getElementById('pl-sel-scale-v'); if (v) v.textContent = e.value; }
+  var g = document.getElementById('pl-gap');
+  if (g && pstLayout){ g.value = pstLayout.gap; var gv = document.getElementById('pl-gap-v'); if (gv) gv.textContent = g.value; }
+}
+
+function pstOnSlide(el){
+  var v = document.getElementById(el.id + '-v');
+  if (v) v.textContent = el.value;
+  var L = pstLayout; if (!L) return;
+  var n = parseFloat(el.value), s = pstSel;
+  if (el.id === 'pl-gap') L.gap = n;
+  else if (el.id === 'pl-sel-scale'){
+    if (s === 'qr') L.qr.w = n;
+    else if (s === 'art') L.art.scale = n;
+    else if (['name','archetype','role','motto','behind'].indexOf(s) >= 0) L.rows[s].fw = n;
+    else L[s].scale = n;
+  }
+  pstLiveDraw();
+}
+
+/* Совместимость: серверное превью и сохранение зовут эти две — накладки
+   поверх серверной картинки больше нет, зоны живут в живом стенде */
+function pstDrawOverlay(){}
+function pstPlaceHandles(){}
+function pstPreviewShell(inner){ return inner; }
+
+/* Сверка рендером теперь ПО ПРОСЬБЕ, а не на каждое движение: живой стенд
+   и так показывает результат мгновенно, а сборка занимает секунду-две */
 var pstAutoTimer = null, pstBusy = false;
 
 function pstAutoPreview(){
@@ -9400,7 +9697,6 @@ function pstResetLayout(){
   if (!pstDefaults) return;
   pstLayout = JSON.parse(JSON.stringify(pstDefaults));
   pstRenderLayout();
-  pstAutoPreview();
 }
 
 async function pstCompose(commit){
