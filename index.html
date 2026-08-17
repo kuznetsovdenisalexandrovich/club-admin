@@ -9369,11 +9369,34 @@ var PST_LAYERS = [
   { id:'fx',    name:'Передний план' }
 ];
 
+/* Вертикальная линейка слева от стенда: деления в процентах высоты холста
+   плюс две подвижные метки — верх и низ выбранного слоя. По ней сверяют
+   положение между богами, когда раскладку переносят с одного на другого */
+function pstRulerHtml(){
+  var h = '<div id="pst-ruler" style="position:relative;width:34px;flex:none;'
+        + 'font-size:8px;color:var(--text-faint);user-select:none">';
+  for (var p = 0; p <= 100; p += 5){
+    var big = (p % 25 === 0);
+    h += '<div style="position:absolute;right:0;top:' + p + '%;height:0;'
+       + 'border-top:1px solid var(--line);width:' + (big ? '12px' : '6px') + '"></div>';
+    if (big) h += '<div style="position:absolute;right:14px;top:' + p + '%;'
+       + 'transform:translateY(-50%);white-space:nowrap">' + p + '</div>';
+  }
+  h += '<div id="pst-ruler-a" style="position:absolute;right:0;width:100%;height:0;'
+     + 'border-top:1px solid #4a86ff;display:none"></div>'
+     + '<div id="pst-ruler-b" style="position:absolute;right:0;width:100%;height:0;'
+     + 'border-top:1px solid #4a86ff;opacity:.55;display:none"></div>'
+     + '<div id="pst-ruler-lbl" style="position:absolute;right:14px;color:#4a86ff;'
+     + 'font-weight:700;display:none;white-space:nowrap"></div>';
+  return h + '</div>';
+}
+
 function pstLiveShell(){
-  var pc = function(v, base){ return (v / base * 100) + '%'; };
-  var h = '<div id="pst-live-wrap" style="position:relative;max-width:340px;width:100%;'
+  var h = '<div style="display:flex;gap:4px;align-items:stretch;max-width:378px">'
+        + pstRulerHtml()
+        + '<div id="pst-live-wrap" style="position:relative;flex:1;'
         + 'aspect-ratio:1080/1350;border-radius:10px;overflow:hidden;background:#efe9e1;'
-        + 'touch-action:none;user-select:none;cursor:grab" onwheel="pstWheel(event)">';
+        + 'touch-action:none;user-select:none;cursor:grab">';
   var img = function(id, src){
     return '<img id="' + id + '" src="' + (src || '') + '" alt=""'
          + ' style="position:absolute;display:' + (src ? 'block' : 'none') + ';pointer-events:none">';
@@ -9388,10 +9411,13 @@ function pstLiveShell(){
        + 'justify-content:center;text-align:center;pointer-events:none;overflow:hidden;'
        + 'color:#5a3d0e;font-weight:600;line-height:1.15"></div>';
   });
+  /* ⚠️ ПЕРЕДНИЙ ПЛАН ИДЁТ ДО QR — код выходит поверх боке, как на сервере.
+     Порядок в разметке И ЕСТЬ порядок наложения, поэтому менять надо здесь,
+     а не z-index'ами: иначе живой стенд и рендер разошлись бы */
+  h += img('pst-live-fx', u('fx'));
   h += img('pst-live-qr', u('qr'));
   h += '<div id="pst-live-qrhole" style="position:absolute;background:repeating-conic-gradient('
      + '#2b2b2b 0% 25%,#f4f0ea 0% 50%) 50%/22% 22%;display:none"></div>';
-  h += img('pst-live-fx', u('fx'));
   h += '<div id="pst-sel-box" style="position:absolute;border:2px solid #4a86ff;'
      + 'box-shadow:0 0 0 9999px rgba(0,0,0,0);border-radius:4px;display:none" '
      + 'onpointerdown="pstGrab(event,\'move\')">'
@@ -9402,7 +9428,7 @@ function pstLiveShell(){
               + (c[1]==='w'?'left:-9px':'right:-9px') + ';cursor:' + c + '-resize"></div>';
        }).join('')
      + '</div>';
-  h += '</div>';
+  h += '</div></div>';
   return h;
 }
 
@@ -9410,6 +9436,21 @@ function pstLiveDraw(){
   var wrap = document.getElementById('pst-live-wrap');
   if (!wrap || !pstLayout) return;
   var g = pstGeom();
+  /* ⚠️ ТЕНЬ В БРАУЗЕРЕ — drop-shadow ПО СИЛУЭТУ (учитывает альфу), тот же
+     смысл, что у серверной. Полного совпадения размытия не будет: у Pillow
+     гаусс, у браузера свой фильтр. Числа (сила и сдвиг) одни и те же,
+     окончательный вид — по кнопке «Сверить рендером» */
+  var sc = pstLayout.shadow || {};
+  var kk = wrap.clientWidth ? wrap.clientWidth / PST_W : 340 / PST_W;
+  var css = (parseFloat(sc.opacity) > 0.001)
+    ? 'drop-shadow(0 ' + ((parseFloat(sc.dy) || 0) * kk).toFixed(1) + 'px '
+      + (((parseFloat(sc.blur) || 38) / 2) * kk).toFixed(1) + 'px rgba(0,0,0,'
+      + (parseFloat(sc.opacity) || 0).toFixed(2) + '))'
+    : 'none';
+  ['frame','name','archetype','role','motto','behind','qr'].forEach(function(id){
+    var el = document.getElementById('pst-live-' + id);
+    if (el) el.style.filter = css;
+  });
   var put = function(id, box){
     var el = document.getElementById(id);
     if (!el || !box) return;
@@ -9453,6 +9494,20 @@ function pstLiveDraw(){
   }
   var lbl = document.getElementById('pst-sel-info');
   if (lbl) lbl.innerHTML = pstSelInfo();
+
+  var ra = document.getElementById('pst-ruler-a');
+  var rb = document.getElementById('pst-ruler-b');
+  var rl = document.getElementById('pst-ruler-lbl');
+  if (ra && rb && rl){
+    if (box){
+      var t0 = box.y / PST_H * 100, t1 = (box.y + box.h) / PST_H * 100;
+      ra.style.display = rb.style.display = rl.style.display = 'block';
+      ra.style.top = t0 + '%'; rb.style.top = t1 + '%';
+      rl.style.top = t0 + '%';
+      rl.style.transform = 'translateY(-100%)';
+      rl.textContent = Math.round(t0) + '–' + Math.round(t1);
+    } else ra.style.display = rb.style.display = rl.style.display = 'none';
+  }
 }
 
 function pstSelBox(g){
@@ -9625,23 +9680,6 @@ function pstDrop(){
   pstAutoPreview();
 }
 
-/* Колесо — тот же масштаб, но без прицеливания в угол */
-function pstWheel(e){
-  if (!pstLayout) return;
-  e.preventDefault();
-  var f = e.deltaY < 0 ? 1.03 : 1 / 1.03, s = pstSel;
-  var rnd = function(v){ return Math.round(v * 1000) / 1000; };
-  if (s === 'plates-all')
-    pstLayout.plates_scale = rnd(Math.max(0.2, Math.min(3, (pstLayout.plates_scale || 1) * f)));
-  else if (s === 'qr') pstLayout.qr.w = rnd(Math.max(0.04, Math.min(0.6, pstLayout.qr.w * f)));
-  else if (s === 'art') pstLayout.art.scale = rnd(Math.max(0.5, Math.min(3, pstLayout.art.scale * f)));
-  else if (PST_PLATES.indexOf(s) >= 0)
-    pstLayout.rows[s].fw = rnd(Math.max(0.1, Math.min(0.9, (pstLayout.rows[s].fw || 0.4) * f)));
-  else pstLayout[s].scale = rnd(Math.max(0.2, Math.min(3, pstLayout[s].scale * f)));
-  pstLiveDraw();
-  pstSyncSliders();
-}
-
 /* ═══ ПАНЕЛЬ ═══════════════════════════════════════════════════════════════ */
 function pstRenderLayout(){
   var L = pstLayout;
@@ -9649,6 +9687,7 @@ function pstRenderLayout(){
   L.plates = L.plates || {};
   L.hidden = L.hidden || [];
   if (L.plates_scale == null) L.plates_scale = 1;
+  L.shadow = L.shadow || { opacity: 0.35, blur: 38, dy: 14 };
   ['scene','frame','fx'].forEach(function(k){ L[k] = L[k] || { scale:1, dx:0, dy:0 }; });
 
   var live = document.getElementById('pst-live');
@@ -9691,6 +9730,11 @@ function pstRenderLayout(){
       + sl('зазор в автоукладке', 'pl-gap', L.gap, -0.06, 0.05, 0.002)
       + sl('масштаб выбранного', 'pl-sel-scale', pstSelScale(), 0.1, 3, 0.01)
     + '</div>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      + sl('тень: яркость', 'pl-shadow-op', L.shadow.opacity, 0, 0.8, 0.01)
+      + sl('тень: размытие', 'pl-shadow-blur', L.shadow.blur, 4, 90, 2)
+      + sl('тень: сдвиг вниз', 'pl-shadow-dy', L.shadow.dy, 0, 60, 1)
+    + '</div>'
     + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
       + '<button class="action-btn" onclick="pstResetLayout()">Вернуть по умолчанию</button>'
       + '<button class="action-btn" onclick="pstPreview()">Сверить рендером</button>'
@@ -9727,6 +9771,10 @@ function pstOnSlide(el){
   var L = pstLayout; if (!L) return;
   var n = parseFloat(el.value), s = pstSel;
   if (el.id === 'pl-gap') L.gap = n;
+  else if (el.id.indexOf('pl-shadow-') === 0){
+    var key = el.id.slice(10);
+    L.shadow[key === 'op' ? 'opacity' : key] = n;
+  }
   else if (el.id === 'pl-sel-scale'){
     if (s === 'plates-all') L.plates_scale = n;
     else if (s === 'qr') L.qr.w = n;
