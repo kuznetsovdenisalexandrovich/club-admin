@@ -12839,12 +12839,21 @@ function gmTextOpen(key, mode){
   if (!box){
     box = document.createElement('div');
     box.id = 'gm-text-modal';
-    box.className = 'center-modal-overlay';
+    /* ⚠️⚠️ КЛАССЫ ДАШБОРДА, А НЕ ПРИЛОЖЕНИЯ. Я собрал окно на
+       `center-modal-overlay` / `center-modal` / `icon-btn` — это разметка
+       АППА, в дашборде таких правил нет вовсе. Окно исправно создавалось и
+       оставалось невидимым: без `position:fixed` и `display:flex` оно просто
+       ложилось невзрачным блоком в конец страницы. Снаружи это выглядело как
+       «кнопки ничего не открывают».
+       Здесь всё по-местному: `.popup-overlay.open` + `.popup-centered`,
+       внутри `.popup`, крестик `.popup-close-x`. */
+    box.className = 'popup-overlay popup-centered';
     box.onclick = function(e){ if (e.target === box) gmTextClose(); };
     box.innerHTML =
-      '<div class="center-modal" style="max-width:680px;width:100%">'
-      + '<div class="center-modal-header"><div class="center-modal-title" id="gm-text-title"></div>'
-      + '<button class="icon-btn" onclick="gmTextClose()">✕</button></div>'
+      '<div class="popup" style="max-width:680px;border-radius:20px;padding:18px">'
+      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+      + '<div style="font-weight:700;font-size:15px" id="gm-text-title"></div>'
+      + '<button class="popup-close-x" style="margin-left:auto" onclick="gmTextClose()">✕</button></div>'
       + '<div id="gm-text-note" style="font-size:11.5px;color:var(--text-faint);line-height:1.5;margin-bottom:10px"></div>'
       + '<textarea id="gm-text-area" spellcheck="false" style="width:100%;min-height:320px;'
       + 'font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;' + elInput() + '"></textarea>'
