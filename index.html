@@ -12243,6 +12243,14 @@ function gmEdit(key){
      + '<button class="popup-save" style="flex:1" onclick="gmSaveGame(\'' + g.key + '\')">Сохранить игру</button>'
      + '<button class="action-btn danger" onclick="gmDelete(\'game\',\'' + g.key + '\')">Удалить</button>'
      + '</div>';
+  /* Выгрузка/загрузка одним текстом — для доводки промптов во внешней модели */
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+     + '<button class="action-btn" style="flex:1" onclick="gmTextOpen(\'' + g.key + '\',\'out\')">Выгрузить текстом</button>'
+     + '<button class="action-btn" style="flex:1" onclick="gmTextOpen(\'' + g.key + '\',\'in\')">Загрузить из текста</button>'
+     + '</div>'
+     + '<div style="font-size:11px;color:var(--text-faint);line-height:1.45">'
+     + 'Выгрузка собирает промпты, правила с ключами, стоп-фразы и материалы в один текст — '
+     + 'его можно отдать модели на доводку. Обратная загрузка сначала покажет, что изменится.</div>';
 
   h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">'
      + '<button class="action-btn" onclick="gmOpenRules(\'' + g.key + '\')">Правила</button>'
@@ -12650,6 +12658,346 @@ async function gmLoadStats(){
   });
   box.innerHTML = h + '</div>';
 }
+
+/* ═══ ВЫГРУЗКА И ЗАГРУЗКА ИГРЫ ОДНИМ ТЕКСТОМ ═══════════════════════════════
+   [stated] Denis 17.08: «нужна возможность экспортировать единым текстом весь
+   промт игры, с правилами и ключами… отнесу дипсику, доведу промты до ума,
+   попрошу так же собрать в кучу для вставки обратно».
+
+   ⚠️ ГЛАВНОЕ ТРЕБОВАНИЕ НЕ К ВЫГРУЗКЕ, А К ВОЗВРАТУ: текст должен пережить
+   правку чужой моделью и разобраться обратно. Отсюда формат:
+     · разделы помечены строкой `== ИМЯ ==` — модель их сохраняет, потому что
+       они читаются как заголовки, а не как разметка
+     · записи внутри раздела разделены строкой `--`
+     · поля пишутся как `имя: значение`, длинные тексты — многострочно до
+       следующего поля или разделителя
+   ⚠️ JSON намеренно НЕ используем: модель ломает кавычки и экранирование, а
+   Denis собирается этот текст ЧИТАТЬ и править руками.
+   ⚠️ `ключ` правила выгружается и обязан вернуться неизменным: на него
+   завязаны очки, материалы и статистика. Изменённый ключ = новое правило,
+   старое останется висеть. Об этом сказано прямо в шапке текста. */
+
+function gmTextEscape(v){
+  return String(v == null ? '' : v).replace(/\r/g, '');
+}
+
+function gmExportText(key){
+  var g = (gmData.games || []).filter(function(x){ return x.key === key; })[0];
+  if (!g) return '';
+  var rules = (gmData.rules || []).filter(function(r){ return r.game_key === key; });
+  var stops = (gmData.stop_phrases || []).filter(function(r){ return r.game_key === key; });
+  var mats  = (gmData.materials || []).filter(function(r){ return r.game_key === key; });
+
+  var L = [];
+  L.push('# ИГРА «' + gmTextEscape(g.title) + '» — выгрузка для правки');
+  L.push('');
+  L.push('Правь тексты, добавляй и убирай правила. Верни ответ РОВНО в этом же');
+  L.push('формате, целиком, без пояснений до и после — я вставлю его обратно.');
+  L.push('Строки «== РАЗДЕЛ ==», разделители «--» и имена полей менять нельзя.');
+  L.push('Поле «ключ» у правила НЕ меняй: на него завязаны очки и статистика.');
+  L.push('Новому правилу дай короткий ключ латиницей.');
+  L.push('');
+  L.push('== ИГРА ==');
+  L.push('ключ: ' + gmTextEscape(g.key));
+  L.push('название: ' + gmTextEscape(g.title));
+  L.push('описание: ' + gmTextEscape(g.description));
+  L.push('первая реплика клиента: ' + gmTextEscape(g.intro_text));
+  L.push('текст победы: ' + gmTextEscape(g.win_text));
+  L.push('имя шкалы: ' + gmTextEscape(g.scale_name));
+  L.push('старт шкалы: ' + (g.start_score == null ? 50 : g.start_score));
+  L.push('порог победы: ' + (g.win_score == null ? 100 : g.win_score));
+  L.push('ходов: ' + (g.max_turns == null ? 5 : g.max_turns));
+  L.push('приглашение гостю: ' + gmTextEscape(g.upsell_text));
+  L.push('');
+  L.push('== ПРОМПТ КЛИЕНТА ==');
+  L.push(gmTextEscape(g.client_prompt));
+  L.push('');
+  L.push('== ПРОМПТ СУДЬИ ==');
+  L.push(gmTextEscape(g.judge_prompt));
+  L.push('');
+  L.push('== ПРАВИЛА ==');
+  rules.forEach(function(r, i){
+    if (i) L.push('--');
+    L.push('ключ: ' + gmTextEscape(r.rule_key));
+    L.push('метка: ' + gmTextEscape(r.label));
+    L.push('когда срабатывает: ' + gmTextEscape(r.description));
+    L.push('дельта: ' + (r.delta == null ? 0 : r.delta));
+    L.push('сразу победа: ' + (r.wins_game ? 'да' : 'нет'));
+    L.push('подсказка игроку: ' + gmTextEscape(r.hint));
+  });
+  L.push('');
+  L.push('== СТОП-ФРАЗЫ ==');
+  stops.forEach(function(r, i){
+    if (i) L.push('--');
+    L.push('фраза: ' + gmTextEscape(r.phrase));
+    L.push('дельта: ' + (r.delta == null ? 0 : r.delta));
+    L.push('почему плохо: ' + gmTextEscape(r.why));
+    L.push('чем заменить: ' + gmTextEscape(r.replace_with));
+  });
+  L.push('');
+  L.push('== МАТЕРИАЛЫ ==');
+  mats.forEach(function(r, i){
+    if (i) L.push('--');
+    L.push('правило: ' + gmTextEscape(r.rule_key));
+    L.push('занятие: ' + gmTextEscape(r.slug));
+    L.push('таймкод: ' + gmTextEscape(r.timecode));
+    L.push('заголовок: ' + gmTextEscape(r.title));
+    L.push('когда показывать: ' + gmTextEscape(r.when_to));
+  });
+  return L.join('\n');
+}
+
+/* ── Разбор ──────────────────────────────────────────────────────────────
+   ⚠️ Парсер НАМЕРЕННО ТЕРПИМЫЙ: модель может сменить регистр заголовка,
+   добавить пробелы или лишнюю пустую строку. Не терпим только пропажу самих
+   разделов — о ней говорим вслух, а не молча теряем данные. */
+function gmParseText(text){
+  var out = { game: {}, rules: [], stops: [], mats: [], errors: [] };
+  var src = String(text || '').replace(/\r/g, '');
+  var sections = {}, current = null, buf = [];
+  src.split('\n').forEach(function(line){
+    var m = line.match(/^\s*==\s*(.+?)\s*==\s*$/);
+    if (m){
+      if (current) sections[current] = buf.join('\n');
+      current = m[1].toUpperCase().replace(/Ё/g, 'Е');
+      buf = [];
+      return;
+    }
+    if (current) buf.push(line);
+  });
+  if (current) sections[current] = buf.join('\n');
+
+  var need = ['ИГРА', 'ПРОМПТ КЛИЕНТА', 'ПРОМПТ СУДЬИ'];
+  need.forEach(function(s){ if (!(s in sections)) out.errors.push('Нет раздела «' + s + '»'); });
+  if (out.errors.length) return out;
+
+  function fields(block){
+    var res = {}, key = null, val = [];
+    block.split('\n').forEach(function(line){
+      var m = line.match(/^\s*([а-яa-zё][^:]{0,40}?)\s*:\s?(.*)$/i);
+      if (m){
+        if (key) res[key] = val.join('\n').trim();
+        key = m[1].toLowerCase().replace(/ё/g, 'е').trim();
+        val = [m[2]];
+      } else if (key) val.push(line);
+    });
+    if (key) res[key] = val.join('\n').trim();
+    return res;
+  }
+  function records(block){
+    return String(block || '').split(/^\s*--\s*$/m)
+      .map(function(x){ return x.trim(); })
+      .filter(function(x){ return x.length; })
+      .map(fields);
+  }
+  var num = function(v, def){ var n = parseInt(String(v).replace(/[^\-0-9]/g, ''), 10); return isNaN(n) ? def : n; };
+  var yes = function(v){ return /^(да|yes|true|1)$/i.test(String(v || '').trim()); };
+
+  var gf = fields(sections['ИГРА'] || '');
+  out.game = {
+    key: gf['ключ'] || '',
+    title: gf['название'] || '',
+    description: gf['описание'] || '',
+    intro_text: gf['первая реплика клиента'] || '',
+    win_text: gf['текст победы'] || '',
+    scale_name: gf['имя шкалы'] || '',
+    start_score: num(gf['старт шкалы'], 50),
+    win_score: num(gf['порог победы'], 100),
+    max_turns: num(gf['ходов'], 5),
+    upsell_text: gf['приглашение гостю'] || '',
+    client_prompt: (sections['ПРОМПТ КЛИЕНТА'] || '').trim(),
+    judge_prompt: (sections['ПРОМПТ СУДЬИ'] || '').trim()
+  };
+  if (!out.game.key) out.errors.push('В разделе «ИГРА» нет поля «ключ»');
+  if (!out.game.client_prompt) out.errors.push('Промпт клиента пустой');
+  if (!out.game.judge_prompt) out.errors.push('Промпт судьи пустой');
+
+  records(sections['ПРАВИЛА']).forEach(function(f, i){
+    if (!f['ключ']){ out.errors.push('У правила №' + (i + 1) + ' нет ключа'); return; }
+    out.rules.push({ rule_key: f['ключ'], label: f['метка'] || '',
+      description: f['когда срабатывает'] || '', delta: num(f['дельта'], 0),
+      wins_game: yes(f['сразу победа']), hint: f['подсказка игроку'] || '' });
+  });
+  records(sections['СТОП-ФРАЗЫ']).forEach(function(f){
+    if (!f['фраза']) return;
+    out.stops.push({ phrase: f['фраза'], delta: num(f['дельта'], 0),
+      why: f['почему плохо'] || '', replace_with: f['чем заменить'] || '' });
+  });
+  records(sections['МАТЕРИАЛЫ']).forEach(function(f){
+    if (!f['занятие']) return;
+    out.mats.push({ rule_key: f['правило'] || '', slug: f['занятие'],
+      timecode: f['таймкод'] || '', title: f['заголовок'] || '',
+      when_to: f['когда показывать'] || '' });
+  });
+  return out;
+}
+
+/* ── Окно выгрузки/загрузки ────────────────────────────────────────────── */
+function gmTextOpen(key, mode){
+  gmTextKey = key;
+  var box = document.getElementById('gm-text-modal');
+  if (!box){
+    box = document.createElement('div');
+    box.id = 'gm-text-modal';
+    box.className = 'center-modal-overlay';
+    box.onclick = function(e){ if (e.target === box) gmTextClose(); };
+    box.innerHTML =
+      '<div class="center-modal" style="max-width:680px;width:100%">'
+      + '<div class="center-modal-header"><div class="center-modal-title" id="gm-text-title"></div>'
+      + '<button class="icon-btn" onclick="gmTextClose()">✕</button></div>'
+      + '<div id="gm-text-note" style="font-size:11.5px;color:var(--text-faint);line-height:1.5;margin-bottom:10px"></div>'
+      + '<textarea id="gm-text-area" spellcheck="false" style="width:100%;min-height:320px;'
+      + 'font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;' + elInput() + '"></textarea>'
+      + '<div id="gm-text-report" style="font-size:12px;line-height:1.6;margin-top:10px"></div>'
+      + '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">'
+      + '<button class="action-btn" onclick="gmTextCopy()">Скопировать</button>'
+      + '<button class="action-btn" id="gm-text-check" onclick="gmTextCheck()" style="display:none">Проверить</button>'
+      + '<button class="popup-save" id="gm-text-apply" onclick="gmTextApply()" style="display:none;flex:1">Применить</button>'
+      + '</div></div>';
+    document.body.appendChild(box);
+  }
+  var area = document.getElementById('gm-text-area');
+  var isImport = (mode === 'in');
+  document.getElementById('gm-text-title').textContent = isImport ? 'Загрузить игру из текста' : 'Выгрузить игру текстом';
+  document.getElementById('gm-text-note').innerHTML = isImport
+    ? 'Вставь текст, который вернула модель. Сначала «Проверить» — покажу, что именно изменится, '
+      + 'и только потом «Применить». <b>Ключи правил не должны меняться</b>: правило с новым ключом '
+      + 'считается новым, а старое останется на месте.'
+    : 'Весь текст игры одним куском: промпты, правила с ключами, стоп-фразы и материалы. '
+      + 'Отдай его модели, попроси вернуть в том же формате — и загрузи обратно кнопкой «Загрузить из текста».';
+  area.value = isImport ? '' : gmExportText(key);
+  document.getElementById('gm-text-report').innerHTML = '';
+  document.getElementById('gm-text-check').style.display = isImport ? '' : 'none';
+  document.getElementById('gm-text-apply').style.display = 'none';
+  box.classList.add('open');
+}
+
+function gmTextClose(){
+  var b = document.getElementById('gm-text-modal');
+  if (b) b.classList.remove('open');
+}
+
+function gmTextCopy(){
+  var area = document.getElementById('gm-text-area');
+  area.select();
+  var rep = document.getElementById('gm-text-report');
+  try {
+    document.execCommand('copy');
+    if (rep) rep.innerHTML = '<span style="color:var(--green)">Скопировано в буфер</span>';
+  } catch(e){
+    if (rep) rep.innerHTML = '<span style="color:var(--text-faint)">Не вышло скопировать — выдели текст и скопируй вручную</span>';
+  }
+}
+
+/* ⚠️ СНАЧАЛА ПОКАЗЫВАЕМ, ЧТО ИЗМЕНИТСЯ, И ТОЛЬКО ПОТОМ ПРИМЕНЯЕМ. Модель
+   легко теряет пару правил или переименовывает ключ; молча применить её
+   ответ — значит однажды обнаружить, что половина правил игры исчезла. */
+function gmTextCheck(){
+  var parsed = gmParseText(document.getElementById('gm-text-area').value);
+  var rep = document.getElementById('gm-text-report');
+  gmTextParsed = null;
+  if (parsed.errors.length){
+    rep.innerHTML = '<div style="color:var(--red)">Текст разобрать не удалось:<br>· '
+      + parsed.errors.map(elEsc).join('<br>· ') + '</div>';
+    document.getElementById('gm-text-apply').style.display = 'none';
+    return;
+  }
+  var was = (gmData.rules || []).filter(function(r){ return r.game_key === gmTextKey; });
+  var wasKeys = was.map(function(r){ return r.rule_key; });
+  var newKeys = parsed.rules.map(function(r){ return r.rule_key; });
+  var added = newKeys.filter(function(k){ return wasKeys.indexOf(k) < 0; });
+  var gone  = wasKeys.filter(function(k){ return newKeys.indexOf(k) < 0; });
+  var kept  = newKeys.filter(function(k){ return wasKeys.indexOf(k) >= 0; });
+
+  var h = '<div>Игра: <b>' + elEsc(parsed.game.title || parsed.game.key) + '</b></div>'
+    + '<div>Правил в тексте: ' + parsed.rules.length + ' — обновится ' + kept.length
+    + ', добавится ' + added.length + '</div>';
+  if (added.length) h += '<div style="color:var(--green)">Новые ключи: ' + added.map(elEsc).join(', ') + '</div>';
+  if (gone.length){
+    h += '<div style="color:var(--red)">⚠️ Пропали из текста: ' + gone.map(elEsc).join(', ')
+       + '<br>Они НЕ будут удалены — удали вручную, если так и задумано. '
+       + 'Чаще это значит, что модель их потеряла.</div>';
+  }
+  h += '<div>Стоп-фраз: ' + parsed.stops.length + ' · материалов: ' + parsed.mats.length + '</div>';
+  if (parsed.game.key !== gmTextKey){
+    h += '<div style="color:var(--red)">⚠️ Ключ игры в тексте «' + elEsc(parsed.game.key)
+       + '» не совпадает с открытой. Применю к открытой игре: ' + elEsc(gmTextKey) + '</div>';
+  }
+  rep.innerHTML = h;
+  gmTextParsed = parsed;
+  document.getElementById('gm-text-apply').style.display = '';
+}
+
+var gmTextKey = '', gmTextParsed = null;
+
+/* ⚠️ ПИШЕМ НАПРЯМУЮ, А НЕ ЧЕРЕЗ `gmSave`: та после КАЖДОЙ записи перезагружает
+   весь дашборд и перерисовывает форму. На импорте из двух десятков правил это
+   двадцать лишних полных загрузок и столько же перерисовок. Обновляем один раз
+   в конце.
+   ⚠️ Записи идут ПОСЛЕДОВАТЕЛЬНО, а не пачкой промисов: сервер пишет их в одну
+   таблицу, и параллельные запросы на одну игру ловили гонку версий промпта. */
+async function gmTextPost(kind, data){
+  var r = await fetch(API + '/games/admin/save', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind: kind, data: data, x_admin_token: ADMIN_TOKEN })
+  });
+  if (!r.ok) throw new Error('сервер ответил ' + r.status);
+  return r.json().catch(function(){ return {}; });
+}
+
+async function gmTextApply(){
+  if (!gmTextParsed) return;
+  var p = gmTextParsed, key = gmTextKey;
+  var btn = document.getElementById('gm-text-apply');
+  btn.disabled = true; btn.textContent = 'Применяю…';
+  try {
+    var game = {};
+    Object.keys(p.game).forEach(function(k){ game[k] = p.game[k]; });
+    game.key = key;                       // ключ берём у открытой игры, не из текста
+    await gmTextPost('game', game);
+
+    var was = (gmData.rules || []).filter(function(r){ return r.game_key === key; });
+    for (var i = 0; i < p.rules.length; i++){
+      var r = p.rules[i];
+      var old = was.filter(function(x){ return x.rule_key === r.rule_key; })[0];
+      var data = { game_key: key, rule_key: r.rule_key, label: r.label,
+                   description: r.description, delta: r.delta, wins_game: r.wins_game,
+                   hint: r.hint, enabled: true };
+      if (old) data.id = old.id;
+      await gmTextPost('rule', data);
+    }
+    var wasStops = (gmData.stop_phrases || []).filter(function(r){ return r.game_key === key; });
+    for (var j = 0; j < p.stops.length; j++){
+      var s = p.stops[j];
+      var oldS = wasStops.filter(function(x){ return x.phrase === s.phrase; })[0];
+      var ds = { game_key: key, phrase: s.phrase, delta: s.delta, why: s.why,
+                 replace_with: s.replace_with, enabled: true };
+      if (oldS) ds.id = oldS.id;
+      await gmTextPost('stopphrase', ds);
+    }
+    var wasMats = (gmData.materials || []).filter(function(r){ return r.game_key === key; });
+    for (var m = 0; m < p.mats.length; m++){
+      var t = p.mats[m];
+      var oldM = wasMats.filter(function(x){ return x.slug === t.slug && x.rule_key === t.rule_key; })[0];
+      var dm = { game_key: key, rule_key: t.rule_key, slug: t.slug, timecode: t.timecode,
+                 title: t.title, when_to: t.when_to, enabled: true };
+      if (oldM) dm.id = oldM.id;
+      await gmTextPost('material', dm);
+    }
+    var done = document.getElementById('gm-text-report');
+    if (done) done.innerHTML = '<span style="color:var(--green)">Готово: игра обновлена из текста</span>';
+    gmTextClose();
+    await gmLoad();
+    gmEdit(key);
+  } catch(e){
+    var bad = document.getElementById('gm-text-report');
+    if (bad) bad.innerHTML = '<span style="color:var(--red)">Не удалось применить: '
+      + elEsc(e && e.message ? e.message : String(e)) + '</span>';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Применить';
+  }
+}
+
 </script>
 
 <!-- ═══ КОНСТРУКТОР ИГР ═══════════════════════════════════════════════════
