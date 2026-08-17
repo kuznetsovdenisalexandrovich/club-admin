@@ -12069,6 +12069,7 @@ function gmRenderList(){
           + elEsc(g.key) + (g.track ? ' · ' + elEsc(g.track) + ', ступень ' + (g.step || 1) : ' · сквозная')
           + ' · правил: ' + rules + ' · материалов: ' + mats
           + (g.free_for_guests ? ' · открыта гостю' : '')
+          + (g.min_level ? ' · с ' + g.min_level + ' уровня' : '')
           + ' · промпт v' + (g.prompt_version || 1)
         + '</div>'
       + '</div>'
@@ -12224,12 +12225,19 @@ function gmEdit(key){
      + 'Правка любого промпта поднимает его версию. Каждая партия помнит, на какой версии сыграна — '
      + 'иначе через месяц не понять, почему судья стал судить иначе. Сейчас: v' + (g.prompt_version || 1) + '</div>';
 
-  h += '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px">'
+  h += '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;align-items:center">'
      + '<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="gm-enabled"' + (g.enabled ? ' checked' : '') + '> Включена</label>'
      + '<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="gm-free"' + (g.free_for_guests ? ' checked' : '') + '> Открыта гостю</label>'
+     + '<label style="display:flex;align-items:center;gap:6px">С уровня'
+       + '<input type="number" id="gm-minlevel" min="0" max="20" step="1" value="' + (g.min_level || 0) + '"'
+       + ' style="width:64px;' + elInput() + '"></label>'
      + '</div>';
   h += '<div style="font-size:11px;color:var(--text-faint);line-height:1.45">'
-     + 'Гостю открыта только первая ступень трека. Следующая открывается, если предыдущую он закрыл на 90% и выше, и так до третьей.</div>';
+     + 'Гостю открыта только первая ступень трека. Следующая открывается, если предыдущую он закрыл на 90% и выше, и так до третьей.<br>'
+     + '<b>С уровня</b> — минимальный уровень участника. Ноль значит «открыта всем участникам». '
+     + 'Уровень считается по накопленным баллам, тем же порогам, что и в наградах. '
+     + 'Закрытая игра остаётся видимой в списке с подписью «Откроется на N уровне» — так она мотивирует. '
+     + 'На гостей это ограничение не распространяется: у них своя лестница ступеней.</div>';
 
   h += '<div style="display:flex;gap:8px;flex-wrap:wrap">'
      + '<button class="popup-save" style="flex:1" onclick="gmSaveGame(\'' + g.key + '\')">Сохранить игру</button>'
@@ -12268,7 +12276,8 @@ function gmSaveGame(key){
     client_prompt: gmVal('gm-cprompt'), judge_prompt: gmVal('gm-jprompt'),
     extra_params: gmParseExtra('gm-extra'), extra_member: gmParseExtra('gm-extram'),
     upsell_text: gmVal('gm-upsell'),
-    enabled: gmChk('gm-enabled'), free_for_guests: gmChk('gm-free')
+    enabled: gmChk('gm-enabled'), free_for_guests: gmChk('gm-free'),
+    min_level: gmNum('gm-minlevel', 0)
   }, key);
 }
 
