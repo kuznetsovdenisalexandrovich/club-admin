@@ -1802,6 +1802,27 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       </div>
       <input class="popup-input" type="text" id="magazine-folder" placeholder="Слаг мобильной на Тильде, напр. s01-ed01-mobile (пусто = совпадает с ключом)" style="margin-bottom:0">
       <input class="popup-input" type="text" id="magazine-folder-pc" placeholder="Слаг ПК-версии на Тильде (пусто = кнопка «ПК» не показывается)" style="margin-bottom:0">
+
+      <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:10px;display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:11px;color:var(--text-faint);line-height:1.45">
+          Свежий выпуск читают ВСЕ действующие участники, пока не вышел срок — стаж и очередь тут не при чём.
+          Кто успел его застать, у того он останется открытым и после ухода в архив.
+          Пусто — обычный архивный выпуск, только по числу оплат.
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span style="font-size:12px;color:var(--text-faint);flex-shrink:0">Открыт всем до</span>
+          <input class="popup-input" type="date" id="magazine-open-until" style="margin-bottom:0;flex:1">
+        </div>
+        <input class="popup-input" type="text" id="magazine-teaser" placeholder="Слаг ТИЗЕРНОЙ страницы на Тильде (обрыв на самом интересном месте)" style="margin-bottom:0">
+        <div id="magazine-deeplink-box" style="display:none;font-size:11px;color:var(--text-faint);line-height:1.5">
+          <div>Ссылка для открытых каналов — открывается у кого угодно и через год:</div>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
+            <code id="magazine-deeplink" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px"></code>
+            <button class="action-btn" style="flex-shrink:0" onclick="copyMagazineDeeplink()">Копировать</button>
+          </div>
+          <div id="magazine-deeplink-out" style="margin-top:4px"></div>
+        </div>
+      </div>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px"><input type="checkbox" id="magazine-free"> Открыт всем, включая демо (пилотный выпуск)</label>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px"><input type="checkbox" id="magazine-published" checked> Опубликован (виден в приложении)</label>
 
@@ -4628,6 +4649,9 @@ async function loadMagazineList(){
     el.innerHTML = magazineIssues.map(function(m){
       const marks = [];
       if (m.free) marks.push('открыт всем');
+      if (m.open_now) marks.push('СВЕЖИЙ до ' + magDateRu(m.open_until));
+      else if (m.open_until) marks.push('был свежим до ' + magDateRu(m.open_until));
+      if (m.teaser_slug) marks.push('есть тизер');
       if (!m.published) marks.push('черновик');
       return '<div class="pay-item">'
         + (m.cover_url ? '<img src="' + m.cover_url + '" alt="" style="width:34px;height:46px;object-fit:cover;border-radius:6px;margin-right:8px;flex-shrink:0">' : '')
@@ -4642,6 +4666,34 @@ async function loadMagazineList(){
   }catch(e){ el.innerHTML = '<div class="pay-meta">Ошибка загрузки</div>'; }
 }
 
+// Дата из поля <input type="date"> приходит как ГГГГ-ММ-ДД — в списке
+// показываем привычным дд.мм.гггг
+function magDateRu(iso){
+  if (!iso) return '';
+  const p = String(iso).slice(0,10).split('-');
+  return p.length === 3 ? (p[2] + '.' + p[1] + '.' + p[0]) : iso;
+}
+
+// Ссылка ведёт В АПП, а не на Тильду: так работает атрибуция и так гость
+// попадает внутрь приложения, а не остаётся на чужой странице
+function showMagazineDeeplink(link){
+  const box = document.getElementById('magazine-deeplink-box');
+  const out = document.getElementById('magazine-deeplink');
+  if (!box || !out) return;
+  if (link){ out.textContent = link; box.style.display = 'block'; }
+  else { out.textContent = ''; box.style.display = 'none'; }
+  const msg = document.getElementById('magazine-deeplink-out');
+  if (msg) msg.textContent = '';
+}
+
+function copyMagazineDeeplink(){
+  const link = (document.getElementById('magazine-deeplink') || {}).textContent || '';
+  if (!link) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link);
+  const msg = document.getElementById('magazine-deeplink-out');
+  if (msg) msg.textContent = 'Скопировано';
+}
+
 function resetMagazineForm(){
   document.getElementById('magazine-key').value = '';
   document.getElementById('magazine-key').disabled = false;
@@ -4651,6 +4703,9 @@ function resetMagazineForm(){
   document.getElementById('magazine-date').value = '';
   document.getElementById('magazine-folder').value = '';
   document.getElementById('magazine-folder-pc').value = '';
+  document.getElementById('magazine-open-until').value = '';
+  document.getElementById('magazine-teaser').value = '';
+  showMagazineDeeplink('');
   document.getElementById('magazine-free').checked = false;
   document.getElementById('magazine-published').checked = true;
   document.getElementById('magazine-cover-preview').innerHTML = '';
@@ -4668,6 +4723,9 @@ function editMagazineIssue(key){
   document.getElementById('magazine-date').value = m.published_at || '';
   document.getElementById('magazine-folder').value = (m.folder === m.issue_key ? '' : (m.folder || ''));
   document.getElementById('magazine-folder-pc').value = m.folder_pc || '';
+  document.getElementById('magazine-open-until').value = m.open_until || '';
+  document.getElementById('magazine-teaser').value = m.teaser_slug || '';
+  showMagazineDeeplink(m.teaser_slug ? (m.deeplink || '') : '');
   document.getElementById('magazine-free').checked = !!m.free;
   document.getElementById('magazine-published').checked = !!m.published;
   document.getElementById('magazine-cover-preview').innerHTML = m.cover_url
@@ -4690,6 +4748,8 @@ async function saveMagazineIssue(){
     published_at: document.getElementById('magazine-date').value.trim(),
     folder: document.getElementById('magazine-folder').value.trim(),
     folder_pc: document.getElementById('magazine-folder-pc').value.trim(),
+    open_until: document.getElementById('magazine-open-until').value.trim(),
+    teaser_slug: document.getElementById('magazine-teaser').value.trim().replace(/^\/+|\/+$/g, ''),
     free: document.getElementById('magazine-free').checked,
     published: document.getElementById('magazine-published').checked
   };
