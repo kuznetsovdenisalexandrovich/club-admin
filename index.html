@@ -2752,6 +2752,7 @@ function openSupportReply(id){
   supportReplyId = id;
   document.getElementById('sr-who').textContent =
     (row.name || '—') + (row.telegram_id ? ' · ' + row.telegram_id : '');
+  document.getElementById('sr-avatar').textContent = initials(row.name || '');
   document.getElementById('sr-text-orig').textContent = row.text || '';
   document.getElementById('sr-input').value = '';
   document.getElementById('sr-result').style.display = 'none';
@@ -6382,15 +6383,23 @@ async function saveUserPatch(){
 </script>
 
 <!-- Окно ответа на обращение в поддержку -->
+<!-- ⚠️ СТРУКТУРА ОДИН В ОДИН С КАРТОЧКОЙ КЛИЕНТА: ручка → шапка → `popup-body`.
+     Первая версия собиралась «по смыслу имён» и сломалась дважды:
+     `popup-handle` — это ПОЛОСКА-РУЧКА 40×4 с `margin:auto`, а не подпись
+     (имя сжалось в сорок пикселей и наехало на текст), а без `popup-body`
+     у содержимого нет боковых полей. Подпись под именем — `popup-handle-link`. -->
 <div class="popup-overlay" id="sr-overlay" onclick="if(event.target===this)closeSupportReply()">
-  <div class="popup" style="max-width:560px">
+  <div class="popup">
+    <div class="popup-handle"></div>
     <div class="popup-header">
+      <div class="popup-avatar" id="sr-avatar">?</div>
       <div>
         <div class="popup-name">Ответ на обращение</div>
-        <div class="popup-handle" id="sr-who">—</div>
+        <div class="popup-handle-link" id="sr-who">—</div>
       </div>
-      <button class="action-btn" onclick="closeSupportReply()">✕</button>
+      <button class="popup-close" onclick="closeSupportReply()">✕</button>
     </div>
+    <div class="popup-body">
 
     <div class="popup-section-title">Что написали</div>
     <div class="ref-link-box" id="sr-text-orig" style="white-space:pre-wrap">—</div>
@@ -6417,6 +6426,7 @@ async function saveUserPatch(){
 
     <div id="sr-result" class="action-result"></div>
     <button class="popup-save" onclick="sendSupportReply()">Отправить</button>
+    </div><!-- /popup-body -->
   </div>
 </div>
 
