@@ -2708,15 +2708,109 @@ async function loadSupport(){
   try{
     const rows = await fetch(API+'/support?x_admin_token='+ADMIN_TOKEN).then(r=>r.json());
     if(!rows.length){ el.innerHTML='<div class="empty">Пока тихо</div>'; return; }
+    supportRows = rows;
     el.innerHTML = rows.map(q=>`
       <div class="pay-item">
         <div class="pay-info">
-          <div class="pay-name">${q.name||'—'} <span style="color:var(--text-dim);font-weight:400">· ${q.telegram_id||'—'}</span></div>
+          <div class="pay-name">${q.name||'—'} <span style="color:var(--text-dim);font-weight:400">· ${q.telegram_id||'—'}</span>
+            ${q.lite?'<span class="badge badge-act">щадящий</span>':''}
+            ${q.replied_at?'<span class="badge">отвечено</span>':''}</div>
           <div class="pay-meta" style="white-space:pre-wrap">${q.text}</div>
+          ${q.reply?`<div class="pay-meta" style="white-space:pre-wrap;opacity:.7;margin-top:6px">→ ${q.reply}</div>`:''}
         </div>
-        <button class="action-btn success" onclick="resolveSupport(${q.id})">Готово</button>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="action-btn primary" onclick="openSupportReply(${q.id})">Ответить</button>
+          <button class="action-btn success" onclick="resolveSupport(${q.id})">Готово</button>
+        </div>
       </div>`).join('');
   }catch(e){ el.innerHTML='<div class="empty">Не удалось загрузить</div>'; }
+}
+
+/* ══ ОТВЕТ НА ОБРАЩЕНИЕ ═══════════════════════════════════
+   [stated] Denis 18.08.2026: хочет отвечать текстом и ссылками внутрь
+   приложения — «рекомендуем включить щадящий режим» — и тут же
+   управлять настройками человека. */
+let supportRows = [];
+let supportReplyId = null;
+
+/* Готовые ссылки внутрь приложения. ⚠️ ТЕЛЕГРАМНЫЕ: ответ уходит в бота
+   в Telegram, и ссылка должна открываться там же, а не в браузере */
+const SUPPORT_LINKS = [
+  ['Щадящий режим', 'lite'],
+  ['Игры',            'games'],
+  ['Библиотека',      'library'],
+  ['О клубе',        'club'],
+  ['Справка',        'guide'],
+  ['Пригласить друга','invite'],
+  ['Баллы',          'points'],
+];
+const SUPPORT_BOT = 'https://t.me/youselllikeagod_bot/app?startapp=';
+
+function openSupportReply(id){
+  const row = supportRows.find(r => r.id === id);
+  if(!row) return;
+  supportReplyId = id;
+  document.getElementById('sr-who').textContent =
+    (row.name || '—') + (row.telegram_id ? ' · ' + row.telegram_id : '');
+  document.getElementById('sr-text-orig').textContent = row.text || '';
+  document.getElementById('sr-input').value = '';
+  document.getElementById('sr-result').style.display = 'none';
+  /* Галочка НЕ предвыбрана: менять чужие настройки можно только нарочно */
+  document.getElementById('sr-lite').checked = false;
+  document.getElementById('sr-lite-state').textContent =
+    row.lite ? 'сейчас ВКЛЮЧЁН' : 'сейчас выключен';
+  document.getElementById('sr-lite-label').textContent =
+    row.lite ? 'Выключить щадящий режим' : 'Включить щадящий режим';
+  document.getElementById('sr-links').innerHTML = SUPPORT_LINKS.map(function(p){
+    return '<button class="action-btn" onclick="srInsertLink(' + JSON.stringify(p[1]).replace(/"/g,'&quot;') + ')">'
+         + p[0] + '</button>';
+  }).join('');
+  document.getElementById('sr-overlay').classList.add('open');
+}
+function closeSupportReply(){
+  document.getElementById('sr-overlay').classList.remove('open');
+  supportReplyId = null;
+}
+/* Вставляем в место курсора, а не в конец: иначе ссылка всегда падает
+   хвостом и фразу вокруг неё приходится переписывать */
+function srInsertLink(route){
+  const ta = document.getElementById('sr-input');
+  const url = SUPPORT_BOT + route;
+  const a = ta.selectionStart || 0, b = ta.selectionEnd || 0;
+  ta.value = ta.value.slice(0, a) + url + ta.value.slice(b);
+  ta.focus();
+  ta.selectionStart = ta.selectionEnd = a + url.length;
+}
+function srResult(text, ok){
+  const el = document.getElementById('sr-result');
+  el.textContent = text;
+  el.style.display = 'block';
+  el.style.color = ok ? 'var(--green,#2e9e6b)' : 'var(--red)';
+}
+async function sendSupportReply(){
+  if(!supportReplyId) return;
+  const row = supportRows.find(r => r.id === supportReplyId);
+  const text = document.getElementById('sr-input').value.trim();
+  const flip = document.getElementById('sr-lite').checked;
+  if(!text && !flip){ srResult('Нечего отправлять', false); return; }
+  srResult('Отправляю…', true);
+  try{
+    const body = { text: text, close: document.getElementById('sr-close').checked };
+    /* Посылаем ПРОТИВОПОЛОЖНОЕ текущему состоянию, и только если
+       галочка поставлена. Без галочки поле вообще не едет — сервер
+       отличает «не трогать» от «выключить» */
+    if (flip) body.lite = !(row && row.lite);
+    const r = await fetch(API + '/support/' + supportReplyId + '/reply?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    const d = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
+    srResult(d.sent ? ('Отправлено (' + (d.how === 'telegram' ? 'бот' : 'Salebot') + ')')
+                    : 'Настройка применена', true);
+    setTimeout(function(){ closeSupportReply(); loadSupport(); }, 900);
+  }catch(e){
+    srResult(e.message || 'Не получилось', false);
+  }
 }
 
 async function resolveSupport(id){
@@ -6286,6 +6380,45 @@ async function saveUserPatch(){
 
 // loadAll called by pin screen
 </script>
+
+<!-- Окно ответа на обращение в поддержку -->
+<div class="popup-overlay" id="sr-overlay" onclick="if(event.target===this)closeSupportReply()">
+  <div class="popup" style="max-width:560px">
+    <div class="popup-header">
+      <div>
+        <div class="popup-name">Ответ на обращение</div>
+        <div class="popup-handle" id="sr-who">—</div>
+      </div>
+      <button class="action-btn" onclick="closeSupportReply()">✕</button>
+    </div>
+
+    <div class="popup-section-title">Что написали</div>
+    <div class="ref-link-box" id="sr-text-orig" style="white-space:pre-wrap">—</div>
+
+    <div class="popup-section-title">Ответ</div>
+    <textarea class="popup-input" id="sr-input" rows="4"
+              style="min-height:96px;resize:vertical"
+              placeholder="Например: Рекомендуем включить щадящий режим и попробовать снова"></textarea>
+
+    <!-- Ссылки внутрь приложения: кнопка вставляет адрес в текст -->
+    <div class="popup-section-title">Вставить ссылку</div>
+    <div class="actions-grid" id="sr-links"></div>
+
+    <div class="popup-section-title">Настройки человека</div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+      <input type="checkbox" id="sr-lite">
+      <span id="sr-lite-label">Включить щадящий режим</span>
+      <span class="popup-row-label" id="sr-lite-state">—</span>
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-top:8px">
+      <input type="checkbox" id="sr-close" checked>
+      <span>Закрыть обращение после ответа</span>
+    </label>
+
+    <div id="sr-result" class="action-result"></div>
+    <button class="popup-save" onclick="sendSupportReply()">Отправить</button>
+  </div>
+</div>
 
 <div class="pin-screen" id="pin-screen">
   <div class="pin-logo">БП</div>
