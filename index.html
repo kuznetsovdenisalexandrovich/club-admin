@@ -338,6 +338,17 @@ header{padding:calc(max(env(safe-area-inset-top), 8px) + 20px) 0 16px;display:fl
 .payload-input::placeholder{color:var(--text-faint)}
 .send-payload-btn{padding:8px 14px;border-radius:10px;background:var(--lav-deep);color:white;border:none;font-size:12px;font-weight:600;font-family:var(--body);cursor:pointer;white-space:nowrap}
 
+/* ПУТЬ КЛИЕНТА и реферальная ссылка в карточке */
+.journey-body{font-size:13px;line-height:1.5}
+.journey-row{display:flex;justify-content:space-between;gap:12px;padding:7px 0;
+  border-bottom:1px solid var(--line,rgba(128,128,128,.18))}
+.journey-row:last-child{border-bottom:none}
+.journey-label{color:var(--muted,#8a8a8a);flex:0 0 auto}
+.journey-val{text-align:right;font-weight:600;word-break:break-word}
+.journey-empty{color:var(--muted,#8a8a8a);padding:8px 0}
+.ref-link-box{font-size:12px;word-break:break-all;padding:10px;border-radius:10px;
+  background:var(--card2,rgba(128,128,128,.10));margin-bottom:10px;line-height:1.45}
+
 /* PIN screen */
 .pin-screen{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:24px}
 .pin-screen.hidden{display:none}
@@ -2219,6 +2230,22 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 
       <div id="popup-rows"></div>
 
+      <!-- ПУТЬ КЛИЕНТА: откуда пришёл, что дожало, кто привёл, сколько шёл
+           до покупки. Грузится отдельной ручкой при открытии карточки -->
+      <div class="popup-section-title">Путь клиента</div>
+      <div id="journey-body" class="journey-body">Загружаю…</div>
+
+      <!-- Реферальная ссылка ЭТОГО человека. [stated] Denis 18.08: «многие
+           пишут „а как мне поделиться клубом?“ — проще выслать ссылку из
+           дашборда, чем объяснять все экраны» -->
+      <div class="popup-section-title">Реферальная ссылка</div>
+      <div id="ref-link-box" class="ref-link-box">—</div>
+      <div class="actions-grid">
+        <button class="action-btn" onclick="copyRefLink()">Скопировать</button>
+        <button class="action-btn primary" onclick="sendRefLink()">Отправить в бота</button>
+      </div>
+      <div id="ref-link-result" class="action-result"></div>
+
       <!-- Действия -->
       <div class="popup-section-title">Действия</div>
       <div id="action-result" class="action-result"></div>
@@ -3345,11 +3372,110 @@ function openPopup(uid){
   document.getElementById('popup-input-notes').value=u.notes||'';
   loadActivity(u.telegram_id);
   loadSnapshot(u.telegram_id);
+  loadJourney(u.telegram_id);
   resetViewButton();
   document.getElementById('sub-action-result').style.display='none';
   document.getElementById('action-result').style.display='none';
   document.getElementById('payload-row').classList.remove('visible');
   document.getElementById('popup-overlay').classList.add('open');
+}
+
+/* ── ПУТЬ КЛИЕНТА ────────────────────────────────────────────────────────────
+   Отдельная ручка, зовётся при открытии карточки. Своей копии данных не
+   держим: карточка открывается редко, а список участников и так тяжёлый. */
+let currentJourney = null;
+
+function journeyRow(label, val){
+  return '<div class="journey-row"><span class="journey-label">' + label
+       + '</span><span class="journey-val">' + val + '</span></div>';
+}
+
+function srcText(src){
+  if(!src) return '—';
+  const chan = src.channel ? ' <span class="journey-label">(' + src.channel + ')</span>' : '';
+  return (src.title || src.code || '—') + chan;
+}
+
+/* Часы в человеческий вид. ⚠️ Не «0 дней» для быстрых покупок — «за 40 минут»
+   говорит больше, а именно быстрые покупки нам и интересны */
+function humanSpan(hours){
+  if(hours === null || hours === undefined) return '—';
+  if(hours < 1) return Math.round(hours * 60) + ' мин';
+  if(hours < 48) return Math.round(hours) + ' ч';
+  return Math.round(hours / 24) + ' дн';
+}
+
+async function loadJourney(telegramId){
+  currentJourney = null;
+  const box = document.getElementById('journey-body');
+  const link = document.getElementById('ref-link-box');
+  document.getElementById('ref-link-result').style.display = 'none';
+  if(!telegramId){
+    box.innerHTML = '<div class="journey-empty">У карточки нет telegram_id — путь не собрать</div>';
+    link.textContent = '—';
+    return;
+  }
+  box.innerHTML = 'Загружаю…';
+  link.textContent = '…';
+  try{
+    const r = await fetch(API + '/admin/users/' + telegramId + '/journey?x_admin_token=' + ADMIN_TOKEN);
+    if(!r.ok) throw new Error('сервер ответил ' + r.status);
+    const d = await r.json();
+    currentJourney = d;
+    const ref = d.referrer
+      ? (d.referrer.name + (d.referrer.telegram_id ? ' · ' + d.referrer.telegram_id : '')
+         + (d.referrer.is_member ? '' : ' <span class="journey-label">(не участник)</span>'))
+      : 'сам по себе';
+    box.innerHTML =
+        journeyRow('Пришёл откуда', srcText(d.first_touch))
+      + journeyRow('Дожало до оплаты', srcText(d.last_touch))
+      + journeyRow('Кто привёл', ref)
+      + journeyRow('Привёл сам', d.invited_total + ' <span class="journey-label">из них оплатили ' + d.invited_paid + '</span>')
+      + journeyRow('От первого следа до оплаты', humanSpan(d.hours_to_buy))
+      + journeyRow('Открывал приложение', d.app_opened_at ? d.app_opened_at.slice(0,10) : 'ни разу')
+      + journeyRow('Успешных платежей', d.payments_count);
+    link.textContent = d.referral_link || '—';
+  }catch(e){
+    box.innerHTML = '<div class="journey-empty">Не загрузилось: ' + (e.message || e) + '</div>';
+    link.textContent = '—';
+  }
+}
+
+function refResult(text, ok){
+  const el = document.getElementById('ref-link-result');
+  el.textContent = text;
+  el.style.display = 'block';
+  el.style.color = ok ? 'var(--green,#2e9e6b)' : 'var(--red)';
+}
+
+async function copyRefLink(){
+  const link = currentJourney && currentJourney.referral_link;
+  if(!link){ refResult('Ссылки пока нет', false); return; }
+  try{
+    await navigator.clipboard.writeText(link);
+    refResult('Скопировано', true);
+  }catch(e){
+    /* Буфер бывает недоступен — старый способ через скрытое поле */
+    try{
+      const ta = document.createElement('textarea');
+      ta.value = link; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+      refResult('Скопировано', true);
+    }catch(e2){ refResult('Не получилось скопировать', false); }
+  }
+}
+
+/* Шлём человеку в переписку с ботом — тем же действием, что и обычное
+   сообщение из карточки. Текст правится тут же перед отправкой */
+function sendRefLink(){
+  const link = currentJourney && currentJourney.referral_link;
+  if(!link){ refResult('Ссылки пока нет', false); return; }
+  const draft = 'Вот твоя личная ссылка — по ней можно звать друзей в клуб:\n' + link;
+  const text = prompt('Что отправить человеку?', draft);
+  if(!text) return;
+  refResult('Отправляю…', true);
+  doAction('send_message', text);
 }
 
 /* ── Действия с подпиской напрямую через Продамус ──────────────────────────────
