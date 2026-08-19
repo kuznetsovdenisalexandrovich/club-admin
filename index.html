@@ -1998,6 +1998,14 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <div class="section-title" style="margin:14px 0 6px;font-size:13px">По единице, которая дожала</div>
       <div id="attr-last-list"></div>
 
+      <div class="section-title" style="margin:16px 0 6px;font-size:13px">Путь клиента: конверсия и срок</div>
+      <div class="pay-meta" style="margin-bottom:6px">Считается по каналу ПЕРВОГО касания — заслуга за приход у того, кто человека привёл. Срок — медиана: половина покупает быстрее.</div>
+      <div id="journey-sources"><div class="pay-meta">—</div></div>
+
+      <div class="section-title" style="margin:14px 0 6px;font-size:13px">Кто приводит друзей</div>
+      <div class="pay-meta" style="margin-bottom:6px">В зачёт идут ОПЛАТИВШИЕ приглашённые: клик ничего не стоит.</div>
+      <div id="journey-inviters"><div class="pay-meta">—</div></div>
+
       <div class="section-title" style="margin:16px 0 6px;font-size:13px">Единицы контента</div>
       <div id="attr-sources-list"></div>
       <input class="popup-input" type="hidden" id="attr-id">
@@ -5225,8 +5233,49 @@ async function loadAttrReport(){
       + (d.untagged_payments ? ' · без метки: ' + d.untagged_payments : '');
     renderAttrList('attr-first-list', d.by_first_touch);
     renderAttrList('attr-last-list', d.by_last_touch);
+    loadJourneySummary();
   }catch(e){
     box.textContent = 'Нет связи с бэкендом: ' + (e && e.message || e);
+  }
+}
+
+/* ── Сводка по пути клиента ──────────────────────────────────────────────
+   Отличается от отчёта выше тем, что считает не платежи, а ЛЮДЕЙ: сколько
+   привёл канал, сколько из них дошло до оплаты и за сколько дней */
+async function loadJourneySummary(){
+  const box = document.getElementById('journey-sources');
+  const inv = document.getElementById('journey-inviters');
+  if (!box) return;
+  box.innerHTML = '<div class="pay-meta">Считаю…</div>';
+  try{
+    const r = await fetch(API + '/admin/journey/summary?days=' + attrPeriodDays
+                          + '&x_admin_token=' + ADMIN_TOKEN);
+    const d = await r.json();
+    if (!r.ok){ box.innerHTML = '<div class="pay-meta">' + (d.detail || 'Не получилось') + '</div>'; return; }
+
+    const rows = d.sources || [];
+    box.innerHTML = rows.length ? rows.map(function(x){
+      const days = (x.median_days === null || x.median_days === undefined)
+        ? 'срок неизвестен' : ('медиана ' + x.median_days + ' дн.');
+      return '<div class="pay-item">'
+        + '<div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(x.title) + '</div>'
+        + '<div class="pay-meta">' + (ATTR_CHANNEL_LABELS[x.channel] || x.channel || '—')
+        + ' · ' + x.people + ' чел. · ' + days + '</div></div>'
+        + '<div class="pay-name" style="flex-shrink:0">' + x.paid + ' / ' + x.conv + '%</div>'
+        + '</div>';
+    }).join('') : '<div class="pay-meta">Пока пусто.</div>';
+
+    if (inv){
+      const t = d.top_inviters || [];
+      inv.innerHTML = t.length ? t.map(function(x){
+        return '<div class="pay-item">'
+          + '<div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(x.name) + '</div>'
+          + '<div class="pay-meta">привёл ' + x.invited + ' · оплатили ' + x.paid + '</div></div>'
+          + '</div>';
+      }).join('') : '<div class="pay-meta">Пока никто.</div>';
+    }
+  }catch(e){
+    box.innerHTML = '<div class="pay-meta">Нет связи с бэкендом: ' + (e && e.message || e) + '</div>';
   }
 }
 
