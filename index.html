@@ -3205,10 +3205,14 @@ function renderCampaigns(campaigns){
       if(c.status!=='sent'){
         actions=`
           <input class="popup-input" type="text" id="link-input-${c.id}" placeholder="Ссылка на телемост..." value="${c.meeting_link||''}" style="margin-bottom:0">
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-dim)">Баллы тому, кто перейдёт
+            <input class="popup-input" type="number" min="0" max="100000" step="10" id="points-input-${c.id}"
+                   value="${c.click_points||0}" style="width:96px;margin-bottom:0"></label>
           <button class="action-btn primary" onclick="sendMeetupCampaign(${c.id})">Отправить</button>`;
       } else {
         actions=`
           <div class="pay-meta">Отправлено, ссылка: ${c.meeting_link}</div>
+          ${c.live_now?'<button class="action-btn primary" onclick="finishMeeting('+c.id+')">Встреча завершена</button>':'<div class="pay-meta">Встреча завершена</div>'}
           ${c.returned_to_menu?'':'<button class="action-btn" onclick="returnCampaignToMenu('+c.id+')">Вернуть всех в меню</button>'}`;
       }
     } else {
@@ -3226,7 +3230,7 @@ function renderCampaigns(campaigns){
     return `<div class="pay-item" style="flex-direction:column;align-items:stretch;gap:8px">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div class="pay-name">${c.title||'Без названия'}</div>
-        ${statusBadge[c.status]||''}
+        ${c.live_now?'<span class="badge badge-act">идёт сейчас</span>':(statusBadge[c.status]||'')}
       </div>
       <div class="pay-meta">${c.list_name} · ${date}</div>
       ${actions}
@@ -3305,17 +3309,32 @@ async function startLiveCampaign(id){
 async function sendMeetupCampaign(id){
   const link=document.getElementById('link-input-'+id).value.trim();
   if(!link){ alert('Вставь ссылку на встречу'); return; }
+  const pEl=document.getElementById('points-input-'+id);
+  let pts=pEl?parseInt(pEl.value,10):0;
+  if(isNaN(pts)||pts<0) pts=0;
   try{
     await fetch(API+'/campaigns/'+id+'?x_admin_token='+ADMIN_TOKEN,{
       method:'PATCH',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({meeting_link:link})
+      body:JSON.stringify({meeting_link:link, click_points:pts})
     });
     if(!confirm('Отправить всем в списке?')) return;
     const r=await fetch(API+'/campaigns/'+id+'/send-meetup?x_admin_token='+ADMIN_TOKEN,{method:'POST'});
     if(!r.ok){ alert('Ошибка отправки'); return; }
     await loadCampaigns();
   }catch(e){ alert('Ошибка соединения'); }
+}
+
+/* «Встреча завершена» — ручная отметка. Пока она не нажата, вечная ссылка
+   продолжает вести людей на телемост. Через два часа приходит напоминание,
+   через шесть встреча гаснет сама */
+async function finishMeeting(id){
+  if(!confirm('Отметить встречу завершённой? Ссылка перестанет вести на телемост.')) return;
+  try{
+    const r=await fetch(API+'/campaigns/'+id+'/finish-meeting?x_admin_token='+ADMIN_TOKEN,{method:'POST'});
+    if(!r.ok){ alert('Не получилось'); return; }
+    await loadCampaigns();
+  }catch(e){ alert('Нет связи с бэкендом: '+(e&&e.message||e)); }
 }
 
 async function sendCampaignLink(id){
