@@ -1957,6 +1957,13 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <button class="action-btn" id="live-practice-toggle" onclick="livePracticeToggle()">Показать кнопку</button>
         </div>
         <div class="pay-meta" id="live-practice-state" style="margin:0 2px 12px">Кнопка появится у всех, кто смотрит эфир, в течение нескольких секунд.</div>
+        <div class="section-title" style="margin:10px 0 6px;font-size:13px">Баллы за посещение</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+          <input class="popup-input" type="number" id="live-points" min="0" max="100000" step="10"
+                 placeholder="0" style="width:120px;margin:0">
+          <button class="action-btn" onclick="livePointsSave()">Назначить</button>
+        </div>
+        <div class="pay-meta" id="live-points-state" style="margin:0 2px 12px">Ноль — не платим. Каждый, кто откроет эфир в приложении, получит эти баллы один раз.</div>
         <button class="popup-save" id="live-close-free-btn" onclick="liveCloseFree()" style="margin-bottom:8px">Закрыть бесплатную часть</button>
         <button class="popup-save" onclick="liveFinish()" style="background:#e8614a">Завершить эфир</button>
       </div>
@@ -5049,6 +5056,7 @@ function renderLiveAdmin(){
   }
   document.getElementById('live-close-free-btn').disabled = !s.free_open;
   renderPracticeAdmin(s);
+  renderLivePointsAdmin(s);
 }
 
 /* Отвечает ли Telegram с нашего сервера. Разводит две причины, которые со
@@ -5586,6 +5594,58 @@ async function livePracticeSend(on){
   }
 }
 
+/* ── Баллы за посещение эфира ────────────────────────────────────────────
+   Цена лежит на СЕССИИ: она своя у каждого эфира, и её можно поднять прямо
+   по ходу. Уже зашедшим задним числом не пересчитывается — они получат при
+   следующем открытии экрана, потому что записи о выдаче ещё нет */
+function renderLivePointsAdmin(s){
+  var inp = document.getElementById('live-points');
+  var st  = document.getElementById('live-points-state');
+  if (!inp) return;
+  // Не затираем поле, пока в нём печатают: пульт опрашивает статус раз в
+  // несколько секунд и иначе выдирал бы цифру из-под пальцев
+  if (document.activeElement !== inp) inp.value = s.enter_points || 0;
+  if (st) st.textContent = (s.enter_points > 0)
+    ? 'Сейчас за этот эфир дают ' + s.enter_points + ' баллов. Каждому — один раз.'
+    : 'Ноль — не платим. Каждый, кто откроет эфир в приложении, получит эти баллы один раз.';
+}
+
+async function livePointsSave(){
+  var v = parseInt(document.getElementById('live-points').value, 10);
+  if (isNaN(v) || v < 0) v = 0;
+  try{
+    var r = await fetch(API + '/admin/live/points?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ points: v })
+    });
+    var d = await r.json();
+    if (!r.ok){ alert(d.detail || 'Не получилось назначить'); return; }
+    if (liveAdminState) liveAdminState.session = d.session;
+    renderLivePointsAdmin(d.session || {});
+  }catch(e){ alert('Нет связи с бэкендом: ' + (e && e.message || e)); }
+}
+
+/* ── Раздача баллов прямо из чата ────────────────────────────────────────
+   Привязка к СООБЩЕНИЮ, а не к человеку: за эфир один и тот же участник
+   может заслужить не раз, но двойное нажатие на одну строку начислить
+   дважды не должно */
+async function chatGift(tid, mid, name){
+  var raw = prompt('Сколько баллов начислить участнику «' + name + '»?', '100');
+  if (raw === null) return;
+  var v = parseInt(raw, 10);
+  if (isNaN(v) || v <= 0){ alert('Нужно положительное число'); return; }
+  try{
+    var r = await fetch(API + '/admin/live/chat/gift?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ telegram_id: tid, amount: v, message_id: mid, announce: true })
+    });
+    var d = await r.json();
+    if (!r.ok){ alert(d.detail || 'Не получилось начислить'); return; }
+    if (d.already){ alert('За это сообщение баллы уже начислены'); return; }
+    loadChatAdmin();
+  }catch(e){ alert('Нет связи с бэкендом: ' + (e && e.message || e)); }
+}
+
 function livePracticeSave(){
   // Сохранение НЕ включает кнопку: ссылку часто вписывают заранее, до эфира
   const on = !!(liveAdminState && liveAdminState.session && liveAdminState.session.practice_on);
@@ -5626,6 +5686,8 @@ function chatMsgHtml(m, muted){
     + (m.telegram_id ? '<button class="chat-ico' + (isMuted ? '' : ' danger') + '" title="'
         + (isMuted ? 'Вернуть голос' : 'Заглушить автора') + '" onclick="chatMute('
         + m.telegram_id + ',' + (!isMuted) + ')">' + ICON_MUTE + '</button>' : '')
+    + (m.telegram_id ? '<button class="chat-ico" title="Начислить баллы автору"'
+        + ' onclick="chatGift(' + m.telegram_id + ',' + m.id + ',' + jsArg(m.name || 'Участник') + ')">+</button>' : '')
     + '</div>';
 }
 
