@@ -12399,6 +12399,7 @@ function gmRenderList(){
           + ' · правил: ' + rules + ' · материалов: ' + mats
           + (g.free_for_guests ? ' · открыта гостю' : '')
           + (g.min_level ? ' · с ' + g.min_level + ' уровня' : '')
+          + (g.win_points ? ' · ' + g.win_points + ' баллов' : '')
           + ' · промпт v' + (g.prompt_version || 1)
         + '</div>'
       + '</div>'
@@ -12560,13 +12561,19 @@ function gmEdit(key){
      + '<label style="display:flex;align-items:center;gap:6px">С уровня'
        + '<input type="number" id="gm-minlevel" min="0" max="20" step="1" value="' + (g.min_level || 0) + '"'
        + ' style="width:64px;' + elInput() + '"></label>'
+     + '<label style="display:flex;align-items:center;gap:6px">Баллы за победу'
+       + '<input type="number" id="gm-winpoints" min="0" max="100000" step="10" value="' + (g.win_points || 0) + '"'
+       + ' style="width:84px;' + elInput() + '"></label>'
      + '</div>';
   h += '<div style="font-size:11px;color:var(--text-faint);line-height:1.45">'
      + 'Гостю открыта только первая ступень трека. Следующая открывается, если предыдущую он закрыл на 90% и выше, и так до третьей.<br>'
      + '<b>С уровня</b> — минимальный уровень участника. Ноль значит «открыта всем участникам». '
      + 'Уровень считается по накопленным баллам, тем же порогам, что и в наградах. '
      + 'Закрытая игра остаётся видимой в списке с подписью «Откроется на N уровне» — так она мотивирует. '
-     + 'На гостей это ограничение не распространяется: у них своя лестница ступеней.</div>';
+     + 'На гостей это ограничение не распространяется: у них своя лестница ступеней.<br>'
+     + '<b>Баллы за победу</b> начисляются РОВНО ОДИН РАЗ на человека и игру — сколько бы партий он ни выиграл потом. '
+     + 'Ноль значит «не платим». Начисляет сервер в момент победы, апп в этом не участвует. '
+     + 'Баллы двигают и баланс, и уровень, так что цену лучше держать скромной.</div>';
 
   h += '<div style="display:flex;gap:8px;flex-wrap:wrap">'
      + '<button class="popup-save" style="flex:1" onclick="gmSaveGame(\'' + g.key + '\')">Сохранить игру</button>'
@@ -12614,7 +12621,7 @@ function gmSaveGame(key){
     extra_params: gmParseExtra('gm-extra'), extra_member: gmParseExtra('gm-extram'),
     upsell_text: gmVal('gm-upsell'),
     enabled: gmChk('gm-enabled'), free_for_guests: gmChk('gm-free'),
-    min_level: gmNum('gm-minlevel', 0)
+    min_level: gmNum('gm-minlevel', 0), win_points: gmNum('gm-winpoints', 0)
   }, key);
 }
 
