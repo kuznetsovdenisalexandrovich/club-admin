@@ -1349,9 +1349,21 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         Те, кому доступ выдан за перевод. Просроченные — сверху. Пришёл перевод —
         жми «Оплатил», и срок продлится на 30 дней от сегодня.
       </div>
+      <!-- ⚠️ ГЛАВНАЯ КНОПКА — ССЫЛКА, А НЕ ВЫДАЧА ПО АЙДИ. [stated] Denis 20.08:
+           «я айди пользователя быстро не могу посмотреть, не заходя глубоко в
+           ботов, мне бы какую-то ссылку прям простую, отправил и забыл» -->
+      <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+        <input class="popup-input" type="number" id="manual-days" value="30" style="margin-bottom:0;width:80px" title="дней">
+        <input class="popup-input" type="number" id="manual-amount" value="990" style="margin-bottom:0;width:100px" title="рублей">
+        <button class="popup-save" style="width:auto;padding:0 16px;margin:0;flex:1" onclick="manualInvite()">Создать ссылку</button>
+      </div>
+      <div id="manual-invite-out" style="display:none;margin-bottom:12px">
+        <input class="popup-input" type="text" id="manual-invite-link" readonly onclick="this.select()" style="margin-bottom:6px">
+        <div style="font-size:11px;color:var(--text-faint)">Отправь человеку. Сработает один раз, живёт трое суток.</div>
+      </div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
-        <input class="popup-input" type="text" id="manual-grant-id" placeholder="Telegram ID нового" style="margin-bottom:0">
-        <button class="popup-save" style="width:auto;padding:0 16px;margin:0" onclick="manualGrant()">Выдать</button>
+        <input class="popup-input" type="text" id="manual-grant-id" placeholder="Или сразу по Telegram ID" style="margin-bottom:0">
+        <button class="popup-save" style="width:auto;padding:0 16px;margin:0;background:transparent;border:1px solid var(--border);color:var(--text)" onclick="manualGrant()">Выдать</button>
       </div>
       <div id="manual-list"><div class="loading">Загрузка...</div></div>
       <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closeManualPopup()">Закрыть</button>
@@ -11527,6 +11539,26 @@ function renderManualList(){
       + '</div>';
   });
   box.innerHTML = h + '</div>';
+}
+
+async function manualInvite(){
+  var days = parseInt(document.getElementById('manual-days').value, 10) || 30;
+  var amount = parseInt(document.getElementById('manual-amount').value, 10) || 0;
+  try {
+    const r = await fetch(API + '/access/manual/invite?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ days: days, amount: amount }),
+    });
+    const d = await r.json();
+    if (!r.ok){ alert('Не получилось: ' + (d.detail || r.status)); return; }
+    document.getElementById('manual-invite-out').style.display = 'block';
+    var box = document.getElementById('manual-invite-link');
+    box.value = d.url || '';
+    box.focus(); box.select();
+    // ⚠️ Копируем сами, но молча не полагаемся на это: буфер доступен не везде,
+    // поэтому поле остаётся выделенным — скопировать можно руками
+    try { navigator.clipboard && navigator.clipboard.writeText(d.url || ''); } catch(e){}
+  } catch(e){ alert('Сеть не ответила: ' + e.message); }
 }
 
 async function manualGrant(){
