@@ -1113,7 +1113,6 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <button class="action-btn" onclick="openRewardCatalogPopup()">Управление наградами</button>
         <button class="action-btn" onclick="openCardsPopup()">Колода карточек</button>
         <button class="action-btn" onclick="openScreensPopup()">Экраны открытия</button>
-        <button class="action-btn" onclick="openManualPopup()">Должны оплатить</button>
         <button class="action-btn" onclick="openRafflePopup()">Розыгрыши</button>
         <button class="action-btn" onclick="openNudgesPopup()">Дожимные рассылки</button>
         <button class="action-btn" onclick="openBonusPopup()">Бонусы за вступление</button>
@@ -1194,6 +1193,17 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     </div>
   </div>
 
+  <!-- ⚠️ ОПЛАТИВШИЕ ПЕРЕВОДОМ ЖИВУТ НА ГЛАВНОЙ, А НЕ В ПОПАПЕ ([stated] Denis
+       20.08: «сделать таким же виджетом, как окно клиентов»). Подписки в
+       Продамусе у них нет — если список спрятать, о просроченных никто не
+       вспомнит. Секция сама прячется, когда никого нет -->
+  <div class="section" id="manual-section" style="display:none">
+    <div class="section-head"><div class="section-title">Должны оплатить</div></div>
+    <div class="card">
+      <div id="manual-list"><div class="loading">Загрузка...</div></div>
+    </div>
+  </div>
+
   <div class="section">
     <div class="section-head">
       <div class="section-title">Участники</div>
@@ -1206,7 +1216,16 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <div class="search-wrap">
         <input type="text" id="user-search" placeholder="Поиск по имени, телефону, email, username..." oninput="filterUsers()">
       </div>
-      <div style="padding:14px 16px"><button class="action-btn" style="width:100%" onclick="openManualUserPopup()">+ Добавить клиента вручную</button></div>
+      <!-- ⚠️ ДВЕ КНОПКИ РЯДОМ: обе про «завести человека руками», и искать их в
+           разных концах экрана незачем ([stated] Denis 20.08) -->
+      <div style="padding:14px 16px;display:flex;gap:8px">
+        <button class="action-btn" style="flex:1" onclick="openManualUserPopup()">+ Добавить клиента вручную</button>
+        <button class="action-btn" style="flex:1" onclick="manualInvite()">Ссылка за перевод</button>
+      </div>
+      <div id="manual-invite-out" style="display:none;padding:0 16px 14px">
+        <input class="popup-input" type="text" id="manual-invite-link" readonly onclick="this.select()" style="margin-bottom:6px">
+        <div style="font-size:11px;color:var(--text-faint)">Скопировано. Отправь человеку — сработает один раз, живёт трое суток.</div>
+      </div>
       <div id="users-list"><div class="loading">Загрузка...</div></div>
       <div id="users-pagination" style="display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 0"></div>
     </div>
@@ -1332,41 +1351,6 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       </div>
       <button class="action-btn" style="width:100%;margin-bottom:14px" onclick="helpSectionCreate()">+ Новый раздел</button>
       <div id="help-sections-list"><div class="loading">Загрузка...</div></div>
-    </div>
-  </div>
-</div>
-
-<!-- ⚠️ ОПЛАТИВШИЕ ПЕРЕВОДОМ. Подписки в Продамусе у них нет, поэтому никто,
-     кроме этого списка, не напомнит, что срок вышел. [stated] Denis 20.08:
-     990 ₽ на 30 дней, через 30 дней бот пишет ЧЕЛОВЕКУ, а здесь такие
-     подсвечиваются, и рядом кнопка «оплатил» -->
-<div class="popup-overlay popup-centered" id="manual-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeManualPopup()">
-  <div class="popup" style="max-width:640px">
-    <button class="popup-close-x" onclick="closeManualPopup()" title="Закрыть">✕</button>
-    <div class="popup-body" style="padding-top:20px">
-      <div class="popup-section-title" style="margin-top:0">Должны оплатить</div>
-      <div style="font-size:11.5px;color:var(--text-faint);margin-bottom:10px;line-height:1.5">
-        Те, кому доступ выдан за перевод. Просроченные — сверху. Пришёл перевод —
-        жми «Оплатил», и срок продлится на 30 дней от сегодня.
-      </div>
-      <!-- ⚠️ ГЛАВНАЯ КНОПКА — ССЫЛКА, А НЕ ВЫДАЧА ПО АЙДИ. [stated] Denis 20.08:
-           «я айди пользователя быстро не могу посмотреть, не заходя глубоко в
-           ботов, мне бы какую-то ссылку прям простую, отправил и забыл» -->
-      <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
-        <input class="popup-input" type="number" id="manual-days" value="30" style="margin-bottom:0;width:80px" title="дней">
-        <input class="popup-input" type="number" id="manual-amount" value="990" style="margin-bottom:0;width:100px" title="рублей">
-        <button class="popup-save" style="width:auto;padding:0 16px;margin:0;flex:1" onclick="manualInvite()">Создать ссылку</button>
-      </div>
-      <div id="manual-invite-out" style="display:none;margin-bottom:12px">
-        <input class="popup-input" type="text" id="manual-invite-link" readonly onclick="this.select()" style="margin-bottom:6px">
-        <div style="font-size:11px;color:var(--text-faint)">Отправь человеку. Сработает один раз, живёт трое суток.</div>
-      </div>
-      <div style="display:flex;gap:8px;margin-bottom:12px">
-        <input class="popup-input" type="text" id="manual-grant-id" placeholder="Или сразу по Telegram ID" style="margin-bottom:0">
-        <button class="popup-save" style="width:auto;padding:0 16px;margin:0;background:transparent;border:1px solid var(--border);color:var(--text)" onclick="manualGrant()">Выдать</button>
-      </div>
-      <div id="manual-list"><div class="loading">Загрузка...</div></div>
-      <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closeManualPopup()">Закрыть</button>
     </div>
   </div>
 </div>
@@ -2550,6 +2534,7 @@ async function loadAll(){
   loadSupport();
   loadRewardRequests();
   document.getElementById('last-update').textContent='Обновлено в '+new Date().toLocaleTimeString('ru');
+  loadManualList();          // «должны оплатить» — своя секция на главной
   await Promise.all([loadStats(),loadUsers(),loadPayments(),loadNotificationLists(),loadCampaigns(),loadAdminCalendarMonth(),loadQuestions(),loadCardsWidget(),loadSeasonWidget()]);
 }
 
@@ -11491,14 +11476,6 @@ var refPosts = [];
 /* ══ ОПЛАТИВШИЕ ПЕРЕВОДОМ ═══════════════════════════════════════════════ */
 let manualItems = [];
 
-function openManualPopup(){
-  document.getElementById('manual-popup-overlay').classList.add('open');
-  loadManualList();
-}
-function closeManualPopup(){
-  document.getElementById('manual-popup-overlay').classList.remove('open');
-}
-
 async function loadManualList(){
   try {
     const d = await fetch(API + '/access/manual/list?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN))
@@ -11510,11 +11487,12 @@ async function loadManualList(){
 
 function renderManualList(){
   var box = document.getElementById('manual-list');
+  var sec = document.getElementById('manual-section');
   if (!box) return;
-  if (!manualItems.length){
-    box.innerHTML = '<div style="font-size:12px;color:var(--text-faint)">Пока никого. Выдай доступ по Telegram ID выше.</div>';
-    return;
-  }
+  // ⚠️ ПУСТУЮ СЕКЦИЮ ПРЯЧЕМ ЦЕЛИКОМ: у Denis'а таких людей может не быть
+  // неделями, и пустое окно на главной только занимало бы место
+  if (sec) sec.style.display = manualItems.length ? '' : 'none';
+  if (!manualItems.length){ box.innerHTML = ''; return; }
   var h = '<div style="display:flex;flex-direction:column;gap:8px">';
   manualItems.forEach(function(it){
     /* ⚠️ ПРОСРОЧЕННЫЙ ВИДНО СРАЗУ, БЕЗ ЧТЕНИЯ ДАТ: у Denis'а таких людей будет
@@ -11542,8 +11520,10 @@ function renderManualList(){
 }
 
 async function manualInvite(){
-  var days = parseInt(document.getElementById('manual-days').value, 10) || 30;
-  var amount = parseInt(document.getElementById('manual-amount').value, 10) || 0;
+  /* ⚠️ ПОЛЕЙ СРОКА И СУММЫ НА ГЛАВНОЙ НЕТ — берём договорённые 30 дней и 990 ₽
+     ([stated] Denis). Кнопка должна работать в одно нажатие: спрашивать цифры
+     каждый раз ради редкого исключения значит мешать в частом случае */
+  var days = 30, amount = 990;
   try {
     const r = await fetch(API + '/access/manual/invite?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -11558,27 +11538,6 @@ async function manualInvite(){
     // ⚠️ Копируем сами, но молча не полагаемся на это: буфер доступен не везде,
     // поэтому поле остаётся выделенным — скопировать можно руками
     try { navigator.clipboard && navigator.clipboard.writeText(d.url || ''); } catch(e){}
-  } catch(e){ alert('Сеть не ответила: ' + e.message); }
-}
-
-async function manualGrant(){
-  var raw = (document.getElementById('manual-grant-id').value || '').trim();
-  var id = parseInt(raw, 10);
-  if (!id){ alert('Нужен Telegram ID числом'); return; }
-  try {
-    const r = await fetch(API + '/access/manual/grant?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ telegram_id: id }),
-    });
-    const d = await r.json();
-    if (!r.ok){ alert('Не получилось: ' + (d.detail || r.status)); return; }
-    document.getElementById('manual-grant-id').value = '';
-    // ⚠️ ССЫЛКИ ПОКАЗЫВАЕМ СРАЗУ: их надо отправить человеку, а живут они 20 минут
-    if (d.channel || d.chat){
-      prompt('Скопируй и отправь человеку (ссылки живут 20 минут):',
-             [d.channel, d.chat].filter(Boolean).join('\n'));
-    }
-    loadManualList();
   } catch(e){ alert('Сеть не ответила: ' + e.message); }
 }
 
