@@ -1621,7 +1621,21 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         </div>
         <div id="fr-sets"><div class="loading">Загрузка...</div></div>
 
-        <div class="popup-section-title">Загрузить рамки</div>
+        <div class="popup-section-title">Залить картотеку разом</div>
+        <div style="opacity:.7;font-size:12.5px;line-height:1.5;margin-bottom:10px">
+          Для файлов, уже названных по стандарту <b>frame-стиль-сет-NN.png</b>:
+          выбери хоть все 57 сразу, сет и стиль возьмутся из имени. Сеты, которых
+          ещё нет, заведутся сами — редкость каждого проверь в таблице ниже.
+          Геометрия у таких файлов уже выверена, поэтому замер только сверяет.
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+          <button class="action-btn" onclick="document.getElementById('fr-bulk-files').click()">Выбрать всю картотеку</button>
+          <input type="file" id="fr-bulk-files" multiple accept="image/png" style="display:none">
+        </div>
+        <div id="fr-bulk-plan"></div>
+        <div id="fr-bulk-say" style="font-size:12.5px;opacity:.8;margin-top:8px"></div>
+
+        <div class="popup-section-title">Загрузить рамки поштучно</div>
         <div style="opacity:.7;font-size:12.5px;line-height:1.5;margin-bottom:10px">
           Кидай PNG как приходят от рисовщика, любого размера. Каждую меряют два
           замерщика — обычный и устойчивый к разрывам борта, — берётся тот, что
@@ -6914,6 +6928,159 @@ function hideAllCardTabs(){
    ═══════════════════════════════════════════════════════════════════════════ */
 
 
+
+/* ═══ ЗАЛИВКА КАРТОТЕКИ РАЗОМ ═══════════════════════════════════════════════
+   Файлы, названные `frame-<стиль>-<сет>-NN.png`, разбираются по имени: сет и
+   стиль брать неоткуда больше, а руками раскладывать 57 штук по 16 пачкам —
+   вечер работы.
+
+   ⚠️ ЧЕТЫРЕ СТИЛЯ В ИМЕНАХ, А В СИСТЕМЕ ТРИ. При нарезке картотеки
+   голографические попали в `legendary`, а терракотовые в `terra` — оба
+   означают «особый». Сводим их здесь, иначе половина рамок уедет в
+   несуществующие стили и пулы окажутся пустыми.
+   ⚠️ ГЕОМЕТРИЯ У ЭТИХ ФАЙЛОВ УЖЕ ВЫВЕРЕНА — замер оставлен только как сверка,
+   и промах он не чинит, а показывает. */
+
+const FR_STYLE_ALIAS = {light:'light', dark:'dark', special:'special',
+                        legendary:'special', terra:'special', holo:'special'};
+/* Редкости сетов, решённые 22.08. Значения подставляются в таблицу и правятся
+   на месте — это подсказка, а не жёсткое правило */
+const FR_SET_RARITY_HINT = {astra:'common', glina:'common',
+                            kolonnada:'uncommon', barocco:'uncommon',
+                            oskolki:'rare', ruina:'legendary'};
+
+let FR_BULK = [];
+
+function frParseName(name){
+  const m = String(name).toLowerCase().match(/^frame-([a-z]+)-([a-z0-9-]+?)-(\d+)(?:-up)?\.png$/);
+  if (!m) return null;
+  const style = FR_STYLE_ALIAS[m[1]];
+  if (!style) return null;
+  return {style:style, set:m[2], num:parseInt(m[3], 10)};
+}
+
+async function frBulkPicked(e){
+  const files = Array.prototype.slice.call(e.target.files || []);
+  if (!files.length) return;
+  document.getElementById('fr-bulk-plan').innerHTML = '<div class="loading">Разбираю имена…</div>';
+  FR_BULK = [];
+  const skipped = [];
+  for (const f of files){
+    const meta = frParseName(f.name);
+    if (!meta){ skipped.push(f.name); continue; }
+    FR_BULK.push({file:f, set:meta.set, style:meta.style, num:meta.num, name:f.name});
+  }
+  frBulkPlan(skipped);
+}
+
+function frBulkPlan(skipped){
+  const box = document.getElementById('fr-bulk-plan');
+  if (!FR_BULK.length){
+    box.innerHTML = '<div class="empty">Ни одно имя не подошло под стандарт frame-стиль-сет-NN.png. '
+      + 'Такие файлы заливай поштучно ниже.</div>';
+    return;
+  }
+  // группировка сет x стиль
+  const sets = {};
+  FR_BULK.forEach(function(u){
+    sets[u.set] = sets[u.set] || {light:0, dark:0, special:0};
+    sets[u.set][u.style]++;
+  });
+  const known = {};
+  frSets.forEach(function(f){ known[f.key] = f; });
+
+  let h = '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+        + '<tr><th style="text-align:left;padding:6px;opacity:.6;font-size:11px">Сет</th>'
+        + '<th style="text-align:left;padding:6px;opacity:.6;font-size:11px">Редкость</th>'
+        + '<th style="text-align:left;padding:6px;opacity:.6;font-size:11px">Сезон</th>'
+        + '<th style="text-align:right;padding:6px;opacity:.6;font-size:11px">Свет</th>'
+        + '<th style="text-align:right;padding:6px;opacity:.6;font-size:11px">Тьма</th>'
+        + '<th style="text-align:right;padding:6px;opacity:.6;font-size:11px">Особ</th></tr>';
+  Object.keys(sets).sort().forEach(function(sk){
+    const c = sets[sk];
+    const cur = known[sk];
+    const rarity = cur ? cur.rarity : (FR_SET_RARITY_HINT[sk] || 'common');
+    const season = cur ? (cur.season_key || '') : '';
+    h += '<tr><td style="padding:6px;border-top:1px solid var(--line)"><b>' + escapeHtmlAdm(sk) + '</b>'
+       + (cur ? '' : ' <span style="opacity:.55;font-size:11px">новый</span>') + '</td>'
+       + '<td style="padding:6px;border-top:1px solid var(--line)">'
+       + '<select id="frb-rar-' + escapeHtmlAdm(sk) + '" style="padding:5px 8px;border-radius:7px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:12.5px">'
+       + Object.keys(FR_RARITIES).map(function(r){
+           return '<option value="' + r + '"' + (r === rarity ? ' selected' : '') + '>' + FR_RARITIES[r] + '</option>'; }).join('')
+       + '</select></td>'
+       + '<td style="padding:6px;border-top:1px solid var(--line)">'
+       + '<input id="frb-sea-' + escapeHtmlAdm(sk) + '" list="series-datalist" value="' + escapeHtmlAdm(season) + '" placeholder="всесезонный" '
+       + 'style="width:110px;padding:5px 8px;border-radius:7px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:12.5px"></td>'
+       + '<td style="padding:6px;border-top:1px solid var(--line);text-align:right">' + c.light + '</td>'
+       + '<td style="padding:6px;border-top:1px solid var(--line);text-align:right">' + c.dark + '</td>'
+       + '<td style="padding:6px;border-top:1px solid var(--line);text-align:right">' + c.special + '</td></tr>';
+  });
+  h += '</table>'
+     + '<div style="margin-top:10px;font-size:12.5px;opacity:.75">Разобрано файлов: <b>' + FR_BULK.length + '</b>'
+     + (skipped && skipped.length ? (' · не подошли по имени: ' + skipped.length) : '') + '</div>'
+     + '<button class="action-btn primary" style="margin-top:10px" onclick="frBulkUpload()">Залить всё</button>';
+  box.innerHTML = h;
+}
+
+async function frBulkUpload(){
+  const say = document.getElementById('fr-bulk-say');
+  const sets = {};
+  FR_BULK.forEach(function(u){ sets[u.set] = true; });
+
+  // 1. Сеты: заводим недостающие и обновляем редкость/сезон у существующих
+  for (const sk of Object.keys(sets)){
+    const rar = document.getElementById('frb-rar-' + sk);
+    const sea = document.getElementById('frb-sea-' + sk);
+    try {
+      await frApi('/cards/admin/framesets', {method:'POST', body: JSON.stringify({
+        key: sk, title: sk,
+        rarity: rar ? rar.value : 'common',
+        season_key: sea ? sea.value.trim() : '',
+        active: true })});
+    } catch (e){ say.textContent = 'Сет ' + sk + ' не завёлся: ' + e.message; return; }
+  }
+
+  // 2. Рамки. Порядок сохраняем по номеру в имени, чтобы ключи не перемешались
+  FR_BULK.sort(function(a, b){
+    return a.set.localeCompare(b.set) || a.style.localeCompare(b.style) || a.num - b.num;
+  });
+  let done = 0, bad = 0;
+  for (let i = 0; i < FR_BULK.length; i++){
+    const u = FR_BULK[i];
+    say.textContent = 'Заливаю ' + (i + 1) + ' из ' + FR_BULK.length + '…';
+    try {
+      const img = await frImg(URL.createObjectURL(u.file));
+      // Сверка: файл уже должен быть в стандарте. Если нет — сажаем на лету
+      const cv = document.createElement('canvas');
+      cv.width = FR_TGT.W; cv.height = FR_TGT.H;
+      cv.getContext('2d').drawImage(img, 0, 0, FR_TGT.W, FR_TGT.H);
+      let use = cv;
+      const dev = Math.min(frDev(cv, false), frDev(cv, true));
+      if (dev > 11){
+        const m = frMeasure(img, false) || frMeasure(img, true);
+        if (m) use = frCompose(img, m);
+        bad++;
+      }
+      const key = 'frame-' + u.style + '-' + u.set + '-' + String(u.num).padStart(2, '0');
+      const big   = await frBase64(await frBlob(use, 'image/png'));
+      const small = await frBase64(await frBlob(frSmall(use), 'image/png'));
+      await frApi('/cards/admin/frames', {method:'POST', body: JSON.stringify({
+        key:key, set_key:u.set, style:u.style, active:true,
+        image_base64: big, image_small_base64: small })});
+      done++;
+    } catch (e){
+      say.textContent = 'Оборвалось на ' + u.name + ': ' + e.message + ' (залито до этого: ' + done + ')';
+      frLoad();
+      return;
+    }
+  }
+  FR_BULK = [];
+  document.getElementById('fr-bulk-files').value = '';
+  document.getElementById('fr-bulk-plan').innerHTML = '';
+  say.textContent = 'Готово. Залито рамок: ' + done + (bad ? (' · пересажено на лету: ' + bad) : '');
+  frLoad();
+}
+
 /* Дашборд ходит голым fetch с токеном в query — свой помощник, чтобы не
    расплодить одинаковые обвязки по всему разделу */
 async function frApi(path, opts){
@@ -7158,6 +7325,8 @@ async function frDeleteFrame(key){
 document.addEventListener('DOMContentLoaded', function(){
   const inp = document.getElementById('fr-files');
   if (inp) inp.addEventListener('change', frFilesPicked);
+  const bulk = document.getElementById('fr-bulk-files');
+  if (bulk) bulk.addEventListener('change', frBulkPicked);
   const sg = document.getElementById('sg-files');
   if (sg) sg.addEventListener('change', sgFilesPicked);
 });
