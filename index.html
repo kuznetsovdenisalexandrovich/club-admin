@@ -7552,6 +7552,12 @@ async function sgUploadAll(){
 }
 
 function switchCardsSection(name){
+  // ⚠️⚠️ НЕИЗВЕСТНОЕ ИМЯ РАЗДЕЛА НЕ ДОЛЖНО ДАВАТЬ ПУСТОЕ ОКНО. Ниже сначала
+  // прячется всё, а показывается только то, у чего есть своя ветка: опечатка
+  // или снятый раздел молча оставляли попап без единой строки, и выглядело это
+  // как «дашборд сломался». Падаем на колоду — она есть всегда.
+  var KNOWN = ['deck','frames','sigils','screens','packs','gods','todo'];
+  if (KNOWN.indexOf(name) === -1) name = 'deck';
   cardsSection = name;
   ['deck','frames','sigils','screens','packs','gods','todo'].forEach(function(n){
     const b = document.getElementById('cards-sec-'+n+'-btn');
@@ -7622,7 +7628,9 @@ function switchDeckView(view){
    Переводим прежние вкладки в новые разделы, чтобы ничего не отвалилось */
 function switchCardsTab(tab){
   cardsTab = tab;
-  if (tab === 'elements') return switchCardsSection('shop');
+  // ⚠️ ПРОСИЛ РАЗДЕЛ 'shop', КОТОРОГО НЕТ, — и попап оставался пустым.
+  // Мастерской больше нет; ближайшее осмысленное место — колода
+  if (tab === 'elements') return switchCardsSection('deck');
   if (tab === 'gods') return switchCardsSection('gods');
   if (tab === 'queue' || tab === 'grant') return switchCardsSection('todo');
   if (tab === 'series' || tab === 'unique' || tab === 'sim'){
@@ -8079,8 +8087,10 @@ async function openCardFromGod(key){
    если открыть пустой редактор, первый же выбранный файл упрётся в «сначала
    задай ключ». Ключ собираем тем же способом, что и прежний конструктор:
    сезон, слаг бога, номер — и проверяем, что такой ещё не занят. */
-async function addArtForGod(){
-  var god = godCardsGod;
+async function addArtForGod(god){
+  // Бог приходит либо параметром (клик по пустой плитке пантеона), либо из
+  // окна бога (кнопка «загрузить арт» рядом с уже нарисованными)
+  god = god || godCardsGod;
   closeGodCards();
   if (!cardsPopupOpen()) await openCardsPopup();
   var base = (currentSeries ? currentSeries + '-' : '') + godSlug(god);
@@ -9874,7 +9884,11 @@ async function loadShelf(key){
       var first = slot.cards[0];
       // Даже у заполненного слота клик ведёт НЕ прямо в карточку: у бога в сезоне
       // может быть несколько карт, и выбирать надо из них
-      var act = empty ? ('composeForSlot(' + jsArg(slot.god) + ')')
+      // ⚠️ ПУСТОЙ СЛОТ ВЁЛ В КОНСТРУКТОР — и после его снятия попап становился
+      // ПУСТЫМ: switchCardsTab('elements') просил раздел 'shop', которого нет.
+      // А пустых слотов сейчас все девятнадцать, то есть сломан был ровно тот
+      // путь, которым и наполняют колоду.
+      var act = empty ? ('addArtForGod(' + jsArg(slot.god) + ')')
                       : ('openGodCards(' + jsArg(slot.god) + ')');
       h += '<div onclick="' + act + '" style="cursor:pointer;border:1px solid var(--line);'
         + 'border-radius:10px;padding:6px;text-align:center;'
@@ -9912,16 +9926,11 @@ function godSlug(name){
 /* Клик по пустому слоту полки: заводим ключ, открываем композер. Сама карточка
    создастся на сервере в момент сохранения — раньше создавать нечего, человек
    может передумать и закрыть редактор */
+/* ⚠️ КОНСТРУКТОР СНЯТ 22.08.2026 — эта функция больше не собирает картинку,
+   а ведёт туда же, куда пустая плитка: в новую карточку бога с полем файла.
+   Оставлена под своим именем, потому что на неё могли остаться ссылки. */
 function composeForSlot(god){
-  var base = (currentSeries ? currentSeries + '-' : '') + godSlug(god);
-  var n = 1, key = base + '-01';
-  while ((cardTypes || []).some(function(c){ return c.key === key; })){
-    n += 1; key = base + '-' + (n < 10 ? '0' : '') + n;
-  }
-  switchCardsTab('elements');
-  setTimeout(function(){
-    openComposer({ cardKey: key, god: god, series: currentSeries, isNew: true });
-  }, 0);
+  return addArtForGod(god);
 }
 
 /* Вход в композер из самой карточки — второй и последний. Больше композер
