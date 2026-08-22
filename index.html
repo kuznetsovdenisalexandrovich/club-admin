@@ -1479,7 +1479,8 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
            внутрь тех разделов, где они реально нужны. -->
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
         <button class="action-btn" id="cards-sec-deck-btn" onclick="switchCardsSection('deck')">Колода</button>
-        <button class="action-btn" id="cards-sec-shop-btn" onclick="switchCardsSection('shop')">Мастерская</button>
+        <button class="action-btn" id="cards-sec-frames-btn" onclick="switchCardsSection('frames')">Рамки</button>
+        <button class="action-btn" id="cards-sec-sigils-btn" onclick="switchCardsSection('sigils')">Сигилы</button>
         <button class="action-btn" id="cards-sec-gods-btn" onclick="switchCardsSection('gods')">Боги</button>
         <button class="action-btn" id="cards-sec-todo-btn" onclick="switchCardsSection('todo')">Дела<span id="cards-todo-count" style="margin-left:6px;font-size:11px;color:var(--warm)"></span></button>
       </div>
@@ -1596,6 +1597,80 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       </div>
 
       <!-- Библиотека элементов + превью сборки -->
+      <!-- ═══ РАМКИ: сеты, покрытие пулов, загрузка ═══════════════════════
+           Три оси решают всё: РЕДКОСТЬ карты выбирает сет, СТИЛЬ карты —
+           подмножество внутри сета, СЕЗОН не даёт сетам смешаться. Внутри
+           подмножества рамка берётся случайно — это и есть уникальность
+           экземпляра, и она ЗАПИСЫВАЕТСЯ карте при выдаче. -->
+      <div id="cards-tab-frames" style="display:none">
+        <div id="fr-pools" style="margin-bottom:14px"></div>
+
+        <div class="popup-section-title" style="margin-top:0">Сеты</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+          <input id="fr-set-key" placeholder="ключ латиницей: ruina"
+                 style="flex:1;min-width:120px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">
+          <select id="fr-set-rarity" style="padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">
+            <option value="common">Частая</option>
+            <option value="uncommon">Нечастая</option>
+            <option value="rare">Редкая</option>
+            <option value="legendary">Легендарная</option>
+          </select>
+          <input id="fr-set-season" list="series-datalist" placeholder="сезон (пусто = всесезонный)"
+                 style="flex:1;min-width:120px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">
+          <button class="action-btn" onclick="frSaveSet()">Завести сет</button>
+        </div>
+        <div id="fr-sets"><div class="loading">Загрузка...</div></div>
+
+        <div class="popup-section-title">Загрузить рамки</div>
+        <div style="opacity:.7;font-size:12.5px;line-height:1.5;margin-bottom:10px">
+          Кидай PNG как приходят от рисовщика, любого размера. Каждую меряют два
+          замерщика — обычный и устойчивый к разрывам борта, — берётся тот, что
+          посадил точнее. До 4 px норма, до 11 px приемлемо для рамок с
+          обломками, больше — правь ползунками.
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+          <select id="fr-up-set" style="flex:1;min-width:140px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px"></select>
+          <select id="fr-up-style" style="padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">
+            <option value="light">Светлые</option>
+            <option value="dark">Тёмные</option>
+            <option value="special">Особые</option>
+          </select>
+          <button class="action-btn" onclick="document.getElementById('fr-files').click()">Выбрать файлы</button>
+          <input type="file" id="fr-files" multiple accept="image/png" style="display:none">
+        </div>
+        <div id="fr-up-list"></div>
+        <div id="fr-say" style="font-size:12.5px;opacity:.8;margin-top:8px"></div>
+        <div id="fr-up-actions" style="display:none;margin-top:10px">
+          <button class="action-btn primary" onclick="frUploadAll()">Залить все посаженные</button>
+        </div>
+
+        <div class="popup-section-title">Картотека</div>
+        <div id="fr-list"><div class="loading">Загрузка...</div></div>
+      </div>
+
+      <!-- ═══ СИГИЛЫ: покрытие 19 богов x 3 стиля ═════════════════════════
+           Сигил ключуется парой БОГ + СТИЛЬ, редкость на него не влияет.
+           ⚠️ Две яркости: обычная для экрана и притушенная для листа экспорта —
+           рисовщик игнорирует прозрачность, поэтому нужен отдельный файл. -->
+      <div id="cards-tab-sigils" style="display:none">
+        <div id="sg-cover" style="margin-bottom:14px"><div class="loading">Загрузка...</div></div>
+
+        <div class="popup-section-title" style="margin-top:0">Загрузить</div>
+        <div style="opacity:.7;font-size:12.5px;line-height:1.5;margin-bottom:10px">
+          Кидай пачкой. Если в имени файла есть бог латиницей и слово
+          light / dark / special, подставлю сам — останется проверить.
+          Файл с «soft» в имени ложится притушенной версией для экспорта.
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+          <button class="action-btn" onclick="document.getElementById('sg-files').click()">Выбрать файлы</button>
+          <input type="file" id="sg-files" multiple accept="image/png,image/webp" style="display:none">
+        </div>
+        <div id="sg-up-list"></div>
+        <div id="sg-up-actions" style="display:none;margin-top:10px">
+          <button class="action-btn primary" onclick="sgUploadAll()">Залить все</button>
+        </div>
+      </div>
+
       <div id="cards-tab-elements" style="display:none">
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
           <button class="action-btn" onclick="setElKind('frame')" id="el-kind-frame">Рамки</button>
@@ -6814,7 +6889,7 @@ function closeCardsPopup(){
 var cardsSection = 'deck';
 var deckView = 'series';   // сезон — вид по умолчанию
 
-const CARD_TAB_IDS = ['deck','gods','sim','queue','grant','series','unique','elements','packs'];
+const CARD_TAB_IDS = ['deck','gods','sim','queue','grant','series','unique','elements','packs','frames','sigils'];
 
 function hideAllCardTabs(){
   CARD_TAB_IDS.forEach(function(t){
@@ -6823,9 +6898,490 @@ function hideAllCardTabs(){
   });
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   РАМКИ И СИГИЛЫ (пересборка 22.08.2026)
+
+   Геометрия окна у всех рамок ОДНА: холст 1080x1440, окно 844x1202 в точке
+   (118,118). Рамки приводятся к ней ЗДЕСЬ, при загрузке, — поэтому апп кладёт
+   арт под рамку одними и теми же процентами и ничего не замеряет на лету.
+
+   ⚠️ ДВА ЗАМЕРЩИКА, А НЕ ОДИН. У сломанных рамок борт бывает разорван
+   насквозь: луч замера уходит в щель и меряет окно на 15-30 px больше
+   настоящего. Обычный замерщик берёт крайние значения (чтобы декор, заходящий
+   внутрь окна, не обрезал его), устойчивый отбрасывает выбросы по медиане.
+   Для каждого файла берём тот, что посадил точнее.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+
+/* Дашборд ходит голым fetch с токеном в query — свой помощник, чтобы не
+   расплодить одинаковые обвязки по всему разделу */
+async function frApi(path, opts){
+  opts = opts || {};
+  const sep = path.indexOf('?') >= 0 ? '&' : '?';
+  const r = await fetch(API + path + sep + 'x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+    method: opts.method || 'GET',
+    headers: {'Content-Type':'application/json'},
+    body: opts.body
+  });
+  const d = await r.json().catch(function(){ return {}; });
+  if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
+  return d;
+}
+function frSay(msg){
+  const el = document.getElementById('fr-say');
+  if (el){ el.textContent = msg; }
+  else if (typeof alert === 'function' && msg) { console.log(msg); }
+}
+function frBase64(blobOrFile){
+  return new Promise(function(res, rej){
+    const fr = new FileReader();
+    fr.onload = function(){ res(String(fr.result).split(',')[1]); };
+    fr.onerror = rej;
+    fr.readAsDataURL(blobOrFile);
+  });
+}
+
+const FR_TGT = {x:118, y:118, w:844, h:1202, W:1080, H:1440};
+const FR_ATH = 128;            // порог альфы: ниже — считаем прозрачным
+const FR_STYLES = {light:'Светлые', dark:'Тёмные', special:'Особые'};
+const FR_RARITIES = {common:'Частая', uncommon:'Нечастая', rare:'Редкая', legendary:'Легендарная'};
+
+let frSets = [], frPools = {}, frFrames = [], FR_UP = [];
+
+function frImg(src){
+  return new Promise(function(res, rej){
+    const i = new Image();
+    i.onload = function(){ res(i); };
+    i.onerror = rej;
+    i.src = src;
+  });
+}
+function frAlpha(img, maxSide){
+  const k = Math.min(1, maxSide / Math.max(img.width, img.height));
+  const w = Math.round(img.width * k), h = Math.round(img.height * k);
+  const cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  const cx = cv.getContext('2d', {willReadFrequently:true});
+  cx.drawImage(img, 0, 0, w, h);
+  return {a: cx.getImageData(0,0,w,h).data, w:w, h:h, k:k};
+}
+function frRay(a, w, h, fixed, alongRow){
+  const n = alongRow ? w : h, c = n >> 1;
+  function at(i){ return alongRow ? a[(fixed*w + i)*4 + 3] : a[(i*w + fixed)*4 + 3]; }
+  if (at(c) >= FR_ATH) return null;          // центр непрозрачен — луч попал на декор
+  let s = c; while (s > 0 && at(s-1) < FR_ATH) s--;
+  let e = c; while (e < n-1 && at(e+1) < FR_ATH) e++;
+  return [s, e];
+}
+function frCollect(a, w, h){
+  const rows = [.22,.28,.34,.42,.5,.58,.66,.72,.78].map(function(p){ return Math.round(h*p); });
+  const cols = [.22,.3,.4,.5,.6,.7,.78].map(function(p){ return Math.round(w*p); });
+  const L=[],R=[],T=[],B=[];
+  rows.forEach(function(r){ const v = frRay(a,w,h,r,true);  if (v){ L.push(v[0]); R.push(v[1]); } });
+  cols.forEach(function(c){ const v = frRay(a,w,h,c,false); if (v){ T.push(v[0]); B.push(v[1]); } });
+  return {L:L, R:R, T:T, B:B};
+}
+function frPick(vals, wantMin, robust, k){
+  if (!vals.length) return null;
+  let keep = vals;
+  if (robust){
+    const sorted = vals.slice().sort(function(a,b){ return a-b; });
+    const med = sorted[sorted.length >> 1];
+    keep = vals.filter(function(x){ return Math.abs(x - med) <= 25 * k; });
+    if (!keep.length) keep = vals;
+  }
+  return wantMin ? Math.min.apply(null, keep) : Math.max.apply(null, keep);
+}
+function frMeasure(img, robust){
+  const m = frAlpha(img, 900), c = frCollect(m.a, m.w, m.h);
+  const L = frPick(c.L, true, robust, m.k),  R = frPick(c.R, false, robust, m.k);
+  const T = frPick(c.T, true, robust, m.k),  B = frPick(c.B, false, robust, m.k);
+  if (L === null || R === null || T === null || B === null) return null;
+  return {L: L/m.k, T: T/m.k, R: R/m.k, B: B/m.k};
+}
+function frCompose(img, m, adj){
+  adj = adj || {s:1, dx:0, dy:0};
+  const ww = m.R - m.L + 1, wh = m.B - m.T + 1;
+  const sx = FR_TGT.w / ww * adj.s, sy = FR_TGT.h / wh * adj.s;
+  const cv = document.createElement('canvas');
+  cv.width = FR_TGT.W; cv.height = FR_TGT.H;
+  cv.getContext('2d').drawImage(img,
+    FR_TGT.x - m.L*sx + adj.dx, FR_TGT.y - m.T*sy + adj.dy,
+    img.width*sx, img.height*sy);
+  return cv;
+}
+function frDev(cv, robust){
+  const k = 900 / FR_TGT.H;
+  const sc = document.createElement('canvas');
+  sc.width = Math.round(FR_TGT.W*k); sc.height = 900;
+  sc.getContext('2d').drawImage(cv, 0, 0, sc.width, sc.height);
+  const a = sc.getContext('2d', {willReadFrequently:true}).getImageData(0,0,sc.width,sc.height).data;
+  const c = frCollect(a, sc.width, sc.height);
+  const L = frPick(c.L,true,robust,k), R = frPick(c.R,false,robust,k);
+  const T = frPick(c.T,true,robust,k), B = frPick(c.B,false,robust,k);
+  if (L === null || R === null || T === null || B === null) return 999;
+  return Math.round(Math.max(
+    Math.abs(L/k - FR_TGT.x), Math.abs(T/k - FR_TGT.y),
+    Math.abs(R/k - (FR_TGT.x + FR_TGT.w - 1)), Math.abs(B/k - (FR_TGT.y + FR_TGT.h - 1))));
+}
+
+async function frLoad(){
+  try {
+    const data = await frApi('/cards/admin/framesets');
+    frSets = data.sets || []; frPools = data.pools || {};
+    frFrames = await frApi('/cards/admin/frames');
+  } catch (e){
+    document.getElementById('fr-sets').innerHTML = '<div class="empty">Не удалось загрузить: ' + e.message + '</div>';
+    return;
+  }
+  frRenderPools(); frRenderSets(); frRenderList(); frFillUpSelect();
+}
+
+function frRenderPools(){
+  let h = '<div class="popup-section-title" style="margin-top:0">Пулы выдачи</div>'
+        + '<div style="opacity:.7;font-size:12.5px;margin-bottom:8px">Пустая ячейка — карта такой редкости и стиля выдастся БЕЗ рамки.</div>'
+        + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+        + '<tr><th style="text-align:left;padding:6px;opacity:.6;font-size:11px">Редкость</th>';
+  Object.keys(FR_STYLES).forEach(function(st){
+    h += '<th style="text-align:right;padding:6px;opacity:.6;font-size:11px">' + FR_STYLES[st] + '</th>';
+  });
+  h += '</tr>';
+  Object.keys(FR_RARITIES).forEach(function(r){
+    h += '<tr><td style="padding:6px;border-top:1px solid var(--line)">' + FR_RARITIES[r] + '</td>';
+    Object.keys(FR_STYLES).forEach(function(st){
+      const n = frPools[r + '|' + st] || 0;
+      h += '<td style="padding:6px;border-top:1px solid var(--line);text-align:right;'
+         + (n ? '' : 'color:#e07a7a') + '">' + n + '</td>';
+    });
+    h += '</tr>';
+  });
+  document.getElementById('fr-pools').innerHTML = h + '</table>';
+}
+
+function frRenderSets(){
+  if (!frSets.length){
+    document.getElementById('fr-sets').innerHTML = '<div class="empty">Сетов пока нет. Заведи первый — он и решает, какой редкости достанутся его рамки.</div>';
+    return;
+  }
+  let h = '';
+  frSets.forEach(function(f){
+    h += '<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)">'
+       + '<b style="flex:1">' + escapeHtmlAdm(f.key) + '</b>'
+       + '<span style="opacity:.7;font-size:12.5px">' + (FR_RARITIES[f.rarity] || f.rarity) + '</span>'
+       + '<span style="opacity:.55;font-size:12px">' + (f.season_key ? escapeHtmlAdm(f.season_key) : 'всесезонный') + '</span>'
+       + '<span style="opacity:.7;font-size:12.5px">' + f.frames_count + ' шт</span>'
+       + '<button class="action-btn" style="font-size:12px;padding:4px 9px" onclick="frToggleSet(\'' + escapeHtmlAdm(f.key) + '\',' + (f.active ? 'false' : 'true') + ')">'
+       + (f.active ? 'выключить' : 'включить') + '</button>'
+       + '<button class="action-btn" style="font-size:12px;padding:4px 9px" onclick="frDeleteSet(\'' + escapeHtmlAdm(f.key) + '\')">удалить</button>'
+       + '</div>';
+  });
+  document.getElementById('fr-sets').innerHTML = h;
+}
+
+function frFillUpSelect(){
+  const sel = document.getElementById('fr-up-set');
+  if (!sel) return;
+  sel.innerHTML = frSets.map(function(f){
+    return '<option value="' + escapeHtmlAdm(f.key) + '">' + escapeHtmlAdm(f.key) + ' — ' + (FR_RARITIES[f.rarity] || f.rarity) + '</option>';
+  }).join('');
+}
+
+async function frSaveSet(){
+  const key = (document.getElementById('fr-set-key').value || '').trim().toLowerCase();
+  if (!key){ frSay('Назови сет латиницей'); return; }
+  try {
+    await frApi('/cards/admin/framesets', {
+      method: 'POST',
+      body: JSON.stringify({
+        key: key, title: key,
+        rarity: document.getElementById('fr-set-rarity').value,
+        season_key: (document.getElementById('fr-set-season').value || '').trim(),
+        active: true
+      })
+    });
+    document.getElementById('fr-set-key').value = '';
+    frSay('Сет «' + key + '» заведён');
+    frLoad();
+  } catch (e){ frSay('Не вышло: ' + e.message); }
+}
+async function frToggleSet(key, on){
+  const f = frSets.find(function(x){ return x.key === key; }) || {};
+  try {
+    await frApi('/cards/admin/framesets', {method:'POST', body: JSON.stringify({
+      key:key, rarity:f.rarity, season_key:f.season_key, active:on })});
+    frLoad();
+  } catch (e){ frSay('Не вышло: ' + e.message); }
+}
+async function frDeleteSet(key){
+  if (!confirm('Удалить сет «' + key + '» вместе со всеми его рамками?\n\nУже выданные карты не изменятся, но показывать их рамку станет нечем.')) return;
+  try {
+    const r = await frApi('/cards/admin/framesets/' + encodeURIComponent(key), {method:'DELETE'});
+    frSay('Удалено рамок: ' + r.frames_deleted + (r.instances_affected ? ', задето экземпляров: ' + r.instances_affected : ''));
+    frLoad();
+  } catch (e){ frSay('Не вышло: ' + e.message); }
+}
+
+function frRenderList(){
+  if (!frFrames.length){
+    document.getElementById('fr-list').innerHTML = '<div class="empty">Рамок пока нет.</div>';
+    return;
+  }
+  const bySet = {};
+  frFrames.forEach(function(f){ (bySet[f.set_key] = bySet[f.set_key] || []).push(f); });
+  let h = '';
+  Object.keys(bySet).forEach(function(sk){
+    h += '<div style="margin-top:12px;font-weight:600;font-size:13px">' + escapeHtmlAdm(sk)
+       + ' <span style="opacity:.55;font-weight:400">' + bySet[sk].length + ' шт</span></div>'
+       + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px;margin-top:6px">';
+    bySet[sk].forEach(function(f){
+      h += '<div style="text-align:center">'
+         + '<img src="' + escapeHtmlAdm(f.url_small || f.url) + '" loading="lazy" style="width:100%;border-radius:6px;background:repeating-conic-gradient(#3a3a46 0 25%,#2c2c36 0 50%) 50%/14px 14px">'
+         + '<div style="font-size:9.5px;opacity:.6;margin-top:4px;word-break:break-all">' + escapeHtmlAdm(f.key.replace('frame-','')) + '</div>'
+         + '<button class="action-btn" style="font-size:10px;padding:2px 7px;margin-top:3px" onclick="frDeleteFrame(\'' + escapeHtmlAdm(f.key) + '\')">убрать</button>'
+         + '</div>';
+    });
+    h += '</div>';
+  });
+  document.getElementById('fr-list').innerHTML = h;
+}
+async function frDeleteFrame(key){
+  if (!confirm('Убрать рамку «' + key + '»?')) return;
+  try {
+    const r = await frApi('/cards/admin/frames/' + encodeURIComponent(key), {method:'DELETE'});
+    if (r.instances_affected) frSay('Убрана. Задето экземпляров: ' + r.instances_affected);
+    frLoad();
+  } catch (e){ frSay('Не вышло: ' + e.message); }
+}
+
+/* ── Загрузка рамок: замер, посадка, ручная доводка ─────────────────────── */
+document.addEventListener('DOMContentLoaded', function(){
+  const inp = document.getElementById('fr-files');
+  if (inp) inp.addEventListener('change', frFilesPicked);
+  const sg = document.getElementById('sg-files');
+  if (sg) sg.addEventListener('change', sgFilesPicked);
+});
+
+async function frFilesPicked(e){
+  const files = Array.prototype.slice.call(e.target.files || []);
+  if (!files.length) return;
+  FR_UP = [];
+  document.getElementById('fr-up-list').innerHTML = '<div class="loading">Меряю…</div>';
+  for (const f of files){
+    const url = URL.createObjectURL(f);
+    let img;
+    try { img = await frImg(url); } catch (err){ continue; }
+    let best = null, robust = false, dev = 999;
+    [[frMeasure(img,false),false], [frMeasure(img,true),true]].forEach(function(pair){
+      if (!pair[0]) return;
+      const cv = frCompose(img, pair[0]);
+      const d = Math.min(frDev(cv,false), frDev(cv,true));
+      if (d < dev){ dev = d; best = pair[0]; robust = pair[1]; }
+    });
+    FR_UP.push({name:f.name, img:img, m:best, robust:robust, adj:{s:1,dx:0,dy:0}, dev:dev, manual:false});
+  }
+  frRenderUp();
+}
+
+function frRenderUp(){
+  const box = document.getElementById('fr-up-list');
+  if (!FR_UP.length){ box.innerHTML = ''; document.getElementById('fr-up-actions').style.display='none'; return; }
+  box.innerHTML = FR_UP.map(function(u, i){
+    const col = !u.m ? '#e07a7a' : (u.dev <= 4 ? '#5fd39a' : (u.dev <= 11 ? 'var(--text)' : '#e8a05f'));
+    return '<div style="display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:10px;flex-wrap:wrap" data-i="' + i + '">'
+      + '<canvas style="width:132px;border-radius:8px;background:repeating-conic-gradient(#3a3a46 0 25%,#2c2c36 0 50%) 50%/14px 14px"></canvas>'
+      + '<div style="flex:1;min-width:200px">'
+        + '<b style="font-size:12.5px">' + escapeHtmlAdm(u.name) + '</b>'
+        + '<div style="font-size:12px;margin-top:3px;color:' + col + '">'
+          + (u.m ? ('отклонение ' + u.dev + ' px · замерщик: ' + (u.robust ? 'устойчивый' : 'обычный')) : 'окно не найдено — только руками')
+        + '</div>'
+        + '<div style="margin-top:6px"><a style="cursor:pointer;color:var(--warm);font-size:12.5px" onclick="frToggleManual(' + i + ')">'
+          + (u.manual ? 'Скрыть ручную посадку' : 'Подогнать вручную') + '</a></div>'
+        + (u.manual ? (
+            '<div style="margin-top:6px">'
+            + '<div style="font-size:11px;opacity:.6">Масштаб ' + (u.adj.s*100).toFixed(1) + '%</div>'
+            + '<input type="range" min="90" max="110" step="0.2" value="' + (u.adj.s*100) + '" style="width:100%" oninput="frAdj(' + i + ',\'s\',this.value)">'
+            + '<div style="font-size:11px;opacity:.6">Сдвиг по горизонтали ' + u.adj.dx + ' px</div>'
+            + '<input type="range" min="-80" max="80" step="1" value="' + u.adj.dx + '" style="width:100%" oninput="frAdj(' + i + ',\'dx\',this.value)">'
+            + '<div style="font-size:11px;opacity:.6">Сдвиг по вертикали ' + u.adj.dy + ' px</div>'
+            + '<input type="range" min="-80" max="80" step="1" value="' + u.adj.dy + '" style="width:100%" oninput="frAdj(' + i + ',\'dy\',this.value)">'
+            + '</div>') : '')
+      + '</div></div>';
+  }).join('');
+  document.getElementById('fr-up-actions').style.display = 'block';
+  FR_UP.forEach(function(u, i){ frDrawPreview(i); });
+}
+function frToggleManual(i){
+  const u = FR_UP[i];
+  u.manual = !u.manual;
+  if (!u.m) u.m = {L:0, T:0, R:u.img.width-1, B:u.img.height-1};
+  frRenderUp();
+}
+function frAdj(i, k, v){
+  const u = FR_UP[i];
+  if (k === 's') u.adj.s = (+v)/100; else u.adj[k] = +v;
+  frDrawPreview(i, true);
+}
+function frDrawPreview(i, skipDev){
+  const u = FR_UP[i];
+  const wrap = document.querySelector('#fr-up-list [data-i="' + i + '"] canvas');
+  if (!wrap || !u.m) return;
+  const full = frCompose(u.img, u.m, u.adj);
+  u.cv = full;
+  if (!skipDev) u.dev = Math.min(frDev(full,false), frDev(full,true));
+  wrap.width = 264; wrap.height = 352;
+  const cx = wrap.getContext('2d');
+  cx.drawImage(full, 0, 0, 264, 352);
+  cx.strokeStyle = 'rgba(95,211,154,.85)'; cx.setLineDash([5,4]);
+  cx.strokeRect(FR_TGT.x/4.09, FR_TGT.y/4.09, FR_TGT.w/4.09, FR_TGT.h/4.09);
+}
+
+function frBlob(cv, type, q){
+  return new Promise(function(res){ cv.toBlob(res, type, q); });
+}
+function frSmall(cv){
+  const w = 400, h = Math.round(w * FR_TGT.H / FR_TGT.W);
+  const s = document.createElement('canvas');
+  s.width = w; s.height = h;
+  s.getContext('2d').drawImage(cv, 0, 0, w, h);
+  return s;
+}
+async function frUploadAll(){
+  const setKey = document.getElementById('fr-up-set').value;
+  const style  = document.getElementById('fr-up-style').value;
+  if (!setKey){ frSay('Сначала заведи сет'); return; }
+  let n = frFrames.filter(function(f){ return f.set_key === setKey && f.style === style; }).length;
+  let done = 0;
+  for (const u of FR_UP){
+    if (!u.cv) continue;
+    n++;
+    const key = 'frame-' + style + '-' + setKey + '-' + String(n).padStart(2,'0');
+    try {
+      // Две версии: крупная под экран и экспорт, мелкая под полку коллекции
+      // ⚠️ ДВЕ ВЕРСИИ СРАЗУ: крупная под экран и экспорт, мелкая под полку.
+      // Картинка в памяти телефона занимает ширину x высоту x 4 байта
+      // независимо от того, насколько мелко показана
+      const big   = await frBase64(await frBlob(u.cv, 'image/png'));
+      const small = await frBase64(await frBlob(frSmall(u.cv), 'image/png'));
+      await frApi('/cards/admin/frames', {method:'POST', body: JSON.stringify({
+        key:key, set_key:setKey, style:style, active:true,
+        image_base64: big, image_small_base64: small })});
+      done++;
+    } catch (e){
+      frSay('Не залилась ' + u.name + ': ' + e.message);
+      break;
+    }
+  }
+  FR_UP = []; document.getElementById('fr-files').value = '';
+  frRenderUp();
+  frSay('Залито рамок: ' + done);
+  frLoad();
+}
+
+/* ── СИГИЛЫ ─────────────────────────────────────────────────────────────── */
+let SG_UP = [], sgGods = [], sgHave = [];
+
+async function sgLoadCover(){
+  try {
+    const d = await frApi('/cards/admin/sigils');
+    sgHave = d.sigils || [];
+    const missing = d.missing || [];
+    const gods = {};
+    sgHave.forEach(function(s){ (gods[s.god] = gods[s.god] || {})[s.style] = s; });
+    missing.forEach(function(m){ gods[m.god] = gods[m.god] || {}; });
+    sgGods = Object.keys(gods);
+    let h = '<div class="popup-section-title" style="margin-top:0">Покрытие</div>'
+          + '<div style="opacity:.7;font-size:12.5px;margin-bottom:8px">Три файла на бога: светлый · тёмный · особый. Редкость на сигил не влияет.</div>'
+          + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:8px">';
+    sgGods.forEach(function(g){
+      h += '<div style="display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:11px;padding:8px 10px;font-size:12.5px">'
+         + '<b style="flex:1;font-weight:600">' + escapeHtmlAdm(g) + '</b>';
+      ['light','dark','special'].forEach(function(st){
+        const on = gods[g] && gods[g][st];
+        h += '<span title="' + FR_STYLES[st] + '" style="width:9px;height:9px;border-radius:50%;background:'
+           + (on ? '#5fd39a' : 'rgba(128,128,150,.28)') + '"></span>';
+      });
+      h += '</div>';
+    });
+    h += '</div><div style="opacity:.7;font-size:12.5px;margin-top:8px">Загружено: <b>' + sgHave.length
+       + '</b> из ' + (sgGods.length * 3) + '</div>';
+    document.getElementById('sg-cover').innerHTML = h;
+  } catch (e){
+    document.getElementById('sg-cover').innerHTML = '<div class="empty">Не удалось загрузить: ' + e.message + '</div>';
+  }
+}
+
+function sgGuessGod(name){
+  const low = (name || '').toLowerCase();
+  for (const g of sgGods){
+    const slug = (typeof godSlug === 'function') ? godSlug(g) : '';
+    if (slug && low.indexOf(slug) >= 0) return g;
+  }
+  return sgGods[0] || '';
+}
+function sgGuessStyle(name){
+  const low = (name || '').toLowerCase();
+  if (low.indexOf('special') >= 0 || low.indexOf('legend') >= 0) return 'special';
+  if (low.indexOf('light') >= 0) return 'light';
+  return 'dark';
+}
+function sgFilesPicked(e){
+  const files = Array.prototype.slice.call(e.target.files || []);
+  if (!files.length) return;
+  SG_UP = files.map(function(f){
+    return {file:f, url:URL.createObjectURL(f), god:sgGuessGod(f.name),
+            style:sgGuessStyle(f.name), soft:(f.name.toLowerCase().indexOf('soft') >= 0)};
+  });
+  sgRenderUp();
+}
+function sgRenderUp(){
+  const box = document.getElementById('sg-up-list');
+  if (!SG_UP.length){ box.innerHTML=''; document.getElementById('sg-up-actions').style.display='none'; return; }
+  box.innerHTML = SG_UP.map(function(u, i){
+    return '<div style="display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:10px;flex-wrap:wrap">'
+      + '<img src="' + escapeHtmlAdm(u.url) + '" style="width:64px;height:64px;object-fit:contain;border-radius:8px;background:repeating-conic-gradient(#3a3a46 0 25%,#2c2c36 0 50%) 50%/12px 12px">'
+      + '<div style="flex:1;min-width:220px">'
+        + '<b style="font-size:12.5px">' + escapeHtmlAdm(u.file.name) + '</b>'
+        + '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">'
+          + '<select onchange="sgSet(' + i + ',\'god\',this.value)" style="flex:1;min-width:120px;padding:6px 9px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:12.5px">'
+          + sgGods.map(function(g){ return '<option' + (g === u.god ? ' selected' : '') + '>' + escapeHtmlAdm(g) + '</option>'; }).join('')
+          + '</select>'
+          + '<select onchange="sgSet(' + i + ',\'style\',this.value)" style="padding:6px 9px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:12.5px">'
+          + ['light','dark','special'].map(function(st){ return '<option value="' + st + '"' + (st === u.style ? ' selected' : '') + '>' + FR_STYLES[st] + '</option>'; }).join('')
+          + '</select>'
+          + '<label style="display:flex;align-items:center;gap:5px;font-size:12px;opacity:.8">'
+          + '<input type="checkbox"' + (u.soft ? ' checked' : '') + ' onchange="sgSet(' + i + ',\'soft\',this.checked)"> притушенный</label>'
+        + '</div>'
+      + '</div></div>';
+  }).join('');
+  document.getElementById('sg-up-actions').style.display = 'block';
+}
+function sgSet(i, k, v){ SG_UP[i][k] = v; if (k !== 'soft') sgRenderUp(); }
+
+async function sgUploadAll(){
+  let done = 0;
+  for (const u of SG_UP){
+    if (!u.god) continue;
+    try {
+      // Притушенный файл ложится ВТОРЫМ полем той же записи, а не отдельной:
+      // рисовщик экспорта игнорирует прозрачность, ему нужен готовый файл
+      const b64 = await frBase64(u.file);
+      await frApi('/cards/admin/sigils', {method:'POST', body: JSON.stringify({
+        god:u.god, style:u.style, active:true, soft: !!u.soft, image_base64: b64 })});
+      done++;
+    } catch (e){
+      frSay('Не залился ' + u.file.name + ': ' + e.message);
+      break;
+    }
+  }
+  SG_UP = []; document.getElementById('sg-files').value = '';
+  sgRenderUp(); sgLoadCover();
+  frSay('Залито сигилов: ' + done);
+}
+
 function switchCardsSection(name){
   cardsSection = name;
-  ['deck','shop','gods','todo'].forEach(function(n){
+  ['deck','frames','sigils','gods','todo'].forEach(function(n){
     const b = document.getElementById('cards-sec-'+n+'-btn');
     if (b) b.style.opacity = (n === name) ? '1' : '.55';
   });
@@ -6836,9 +7392,18 @@ function switchCardsSection(name){
   hideAllCardTabs();
   if (name === 'deck'){ switchDeckView(deckView); return; }
 
-  if (name === 'shop'){
-    document.getElementById('cards-tab-elements').style.display = 'block';
-    loadElements();
+  // ⚠️ КОНСТРУКТОР СНЯТ 22.08.2026. Раздел «Мастерская» и сборка картинки из
+  // элементов больше не нужны: карточка стала слоями (арт + рамка + подпись),
+  // и картинка рождается на лету, а не запекается файлом. Разметка и функции
+  // конструктора оставлены на месте, чтобы ничего не отвалилось по цепочке,
+  // но входа в них из интерфейса нет.
+  if (name === 'frames'){
+    document.getElementById('cards-tab-frames').style.display = 'block';
+    frLoad();
+  }
+  if (name === 'sigils'){
+    document.getElementById('cards-tab-sigils').style.display = 'block';
+    sgLoadCover();
   }
   if (name === 'gods'){
     document.getElementById('cards-tab-gods').style.display = 'block';
