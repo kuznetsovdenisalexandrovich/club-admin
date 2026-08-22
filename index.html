@@ -1112,7 +1112,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <button class="action-btn" onclick="openLevelConfigPopup()">Настроить уровни</button>
         <button class="action-btn" onclick="openRewardCatalogPopup()">Управление наградами</button>
         <button class="action-btn" onclick="openCardsPopup()">Колода карточек</button>
-        <button class="action-btn" onclick="openScreensPopup()">Экраны открытия</button>
+        
         <button class="action-btn" onclick="openRafflePopup()">Розыгрыши</button>
         <button class="action-btn" onclick="openNudgesPopup()">Дожимные рассылки</button>
         <button class="action-btn" onclick="openBonusPopup()">Бонусы за вступление</button>
@@ -1481,6 +1481,8 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <button class="action-btn" id="cards-sec-deck-btn" onclick="switchCardsSection('deck')">Колода</button>
         <button class="action-btn" id="cards-sec-frames-btn" onclick="switchCardsSection('frames')">Рамки</button>
         <button class="action-btn" id="cards-sec-sigils-btn" onclick="switchCardsSection('sigils')">Сигилы</button>
+        <button class="action-btn" id="cards-sec-screens-btn" onclick="switchCardsSection('screens')">Экраны</button>
+        <button class="action-btn" id="cards-sec-packs-btn" onclick="switchCardsSection('packs')">Паки и постеры</button>
         <button class="action-btn" id="cards-sec-gods-btn" onclick="switchCardsSection('gods')">Боги</button>
         <button class="action-btn" id="cards-sec-todo-btn" onclick="switchCardsSection('todo')">Дела<span id="cards-todo-count" style="margin-left:6px;font-size:11px;color:var(--warm)"></span></button>
       </div>
@@ -1666,6 +1668,26 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
            Сигил ключуется парой БОГ + СТИЛЬ, редкость на него не влияет.
            ⚠️ Две яркости: обычная для экрана и притушенная для листа экспорта —
            рисовщик игнорирует прозрачность, поэтому нужен отдельный файл. -->
+      <!-- ══ ЭКРАНЫ ОТКРЫТИЯ ═══════════════════════════════════════════════
+           Переехали сюда из отдельного попапа 22.08.2026. Экран — это СВЯЗКА
+           уже загруженных кирпичиков (задник, рубашка, крестик, плашки кнопок),
+           а не отдельная картинка: набор выбирается целиком, иначе задник от
+           одного оформления встретится с плашкой от другого. -->
+      <div id="cards-tab-screens" style="display:none">
+        <div style="font-size:12px;color:var(--text-faint);line-height:1.45;margin-bottom:12px">
+          Экран — оформление, которое участник видит при вскрытии пака. Тема берётся
+          от стиля арта: светлый и тёмный сами за себя, особый показывает легендарный.
+          Незаполненное гнездо не беда — приложение возьмёт свою картинку.
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+          <button class="action-btn" onclick="openScreenEditor('')">+ новый экран</button>
+          <button class="action-btn" onclick="loadScreens()" style="margin-left:auto">Обновить</button>
+        </div>
+        <datalist id="series-datalist-screens"></datalist>
+        <div id="screens-list"><div class="loading">Загрузка...</div></div>
+        <div id="screen-editor-slot" style="margin-top:12px"></div>
+      </div>
+
       <div id="cards-tab-sigils" style="display:none">
         <div id="sg-cover" style="margin-bottom:14px"><div class="loading">Загрузка...</div></div>
 
@@ -1820,30 +1842,11 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
      Экран здесь ОДНА СУЩНОСТЬ с полями под файлы, а не набор ссылок на
      отдельно загруженные кирпичики. Ключи элементов выписываются сами из
      имени экрана — вводить и запоминать их вручную незачем. -->
-<div class="popup-overlay" id="screens-popup-overlay">
-  <div class="popup" id="screens-popup">
-    <div class="popup-handle"></div>
-    <div class="popup-body" style="padding-top:0">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-        <div class="popup-section-title" style="margin-top:0;margin-bottom:0">Экраны открытия</div>
-        <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeScreensPopup()">&times;</button>
-      </div>
-      <div style="font-size:11px;color:var(--text-faint);margin-bottom:10px">
-        Экран — это оформление, которое участник видит при вскрытии пака.
-        Участнику случайно достаётся один экран на каждую тему из текущего сезона.
-        Незаполненное поле не беда: приложение возьмёт свою картинку.
-      </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-        <button class="action-btn" onclick="openScreenEditor('')">+ новый экран</button>
-        <button class="action-btn" onclick="loadScreens()" style="margin-left:auto">Обновить</button>
-      </div>
-      <datalist id="series-datalist-screens"></datalist>
-      <div id="screens-list"><div class="loading">Загрузка...</div></div>
-      <div id="screen-editor-slot" style="margin-top:12px"></div>
-      <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closeScreensPopup()">Закрыть</button>
-    </div>
-  </div>
-</div>
+<!-- ⚠️ ПОПАП «ЭКРАНЫ ОТКРЫТИЯ» УБРАН 22.08.2026 — его тело переехало вкладкой
+     внутрь попапа колоды (#cards-tab-screens). Работа над экраном вскрытия и
+     работа над карточкой оказались одним занятием, а не двумя: тема экрана
+     теперь идёт от стиля арта. Все id сохранены, функции loadScreens /
+     renderScreens / openScreenEditor работают без правок. -->
 
 <div class="popup-overlay" id="news-popup-overlay">
   <div class="popup" id="news-popup">
@@ -6903,7 +6906,7 @@ function closeCardsPopup(){
 var cardsSection = 'deck';
 var deckView = 'series';   // сезон — вид по умолчанию
 
-const CARD_TAB_IDS = ['deck','gods','sim','queue','grant','series','unique','elements','packs','frames','sigils'];
+const CARD_TAB_IDS = ['deck','gods','sim','queue','grant','series','unique','elements','packs','frames','sigils','screens'];
 
 function hideAllCardTabs(){
   CARD_TAB_IDS.forEach(function(t){
@@ -7550,7 +7553,7 @@ async function sgUploadAll(){
 
 function switchCardsSection(name){
   cardsSection = name;
-  ['deck','frames','sigils','gods','todo'].forEach(function(n){
+  ['deck','frames','sigils','screens','packs','gods','todo'].forEach(function(n){
     const b = document.getElementById('cards-sec-'+n+'-btn');
     if (b) b.style.opacity = (n === name) ? '1' : '.55';
   });
@@ -7573,6 +7576,20 @@ function switchCardsSection(name){
   if (name === 'sigils'){
     document.getElementById('cards-tab-sigils').style.display = 'block';
     sgLoadCover();
+  }
+  // ⚠️ ЭКРАНЫ ОТКРЫТИЯ переехали сюда из отдельного попапа 22.08.2026
+  if (name === 'screens'){
+    document.getElementById('cards-tab-screens').style.display = 'block';
+    loadScreens();
+  }
+  // ⚠️ ПАКИ БОГОВ И ПОСТЕРЫ. Вход в них был ТОЛЬКО кнопкой «Постеры» внутри
+  // «Мастерской» — и умер вместе с ней, когда конструктор убрали из интерфейса.
+  // Разметка и функции всё это время были живы, недоступен был лишь путь.
+  // Урок: убирая раздел, проверить, не проходил ли через него единственный
+  // путь к чему-то, что остаётся нужным.
+  if (name === 'packs'){
+    document.getElementById('cards-tab-packs').style.display = 'block';
+    pstLoadList();
   }
   if (name === 'gods'){
     document.getElementById('cards-tab-gods').style.display = 'block';
@@ -8030,11 +8047,15 @@ function renderGodCards(){
       + '<div style="font-size:10px;color:var(--text-faint);margin-top:2px">' + elEsc(c.key) + '</div>'
     + '</div>';
   });
-  // Место под ещё одну карту этого же бога — ровно одно, как на полке колоды
-  h += '<div onclick="composeAnotherForGod()" style="cursor:pointer;border:1.5px dashed var(--border);border-radius:10px;'
+  // ⚠️ РАНЬШЕ ЗДЕСЬ ОТКРЫВАЛСЯ КОНСТРУКТОР. Он снят 22.08.2026: карточка теперь
+  // собирается слоями на лету, и от Denis'а нужен ровно один файл — арт.
+  // Поэтому плюс ведёт прямо в редактор новой карточки этого бога, где стоит
+  // поле файла. Остальное система делает сама: рамку подберёт по редкости и
+  // стилю, экран открытия возьмёт от стиля, сигил — по паре бог плюс стиль.
+  h += '<div onclick="addArtForGod()" style="cursor:pointer;border:1.5px dashed var(--border);border-radius:10px;'
     + 'display:flex;flex-direction:column;align-items:center;justify-content:center;aspect-ratio:3/4.4;'
     + 'color:var(--text-faint);gap:4px">'
-    + '<div style="font-size:20px">+</div><div style="font-size:10px;text-align:center;padding:0 6px">ещё карта<br>этого бога</div></div>';
+    + '<div style="font-size:20px">+</div><div style="font-size:10px;text-align:center;padding:0 6px">загрузить<br>арт</div></div>';
   h += '</div>';
 
   box.innerHTML = h;
@@ -8051,6 +8072,34 @@ async function openCardFromGod(key){
   // openCardsPopup дожидается каталога, иначе редактор откроется на пустом массиве
   if (!cardsPopupOpen()) await openCardsPopup();
   openCardEditor(key);
+}
+
+/* ⚠️ ЗАВОДИМ КАРТОЧКУ ЗАРАНЕЕ, А НЕ ПОСЛЕ ВЫБОРА ФАЙЛА. Загрузка арта
+   (uploadCardArt) шлёт на сервер card_key и без него отказывается работать —
+   если открыть пустой редактор, первый же выбранный файл упрётся в «сначала
+   задай ключ». Ключ собираем тем же способом, что и прежний конструктор:
+   сезон, слаг бога, номер — и проверяем, что такой ещё не занят. */
+async function addArtForGod(){
+  var god = godCardsGod;
+  closeGodCards();
+  if (!cardsPopupOpen()) await openCardsPopup();
+  var base = (currentSeries ? currentSeries + '-' : '') + godSlug(god);
+  var n = 1, key = base + '-01';
+  while ((cardTypes || []).some(function(c){ return c.key === key; })){
+    n += 1; key = base + '-' + (n < 10 ? '0' : '') + n;
+  }
+  cardTypes.push({ key:key, god:god, title:god, description:'', rarity:'common',
+                   style:'dark', series_key: currentSeries || '', unique_card:false,
+                   weight:100, monthly_limit:0, limit_period_months:1,
+                   effect_type:'points', effect_points:50,
+                   reward_key:'', media_url:'', image_url:'', image_full_url:'',
+                   personal:false, active:true, secret:false,
+                   card_class:'regular', badge_trigger:'', badge_threshold:0,
+                   theme:'any', issued_this_month:0, _unsaved:true });
+  cardsPage = 0;
+  openCardEditor(key);
+  cardEditMode = true;
+  renderCardShelf();
 }
 
 async function composeAnotherForGod(){
@@ -8554,6 +8603,16 @@ const CARD_THEME_LABELS = {
   light: 'Светлый'
 };
 
+/* ⚠️ СТИЛЬ — ГЛАВНОЕ ПОЛЕ АРТА (22.08.2026). От него зависят сразу три вещи:
+   какие рамки годятся внутри сета, какой экран показать при вскрытии и какой
+   сигил встанет за картой. Подписи человеческим языком: коды light/dark/special
+   ничего не говорят тому, кто не читал наш код. */
+const CARD_STYLE_LABELS = {
+  dark:    'Тёмный',
+  light:   'Светлый',
+  special: 'Особый (легендарный экран)'
+};
+
 const CARD_CLASS_LABELS = {
   regular:  'Из пака за продление',
   prologue: 'Пролог — гостю за тест',
@@ -8620,17 +8679,15 @@ function cardEditorHtml(c, idx){
       + '</div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
         + sel('Редкость','rarity',c.rarity,RARITY_LABELS)
-        // ⚠️ ТЕМА ЭКРАНА ОТКРЫТИЯ. "any" = «решай сам»: у собранной конструктором
-        // возьмётся тема её арта, у остальных — прежняя раскладка по редкости.
-        // light/dark здесь — РУЧНОЕ ПЕРЕОПРЕДЕЛЕНИЕ, оно главнее арта.
-        // Нужно в первую очередь карточкам, залитым целой картинкой: у них нет
-        // рецепта, и спросить тему больше не у кого
-        + sel('Экран открытия','theme', c.theme || 'any', CARD_THEME_LABELS)
-        + (c.theme === 'any' && c.theme_effective
-           ? '<div style="flex-basis:100%;font-size:11px;color:var(--text-faint);margin-top:-4px">'
-             + 'Сейчас берётся от арта: ' + elEsc(c.theme_effective) + '</div>'
-           : '')
-        + f('Вес в колоде','weight',c.weight,'number','min="0"')
+        // ⚠️ СТИЛЬ ВМЕСТО «ЭКРАНА ОТКРЫТИЯ» (22.08.2026). Одно поле решает три
+        // вещи разом: подмножество рамок внутри сета, тему экрана вскрытия
+        // (особый = легендарный) и какой сигил встанет за картой. Прежнее
+        // ручное поле темы убрано из формы — две ручки на одно решение
+        // однажды разошлись бы. В базе оно осталось и работает для карточек,
+        // заведённых до новой модели.
+        + sel('Стиль','style', c.style || 'dark', CARD_STYLE_LABELS)
+        + f('Сезон','series_key', c.series_key || '', 'text', 'list="series-datalist"')
+      + f('Вес в колоде','weight',c.weight,'number','min="0"')
         + f('Лимит выдач','monthly_limit',c.monthly_limit,'number','min="0"')
         + f('за сколько мес','limit_period_months',c.limit_period_months||1,'number','min="1"')
       + '</div>'
@@ -8645,6 +8702,7 @@ function cardEditorHtml(c, idx){
         + '<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer"><input type="checkbox" id="cf-personal-' + idx + '" ' + (c.personal?'checked':'') + '> Требует моего личного участия</label>'
         + '<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer"><input type="checkbox" id="cf-active-' + idx + '" ' + (c.active?'checked':'') + '> В колоде</label>'
         + '<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer" title="Не выпадает случайно и не показывается плейсхолдером в альбоме. Выдаётся только через «Подарить»"><input type="checkbox" id="cf-secret-' + idx + '" ' + (c.secret?'checked':'') + '> Секретная</label>'
+        + '<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer" title="Не занимает слот бога на полке пантеона — для карт вне колоды сезона"><input type="checkbox" id="cf-unique_card-' + idx + '" ' + (c.unique_card?'checked':'') + '> Вне пантеона</label>'
       + '</div>'
       + '<div style="display:flex;gap:8px;padding-top:2px">'
         + '<button onclick="saveCardType(' + idx + ')" style="flex:1;padding:9px;border-radius:9px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:600">Сохранить</button>'
@@ -8685,7 +8743,15 @@ async function saveCardType(idx){
     card_class: v('card_class') || 'regular',
     badge_trigger: v('badge_trigger') || '',
     badge_threshold: parseInt(v('badge_threshold'),10) || 0,
-    theme: v('theme') || 'any',
+    // ⚠️ ПОЛЕ ТЕМЫ СНЯТО С ФОРМЫ, но в базе оно есть у старых карточек. Читаем
+    // из карточки, а не из формы: v('theme') вернул бы пустую строку, и первое
+    // же сохранение стёрло бы прежнюю ручную настройку
+    theme: (cardTypes[idx] && cardTypes[idx].theme) || 'any',
+    // Три поля новой модели. Без них стиль не доедет до сервера, рамка не
+    // подберётся, и карта уйдёт человеку голой
+    style: v('style') || 'dark',
+    series_key: v('series_key').trim(),
+    unique_card: cb('unique_card'),
   };
   if (!payload.key){ alert('Нужен ключ карточки'); return; }
 
@@ -11412,14 +11478,17 @@ function screenSlug(name){
   return out || ('screen-' + Date.now().toString(36));
 }
 
+/* ⚠️ ОБЕ ФУНКЦИИ ОСТАВЛЕНЫ РАДИ СТАРЫХ ВЫЗОВОВ: попапа больше нет, экраны живут
+   вкладкой в колоде. Открытие ведёт в раздел, закрытие просто прибирает
+   редактор — так ни одна прежняя кнопка не ломается. */
 async function openScreensPopup(){
-  document.getElementById('screens-popup-overlay').classList.add('open');
-  await loadScreens();
+  if (!cardsPopupOpen()) await openCardsPopup();
+  switchCardsSection('screens');
 }
 function closeScreensPopup(){
-  document.getElementById('screens-popup-overlay').classList.remove('open');
   screenOpen = null;
-  document.getElementById('screen-editor-slot').innerHTML = '';
+  var slot = document.getElementById('screen-editor-slot');
+  if (slot) slot.innerHTML = '';
 }
 
 async function loadScreens(){
