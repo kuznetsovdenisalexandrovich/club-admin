@@ -277,10 +277,6 @@ header{padding:calc(max(env(safe-area-inset-top), 8px) + 20px) 0 16px;display:fl
 .popup-input::placeholder{color:var(--text-faint)}
 .popup-save{width:100%;padding:12px;border-radius:14px;background:var(--accent);color:white;font-family:var(--disp);font-weight:700;font-size:13px;border:none;cursor:pointer;margin-top:4px;transition:opacity .15s}
 .popup-save:active{opacity:.8}
-/* Кнопка пульта эфира: крупная и оранжевая, над расписанием */
-.live-big-btn{margin:0 0 12px;padding:16px;font-size:16px;
-  background:linear-gradient(135deg,#f0894a,#e2622f);
-  box-shadow:0 6px 18px rgba(226,98,47,.28)}
 
 /* Action buttons */
 .actions-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
@@ -964,17 +960,6 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
   appearance:none !important; -webkit-appearance:none !important;
 }
 .switch input[type="checkbox"]::after{ content:none !important; }
-
-/* ── Генератор ссылок ─────────────────────────────────────────────────────── */
-.lg-chip{padding:7px 13px;border-radius:9px;border:1px solid var(--border);background:var(--input-bg);
-  color:var(--text);font-size:12.5px;cursor:pointer;user-select:none}
-.lg-chip.on{background:var(--lav-deep,#7c6cf0);border-color:var(--lav-deep,#7c6cf0);color:#fff}
-.lg-chip.off{opacity:.45;cursor:not-allowed}
-.lg-result{padding:13px 14px;border-radius:11px;border:1px dashed var(--border);background:var(--input-bg);
-  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.5;
-  word-break:break-all;cursor:pointer;min-height:22px}
-.lg-result.lg-bad{border-color:#d9534f;color:#d9534f;cursor:default}
-.lg-copied{border-style:solid;border-color:#2e9e63;color:#2e9e63}
 </style>
 </head>
 
@@ -1051,28 +1036,11 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     </div>
   </div>
 
-  <!-- ⚠️ ЭФИР — ОТДЕЛЬНОЙ КРУПНОЙ КНОПКОЙ НАД РАСПИСАНИЕМ (13.08.2026, просьба
-       Denis'а). Раньше это была одна из мелких кнопок в углу заголовка, наравне
-       с «Управлять», — а пульт эфира открывают в момент, когда времени искать
-       нет: до начала минуты. -->
-  <button class="popup-save live-big-btn" onclick="openLivePopup()">Эфир</button>
-
-  <!-- ⚠️ АТРИБУЦИЯ ПРОДАЖ (13.08.2026). Раздел уровня «Расписания» и «Эфира» —
-       свой попап, своя кнопка сюда, отчёт открывается сразу с данными. -->
-  <div class="section">
-    <div class="section-head">
-      <div class="section-title">Источники продаж</div>
-      <div style="display:flex;gap:6px">
-        <button class="action-btn" style="padding:5px 10px;font-size:11px" onclick="openAttributionPopup()">Отчёт</button>
-      </div>
-    </div>
-    <div class="pay-meta" style="margin:0 2px 4px">Какой рилс, пост или выпуск журнала привёл к оплате — и откуда вообще берутся новые люди.</div>
-  </div>
-
   <div class="section">
     <div class="section-head">
       <div class="section-title">Расписание</div>
       <div style="display:flex;gap:6px">
+        <button class="action-btn" style="padding:5px 10px;font-size:11px" onclick="openLivePopup()">Эфир</button>
         <button class="action-btn" style="padding:5px 10px;font-size:11px" onclick="openSchedulePopup()">Управлять</button>
       </div>
     </div>
@@ -1106,7 +1074,6 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <button class="action-btn" onclick="openNudgesPopup()">Дожимные рассылки</button>
         <button class="action-btn" onclick="openBonusPopup()">Бонусы за вступление</button>
         <button class="action-btn" onclick="openRefPostsPopup()">Посты для приглашений</button>
-        <button class="action-btn" onclick="openLinkGenPopup()">Генератор ссылок</button>
         <button class="action-btn" onclick="openTextsPopup()">Тексты приложения</button>
         <button class="action-btn" onclick="openHelpDocsPopup()">Справка клуба</button>
       </div>
@@ -1370,35 +1337,6 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <div id="nudges-tab-scenarios"><div class="loading">Загрузка...</div></div>
       <div id="nudges-tab-chain" style="display:none"></div>
       <div id="nudges-tab-stats" style="display:none"></div>
-    </div>
-  </div>
-</div>
-
-<div class="popup-overlay popup-centered" id="linkgen-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeLinkGenPopup()">
-  <div class="popup" style="max-width:600px">
-    <button class="popup-close-x" onclick="closeLinkGenPopup()" title="Закрыть">&#10005;</button>
-    <div class="popup-body" style="padding-top:20px">
-      <div class="popup-section-title" style="margin-top:0">Генератор ссылок</div>
-      <div style="font-size:11.5px;color:var(--text-faint);margin-bottom:12px;line-height:1.5">
-        Выбери площадку и куда вести. Ссылка собирается сама — у каждой площадки свой синтаксис,
-        и руками их легко перепутать.
-      </div>
-
-      <div class="pay-meta" style="margin-bottom:6px">Площадка</div>
-      <div id="lg-platforms" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
-
-      <div class="pay-meta" style="margin-bottom:6px">Куда вести</div>
-      <select id="lg-action" class="popup-input" onchange="lgBuild()"></select>
-
-      <div id="lg-param-slot" style="margin-top:10px"></div>
-
-      <div style="margin-top:16px">
-        <div class="pay-meta" style="margin-bottom:6px">Готовая ссылка</div>
-        <div id="lg-result" class="lg-result" onclick="lgCopy(this)">&mdash;</div>
-        <div id="lg-note" style="font-size:11.5px;line-height:1.5;margin-top:8px"></div>
-      </div>
-
-      <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closeLinkGenPopup()">Закрыть</button>
     </div>
   </div>
 </div>
@@ -1754,45 +1692,6 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <button class="action-btn" style="margin-top:8px" onclick="liveStart()">Только открыть сессию</button>
         <div class="pay-meta" style="margin-top:4px">Если площадки заведены руками и надо просто включить блок в аппе.</div>
         <button class="action-btn" style="margin-top:8px" onclick="liveShowTargets()">Какие площадки настроены</button>
-
-        <!-- ⚠️ СПРАВОЧНИК ПЛОЩАДОК АНОНСА НУЖЕН ДО ЭФИРА, А НЕ ВО ВРЕМЯ. Сначала
-             я положил эту кнопку только в блок идущего эфира — и Denis не смог
-             завести площадки, не начав вещать. Настройка и проверка адресов
-             доступны всегда; эфира требует ТОЛЬКО сама рассылка. -->
-        <div class="section-title" style="margin:14px 0 6px;font-size:13px">Анонс по площадкам</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="action-btn" onclick="openTargetsPopup()">Настроить площадки</button>
-          <button class="action-btn" onclick="checkTelegramLink()">Проверить связь с Telegram</button>
-        </div>
-        <div class="pay-meta" style="margin-top:4px">Куда уходит анонс эфира. Здесь же кнопка «Проверить» — она шлёт тестовое сообщение прямо сейчас, эфир для этого не нужен.</div>
-
-        <!-- ⚠️ ЗАГРУЗКА ДО ЭФИРА. Файл готовят заранее, поэтому поле стоит
-             здесь, а не в блоке идущего эфира: загруженное ляжет в заготовку и
-             переедет на сессию, когда эфир начнётся. -->
-        <!-- ⚠️ ЗАПИСЬ ЭФИРА — СВОЙ КОД, НЕ КОД ЖИВОГО СОБЫТИЯ. После эфира
-             плеер живого события пуст (поймано 13.08.2026: чёрный экран у
-             участников), запись живёт отдельным видео в библиотеке. -->
-        <div class="section-title" style="margin:14px 0 6px;font-size:13px">Запись прошедшего эфира</div>
-        <div id="record-state" class="pay-meta" style="margin:0 2px 6px">—</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
-          <button class="action-btn" onclick="findRecordVideos()">Найти запись в Kinescope</button>
-        </div>
-        <div id="record-list" style="margin-bottom:6px"></div>
-        <input class="popup-input" type="text" id="record-code" placeholder="Или вставь ссылку/код записи вручную" style="margin-bottom:6px">
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-          <button class="action-btn" onclick="saveRecordCode()">Привязать запись</button>
-          <button class="action-btn" onclick="clearRecordCode()">Убрать запись</button>
-        </div>
-
-        <div class="section-title" style="margin:14px 0 6px;font-size:13px">Раздаточный файл</div>
-        <div id="handout-state" class="pay-meta" style="margin:0 2px 6px">—</div>
-        <input class="popup-input" type="text" id="handout-name" placeholder="Надпись на кнопке (пусто — «Скачать майндкарту»)" style="margin-bottom:6px">
-        <input type="file" id="handout-file" accept="application/pdf,.pdf" style="margin-bottom:6px;font-size:12px">
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="action-btn" onclick="uploadHandout()">Загрузить PDF</button>
-          <button class="action-btn" onclick="deleteHandout()">Убрать файл</button>
-        </div>
-        <div class="pay-meta" style="margin-top:4px">До 25 МБ, только PDF. Участники увидят кнопку под окном эфира, гостям она откроет оплату.</div>
       </div>
 
       <div id="live-admin-running" style="display:none">
@@ -1834,53 +1733,6 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     </div>
   </div>
 </div>
-<div class="popup-overlay" id="attribution-popup-overlay">
-  <div class="popup" id="attribution-popup">
-    <div class="popup-handle"></div>
-    <div class="popup-body" style="padding-top:0">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-        <div class="popup-section-title" style="margin:0">Источники продаж</div>
-        <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeAttributionPopup()"><svg width="14" height="14" viewBox="0 0 14 14" style="display:block"><path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
-      </div>
-
-      <div style="display:flex;gap:6px;margin-bottom:10px">
-        <button class="action-btn" onclick="setAttrPeriod(7)">7 дней</button>
-        <button class="action-btn" onclick="setAttrPeriod(30)">30 дней</button>
-        <button class="action-btn" onclick="setAttrPeriod(90)">90 дней</button>
-      </div>
-      <div id="attr-summary" class="pay-meta" style="margin-bottom:10px">—</div>
-
-      <div class="section-title" style="margin:8px 0 6px;font-size:13px">По каналу первого касания</div>
-      <div id="attr-first-list"></div>
-
-      <div class="section-title" style="margin:14px 0 6px;font-size:13px">По единице, которая дожала</div>
-      <div id="attr-last-list"></div>
-
-      <div class="section-title" style="margin:16px 0 6px;font-size:13px">Единицы контента</div>
-      <div id="attr-sources-list"></div>
-      <input class="popup-input" type="hidden" id="attr-id">
-      <input class="popup-input" type="text" id="attr-code" placeholder="Код для ссылки — латиницей, напр. reel-avgust-3" style="margin-bottom:6px">
-      <input class="popup-input" type="text" id="attr-title" placeholder="Название — как ты сам её называешь" style="margin-bottom:6px">
-      <select class="popup-input" id="attr-channel" style="margin-bottom:6px">
-        <option value="reel">Рилс</option>
-        <option value="tg_post">Пост в Telegram</option>
-        <option value="dzen">Дзен</option>
-        <option value="magazine">Журнал</option>
-        <option value="vk_ads">Реклама ВК</option>
-        <option value="yandex">Реклама Яндекс</option>
-        <option value="other">Другое</option>
-      </select>
-      <div class="pay-meta" style="margin:0 2px 8px">Для рекламы можно сразу вписать UTM — пригодится, когда подключишь кабинеты:</div>
-      <input class="popup-input" type="text" id="attr-utm-source" placeholder="utm_source" style="margin-bottom:6px">
-      <input class="popup-input" type="text" id="attr-utm-medium" placeholder="utm_medium" style="margin-bottom:6px">
-      <input class="popup-input" type="text" id="attr-utm-campaign" placeholder="utm_campaign" style="margin-bottom:8px">
-      <input class="popup-input" type="text" id="attr-lecture-slug" placeholder="Ключ лекции (необязательно) — после оплаты покажем именно её" style="margin-bottom:8px">
-      <button class="popup-save" onclick="saveAttrSource()">Сохранить единицу</button>
-      <button class="action-btn" onclick="resetAttrForm()" style="margin-top:6px">Очистить форму</button>
-      <div id="attr-link-out" class="pay-meta" style="margin-top:8px"></div>
-    </div>
-  </div>
-</div>
 <div class="popup-overlay" id="targets-popup-overlay">
   <div class="popup" id="targets-popup">
     <div class="popup-handle"></div>
@@ -1898,8 +1750,6 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <option value="tg_channel">Telegram — канал или чат (бот должен быть админом)</option>
         <option value="vk_wall">ВКонтакте — стена сообщества</option>
         <option value="vk_chat">ВКонтакте — беседа</option>
-        <option value="vk_channel">ВКонтакте — канал сообщества</option>
-        <option value="salebot_list">Бот — подписчики списка (Telegram и ВК разом)</option>
       </select>
       <input class="popup-input" type="text" id="target-address" placeholder="Адрес" style="margin-bottom:6px">
       <div class="pay-meta" id="target-hint" style="margin:-2px 2px 6px"></div>
@@ -1914,7 +1764,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       </select>
       <input class="popup-input" type="text" id="target-button" placeholder="Надпись кнопки (только Telegram, пусто — без кнопки)" style="margin-bottom:6px">
       <textarea class="popup-input" id="target-template" rows="4" placeholder="Текст поста" style="margin-bottom:4px;resize:vertical"></textarea>
-      <div class="pay-meta" style="margin:0 2px 8px">Метки подставятся сами: {название} · {ссылка} · {время} · {дата}. Отдельно можно ставить рядом: {ссылка_вк} — трансляция ВК, {ссылка_апп} — приложение внутри ВК, {ссылка_тг} — приложение в Telegram. Пустой текст — возьмётся стандартный.</div>
+      <div class="pay-meta" style="margin:0 2px 8px">Метки подставятся сами: {название} · {ссылка} · {время} · {дата}. Пустой текст — возьмётся стандартный.</div>
       <label class="pay-item" style="cursor:pointer;margin-bottom:8px"><input type="checkbox" id="target-active" checked style="flex-shrink:0"><div style="flex:1">Участвует в рассылке</div></label>
       <button class="popup-save" onclick="saveTarget()">Сохранить площадку</button>
       <button class="action-btn" onclick="resetTargetForm()" style="margin-top:6px">Очистить форму</button>
@@ -4626,274 +4476,12 @@ function renderLiveAdmin(){
   renderPracticeAdmin(s);
 }
 
-/* Отвечает ли Telegram с нашего сервера. Разводит две причины, которые со
-   стороны выглядят одинаково: «сервер не достучался» и «бот не имеет прав». */
-async function checkTelegramLink(){
-  try{
-    const r = await fetch(API + '/admin/telegram/check?chat_id=-1002094168989&x_admin_token=' + ADMIN_TOKEN);
-    const d = await r.json();
-    alert((d.verdict || '') + '\n\n' + JSON.stringify(d, null, 1));
-  }catch(e){ alert('Нет связи с бэкендом: ' + (e && e.message || e)); }
-}
-
-/* ── Запись прошедшего эфира ──────────────────────────────────────────────
-   У Kinescope живое событие и его запись — РАЗНЫЕ сущности со своими кодами.
-   После эфира плеер живого события пуст, поэтому запись надо найти в
-   библиотеке и привязать к сессии. */
-async function findRecordVideos(){
-  const box = document.getElementById('record-list');
-  box.innerHTML = '<div class="pay-meta">Спрашиваю Kinescope…</div>';
-  try{
-    const r = await fetch(API + '/admin/kinescope/recent-videos?x_admin_token=' + ADMIN_TOKEN);
-    const d = await r.json();
-    if (!d.ok){
-      // Показываем НАСТОЯЩИЕ ответы Kinescope, а не «не получилось»: по ним
-      // видно, какой адрес их API принимает
-      box.innerHTML = '<div class="pay-meta" style="color:#e8614a">' + escapeHtmlAdm(d.hint || 'Не отдал список') + '</div>'
-        + '<div class="pay-meta" style="white-space:pre-wrap;font-size:11px">' + escapeHtmlAdm(JSON.stringify(d.attempts || [], null, 1)) + '</div>';
-      return;
-    }
-    box.innerHTML = (d.videos || []).length ? d.videos.map(function(v){
-      return '<div class="pay-item">'
-        + '<div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(v.title) + '</div>'
-        + '<div class="pay-meta">' + escapeHtmlAdm(v.created_at || '') + ' · код: ' + escapeHtmlAdm(v.code) + '</div></div>'
-        + '<button class="action-btn" onclick="pickRecord(\'' + v.code + '\')">Это она</button>'
-        + '</div>';
-    }).join('') : '<div class="pay-meta">Библиотека пуста.</div>';
-  }catch(e){
-    box.innerHTML = '<div class="pay-meta" style="color:#e8614a">Нет связи: ' + (e && e.message || e) + '</div>';
-  }
-}
-
-function pickRecord(code){
-  document.getElementById('record-code').value = code;
-  saveRecordCode();
-}
-
-async function saveRecordCode(){
-  const code = (document.getElementById('record-code').value || '').trim();
-  await sendRecordCode(code);
-}
-
-async function clearRecordCode(){
-  if (!confirm('Убрать запись? Участники перестанут её видеть.')) return;
-  document.getElementById('record-code').value = '';
-  await sendRecordCode('');
-}
-
-async function sendRecordCode(code){
-  const box = document.getElementById('record-state');
-  try{
-    const r = await fetch(API + '/admin/live/record?x_admin_token=' + ADMIN_TOKEN, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ code: code })
-    });
-    const d = await r.json();
-    if (!r.ok){ box.textContent = d.detail || 'Не получилось'; return; }
-    box.textContent = d.record_code
-      ? ('Привязана к эфиру «' + (d.title || '') + '», код ' + d.record_code)
-      : 'Запись не привязана — участники её не увидят.';
-  }catch(e){ box.textContent = 'Нет связи с бэкендом: ' + (e && e.message || e); }
-}
-
-/* ── Раздаточный файл эфира ──────────────────────────────────────────────
-   Читаем файл на стороне браузера и отправляем текстом: свой эндпоинт
-   загрузки принимает JSON, и заводить ради одного PDF отдельную многочастную
-   форму незачем. Двадцать пять мегабайт в base64 разрастаются до тридцати
-   трёх — для одного файла терпимо. */
-async function uploadHandout(){
-  const input = document.getElementById('handout-file');
-  const file = input && input.files && input.files[0];
-  if (!file){ alert('Сначала выбери PDF'); return; }
-  if (file.size > 25 * 1024 * 1024){ alert('Файл больше 25 МБ — сожми его'); return; }
-  const box = document.getElementById('handout-state');
-  box.textContent = 'Загружаю…';
-  try{
-    const b64 = await new Promise(function(resolve, reject){
-      const r = new FileReader();
-      r.onload = function(){ resolve(String(r.result).split(',')[1] || ''); };
-      r.onerror = function(){ reject(new Error('не смог прочитать файл')); };
-      r.readAsDataURL(file);
-    });
-    const r = await fetch(API + '/admin/live/handout?x_admin_token=' + ADMIN_TOKEN, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ file_base64: b64, name: (document.getElementById('handout-name').value || '').trim() })
-    });
-    const d = await r.json();
-    if (!r.ok){ box.textContent = d.detail || 'Не получилось загрузить'; return; }
-    box.textContent = 'Загружено ' + Math.round((d.size || 0) / 1024) + ' КБ, ' + d.where + '. Надпись: ' + d.name;
-    input.value = '';
-  }catch(e){
-    box.textContent = 'Ошибка: ' + (e && e.message || e);
-  }
-}
-
-async function deleteHandout(){
-  if (!confirm('Убрать раздаточный файл?')) return;
-  try{
-    await fetch(API + '/admin/live/handout?x_admin_token=' + ADMIN_TOKEN, { method:'DELETE' });
-    document.getElementById('handout-state').textContent = 'Файла нет.';
-  }catch(e){ alert('Нет связи с бэкендом: ' + (e && e.message || e)); }
-}
-
-/* ── Атрибуция продаж ─────────────────────────────────────────────────────
-   Отчёт и справочник единиц контента в одном попапе: заводишь рилс здесь же,
-   рядом видишь, что уже принесло деньги — не нужно прыгать между экранами. */
-let attrSourcesCache = [];
-let attrPeriodDays = 30;
-
-function openAttributionPopup(){
-  document.getElementById('attribution-popup-overlay').classList.add('open');
-  resetAttrForm();
-  loadAttrSources();
-  loadAttrReport();
-}
-function closeAttributionPopup(){
-  document.getElementById('attribution-popup-overlay').classList.remove('open');
-}
-
-function setAttrPeriod(d){
-  attrPeriodDays = d;
-  loadAttrReport();
-}
-
-const ATTR_CHANNEL_LABELS = {
-  reel:'рилс', tg_post:'пост в TG', dzen:'Дзен', magazine:'журнал',
-  vk_ads:'реклама ВК', yandex:'реклама Яндекс', other:'другое'
-};
-
-async function loadAttrReport(){
-  const box = document.getElementById('attr-summary');
-  box.textContent = 'Считаю…';
-  try{
-    const r = await fetch(API + '/admin/attribution/report?days=' + attrPeriodDays + '&x_admin_token=' + ADMIN_TOKEN);
-    const d = await r.json();
-    if (!r.ok){ box.textContent = d.detail || 'Не получилось'; return; }
-    box.textContent = 'Платежей за ' + d.days + ' дн.: ' + d.total_payments
-      + (d.untagged_payments ? ' · без метки: ' + d.untagged_payments : '');
-    renderAttrList('attr-first-list', d.by_first_touch);
-    renderAttrList('attr-last-list', d.by_last_touch);
-  }catch(e){
-    box.textContent = 'Нет связи с бэкендом: ' + (e && e.message || e);
-  }
-}
-
-function renderAttrList(boxId, rows){
-  const box = document.getElementById(boxId);
-  if (!box) return;
-  if (!rows || !rows.length){
-    box.innerHTML = '<div class="pay-meta">Пока пусто.</div>';
-    return;
-  }
-  box.innerHTML = rows.map(function(r){
-    return '<div class="pay-item">'
-      + '<div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(r.title) + '</div>'
-      + '<div class="pay-meta">' + (ATTR_CHANNEL_LABELS[r.channel] || r.channel || '—') + ' · ' + r.count + ' продаж</div></div>'
-      + '<div class="pay-name">' + Math.round(r.sum).toLocaleString('ru-RU') + ' ₽</div>'
-      + '</div>';
-  }).join('');
-}
-
-async function loadAttrSources(){
-  try{
-    const r = await fetch(API + '/admin/attribution/sources?x_admin_token=' + ADMIN_TOKEN);
-    const d = await r.json();
-    attrSourcesCache = d.sources || [];
-    renderAttrSourcesList();
-  }catch(e){
-    document.getElementById('attr-sources-list').innerHTML =
-      '<div class="pay-meta" style="color:#e8614a">Не смог прочитать: ' + (e && e.message || e) + '</div>';
-  }
-}
-
-function renderAttrSourcesList(){
-  const box = document.getElementById('attr-sources-list');
-  if (!box) return;
-  box.innerHTML = attrSourcesCache.length ? attrSourcesCache.map(function(a){
-    return '<div class="pay-item">'
-      + '<div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(a.title)
-      + (a.active ? '' : ' <span class="badge badge-err">выключена</span>') + '</div>'
-      + '<div class="pay-meta">' + (ATTR_CHANNEL_LABELS[a.channel] || a.channel) + ' · код: ' + escapeHtmlAdm(a.code)
-      + (a.lecture_slug ? ' · ведёт к лекции: ' + escapeHtmlAdm(a.lecture_slug) : '') + '</div></div>'
-      + '<button class="action-btn" onclick="copyAttrLink(\'' + a.code + '\')">Ссылка</button>'
-      + '<button class="action-btn" onclick="editAttrSource(' + a.id + ')">Править</button>'
-      + '<button class="action-btn" onclick="deleteAttrSource(' + a.id + ')">Удалить</button>'
-      + '</div>';
-  }).join('') : '<div class="pay-meta">Пока пусто — заведи первую ниже.</div>';
-}
-
-function attrDeeplink(code){
-  return 'https://t.me/youselllikeagod_bot/app?startapp=u_' + code;
-}
-
-function copyAttrLink(code){
-  const link = attrDeeplink(code);
-  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link);
-  document.getElementById('attr-link-out').textContent = 'Скопировано: ' + link;
-}
-
-function resetAttrForm(){
-  ['attr-id','attr-code','attr-title','attr-utm-source','attr-utm-medium','attr-utm-campaign','attr-lecture-slug'].forEach(function(id){
-    document.getElementById(id).value = '';
-  });
-  document.getElementById('attr-channel').value = 'reel';
-  document.getElementById('attr-link-out').textContent = '';
-}
-
-function editAttrSource(id){
-  const a = attrSourcesCache.find(function(x){ return x.id === id; });
-  if (!a) return;
-  document.getElementById('attr-id').value = a.id;
-  document.getElementById('attr-code').value = a.code;
-  document.getElementById('attr-title').value = a.title;
-  document.getElementById('attr-channel').value = a.channel || 'other';
-  document.getElementById('attr-utm-source').value = a.utm_source;
-  document.getElementById('attr-utm-medium').value = a.utm_medium;
-  document.getElementById('attr-utm-campaign').value = a.utm_campaign;
-  document.getElementById('attr-lecture-slug').value = a.lecture_slug || '';
-  document.getElementById('attr-link-out').textContent = attrDeeplink(a.code);
-}
-
-async function saveAttrSource(){
-  const idRaw = document.getElementById('attr-id').value;
-  const body = {
-    id: idRaw ? Number(idRaw) : null,
-    code: document.getElementById('attr-code').value,
-    title: document.getElementById('attr-title').value,
-    channel: document.getElementById('attr-channel').value,
-    utm_source: document.getElementById('attr-utm-source').value,
-    utm_medium: document.getElementById('attr-utm-medium').value,
-    utm_campaign: document.getElementById('attr-utm-campaign').value,
-    lecture_slug: document.getElementById('attr-lecture-slug').value,
-    active: true
-  };
-  try{
-    const r = await fetch(API + '/admin/attribution/source?x_admin_token=' + ADMIN_TOKEN, {
-      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
-    });
-    const d = await r.json();
-    if (!r.ok){ alert(d.detail || 'Не получилось сохранить'); return; }
-    document.getElementById('attr-link-out').textContent = 'Готово. Ссылка: ' + d.deeplink;
-    loadAttrSources();
-  }catch(e){ alert('Нет связи с бэкендом: ' + (e && e.message || e)); }
-}
-
-async function deleteAttrSource(id){
-  const a = attrSourcesCache.find(function(x){ return x.id === id; });
-  if (!confirm('Удалить «' + (a ? a.title : id) + '»? Уже случившиеся продажи не потеряются, но код перестанет работать в новых ссылках.')) return;
-  try{
-    await fetch(API + '/admin/attribution/source/' + id + '?x_admin_token=' + ADMIN_TOKEN, { method:'DELETE' });
-    loadAttrSources();
-  }catch(e){ alert('Нет связи с бэкендом: ' + (e && e.message || e)); }
-}
-
 /* ── Анонс эфира по площадкам ────────────────────────────────────────────
    Ссылку в каждую точку подставляет БЭКЕНД: он же создавал трансляции ВК и
    один знает их адреса. Дашборд только выбирает, куда слать, и показывает,
    что именно уйдёт. */
 const TARGET_METHOD_LABELS = {
-  tg_channel: 'Telegram', vk_wall: 'стена ВК', vk_chat: 'беседа ВК', vk_channel: 'канал ВК',
-  salebot_list: 'подписчики бота'
+  tg_channel: 'Telegram', vk_wall: 'стена ВК', vk_chat: 'беседа ВК'
 };
 const TARGET_LINK_LABELS = {
   app: 'диплинк в приложение', vk: 'трансляция ВК', none: 'без ссылки'
@@ -4980,8 +4568,7 @@ async function announceSend(){
     '<div class="pay-name">Ушло: ' + d.sent + ' · не ушло: ' + d.failed + '</div>'
     + (d.report || []).map(function(x){
         return '<div class="pay-meta"' + (x.ok ? '' : ' style="color:#e8614a"') + '>'
-          + escapeHtmlAdm(x.name) + ' — ' + (x.ok ? ('ок' + (x.note ? ', ' + escapeHtmlAdm(x.note) : ''))
-                                                     : escapeHtmlAdm(x.error || 'ошибка')) + '</div>';
+          + escapeHtmlAdm(x.name) + ' — ' + (x.ok ? 'ок' : escapeHtmlAdm(x.error || 'ошибка')) + '</div>';
       }).join('');
   loadTargets();
 }
@@ -5018,7 +4605,6 @@ function renderTargetsList(tokens){
       + (t.active ? '' : ' <span class="badge badge-err">выключена</span>') + '</div>'
       + '<div class="pay-meta">' + (TARGET_METHOD_LABELS[t.method] || t.method) + ' · ' + escapeHtmlAdm(t.address)
       + ' · ' + (TARGET_LINK_LABELS[t.link_mode] || '') + '</div></div>'
-      + '<button class="action-btn" onclick="testTarget(' + t.id + ')">Проверить</button>'
       + '<button class="action-btn" onclick="editTarget(' + t.id + ')">Править</button>'
       + '<button class="action-btn" onclick="deleteTarget(' + t.id + ')">Удалить</button>'
       + '</div>';
@@ -5030,9 +4616,7 @@ function renderTargetHint(){
   const hints = {
     tg_channel: 'Адрес канала — число вида -1002094168989. Бот обязан быть в канале администратором с правом публикации.',
     vk_wall: 'Адрес — номер сообщества БЕЗ минуса, например 232119632. Минус подставится сам.',
-    vk_chat: 'Адрес беседы — число из ссылки vk.ru/im/convo/2000000180, то есть 2000000180.',
-    vk_channel: 'Адрес канала — число из ссылки vk.ru/im/channels/-237934122, вместе с минусом. Поддержка каналов в API не подтверждена: проверь кнопкой «Проверить» до эфира.',
-    salebot_list: 'Адрес — номер списка Salebot, например 2100153 («Уведомления о живых занятиях»). Уходит подписчикам бота СРАЗУ в Telegram и ВК, с кнопками. Ссылки подставляются сами: на трансляцию ВК и в приложение.'
+    vk_chat: 'Адрес беседы — peer_id, обычно 2000000000 плюс номер беседы.'
   };
   document.getElementById('target-hint').textContent = hints[m] || '';
 }
@@ -5085,27 +4669,6 @@ async function saveTarget(){
     const d = await r.json();
     if (!r.ok){ alert(d.detail || 'Не получилось сохранить'); return; }
     resetTargetForm();
-    loadTargets();
-  }catch(e){ alert('Нет связи с бэкендом: ' + (e && e.message || e)); }
-}
-
-/* ⚠️ ПРОВЕРКА ПЛОЩАДКИ БЕЗ ЭФИРА. Настраивать адреса Denis будет заранее, а
-   рассылка требует активной сессии — заставлять его начинать эфир ради
-   проверки адреса значит однажды пустить в эфир пустой поток. Отдельная
-   ручка шлёт короткое сообщение и возвращает ответ площадки как есть.
-   Это же единственный способ выяснить, принимают ли «каналы ВК» сообщения. */
-async function testTarget(id){
-  const t = targetsCache.find(function(x){ return x.id === id; });
-  if (!confirm('Отправить проверочное сообщение в «' + (t ? t.name : id) + '»? Оно уйдёт по-настоящему.')) return;
-  try{
-    const r = await fetch(API + '/admin/broadcast/test?x_admin_token=' + ADMIN_TOKEN, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ target_id: id })
-    });
-    const d = await r.json();
-    // Ответ площадки показываем ЦЕЛИКОМ: текст ошибки ВК и Telegram — это
-    // документация, по ней сразу видно, дело в правах, адресе или способе
-    alert(d.ok ? 'Дошло. Проверь площадку.' : 'Не дошло:\n\n' + (d.error || d.detail || 'без объяснения'));
     loadTargets();
   }catch(e){ alert('Нет связи с бэкендом: ' + (e && e.message || e)); }
 }
@@ -9698,282 +9261,6 @@ async function deleteRefPost(id){
 var textsData = { items: [], total: 0, pending: 0, changed: 0 };
 var textsFilter = 'pending';
 var textsDrafts = {};    // ключ → что сейчас в поле, до сохранения
-
-
-/* ═══ ГЕНЕРАТОР ССЫЛОК ══════════════════════════════════════════════════════
-   Одно место, где собираются все ссылки в приложение. Смысл не в удобстве,
-   а в том, что у трёх площадок РАЗНЫЙ СИНТАКСИС, и руками их путают:
-
-     Telegram  https://t.me/<бот>/app?startapp=<нагрузка>
-     MAX       https://max.ru/<бот>?startapp=<нагрузка>
-     ВК        https://vk.com/app<id>#<нагрузка>      ← после решётки!
-     Веб       https://<адрес аппа>/?u=<код>          ← только метка источника
-
-   ⚠️ АДРЕСА ПЛОЩАДОК ЗАШИТЫ ЗДЕСЬ, А НА СЕРВЕРЕ ЖИВУТ В ПЕРЕМЕННЫХ
-   ОКРУЖЕНИЯ (VK_APP_ID, MAX_BOT_NAME). Если поменяются — править надо в
-   ОБОИХ местах. Тянуть их с сервера ради генератора не стали: отдельного
-   эндпоинта нет, а заводить его ради четырёх строк дороже, чем эта пометка. */
-
-const LG_TG_BOT   = 'youselllikeagod_bot';
-const LG_VK_APP   = '54715238';
-const LG_MAX_BOT  = 'id616616492674_bot';
-const LG_WEB_APP  = 'https://kuznetsovdenisalexandrovich.github.io/club-app/';
-
-/* Маршруты — ровно те же ключи, что в таблице DEEPLINKS приложения.
-   ⚠️ ПРИ ДОБАВЛЕНИИ ДИПЛИНКА В АПП ДОБАВЛЯТЬ И СЮДА: списки живут в разных
-   файлах и сами не синхронизируются. `guests:false` значит, что не-участник
-   упрётся в пейвол — такую ссылку нельзя пускать в рекламу. */
-const LG_ACTIONS = [
-  { group: 'Открытая часть — годится для рекламы' },
-  { key:'film',       title:'Фильм о клубе',              guests:true,  param:'unit_opt' },
-  { key:'club',       title:'О клубе',                    guests:true  },
-  { key:'library',    title:'Библиотека лекций',          guests:true  },
-  { key:'magazine',   title:'Журнал',                     guests:true  },
-  { key:'live',       title:'Эфир (куда вести — решает сервер)', guests:true },
-  { key:'quiz',       title:'Тест «Кто ты из боженек»',   guests:true  },
-  { key:'points',     title:'Страница про баллы',         guests:true  },
-  { key:'levels',     title:'Уровни',                     guests:true  },
-  { key:'deck-rules', title:'Правила колоды',             guests:true  },
-  { key:'bonuses',    title:'Главная (бонусы)',           guests:true  },
-  { key:'guide',      title:'Справка клуба',              guests:true  },
-  { key:'help',       title:'Помощь с оплатой',           guests:true  },
-  { key:'support',    title:'Написать в поддержку',       guests:true  },
-
-  { group: 'С параметром' },
-  { key:'bonus',      title:'Конкретный бонус',           guests:true,  param:'bonus'  },
-  { key:'pay',        title:'Оплата с меткой источника',  guests:true,  param:'paytag' },
-  { key:'u',          title:'Только метка источника (мягкая)', guests:true, param:'unit' },
-
-  { group: 'Только участникам — гость упрётся в пейвол' },
-  { key:'schedule',   title:'Расписание',                 guests:false },
-  { key:'cards',      title:'Колода карточек',            guests:false },
-  { key:'plan',       title:'Личный план',                guests:false },
-  { key:'rewards',    title:'Награды',                    guests:false },
-  { key:'profile',    title:'Профиль',                    guests:false },
-  { key:'subscription',title:'Управление подпиской',      guests:false },
-  { key:'notifications',title:'Уведомления',              guests:false },
-  { key:'ai',         title:'ИИ-помощник',                guests:false },
-  { key:'access',     title:'Доступ в закрытые группы',   guests:false },
-  { key:'vk',         title:'Получить доступ в ВК',       guests:false },
-  { key:'howto',      title:'Как пользоваться клубом',    guests:false },
-  { key:'tour',       title:'Тур по приложению',          guests:false },
-];
-
-const LG_PLATFORMS = [
-  { id:'tg',  title:'Telegram' },
-  { id:'vk',  title:'ВКонтакте' },
-  { id:'max', title:'MAX' },
-  { id:'web', title:'Веб (реклама)' },
-];
-
-let lgPlatform  = 'tg';
-let lgParamKind = null;
-let lgBonuses  = [];
-let lgUnits    = [];
-
-function openLinkGenPopup(){
-  document.getElementById('linkgen-popup-overlay').classList.add('open');
-  lgRenderPlatforms();
-  lgRenderActions();
-  lgRenderParam(true);
-  lgLoadLists();
-  lgBuild();
-}
-
-function closeLinkGenPopup(){
-  document.getElementById('linkgen-popup-overlay').classList.remove('open');
-}
-
-/* Списки для выпадашек берём из уже существующих эндпоинтов — ключи бонусов
-   и коды единиц вписывать руками нельзя, там опечатка не видна глазами */
-async function lgLoadLists(){
-  try {
-    const r = await fetch(API + '/bonuses/admin?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
-    lgBonuses = r.ok ? await r.json() : [];
-  } catch(e){ lgBonuses = []; }
-  try {
-    const r2 = await fetch(API + '/admin/attribution/sources?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
-    const d2 = r2.ok ? await r2.json() : {};
-    lgUnits = (d2 && d2.sources) ? d2.sources : [];
-  } catch(e){ lgUnits = []; }
-  lgRenderParam(true);
-  lgBuild();
-}
-
-function lgRenderPlatforms(){
-  document.getElementById('lg-platforms').innerHTML = LG_PLATFORMS.map(function(p){
-    return '<div class="lg-chip' + (p.id === lgPlatform ? ' on' : '') +
-           '" onclick="lgPickPlatform(\'' + p.id + '\')">' + p.title + '</div>';
-  }).join('');
-}
-
-function lgPickPlatform(id){
-  lgPlatform = id;
-  lgRenderPlatforms();
-  lgRenderParam();
-  lgBuild();
-}
-
-function lgRenderActions(){
-  const sel = document.getElementById('lg-action');
-  let html = '', open = false;
-  LG_ACTIONS.forEach(function(a){
-    if (a.group){
-      if (open) html += '</optgroup>';
-      html += '<optgroup label="' + a.group + '">';
-      open = true;
-      return;
-    }
-    html += '<option value="' + a.key + '">' + a.title + '</option>';
-  });
-  if (open) html += '</optgroup>';
-  sel.innerHTML = html;
-}
-
-function lgAction(){
-  const key = document.getElementById('lg-action').value;
-  for (let i = 0; i < LG_ACTIONS.length; i++){
-    if (LG_ACTIONS[i].key === key) return LG_ACTIONS[i];
-  }
-  return null;
-}
-
-/* Поле параметра появляется только там, где оно нужно. Веб-площадка умеет
-   ТОЛЬКО метку источника: в приложение по прямому адресу иначе не передать
-   ни бонус, ни маршрут — там нет параметра запуска, только строка запроса */
-function lgRenderParam(force){
-  const slot = document.getElementById('lg-param-slot');
-  const a = lgAction();
-  const kind = (lgPlatform === 'web') ? 'unit' : (a ? (a.param || '') : '');
-  /* ⚠️ ПЕРЕРИСОВЫВАЕМ, ТОЛЬКО КОГДА СМЕНИЛСЯ ВИД ПОЛЯ. Иначе перерисовка на
-     каждый ввод символа сбрасывала бы фокус, а смена площадки стирала бы уже
-     введённую метку — при том же виде поля её надо сохранить */
-  if (kind === lgParamKind && !force) return;
-  lgParamKind = kind;
-  if (!kind){ slot.innerHTML = ''; return; }
-
-  if (kind === 'bonus'){
-    const opts = lgBonuses.length
-      ? lgBonuses.map(function(b){
-          return '<option value="' + b.key + '">' + (b.title || b.key) + (b.active ? '' : ' (выключен)') + '</option>';
-        }).join('')
-      : '<option value="">Бонусов пока нет</option>';
-    slot.innerHTML = '<div class="pay-meta" style="margin-bottom:6px">Какой бонус открыть</div>' +
-      '<select id="lg-param" class="popup-input" onchange="lgBuild()">' + opts + '</select>';
-  } else if (kind === 'unit' || kind === 'unit_opt'){
-    const head = (kind === 'unit_opt')
-      ? 'Единица контента (необязательно — без неё просто ссылка на фильм)'
-      : 'Единица контента';
-    const empty = (kind === 'unit_opt') ? '<option value="">— без метки —</option>' : '';
-    const opts = lgUnits.length
-      ? lgUnits.map(function(u){
-          return '<option value="' + u.code + '">' + (u.title || u.code) + ' · ' + u.code + '</option>';
-        }).join('')
-      : '<option value="">Единиц пока нет — заведи их в отчёте по источникам</option>';
-    slot.innerHTML = '<div class="pay-meta" style="margin-bottom:6px">' + head + '</div>' +
-      '<select id="lg-param" class="popup-input" onchange="lgBuild()">' + empty + opts + '</select>';
-  } else if (kind === 'paytag'){
-    slot.innerHTML = '<div class="pay-meta" style="margin-bottom:6px">Метка источника (латиница, цифры, дефис, подчёркивание)</div>' +
-      '<input id="lg-param" class="popup-input" placeholder="magazine_pilot" oninput="lgBuild()">';
-  }
-}
-
-function lgParamValue(){
-  const el = document.getElementById('lg-param');
-  return el ? (el.value || '').trim() : '';
-}
-
-/* ⚠️ ДОПУСТИМЫ ТОЛЬКО ЛАТИНИЦА, ЦИФРЫ, ДЕФИС И ПОДЧЁРКИВАНИЕ. MAX молча
-   выбрасывает всё остальное из ссылки — переход получается битым, а причина
-   не видна. Поэтому проверяем на нашей стороне и говорим прямо */
-function lgBadChars(v){
-  return /[^a-zA-Z0-9_-]/.test(v);
-}
-
-function lgBuild(){
-  const out  = document.getElementById('lg-result');
-  const note = document.getElementById('lg-note');
-  const a    = lgAction();
-  out.classList.remove('lg-copied');
-  if (!a){ out.textContent = '—'; note.innerHTML = ''; return; }
-
-  lgRenderParam();
-
-  const kind  = (lgPlatform === 'web') ? 'unit' : (a.param || '');
-  const value = kind ? lgParamValue() : '';
-  const notes = [];
-
-  function fail(msg){
-    out.textContent = msg;
-    out.classList.add('lg-bad');
-    note.innerHTML = '';
-  }
-
-  if (kind === 'bonus' && !value)  return fail('Выбери бонус');
-  if (kind === 'paytag' && !value) return fail('Впиши метку источника');
-  if (kind === 'unit' && !value)   return fail('Выбери единицу контента');
-  if (value && lgBadChars(value))  return fail('В метке есть недопустимые символы — только латиница, цифры, дефис, подчёркивание');
-
-  // Полезная нагрузка: то, что приложение прочитает из параметра запуска
-  let payload = a.key;
-  if (a.key === 'bonus') payload = 'bonus_' + value;
-  else if (a.key === 'pay') payload = 'pay_' + value;
-  else if (a.key === 'u')   payload = 'u_' + value;
-  else if (a.key === 'film' && value) payload = 'film_' + value;
-
-  let url = '';
-  if (lgPlatform === 'tg')       url = 'https://t.me/' + LG_TG_BOT + '/app?startapp=' + payload;
-  else if (lgPlatform === 'max') url = 'https://max.ru/' + LG_MAX_BOT + '?startapp=' + payload;
-  else if (lgPlatform === 'vk')  url = 'https://vk.com/app' + LG_VK_APP + '#' + payload;
-  else                           url = LG_WEB_APP + '?u=' + encodeURIComponent(value);
-
-  out.textContent = url;
-  out.classList.remove('lg-bad');
-
-  if (!a.guests){
-    notes.push('<span style="color:#d9534f">Только для участников: гость упрётся в пейвол. ' +
-               'Метка при этом запишется, но в рекламу такую ссылку давать не стоит.</span>');
-  }
-  if (lgPlatform === 'web'){
-    notes.push('Прямой адрес приложения. Маршруты сюда передать нельзя — только метку источника, ' +
-               'зато рядом работают обычные utm.');
-  }
-  if (lgPlatform === 'vk'){
-    notes.push('У ВК полезная нагрузка идёт после решётки — это не опечатка.');
-  }
-  if (a.key === 'live'){
-    notes.push('Одна ссылка навсегда: идёт эфир — откроется плеер, недавно прошёл — запись, иначе библиотека.');
-  }
-  notes.push('Нажми на ссылку, чтобы скопировать.');
-  note.innerHTML = notes.join('<br>');
-}
-
-function lgCopy(el){
-  const url = el.textContent || '';
-  if (!url || el.classList.contains('lg-bad')) return;
-  const done = function(){
-    el.classList.add('lg-copied');
-    setTimeout(function(){ el.classList.remove('lg-copied'); }, 1100);
-  };
-  if (navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(url).then(done).catch(function(){ lgCopyFallback(url, done); });
-  } else {
-    lgCopyFallback(url, done);
-  }
-}
-
-/* Внутри вебвью и по http буфер обмена бывает запрещён — старый способ
-   через временное поле работает почти везде */
-function lgCopyFallback(url, done){
-  try {
-    const ta = document.createElement('textarea');
-    ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
-    document.body.appendChild(ta); ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    done();
-  } catch(e){ alert('Не удалось скопировать: ' + url); }
-}
 
 function openTextsPopup(){
   document.getElementById('texts-popup-overlay').classList.add('open');
