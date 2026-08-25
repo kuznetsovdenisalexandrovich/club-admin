@@ -1028,6 +1028,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       </div>
     </div>
     <div class="card">
+      <div id="revenue-period-sum" style="display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;padding:2px 4px 10px"></div>
       <div class="chart-wrap">
         <div class="chart-canvas-wrap">
           <canvas id="revenueChart" role="img" aria-label="График выручки">Загрузка...</canvas>
@@ -2519,14 +2520,19 @@ async function loadSettings(){
         </label>
       </div>`;
     }).join('');
-    const numericRow = `<div class="pay-item">
+    /* ⚠️ ПОЛЕ «УРОВЕНЬ ОТКРЫТИЯ ГЛАВНЫХ ИДЕЙ» УБРАНО ОТСЮДА (25.08.2026).
+       Тем же значением управляет галочка «Главные идеи» в «Настроить уровни»:
+       сохранение уровня само пишет `insights_unlock_level`. Две ручки на одну
+       настройку — это не удобство, а способ получить расхождение: правишь одну,
+       вторая показывает старое, и непонятно, какая победила. */
+    const hintRow = `<div class="pay-item">
       <div class="pay-info">
-        <div class="pay-name">Уровень открытия "Главных идей"</div>
-        <div class="pay-meta">С какого уровня участнику открывается кнопка выжимки на карточке лекции</div>
+        <div class="pay-name">Что открывается по уровням</div>
+        <div class="pay-meta">«Главные идеи», PDF-выжимки и архивные лекции настраиваются в «Настроить уровни»</div>
       </div>
-      <input type="number" min="1" value="${s.insights_unlock_level || 2}" style="width:56px;text-align:center;padding:8px 6px;border-radius:10px;border:1px solid var(--line);background:var(--stat-bg);color:var(--text);font-family:inherit" onchange="saveNumericSetting('insights_unlock_level', this.value)">
+      <button class="action-btn" style="padding:5px 10px;font-size:11px" onclick="closeSettingsPopup();openLevelConfigPopup()">Открыть</button>
     </div>`;
-    el.innerHTML = toggles + numericRow;
+    el.innerHTML = toggles + hintRow;
   }catch(e){ el.innerHTML='<div class="empty">Не удалось загрузить</div>'; }
 }
 
@@ -3018,6 +3024,20 @@ function drawChart(){
     byKey[key].val+=parseFloat(p.actual_amount||0);
   }
   const sorted=Object.entries(byKey).sort((a,b)=>a[0].localeCompare(b[0]));
+  /* ⚠️ СУММА СЧИТАЕТСЯ ПО ТОМУ ЖЕ `pays`, ЧТО И СТОЛБЦЫ. Отдельный запрос или
+     свой фильтр дали бы цифру, расходящуюся с графиком — а расхождение между
+     подписью и картинкой люди трактуют как враньё одного из них. */
+  const periodSum=pays.reduce((a,p)=>a+parseFloat(p.actual_amount||0),0);
+  const sumBox=document.getElementById('revenue-period-sum');
+  if(sumBox){
+    const label={month:'за 30 дней',quarter:'за 3 месяца',year:'за год',all:'за всё время'}[currentPeriod]||'';
+    sumBox.innerHTML=pays.length
+      ? '<div><span style="font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em">'+label+'</span>'
+        +'<div style="font-size:22px;font-weight:700;line-height:1.15">'+fmt(periodSum)+'</div></div>'
+        +'<div style="font-size:12px;color:var(--text-faint)">платежей: '+pays.length
+        +' · средний '+fmt(periodSum/pays.length)+'</div>'
+      : '<div style="font-size:12px;color:var(--text-faint)">'+label+': платежей нет</div>';
+  }
   if(revenueChart)revenueChart.destroy();
   const tickColor=isDark?'#5e5a78':'#a7a2bd';
   const gridColor=isDark?'rgba(255,255,255,0.06)':'rgba(124,108,240,0.08)';
