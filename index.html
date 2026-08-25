@@ -2654,56 +2654,15 @@ async function loadSettings(){
       </div>
       <input type="number" min="1" value="${s.insights_unlock_level || 2}" style="width:56px;text-align:center;padding:8px 6px;border-radius:10px;border:1px solid var(--line);background:var(--stat-bg);color:var(--text);font-family:inherit" onchange="saveNumericSetting('insights_unlock_level', this.value)">
     </div>`;
-    /* Ознакомительная часть аудио для НЕ участников (15.08.2026).
-       ⚠️ ЭТО НЕ КОСМЕТИКА В ПЛЕЕРЕ: по этому числу сервер РЕЖЕТ отдельный
-       файл превью, а гостю уходит ссылка именно на него. Ноль — гостям аудио
-       не давать вовсе. После смены длины старым занятиям превью надо
-       пересобрать кнопкой ниже. */
-    const audioRow = `<div class="pay-item">
-      <div class="pay-info">
-        <div class="pay-name">Ознакомительная часть аудио, минут</div>
-        <div class="pay-meta">Сколько минут занятия слышит человек без подписки. 0 — не давать вовсе</div>
-      </div>
-      <input type="number" min="0" value="${s.audio_preview_minutes || 10}" style="width:56px;text-align:center;padding:8px 6px;border-radius:10px;border:1px solid var(--line);background:var(--stat-bg);color:var(--text);font-family:inherit" onchange="saveNumericSetting('audio_preview_minutes', this.value, 0)">
-    </div>`;
-
-    /* Какое занятие библиотеки считать фильмом о клубе.
-       ⚠️ ЗАШИВАТЬ SLUG В КОД НЕЛЬЗЯ: перезальёшь фильм под другим ключом —
-       ссылка `?startapp=film` тихо перестанет работать, и искать причину
-       будем в коде, а не здесь. */
-    const filmRow = `<div class="pay-item" style="align-items:flex-start">
-      <div class="pay-info">
-        <div class="pay-name">Занятие с фильмом о клубе</div>
-        <div class="pay-meta">Ключ занятия из библиотеки. По ссылке «фильм» участник попадёт на него, а неузнанный — на экран воронки</div>
-      </div>
-      <input type="text" value="${(s.film_lecture_slug || '').replace(/"/g,'&quot;')}" placeholder="funnels_p01_l02_lecture" style="width:190px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--stat-bg);color:var(--text);font-family:inherit;font-size:12px" onchange="saveTextSetting('film_lecture_slug', this.value)">
-    </div>`;
-
-    el.innerHTML = toggles + numericRow + audioRow + filmRow;
+    el.innerHTML = toggles + numericRow;
   }catch(e){ el.innerHTML='<div class="empty">Не удалось загрузить</div>'; }
 }
 
-async function saveNumericSetting(key, value, min){
-  /* ⚠️ `parseInt(value) || 1` ПРЕВРАЩАЛ НОЛЬ В ЕДИНИЦУ. Для уровней это было
-     незаметно (ноль там и не нужен), но у длины аудио-превью ноль значит
-     «гостям не давать вовсе» — и молча становился одной минутой. Нижняя
-     граница теперь приходит аргументом, по умолчанию прежняя. */
-  const lo = (typeof min === 'number') ? min : 1;
-  let n = parseInt(value, 10);
-  if (!isFinite(n) || n < lo) n = lo;
+async function saveNumericSetting(key, value){
   try{
     await fetch(API+'/settings?x_admin_token='+ADMIN_TOKEN,{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({[key]: String(n)})
-    });
-  }catch(e){ alert('Не получилось сохранить'); }
-}
-
-async function saveTextSetting(key, value){
-  try{
-    await fetch(API+'/settings?x_admin_token='+ADMIN_TOKEN,{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({[key]: String(value || '').trim()})
+      body: JSON.stringify({[key]: String(parseInt(value,10)||1)})
     });
   }catch(e){ alert('Не получилось сохранить'); }
 }
@@ -9743,38 +9702,27 @@ var textsDrafts = {};    // ключ → что сейчас в поле, до �
 
 /* ═══ ГЕНЕРАТОР ССЫЛОК ══════════════════════════════════════════════════════
    Одно место, где собираются все ссылки в приложение. Смысл не в удобстве,
-   а в том, что у площадок РАЗНЫЙ СИНТАКСИС, и руками их путают:
+   а в том, что у трёх площадок РАЗНЫЙ СИНТАКСИС, и руками их путают:
 
      Telegram  https://t.me/<бот>/app?startapp=<нагрузка>
      MAX       https://max.ru/<бот>?startapp=<нагрузка>
      ВК        https://vk.com/app<id>#<нагрузка>      ← после решётки!
      Веб       https://<адрес аппа>/?u=<код>          ← только метка источника
 
-   ⚠️ ИСТОЧНИК ИСТИНЫ — СЕРВЕР, А НЕ ЭТОТ ФАЙЛ. `GET /admin/link-config`
-   отдаёт адреса площадок из переменных окружения (там же, где их берёт сам
-   бэкенд) и список маршрутов, вычитанный из таблицы DEEPLINKS БОЕВОГО
-   приложения. Раньше обе вещи были копиями и расходились молча: сменили
-   бота — генератор выдавал старого, добавили диплинк — не знал о нём.
-
-   Константы ниже — ЗАПАСНОЙ ВАРИАНТ на случай, когда сервер недоступен или
-   приложение не отдало таблицу. Лучше слегка устаревшая ссылка, чем пустой
-   экран, но признак `lgFromServer` показывает, что данные не живые. */
+   ⚠️ АДРЕСА ПЛОЩАДОК ЗАШИТЫ ЗДЕСЬ, А НА СЕРВЕРЕ ЖИВУТ В ПЕРЕМЕННЫХ
+   ОКРУЖЕНИЯ (VK_APP_ID, MAX_BOT_NAME). Если поменяются — править надо в
+   ОБОИХ местах. Тянуть их с сервера ради генератора не стали: отдельного
+   эндпоинта нет, а заводить его ради четырёх строк дороже, чем эта пометка. */
 
 const LG_TG_BOT   = 'youselllikeagod_bot';
 const LG_VK_APP   = '54715238';
 const LG_MAX_BOT  = 'id616616492674_bot';
 const LG_WEB_APP  = 'https://kuznetsovdenisalexandrovich.github.io/club-app/';
 
-/* Живые значения — заполняются из /admin/link-config */
-let lgCfg = { tg_bot:'', vk_app_id:'', max_bot:'', app_url:'' };
-let lgFromServer = false;      // адреса пришли с сервера
-let lgRoutesLive = false;      // маршруты вычитаны из приложения
-
-/* Маршруты. САМ СПИСОК теперь приходит с сервера (см. lgApplyConfig) — этот
-   набор остаётся запасным и заодно даёт человеческие названия: в таблице
-   DEEPLINKS их нет, там только ключи. Новый диплинк подхватится сам, но
-   покажется сырым ключом, пока сюда не впишут название — это видно в списке
-   и служит напоминанием, а не поломкой. */
+/* Маршруты — ровно те же ключи, что в таблице DEEPLINKS приложения.
+   ⚠️ ПРИ ДОБАВЛЕНИИ ДИПЛИНКА В АПП ДОБАВЛЯТЬ И СЮДА: списки живут в разных
+   файлах и сами не синхронизируются. `guests:false` значит, что не-участник
+   упрётся в пейвол — такую ссылку нельзя пускать в рекламу. */
 const LG_ACTIONS = [
   { group: 'Открытая часть — годится для рекламы' },
   { key:'film',       title:'Фильм о клубе',              guests:true,  param:'unit_opt' },
@@ -9820,83 +9768,20 @@ const LG_PLATFORMS = [
 
 let lgPlatform  = 'tg';
 let lgParamKind = null;
-/* Действующий набор действий: сперва запасной, после ответа сервера — слитый */
-let LG_ROUTES   = LG_ACTIONS.slice();
 let lgBonuses  = [];
 let lgUnits    = [];
 
-async function openLinkGenPopup(){
+function openLinkGenPopup(){
   document.getElementById('linkgen-popup-overlay').classList.add('open');
   lgRenderPlatforms();
   lgRenderActions();
   lgRenderParam(true);
-  lgBuild();
-  // Сеть — после первой отрисовки: попап открывается сразу, а не ждёт ответа
-  await lgLoadConfig();
-  lgRenderActions();
   lgLoadLists();
   lgBuild();
 }
 
 function closeLinkGenPopup(){
   document.getElementById('linkgen-popup-overlay').classList.remove('open');
-}
-
-/* Адреса площадок и живой список маршрутов. Ходим до списков бонусов, потому
-   что от конфигурации зависит сам набор действий в выпадашке */
-async function lgLoadConfig(){
-  try {
-    const r = await fetch(API + '/admin/link-config?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
-    if (!r.ok) return;
-    const d = await r.json();
-    lgCfg = {
-      tg_bot:    d.tg_bot    || '',
-      vk_app_id: d.vk_app_id || '',
-      max_bot:   d.max_bot   || '',
-      app_url:   d.app_url   || '',
-    };
-    lgFromServer = true;
-    lgApplyRoutes(d.routes || [], d.routes_source === 'app');
-  } catch(e){ /* остаёмся на запасных значениях — они лучше пустоты */ }
-}
-
-/* Маршруты с сервера + названия отсюда.
-   ⚠️ ПОРЯДОК И ГРУППЫ БЕРЁМ ИЗ СВОЕГО СПИСКА, А ФАКТ СУЩЕСТВОВАНИЯ — ИЗ
-   СЕРВЕРНОГО. Иначе новый диплинк либо не появится вовсе, либо свалится в
-   конец без группы. Флаг `guests` — только серверный: он в приложении и есть
-   правда, наша копия могла устареть. */
-function lgApplyRoutes(routes, live){
-  lgRoutesLive = !!live;
-  if (!routes.length) return;                 // сервер не смог — остаёмся на своём
-
-  const byKey = {};
-  routes.forEach(function(r){ byKey[r.key] = r; });
-
-  const merged = [];
-  let lastGroup = null;
-  LG_ACTIONS.forEach(function(a){
-    if (a.group){ lastGroup = a; return; }
-    if (a.param) {                             // параметрические не из таблицы
-      if (lastGroup){ merged.push(lastGroup); lastGroup = null; }
-      merged.push(a);
-      return;
-    }
-    const live = byKey[a.key];
-    if (!live) return;                         // диплинк убрали из приложения
-    if (lastGroup){ merged.push(lastGroup); lastGroup = null; }
-    merged.push({ key: a.key, title: a.title, guests: live.guests });
-    delete byKey[a.key];
-  });
-
-  // Всё, что осталось, — новые диплинки, о которых дашборд не знал
-  const extra = Object.keys(byKey);
-  if (extra.length){
-    merged.push({ group: 'Новые в приложении — названия ещё не заведены' });
-    extra.forEach(function(k){
-      merged.push({ key: k, title: k, guests: byKey[k].guests });
-    });
-  }
-  LG_ROUTES = merged;
 }
 
 /* Списки для выпадашек берём из уже существующих эндпоинтов — ключи бонусов
@@ -9931,9 +9816,8 @@ function lgPickPlatform(id){
 
 function lgRenderActions(){
   const sel = document.getElementById('lg-action');
-  const prev = sel.value;
   let html = '', open = false;
-  LG_ROUTES.forEach(function(a){
+  LG_ACTIONS.forEach(function(a){
     if (a.group){
       if (open) html += '</optgroup>';
       html += '<optgroup label="' + a.group + '">';
@@ -9944,17 +9828,12 @@ function lgRenderActions(){
   });
   if (open) html += '</optgroup>';
   sel.innerHTML = html;
-  // выбор человека переживает перерисовку списка после ответа сервера
-  if (prev){
-    sel.value = prev;
-    if (!sel.value) sel.selectedIndex = 0;
-  }
 }
 
 function lgAction(){
   const key = document.getElementById('lg-action').value;
-  for (let i = 0; i < LG_ROUTES.length; i++){
-    if (LG_ROUTES[i].key === key) return LG_ROUTES[i];
+  for (let i = 0; i < LG_ACTIONS.length; i++){
+    if (LG_ACTIONS[i].key === key) return LG_ACTIONS[i];
   }
   return null;
 }
@@ -10043,28 +9922,10 @@ function lgBuild(){
   else if (a.key === 'film' && value) payload = 'film_' + value;
 
   let url = '';
-  /* ⚠️ ЗАПАСНЫЕ КОНСТАНТЫ — ТОЛЬКО КОГДА СЕРВЕР МОЛЧИТ. Если он ответил,
-     верим ему целиком, включая ПУСТОЕ значение: пусто означает «площадка на
-     сервере не настроена», и подставлять туда зашитое значение нельзя — мы
-     выдали бы ссылку на площадку, о которой сам бэкенд не знает, и она
-     молча не сработала бы у человека. Первый стенд поймал ровно это. */
-  const tgBot  = lgFromServer ? lgCfg.tg_bot    : LG_TG_BOT;
-  const vkApp  = lgFromServer ? lgCfg.vk_app_id : LG_VK_APP;
-  const maxBot = lgFromServer ? lgCfg.max_bot   : LG_MAX_BOT;
-  const webApp = (lgFromServer ? lgCfg.app_url : LG_WEB_APP) || LG_WEB_APP;
-
-  if (lgPlatform === 'tg' && !tgBot) return fail('Telegram не настроен: на сервере пусто имя бота');
-
-  // ⚠️ ПЛОЩАДКА БЕЗ АДРЕСА — ЭТО НЕ ССЫЛКА, А ЛОВУШКА. На сервере VK_APP_ID и
-  // MAX_BOT_NAME могут быть пустыми (площадка ещё не настроена) — тогда
-  // говорим прямо, а не выдаём «https://max.ru/?startapp=...»
-  if (lgPlatform === 'max' && !maxBot) return fail('MAX не настроен: на сервере пуста переменная MAX_BOT_NAME');
-  if (lgPlatform === 'vk'  && !vkApp)  return fail('ВК не настроен: на сервере пуста переменная VK_APP_ID');
-
-  if (lgPlatform === 'tg')       url = 'https://t.me/' + tgBot + '/app?startapp=' + payload;
-  else if (lgPlatform === 'max') url = 'https://max.ru/' + maxBot + '?startapp=' + payload;
-  else if (lgPlatform === 'vk')  url = 'https://vk.com/app' + vkApp + '#' + payload;
-  else                           url = webApp.replace(/\/+$/, '/') + '?u=' + encodeURIComponent(value);
+  if (lgPlatform === 'tg')       url = 'https://t.me/' + LG_TG_BOT + '/app?startapp=' + payload;
+  else if (lgPlatform === 'max') url = 'https://max.ru/' + LG_MAX_BOT + '?startapp=' + payload;
+  else if (lgPlatform === 'vk')  url = 'https://vk.com/app' + LG_VK_APP + '#' + payload;
+  else                           url = LG_WEB_APP + '?u=' + encodeURIComponent(value);
 
   out.textContent = url;
   out.classList.remove('lg-bad');
@@ -10082,13 +9943,6 @@ function lgBuild(){
   }
   if (a.key === 'live'){
     notes.push('Одна ссылка навсегда: идёт эфир — откроется плеер, недавно прошёл — запись, иначе библиотека.');
-  }
-  if (!lgFromServer){
-    notes.push('<span style="color:#d9534f">Сервер не ответил — адреса площадок взяты из запасных. ' +
-               'Проверь ссылку глазами.</span>');
-  } else if (!lgRoutesLive){
-    notes.push('Список действий запасной: приложение не отдало таблицу диплинков. ' +
-               'Адреса площадок при этом живые.');
   }
   notes.push('Нажми на ссылку, чтобы скопировать.');
   note.innerHTML = notes.join('<br>');
