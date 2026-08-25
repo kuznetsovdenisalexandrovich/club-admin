@@ -1069,7 +1069,6 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <button class="action-btn" onclick="openLevelConfigPopup()">Настроить уровни</button>
         <button class="action-btn" onclick="openRewardCatalogPopup()">Управление наградами</button>
         <button class="action-btn" onclick="openCardsPopup()">Колода карточек</button>
-        <button class="action-btn" onclick="openScreensPopup()">Экраны открытия</button>
         <button class="action-btn" onclick="openRafflePopup()">Розыгрыши</button>
         <button class="action-btn" onclick="openNudgesPopup()">Дожимные рассылки</button>
         <button class="action-btn" onclick="openBonusPopup()">Бонусы за вступление</button>
@@ -1509,53 +1508,12 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <button class="action-btn" onclick="setElKind('plate')" id="el-kind-plate">Плашки</button>
           <button class="action-btn" onclick="openComposer()" style="margin-left:auto">Проба сборки</button>
         </div>
-        <!-- ⚠️ Кирпичики ЭКРАНА ОТКРЫТИЯ жили здесь до 12.08.2026 и переехали
-             в свой раздел «Экраны открытия»: работа над экраном и работа над
-             карточкой — разные занятия, и мешать их в одном попапе неудобно.
-             ⚠️ При этом переносе остался ЛИШНИЙ закрывающий тег — он раньше
-             времени закрывал вкладку «Элементы», и всё, что ниже (список
-             элементов, редактор, проба сборки), оказывалось ВНЕ вкладки:
-             показывалось всегда, независимо от выбранной вкладки. Убран. -->
-        <!-- Подсказка ключами сезонов: связь идёт по строке, и «s2 » с пробелом
-             тихо выкинул бы элемент из сезона -->
-        <datalist id="series-datalist"></datalist>
         <div id="el-list"><div class="loading">Загрузка...</div></div>
         <div id="el-editor-slot" style="margin-top:12px"></div>
         <div id="composer-slot" style="margin-top:12px"></div>
       </div>
 
       <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closeCardsPopup()">Закрыть</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══ ЭКРАНЫ ОТКРЫТИЯ ══════════════════════════════════════════════════════
-     Отдельный раздел, а не вкладка в карточках: работа над оформлением экрана
-     и работа над колодой — разные занятия.
-     Экран здесь ОДНА СУЩНОСТЬ с полями под файлы, а не набор ссылок на
-     отдельно загруженные кирпичики. Ключи элементов выписываются сами из
-     имени экрана — вводить и запоминать их вручную незачем. -->
-<div class="popup-overlay" id="screens-popup-overlay">
-  <div class="popup" id="screens-popup">
-    <div class="popup-handle"></div>
-    <div class="popup-body" style="padding-top:0">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-        <div class="popup-section-title" style="margin-top:0;margin-bottom:0">Экраны открытия</div>
-        <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeScreensPopup()">&times;</button>
-      </div>
-      <div style="font-size:11px;color:var(--text-faint);margin-bottom:10px">
-        Экран — это оформление, которое участник видит при вскрытии пака.
-        Участнику случайно достаётся один экран на каждую тему из текущего сезона.
-        Незаполненное поле не беда: приложение возьмёт свою картинку.
-      </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-        <button class="action-btn" onclick="openScreenEditor('')">+ новый экран</button>
-        <button class="action-btn" onclick="loadScreens()" style="margin-left:auto">Обновить</button>
-      </div>
-      <datalist id="series-datalist-screens"></datalist>
-      <div id="screens-list"><div class="loading">Загрузка...</div></div>
-      <div id="screen-editor-slot" style="margin-top:12px"></div>
-      <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closeScreensPopup()">Закрыть</button>
     </div>
   </div>
 </div>
@@ -1704,23 +1662,6 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <button class="action-btn" onclick="chatSetSlow()">Медленный режим</button>
           <button class="action-btn" id="chat-toggle-btn" onclick="chatToggleOpen()">Закрыть чат</button>
         </div>
-        <div class="section-title" style="margin:14px 0 6px;font-size:13px">Анонс по площадкам</div>
-        <div id="live-announce-targets"></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">
-          <button class="action-btn" onclick="announcePreview()">Показать, что уйдёт</button>
-          <button class="action-btn" onclick="announceSend()">Разослать анонс</button>
-          <button class="action-btn" onclick="openTargetsPopup()">Настроить площадки</button>
-        </div>
-        <div id="live-announce-out" class="pay-meta" style="margin:0 2px 12px"></div>
-
-        <div class="section-title" style="margin:14px 0 6px;font-size:13px">Кнопка поверх чата</div>
-        <input class="popup-input" type="text" id="live-practice-url" placeholder="Ссылка — телемост, страница, что угодно" style="margin-bottom:6px">
-        <input class="popup-input" type="text" id="live-practice-label" placeholder="Надпись на кнопке (пусто — «Подключиться к практике»)" style="margin-bottom:6px">
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
-          <button class="action-btn" onclick="livePracticeSave()">Сохранить ссылку</button>
-          <button class="action-btn" id="live-practice-toggle" onclick="livePracticeToggle()">Показать кнопку</button>
-        </div>
-        <div class="pay-meta" id="live-practice-state" style="margin:0 2px 12px">Кнопка появится у всех, кто смотрит эфир, в течение нескольких секунд.</div>
         <button class="popup-save" id="live-close-free-btn" onclick="liveCloseFree()" style="margin-bottom:8px">Закрыть бесплатную часть</button>
         <button class="popup-save" onclick="liveFinish()" style="background:#e8614a">Завершить эфир</button>
       </div>
@@ -1730,44 +1671,6 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <button class="action-btn" onclick="liveWebhookList()" style="margin-left:6px">Показать вебхуки</button>
       <button class="action-btn" onclick="liveWebhookLog()" style="margin-left:6px">Что нам присылали</button>
       <div class="pay-meta" style="margin-top:6px">Вебхук нужен, чтобы апп знал, что поток РЕАЛЬНО пошёл, а не только что по расписанию пора.</div>
-    </div>
-  </div>
-</div>
-<div class="popup-overlay" id="targets-popup-overlay">
-  <div class="popup" id="targets-popup">
-    <div class="popup-handle"></div>
-    <div class="popup-body" style="padding-top:0">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-        <div class="popup-section-title" style="margin:0">Площадки для анонса</div>
-        <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeTargetsPopup()"><svg width="14" height="14" viewBox="0 0 14 14" style="display:block"><path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
-      </div>
-      <div id="targets-tokens" class="pay-meta" style="margin-bottom:10px"></div>
-      <div id="targets-list"></div>
-      <div class="section-title" style="margin:14px 0 6px;font-size:13px" id="target-form-title">Новая площадка</div>
-      <input class="popup-input" type="hidden" id="target-id">
-      <input class="popup-input" type="text" id="target-name" placeholder="Название — как ты сам её называешь" style="margin-bottom:6px">
-      <select class="popup-input" id="target-method" style="margin-bottom:6px" onchange="renderTargetHint()">
-        <option value="tg_channel">Telegram — канал или чат (бот должен быть админом)</option>
-        <option value="vk_wall">ВКонтакте — стена сообщества</option>
-        <option value="vk_chat">ВКонтакте — беседа</option>
-      </select>
-      <input class="popup-input" type="text" id="target-address" placeholder="Адрес" style="margin-bottom:6px">
-      <div class="pay-meta" id="target-hint" style="margin:-2px 2px 6px"></div>
-      <select class="popup-input" id="target-token" style="margin-bottom:6px">
-        <option value="closed">Ключ закрытого сообщества ВК</option>
-        <option value="open">Ключ открытого сообщества ВК</option>
-      </select>
-      <select class="popup-input" id="target-link" style="margin-bottom:6px">
-        <option value="app">Ссылка — диплинк в приложение</option>
-        <option value="vk">Ссылка — трансляция в этом же сообществе ВК</option>
-        <option value="none">Без ссылки</option>
-      </select>
-      <input class="popup-input" type="text" id="target-button" placeholder="Надпись кнопки (только Telegram, пусто — без кнопки)" style="margin-bottom:6px">
-      <textarea class="popup-input" id="target-template" rows="4" placeholder="Текст поста" style="margin-bottom:4px;resize:vertical"></textarea>
-      <div class="pay-meta" style="margin:0 2px 8px">Метки подставятся сами: {название} · {ссылка} · {время} · {дата}. Пустой текст — возьмётся стандартный.</div>
-      <label class="pay-item" style="cursor:pointer;margin-bottom:8px"><input type="checkbox" id="target-active" checked style="flex-shrink:0"><div style="flex:1">Участвует в рассылке</div></label>
-      <button class="popup-save" onclick="saveTarget()">Сохранить площадку</button>
-      <button class="action-btn" onclick="resetTargetForm()" style="margin-top:6px">Очистить форму</button>
     </div>
   </div>
 </div>
@@ -2151,13 +2054,8 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-// Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const API        = 'https://api.youselllikeagod-magazine.ru';
-// Стенд экрана открытия в приложении — им же показывается превью в конструкторе
-const APP_LAB_URL = 'https://kuznetsovdenisalexandrovich.github.io/club-app/pack-lab.html';
-// Заполняется ТОЛЬКО после входа по пину — в файле секрета нет.
-// Страница лежит на GitHub Pages и открыта любому, кто знает адрес:
-// зашитый здесь токен был виден прямо в исходнике
+const API        = 'https://club-backend-production-fc7f.up.railway.app';
+// Заполняется ТОЛЬКО после входа по пину — в файле секрета нет
 const ADMIN_TOKEN_KEY = 'admin_token';
 let ADMIN_TOKEN = '';
 try { ADMIN_TOKEN = sessionStorage.getItem(ADMIN_TOKEN_KEY) || ''; } catch(e) {}
@@ -4394,7 +4292,6 @@ async function openLivePopup(){
   const sel = document.getElementById('live-admin-event');
   if (sel) sel.innerHTML = '<option value="">Загружаю трансляции…</option>';
   loadLiveAdminState();
-  loadTargets();
   // ДОЖИДАЕМСЯ загрузки, а не угадываем паузу. Список наполняет сам
   // loadKinescopeEvents — он знает про наш селект (см. массив sels)
   await loadKinescopeEvents();
@@ -4473,266 +4370,6 @@ function renderLiveAdmin(){
     }).join('');
   }
   document.getElementById('live-close-free-btn').disabled = !s.free_open;
-  renderPracticeAdmin(s);
-}
-
-/* ── Анонс эфира по площадкам ────────────────────────────────────────────
-   Ссылку в каждую точку подставляет БЭКЕНД: он же создавал трансляции ВК и
-   один знает их адреса. Дашборд только выбирает, куда слать, и показывает,
-   что именно уйдёт. */
-const TARGET_METHOD_LABELS = {
-  tg_channel: 'Telegram', vk_wall: 'стена ВК', vk_chat: 'беседа ВК'
-};
-const TARGET_LINK_LABELS = {
-  app: 'диплинк в приложение', vk: 'трансляция ВК', none: 'без ссылки'
-};
-let targetsCache = [];
-
-async function loadTargets(){
-  try{
-    const r = await fetch(API + '/admin/broadcast/targets?x_admin_token=' + ADMIN_TOKEN);
-    const d = await r.json();
-    targetsCache = d.targets || [];
-    renderAnnounceTargets();
-    renderTargetsList(d.tokens || {});
-  }catch(e){
-    const box = document.getElementById('live-announce-targets');
-    if (box) box.innerHTML = '<div class="pay-meta" style="color:#e8614a">Не смог прочитать площадки: '
-      + (e && e.message || e) + '</div>';
-  }
-}
-
-/* Галочки в пульте: по умолчанию отмечены активные. Перед конкретным эфиром
-   любую можно снять — например, когда эфир только для клуба */
-function renderAnnounceTargets(){
-  const box = document.getElementById('live-announce-targets');
-  if (!box) return;
-  if (!targetsCache.length){
-    box.innerHTML = '<div class="pay-meta">Площадок пока нет. Нажми «Настроить площадки» и заведи их — тогда анонс будет уходить одним нажатием.</div>';
-    return;
-  }
-  box.innerHTML = targetsCache.map(function(t){
-    return '<label class="pay-item" style="cursor:pointer">'
-      + '<input type="checkbox" class="ann-t" value="' + t.id + '" ' + (t.active ? 'checked' : '') + ' style="flex-shrink:0">'
-      + '<div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(t.name) + '</div>'
-      + '<div class="pay-meta">' + (TARGET_METHOD_LABELS[t.method] || t.method) + ' · ' + (TARGET_LINK_LABELS[t.link_mode] || '')
-      + (t.last_ok_at ? ' · последний раз ' + t.last_ok_at : '')
-      + (t.last_error ? ' · <span style="color:#e8614a">ошибка: ' + escapeHtmlAdm(t.last_error.slice(0, 60)) + '</span>' : '')
-      + '</div></div></label>';
-  }).join('');
-}
-
-function checkedTargetIds(){
-  return Array.from(document.querySelectorAll('.ann-t:checked')).map(function(el){ return Number(el.value); });
-}
-
-async function announceCall(preview){
-  const out = document.getElementById('live-announce-out');
-  const ids = checkedTargetIds();
-  if (!ids.length){ out.textContent = 'Ни одна площадка не отмечена.'; return null; }
-  out.textContent = preview ? 'Собираю тексты…' : 'Рассылаю…';
-  try{
-    const r = await fetch(API + '/admin/live/announce?x_admin_token=' + ADMIN_TOKEN, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ target_ids: ids, preview: !!preview })
-    });
-    const d = await r.json();
-    if (!r.ok){ out.innerHTML = '<span style="color:#e8614a">' + (d.detail || 'Не получилось') + '</span>'; return null; }
-    return d;
-  }catch(e){
-    out.innerHTML = '<span style="color:#e8614a">Нет связи с бэкендом: ' + (e && e.message || e) + '</span>';
-    return null;
-  }
-}
-
-/* СНАЧАЛА ПОСМОТРЕТЬ, ПОТОМ ОТПРАВИТЬ. Пост уходит живым людям и отозвать его
-   нельзя — предпросмотр собирается ТЕМ ЖЕ кодом, что и настоящая отправка */
-async function announcePreview(){
-  const d = await announceCall(true);
-  if (!d) return;
-  document.getElementById('live-announce-out').innerHTML = (d.items || []).map(function(i){
-    return '<div style="margin:8px 0;padding:8px;border-radius:10px;background:rgba(127,127,127,.08)">'
-      + '<div class="pay-name">' + escapeHtmlAdm(i.name) + '</div>'
-      + '<div style="white-space:pre-wrap;font-size:12px;margin:4px 0">' + escapeHtmlAdm(i.text) + '</div>'
-      + '<div class="pay-meta">Ссылка: ' + escapeHtmlAdm(i.link || '— нет —') + '</div></div>';
-  }).join('');
-}
-
-async function announceSend(){
-  const ids = checkedTargetIds();
-  if (!ids.length){ document.getElementById('live-announce-out').textContent = 'Ни одна площадка не отмечена.'; return; }
-  if (!confirm('Разослать анонс в ' + ids.length + ' мест? Отозвать посты будет нельзя.')) return;
-  const d = await announceCall(false);
-  if (!d) return;
-  document.getElementById('live-announce-out').innerHTML =
-    '<div class="pay-name">Ушло: ' + d.sent + ' · не ушло: ' + d.failed + '</div>'
-    + (d.report || []).map(function(x){
-        return '<div class="pay-meta"' + (x.ok ? '' : ' style="color:#e8614a"') + '>'
-          + escapeHtmlAdm(x.name) + ' — ' + (x.ok ? 'ок' : escapeHtmlAdm(x.error || 'ошибка')) + '</div>';
-      }).join('');
-  loadTargets();
-}
-
-/* ── Справочник площадок ─────────────────────────────────────────────── */
-function openTargetsPopup(){
-  document.getElementById('targets-popup-overlay').classList.add('open');
-  resetTargetForm();
-  loadTargets();
-}
-
-function closeTargetsPopup(){
-  document.getElementById('targets-popup-overlay').classList.remove('open');
-}
-
-function renderTargetsList(tokens){
-  const tb = document.getElementById('targets-tokens');
-  if (tb){
-    // ЧТО БЭКЕНД ВИДИТ, а не что умеет: без ключа отправка молча не пойдёт,
-    // и узнать это лучше до эфира
-    const miss = [];
-    if (!tokens.telegram_bot) miss.push('BOT_TOKEN (Telegram)');
-    if (!tokens.vk_closed) miss.push('VK_GROUP_TOKEN');
-    if (!tokens.vk_open) miss.push('VK_OPEN_GROUP_TOKEN');
-    tb.innerHTML = miss.length
-      ? '<span style="color:#e8614a">Не хватает ключей: ' + miss.join(', ') + ' — площадки на них отправить не смогут.</span>'
-      : 'Все ключи на месте.';
-  }
-  const box = document.getElementById('targets-list');
-  if (!box) return;
-  box.innerHTML = targetsCache.length ? targetsCache.map(function(t){
-    return '<div class="pay-item">'
-      + '<div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(t.name)
-      + (t.active ? '' : ' <span class="badge badge-err">выключена</span>') + '</div>'
-      + '<div class="pay-meta">' + (TARGET_METHOD_LABELS[t.method] || t.method) + ' · ' + escapeHtmlAdm(t.address)
-      + ' · ' + (TARGET_LINK_LABELS[t.link_mode] || '') + '</div></div>'
-      + '<button class="action-btn" onclick="editTarget(' + t.id + ')">Править</button>'
-      + '<button class="action-btn" onclick="deleteTarget(' + t.id + ')">Удалить</button>'
-      + '</div>';
-  }).join('') : '<div class="pay-meta">Пока пусто.</div>';
-}
-
-function renderTargetHint(){
-  const m = document.getElementById('target-method').value;
-  const hints = {
-    tg_channel: 'Адрес канала — число вида -1002094168989. Бот обязан быть в канале администратором с правом публикации.',
-    vk_wall: 'Адрес — номер сообщества БЕЗ минуса, например 232119632. Минус подставится сам.',
-    vk_chat: 'Адрес беседы — peer_id, обычно 2000000000 плюс номер беседы.'
-  };
-  document.getElementById('target-hint').textContent = hints[m] || '';
-}
-
-function resetTargetForm(){
-  document.getElementById('target-form-title').textContent = 'Новая площадка';
-  ['target-id','target-name','target-address','target-button','target-template'].forEach(function(id){
-    document.getElementById(id).value = '';
-  });
-  document.getElementById('target-method').value = 'tg_channel';
-  document.getElementById('target-token').value = 'closed';
-  document.getElementById('target-link').value = 'app';
-  document.getElementById('target-active').checked = true;
-  renderTargetHint();
-}
-
-function editTarget(id){
-  const t = targetsCache.find(function(x){ return x.id === id; });
-  if (!t) return;
-  document.getElementById('target-form-title').textContent = 'Правим: ' + t.name;
-  document.getElementById('target-id').value = t.id;
-  document.getElementById('target-name').value = t.name;
-  document.getElementById('target-method').value = t.method;
-  document.getElementById('target-address').value = t.address;
-  document.getElementById('target-token').value = t.token_key;
-  document.getElementById('target-link').value = t.link_mode;
-  document.getElementById('target-button').value = t.button;
-  document.getElementById('target-template').value = t.template;
-  document.getElementById('target-active').checked = t.active;
-  renderTargetHint();
-}
-
-async function saveTarget(){
-  const idRaw = document.getElementById('target-id').value;
-  const body = {
-    id: idRaw ? Number(idRaw) : null,
-    name: document.getElementById('target-name').value,
-    method: document.getElementById('target-method').value,
-    address: document.getElementById('target-address').value,
-    token_key: document.getElementById('target-token').value,
-    link_mode: document.getElementById('target-link').value,
-    button: document.getElementById('target-button').value,
-    template: document.getElementById('target-template').value,
-    active: document.getElementById('target-active').checked
-  };
-  try{
-    const r = await fetch(API + '/admin/broadcast/target?x_admin_token=' + ADMIN_TOKEN, {
-      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
-    });
-    const d = await r.json();
-    if (!r.ok){ alert(d.detail || 'Не получилось сохранить'); return; }
-    resetTargetForm();
-    loadTargets();
-  }catch(e){ alert('Нет связи с бэкендом: ' + (e && e.message || e)); }
-}
-
-async function deleteTarget(id){
-  const t = targetsCache.find(function(x){ return x.id === id; });
-  if (!confirm('Удалить площадку «' + (t ? t.name : id) + '»?')) return;
-  try{
-    await fetch(API + '/admin/broadcast/target/' + id + '?x_admin_token=' + ADMIN_TOKEN, { method:'DELETE' });
-    loadTargets();
-  }catch(e){ alert('Нет связи с бэкендом: ' + (e && e.message || e)); }
-}
-
-/* ── Кнопка действия поверх чата эфира ───────────────────────────────────
-   Ссылка своя у каждого эфира, поэтому живёт на сессии и вписывается перед
-   стартом. Показывается только по нажатию Denis'а: момент «лекция кончилась,
-   пора на практику» знает он один. */
-function renderPracticeAdmin(s){
-  const url = document.getElementById('live-practice-url');
-  const lab = document.getElementById('live-practice-label');
-  const btn = document.getElementById('live-practice-toggle');
-  const st  = document.getElementById('live-practice-state');
-  if (!url || !btn) return;
-  // Поля НЕ затираем, пока в них печатают: опрос статуса идёт раз в несколько
-  // секунд и иначе выдирал бы ссылку прямо из-под пальцев
-  if (document.activeElement !== url) url.value = s.practice_url || '';
-  if (document.activeElement !== lab) lab.value = s.practice_label || '';
-  const on = !!s.practice_on;
-  btn.textContent = on ? 'Убрать кнопку' : 'Показать кнопку';
-  btn.style.background = on ? '#e8614a' : '';
-  btn.style.color = on ? '#fff' : '';
-  st.textContent = on
-    ? 'Кнопка сейчас видна участникам. Надпись: ' + (s.practice_label || 'Подключиться к практике')
-    : 'Кнопка скрыта. Впиши ссылку и нажми «Показать кнопку» — она появится у всех за несколько секунд.';
-}
-
-async function livePracticeSend(on){
-  const url = (document.getElementById('live-practice-url').value || '').trim();
-  const label = (document.getElementById('live-practice-label').value || '').trim();
-  try{
-    const r = await fetch(API + '/admin/live/practice?x_admin_token=' + ADMIN_TOKEN, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ url: url, label: label, on: on })
-    });
-    const d = await r.json();
-    if (!r.ok){ alert(d.detail || 'Не получилось сохранить'); return; }
-    // Обновляем ЛОКАЛЬНОЕ состояние ответом сервера, а не своими ожиданиями:
-    // сервер мог дописать https:// или обрезать длинную надпись
-    if (liveAdminState) liveAdminState.session = d.session;
-    renderPracticeAdmin(d.session || {});
-  }catch(e){
-    alert('Нет связи с бэкендом: ' + (e && e.message || e));
-  }
-}
-
-function livePracticeSave(){
-  // Сохранение НЕ включает кнопку: ссылку часто вписывают заранее, до эфира
-  const on = !!(liveAdminState && liveAdminState.session && liveAdminState.session.practice_on);
-  livePracticeSend(on);
-}
-
-function livePracticeToggle(){
-  const on = !!(liveAdminState && liveAdminState.session && liveAdminState.session.practice_on);
-  livePracticeSend(!on);
 }
 
 
@@ -5606,9 +5243,11 @@ async function saveUserPatch(){
 </div>
 
 <script>
-/* ПИН БОЛЬШЕ НЕ ПРОВЕРЯЕТСЯ ЗДЕСЬ. Проверка в браузере не защищает ни от чего:
-   и пин, и админский токен было видно в исходнике страницы. Теперь пин уходит
-   на сервер, а обратно приходит ключ на 12 часов, живущий только в этой вкладке. */
+/* ПИН БОЛЬШЕ НЕ ПРОВЕРЯЕТСЯ ЗДЕСЬ. Страница лежит на GitHub Pages и открыта
+   любому, кто знает адрес: и пин, и админский токен были видны прямо в
+   исходнике, а проверка пина в браузере не защищает ни от чего. Теперь пин
+   уходит на сервер, а обратно приходит ключ на 12 часов, который живёт только
+   в этой вкладке. В самом файле не остаётся ни одного секрета. */
 const PIN_LENGTH = 5;
 let pinEntered = '';
 let pinBusy = false;
@@ -5667,10 +5306,10 @@ document.addEventListener('keydown', function(e){
 // Check if already unlocked
 (function(){
   let ok = false;
-  // Пропуск экрана решает НАЛИЧИЕ КЛЮЧА, а не отдельная отметка: со старой
-  // отметкой человек проходил бы мимо пина без ключа, и каждый запрос молча
-  // получал бы отказ, выглядя как поломка дашборда
-  ok = !!ADMIN_TOKEN;
+  // Пропуск экрана пина теперь решает НАЛИЧИЕ КЛЮЧА, а не отдельная отметка.
+    // Со старой отметкой человек проходил бы мимо пина без ключа — и каждый
+    // запрос молча получал бы отказ, выглядя как поломка дашборда
+    ok = !!ADMIN_TOKEN;
   if (ok) {
     document.getElementById('pin-screen').classList.add('hidden');
     loadAll();
@@ -6749,14 +6388,6 @@ async function drawRaffle(key){
 
 /* КЛАСС КАРТОЧКИ — из какого слоя механики она приходит. Всё, кроме обычной,
    исключено из паков: Знак, выпавший случайно, обесценил бы полку заслуг */
-/* Подписи темы человеческим языком: коды light/dark/any в редакторе карточки
-   ничего не говорят тому, кто не читал наш код */
-const CARD_THEME_LABELS = {
-  any:   'Как получится (по арту или редкости)',
-  dark:  'Тёмный',
-  light: 'Светлый'
-};
-
 const CARD_CLASS_LABELS = {
   regular:  'Из пака за продление',
   prologue: 'Пролог — гостю за тест',
@@ -6823,16 +6454,6 @@ function cardEditorHtml(c, idx){
       + '</div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
         + sel('Редкость','rarity',c.rarity,RARITY_LABELS)
-        // ⚠️ ТЕМА ЭКРАНА ОТКРЫТИЯ. "any" = «решай сам»: у собранной конструктором
-        // возьмётся тема её арта, у остальных — прежняя раскладка по редкости.
-        // light/dark здесь — РУЧНОЕ ПЕРЕОПРЕДЕЛЕНИЕ, оно главнее арта.
-        // Нужно в первую очередь карточкам, залитым целой картинкой: у них нет
-        // рецепта, и спросить тему больше не у кого
-        + sel('Экран открытия','theme', c.theme || 'any', CARD_THEME_LABELS)
-        + (c.theme === 'any' && c.theme_effective
-           ? '<div style="flex-basis:100%;font-size:11px;color:var(--text-faint);margin-top:-4px">'
-             + 'Сейчас берётся от арта: ' + elEsc(c.theme_effective) + '</div>'
-           : '')
         + f('Вес в колоде','weight',c.weight,'number','min="0"')
         + f('Лимит выдач','monthly_limit',c.monthly_limit,'number','min="0"')
         + f('за сколько мес','limit_period_months',c.limit_period_months||1,'number','min="1"')
@@ -6861,7 +6482,7 @@ function addCardType(){
   cardTypes.push({ key:key, god:'', title:'Новая карточка', description:'', rarity:'common',
                    weight:100, monthly_limit:0, limit_period_months:1, effect_type:'points', effect_points:50,
                    reward_key:'', media_url:'', image_url:'', image_full_url:'', personal:false, active:true, secret:false,
-                   card_class:'regular', badge_trigger:'', badge_threshold:0, theme:'any',
+                   card_class:'regular', badge_trigger:'', badge_threshold:0,
                    issued_this_month:0, _unsaved:true });
   cardsPage = 0;
   openCardEditor(key);
@@ -6888,7 +6509,6 @@ async function saveCardType(idx){
     card_class: v('card_class') || 'regular',
     badge_trigger: v('badge_trigger') || '',
     badge_threshold: parseInt(v('badge_threshold'),10) || 0,
-    theme: v('theme') || 'any',
   };
   if (!payload.key){ alert('Нужен ключ карточки'); return; }
 
@@ -8102,27 +7722,15 @@ function renderUniqueCards(){
 
 function setElKind(kind){ elKind = kind; elExpanded = null; loadElements(); }
 
-/* Наполняем подсказку сезонов тем, что уже загрузил список серий. Отдельного
-   запроса не делаем: если серии ещё не грузились, подсказка просто пустая,
-   а поле остаётся обычным вводом */
-function fillSeriesDatalist(){
-  var dl = document.getElementById('series-datalist');
-  if (!dl || !window.seriesList) return;
-  dl.innerHTML = (seriesList || []).map(function(x){
-    return '<option value="' + elEsc(x.key) + '">' + elEsc(x.title || x.key) + '</option>';
-  }).join('');
-}
-
 async function loadElements(){
   var box = document.getElementById('el-list');
-  ['frame','art','plate','stage','back','cta','close','sigil','screen'].forEach(function(k){
+  ['frame','art','plate'].forEach(function(k){
     var b = document.getElementById('el-kind-' + k);
     if (b) b.style.opacity = (k === elKind) ? '1' : '.55';
   });
   try {
     elementsCache = await fetch(API + '/cards/admin/elements?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN))
       .then(function(r){ return r.json(); });
-    fillSeriesDatalist();
     renderElements();
   } catch(e){
     box.innerHTML = '<div style="color:var(--text-faint);font-size:12px">Не загрузилось: ' + elEsc(e.message) + '</div>';
@@ -8186,12 +7794,6 @@ function elementEditorHtml(key){
         + '</select></label>'
       + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:110px">' + elLbl('Стиль: holo, emboss, gold')
         + '<input id="ef-style" value="' + elEsc(e.style) + '" style="' + elInput() + '"></label>'
-      /* ⚠️ ПОЛЕ СЕЗОНА ОБЯЗАНО БЫТЬ, РАЗ ОНО УХОДИТ НА СЕРВЕР. Без него
-         сохранение отправляло бы пустую строку и СТИРАЛО сезон у артов,
-         которым он проставлен. Молча: ошибки нет, просто арт выпадает из
-         своей серии. */
-      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:110px">' + elLbl('Сезон (пусто — общий)')
-        + '<input id="ef-series" value="' + elEsc(e.series_key) + '" list="series-datalist" style="' + elInput() + '"></label>'
     + '</div>'
     + (elKind === 'frame' ? '' :
        '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Бог')
@@ -8218,73 +7820,12 @@ function elementEditorHtml(key){
 }
 
 /* Арты ужимаем в браузере, рамки и плашки отдаём как есть: сжатие съело бы
-   альфу у рамки и тиснение у плашки.
-
-   ⚠️ КАРТИНКИ ЭКРАНА — ОТДЕЛЬНЫЙ СЛУЧАЙ, И ИХ НЕЛЬЗЯ СЛАТЬ СЫРЫМ PNG.
-   Задник от нейросети приходит 1024×1536 и весит несколько мегабайт; его
-   качает КАЖДЫЙ участник при КАЖДОМ вскрытии. Жмём в WebP: он держит
-   полупрозрачность (в отличие от JPEG) и даёт ~100 КБ вместо 3 МБ.
-   Рамки и плашки САМОЙ КАРТОЧКИ по-прежнему уходят как есть — там сжатие
-   съедает тиснение, и это проверено. */
-var REVEAL_UPLOAD_KINDS = { stage:1, back:1, cta:1, close:1, sigil:1, ornament:1, pedestal:1 };
-
-/* Анимация ли это — смотрим ПО БАЙТАМ, а не по расширению: файл с именем
-   .png вполне может быть APNG, а .webp — анимированным.
-     APNG  — чанк acTL до первого IDAT
-     WebP  — чанк ANMF
-     GIF   — считаем анимацией всегда, разбирать смысла нет
-   Читаем начало файла: маркеры лежат в первых килобайтах. */
-function looksAnimated(dataUrl){
-  try {
-    var head = String(dataUrl).slice(0, 60);
-    if (head.indexOf('image/gif') >= 0) return true;
-    var b64 = String(dataUrl).split(',')[1] || '';
-    var bin = atob(b64.slice(0, 8000));          // ~6 КБ начала — маркеры там
-    if (head.indexOf('image/png') >= 0){
-      var idat = bin.indexOf('IDAT');
-      var actl = bin.indexOf('acTL');
-      return actl >= 0 && (idat < 0 || actl < idat);
-    }
-    if (head.indexOf('image/webp') >= 0) return bin.indexOf('ANMF') >= 0 || bin.indexOf('ANIM') >= 0;
-  } catch(e){}
-  return false;
-}
-function animExt(dataUrl){
-  var head = String(dataUrl).slice(0, 60);
-  if (head.indexOf('image/gif')  >= 0) return 'gif';
-  if (head.indexOf('image/webp') >= 0) return 'webp';
-  return 'png';
-}
-
+   альфу у рамки и тиснение у плашки */
 function readElementFile(file, kind){
   return new Promise(function(resolve, reject){
     var fr = new FileReader();
     fr.onerror = function(){ reject(new Error('файл не прочитался')); };
     fr.onload = function(){
-      if (REVEAL_UPLOAD_KINDS[kind]) {
-        /* ⚠️⚠️ АНИМИРОВАННЫЙ ФАЙЛ ЧЕРЕЗ ХОЛСТ ПРОПУСКАТЬ НЕЛЬЗЯ. Холст берёт
-           ОДИН кадр — анимация превратилась бы в неподвижную картинку МОЛЧА:
-           ни ошибки, ни предупреждения, просто «почему-то не двигается».
-           Такой файл отдаём как есть, пусть весит больше. */
-        if (looksAnimated(fr.result)) { resolve({ data: fr.result, ext: animExt(fr.result) }); return; }
-        var im = new Image();
-        im.onload = function(){
-          var max = 1200, kk = Math.min(1, max / Math.max(im.width, im.height));
-          var cv = document.createElement('canvas');
-          cv.width = Math.round(im.width * kk); cv.height = Math.round(im.height * kk);
-          // ⚠️ Фон НЕ заливаем: у задника и рубашки края бывают прозрачными,
-          // и белая подложка вылезла бы каймой вокруг картинки
-          cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
-          var out = cv.toDataURL('image/webp', 0.82);
-          // ⚠️ Если браузер WebP не умеет, toDataURL молча вернёт PNG —
-          // проверяем ЧТО ПОЛУЧИЛОСЬ, а не что просили
-          if (out.indexOf('data:image/webp') === 0) { resolve({ data: out, ext: 'webp' }); }
-          else { resolve({ data: fr.result, ext: 'png' }); }
-        };
-        im.onerror = function(){ reject(new Error('картинка не открылась')); };
-        im.src = fr.result;
-        return;
-      }
       if (kind !== 'art') { resolve({ data: fr.result, ext: 'png' }); return; }
       var img = new Image();
       img.onload = function(){
@@ -8331,7 +7872,7 @@ async function saveElement(){
     var payload = { key: key, kind: elKind, title: v('ef-title').trim(),
                     theme: v('ef-theme') || 'light', style: v('ef-style').trim(),
                     god: v('ef-god').trim(), plate_mode: v('ef-plate-mode') || 'key',
-                    series_key: v('ef-series').trim(), layout: layout };
+                    layout: layout };
     var r = await fetch(API + '/cards/admin/elements?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     var d = await r.json().catch(function(){ return {}; });
@@ -8339,336 +7880,6 @@ async function saveElement(){
     elExpanded = null;
     await loadElements();
   } catch(e){ st.textContent = 'Не сохранилось: ' + e.message; }
-}
-
-
-/* ══ ЭКРАНЫ ОТКРЫТИЯ ═══════════════════════════════════════════════════════
-   Экран — ОДНА СУЩНОСТЬ с полями под файлы. Кирпичики (задник, рубашка,
-   кнопки, крестик, орнамент, знак) на сервере по-прежнему живут отдельными
-   элементами — иначе пришлось бы городить вторую систему хранения, — но
-   здесь это спрятано: поля загрузки стоят прямо в экране, а ключи элементов
-   выписываются САМИ из имени экрана.
-
-   ⚠️ КЛЮЧИ НЕ ВВОДЯТСЯ РУКАМИ. Denis 12.08.2026: «мне не нравится, что я
-   должен ключи вводить сам и запоминать». Ключ элемента = вид + слаг экрана
-   (`stage/dark-01`), ключ экрана = `screen/<слаг>`. Слаг берётся из имени.
-   Побочная польза: перезалил файл в то же поле — он перезаписал прежний, а
-   не наплодил близнецов с номерами. */
-/* ⚠️ КНОПОК ТРИ, А НЕ ДВЕ (поправил Denis 12.08.2026). Надписей на кнопке в
-   экране ровно три, и под каждую своя плашка. Подписи здесь — ПО СМЫСЛУ
-   («когда показывается»), а не по тексту на картинке: текст на картинке
-   выбираешь ты, а показать её надо в нужный момент.
-   ⚠️ «Знак» НЕ ИСПОЛЬЗУЕМ КАК СЛОВО: в клубе Знак — это карточка за поступок
-   (card_class=badge). Здесь это сигил — узор, который виден за стопкой до
-   вспышки. */
-var SCREEN_FIELDS = [
-  ['stage',    'stage',    'Фон сцены'],
-  ['pedestal', 'pedestal', 'Подиум — на нём стоит раскрытая карта'],
-  ['back',     'back',     'Рубашка карты'],
-  ['ctaStart', 'cta',      'Кнопка: пока ничего не вскрыто'],
-  ['ctaNext',  'cta',      'Кнопка: часть вскрыта, есть ещё'],
-  ['ctaDone',  'cta',      'Кнопка: вскрыты все'],
-  ['cta',      'cta',      'Кнопка без надписи — под «Посмотреть», «Забрать» и как запасная'],
-  ['close',    'close',    'Крестик закрытия'],
-  ['ornament', 'ornament', 'Орнамент — рамка поверх сцены'],
-  ['sigil',    'sigil',    'Узор за стопкой — виден ДО вспышки, пока бог неизвестен']
-];
-
-var screensCache = [];      // строки kind=screen
-var screenParts  = {};      // ключ элемента -> элемент, чтобы показывать превьюшки
-var screenOpen   = null;    // какой экран сейчас правится
-
-/* Слаг из имени: латиница и цифры, остальное в дефис. Кириллица переводится
-   по таблице — иначе «Тёмный-01» дал бы пустой ключ, и экран молча не
-   сохранился бы. */
-function screenSlug(name){
-  var map = {а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'e',ж:'zh',з:'z',и:'i',й:'y',
-             к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',
-             х:'h',ц:'c',ч:'ch',ш:'sh',щ:'sch',ъ:'',ы:'y',ь:'',э:'e',ю:'yu',я:'ya'};
-  var out = String(name || '').toLowerCase().split('').map(function(ch){
-    if (map[ch] !== undefined) return map[ch];
-    return /[a-z0-9]/.test(ch) ? ch : '-';
-  }).join('');
-  out = out.replace(/-+/g, '-').replace(/^-|-$/g, '');
-  return out || ('screen-' + Date.now().toString(36));
-}
-
-async function openScreensPopup(){
-  document.getElementById('screens-popup-overlay').classList.add('open');
-  await loadScreens();
-}
-function closeScreensPopup(){
-  document.getElementById('screens-popup-overlay').classList.remove('open');
-  screenOpen = null;
-  document.getElementById('screen-editor-slot').innerHTML = '';
-}
-
-async function loadScreens(){
-  var box = document.getElementById('screens-list');
-  try {
-    var all = await fetch(API + '/cards/admin/elements?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN))
-      .then(function(r){ return r.json(); });
-    screensCache = all.filter(function(e){ return e.kind === 'screen'; });
-    screenParts = {};
-    all.forEach(function(e){ screenParts[e.key] = e; });
-    fillScreenSeriesList();
-    renderScreens();
-  } catch(e){
-    box.innerHTML = '<div style="color:var(--text-faint);font-size:12px">Не загрузилось: ' + elEsc(e.message) + '</div>';
-  }
-}
-
-function fillScreenSeriesList(){
-  var dl = document.getElementById('series-datalist-screens');
-  if (!dl || !window.seriesList) return;
-  dl.innerHTML = (seriesList || []).map(function(x){
-    return '<option value="' + elEsc(x.key) + '">' + elEsc(x.title || x.key) + '</option>';
-  }).join('');
-}
-
-function renderScreens(){
-  var box = document.getElementById('screens-list');
-  if (!screensCache.length){
-    box.innerHTML = '<div style="font-size:12px;color:var(--text-faint)">Пока ни одного экрана. Всё, что видит участник, берётся из запасного комплекта в приложении.</div>';
-  } else {
-    box.innerHTML = screensCache.map(function(e){
-      var lay = e.layout || {};
-      var filled = SCREEN_FIELDS.filter(function(f){ return lay[f[0]]; }).length;
-      var first = screenParts[lay.stage || ''] || screenParts[lay.back || ''];
-      return '<div style="border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:6px;cursor:pointer;'
-        + 'display:flex;gap:10px;align-items:center" onclick="openScreenEditor(' + jsArg(e.key) + ')">'
-        + (first && first.url
-            ? '<img src="' + elEsc(first.url) + '" style="width:44px;height:60px;object-fit:cover;border-radius:6px;flex:none;background:var(--surface)">'
-            : '<div style="width:44px;height:60px;border-radius:6px;flex:none;background:var(--surface)"></div>')
-        + '<div style="flex:1;min-width:0">'
-        + '<div style="font-size:13px">' + elEsc(e.title || e.key) + (e.active ? '' : ' · выключен') + '</div>'
-        + '<div style="font-size:11px;color:var(--text-faint)">' + elEsc(e.theme)
-        + (e.series_key ? ' · сезон ' + elEsc(e.series_key) : ' · на все времена')
-        + ' · заполнено ' + filled + ' из ' + SCREEN_FIELDS.length + '</div></div></div>';
-    }).join('');
-  }
-  document.getElementById('screen-editor-slot').innerHTML =
-    (screenOpen === null) ? '' : screenEditorHtml(screenOpen);
-  fitScreenPreview();
-}
-
-function openScreenEditor(key){
-  screenOpen = key || '';
-  document.getElementById('screen-editor-slot').innerHTML = screenEditorHtml(screenOpen);
-  fitScreenPreview();      // рамка уже в разметке — сразу подгоняем масштаб
-}
-
-function findScreen(key){
-  var out = null;
-  screensCache.forEach(function(e){ if (e.key === key) out = e; });
-  return out;
-}
-
-function screenEditorHtml(key){
-  var e = findScreen(key) || { key:'', title:'', theme:'dark', series_key:'', layout:{}, active:true };
-  var isNew = !key;
-  var lay = e.layout || {};
-  var rows = SCREEN_FIELDS.map(function(f){
-    var slot = f[0], label = f[2];
-    var el = screenParts[lay[slot] || ''];
-    return '<div style="display:flex;gap:9px;align-items:center;padding:7px 0;border-top:1px solid var(--line)">'
-      + (el && el.url
-          ? '<img src="' + elEsc(el.url) + '" style="width:42px;height:42px;object-fit:contain;border-radius:6px;flex:none;background:var(--surface)">'
-          : '<div style="width:42px;height:42px;border-radius:6px;flex:none;background:var(--surface)"></div>')
-      + '<div style="flex:1;min-width:0">'
-        + '<div style="font-size:12px">' + label + '</div>'
-        + '<input type="file" accept="image/*" id="sc-file-' + slot + '" style="font-size:11px;max-width:100%">'
-      + '</div>'
-      + (el ? '<button class="action-btn" style="flex:none;font-size:11px;padding:5px 8px" onclick="clearScreenSlot(' + jsArg(slot) + ')">убрать</button>' : '')
-      + '</div>';
-  }).join('');
-  return '<div style="border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px">'
-    + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Название экрана — например Dark-01')
-      + '<input id="sc-title" value="' + elEsc(e.title) + '" style="' + elInput() + '"></label>'
-    + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
-      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:130px">' + elLbl('Для какой темы')
-        + '<select id="sc-theme" style="' + elInput() + '">'
-        + ['dark','light','legendary'].map(function(t){
-            return '<option value="' + t + '"' + (e.theme === t ? ' selected' : '') + '>' + t + '</option>'; }).join('')
-        + '</select></label>'
-      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:130px">' + elLbl('Сезон (пусто — на все времена)')
-        + '<input id="sc-series" value="' + elEsc(e.series_key) + '" list="series-datalist-screens" style="' + elInput() + '"></label>'
-    + '</div>'
-    + '<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer">'
-      + '<input type="checkbox" id="sc-active" ' + (e.active ? 'checked' : '') + '> Участвует в показе</label>'
-    + rows
-    + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-top:1px solid var(--line);padding-top:10px">'
-      + '<button class="action-btn" onclick="saveScreen()">Сохранить</button>'
-      + '<button class="action-btn" onclick="screenOpen=null;renderScreens()">Отмена</button>'
-      + (isNew ? '' : '<button class="action-btn" onclick="refreshScreenPreview()">Обновить превью</button>')
-      + (isNew ? '' : '<button class="action-btn" style="margin-left:auto" onclick="deleteScreen(' + jsArg(e.key) + ')">Удалить</button>')
-    + '</div>'
-    + '<div id="sc-status" style="font-size:11px;color:var(--text-faint)"></div>'
-    + (isNew
-        ? '<div style="font-size:11px;color:var(--text-faint)">Превью появится после первого сохранения.</div>'
-        : '<div id="sc-preview">' + screenPreviewHtml(e) + '</div>')
-    + '</div>';
-}
-
-/* ⚠️ ПРЕВЬЮ — НАСТОЯЩИЙ ЭКРАН ПРИЛОЖЕНИЯ В РАМКЕ, не нарисованная здесь
-   копия: копия разошлась бы с продуктом за неделю, и решения принимались бы
-   по картинке, которой не существует. */
-function screenPreviewHtml(e){
-  var lay = e.layout || {}, slots = {};
-  SCREEN_FIELDS.forEach(function(f){
-    var el = screenParts[lay[f[0]] || ''];
-    if (el && el.url) slots[f[0]] = el.url;
-  });
-  if (!Object.keys(slots).length){
-    return '<div style="font-size:11px;color:var(--text-faint)">Загрузи хотя бы одну картинку — здесь появится настоящий экран.</div>';
-  }
-  // Метка времени в адресе — иначе браузер показал бы прошлое превью из кэша
-  var payload = encodeURIComponent(JSON.stringify({ theme: e.theme || 'dark', slots: slots }));
-  /* ⚠️⚠️ РАМА ОБЯЗАНА БЫТЬ ПРОПОРЦИЙ НАСТОЯЩЕГО ТЕЛЕФОНА. Сначала я поставил
-     390×620 — «примерно телефон». Экран внутри сплющивался по высоте: карта
-     считается от ШИРИНЫ вида, а места по вертикали оказывалось на треть
-     меньше, и она лезла вверх, на заголовок. Denis это и увидел.
-     Превью, которое врёт про раскладку, хуже отсутствия превью: по нему
-     начинают чинить то, что не сломано.
-     Держим внутри честные 390×844 (iPhone 14/15) и УМЕНЬШАЕМ целиком —
-     пропорции сохраняются, а в дашборд помещается. */
-  /* ⚠️⚠️ МАСШТАБ НЕЛЬЗЯ ЗАШИВАТЬ ЧИСЛОМ. Было `width:340px; max-width:100%`
-     и жёсткий scale(340/390): на узком экране рамка сжималась до 300, а
-     картинка внутри оставалась 340 — правый край срезался, высота не
-     менялась, и всё выглядело вытянутым. Denis это и увидел во второй раз.
-     Теперь ширину МЕРЯЕМ у самой рамки и пересчитываем масштаб — и при
-     показе, и при повороте телефона. */
-  /* ⚠️⚠️ ОКНО ОГРАНИЧИВАЕМ И ПО ШИРИНЕ, И ПО ВЫСОТЕ. Сначала я держал только
-     ширину — на телефоне превью занимало 97% экрана: ни формы над ним, ни
-     кнопок под ним не видно. Denis: «ты просто само окошко растянул в полтора
-     два раза больше по высоте, чем нужно».
-     Масштаб = наименьшее из «влезть по ширине» и «влезть по высоте» —
-     пропорции телефона сохраняются, а окно остаётся размером с картинку,
-     а не с целый экран. */
-  var W = 390, H = 844;
-  return '<div id="sc-frame" style="position:relative;overflow:hidden;'
-    +      'border:1px solid var(--line);border-radius:14px;background:#000">'
-    + '<iframe id="sc-frame-inner" src="' + APP_LAB_URL + '?t=' + Date.now() + '#preview=' + payload + '" '
-    +   'style="position:absolute;top:0;left:0;width:' + W + 'px;height:' + H + 'px;border:0;display:block;'
-    +   'transform-origin:top left"></iframe>'
-    + '</div>'
-    + '<div id="sc-frame-note" style="font-size:10px;color:var(--text-faint);margin-top:4px">'
-    +   'Показано как на телефоне ' + W + '×' + H
-    + '</div>';
-}
-
-/* Считаем масштаб от НАСТОЯЩЕГО места: сколько дал родитель по ширине и
-   сколько мы готовы занять по высоте. Зовётся после каждой отрисовки превью
-   и на изменение размера окна. */
-function fitScreenPreview(){
-  var box = document.getElementById('sc-frame');
-  var fr  = document.getElementById('sc-frame-inner');
-  if (!box || !fr || !box.parentNode) return;
-  var availW = box.parentNode.clientWidth || 390;
-  // ⚠️ Не больше 55% высоты окна: превью — часть формы, а не сама форма.
-  // И не больше 460 px на большом мониторе, иначе оно там разъезжается
-  var availH = Math.min(460, Math.round((window.innerHeight || 800) * 0.55));
-  var k = Math.min(availW / 390, availH / 844);
-  if (!(k > 0)) return;
-  box.style.width  = Math.round(390 * k) + 'px';
-  box.style.height = Math.round(844 * k) + 'px';
-  fr.style.transform = 'scale(' + k.toFixed(4) + ')';
-  var note = document.getElementById('sc-frame-note');
-  if (note) note.textContent = 'Показано как на телефоне 390×844, уменьшено до ' + Math.round(k * 100) + '%';
-}
-window.addEventListener('resize', fitScreenPreview);
-
-
-
-function refreshScreenPreview(){
-  var e = findScreen(screenOpen);
-  var box = document.getElementById('sc-preview');
-  if (e && box){ box.innerHTML = screenPreviewHtml(e); fitScreenPreview(); }
-}
-
-async function clearScreenSlot(slot){
-  var e = findScreen(screenOpen);
-  if (!e) return;
-  var lay = Object.assign({}, e.layout || {});
-  delete lay[slot];
-  e.layout = lay;
-  await putScreen(e);
-  await loadScreens();
-}
-
-/* Сохранение: сначала файлы (каждый — элемент с автоключом), потом сам экран.
-   ⚠️ ИМЕННО В ТАКОМ ПОРЯДКЕ: сервер проверяет ссылки экрана при сохранении и
-   отказал бы, сославшись на несуществующий элемент. */
-async function saveScreen(){
-  var v = function(id){ var el = document.getElementById(id); return el ? el.value : ''; };
-  var st = document.getElementById('sc-status');
-  var title = v('sc-title').trim();
-  if (!title){ st.textContent = 'Дай экрану название'; return; }
-
-  var old  = findScreen(screenOpen);
-  var slug = old ? old.key.replace(/^screen\//, '') : screenSlug(title);
-  // Последняя застава перед сервером: правило то же, что у него
-  if (!/^[a-z0-9_-]{1,60}$/.test(slug)){
-    st.textContent = 'Из названия «' + title + '» не получилось имя для файлов. Добавь в него латинские буквы или цифры.';
-    return;
-  }
-  var key  = 'screen/' + slug;
-  var lay  = Object.assign({}, (old && old.layout) || {});
-  var theme = v('sc-theme') || 'dark';
-
-  try {
-    for (var i = 0; i < SCREEN_FIELDS.length; i++){
-      var slot = SCREEN_FIELDS[i][0], kind = SCREEN_FIELDS[i][1];
-      var fileEl = document.getElementById('sc-file-' + slot);
-      if (!fileEl || !fileEl.files || !fileEl.files[0]) continue;
-      st.textContent = 'Загружаю: ' + SCREEN_FIELDS[i][2] + '…';
-      /* ⚠️ ГНЕЗДО ПИШЕТСЯ В КЛЮЧ СТРОЧНЫМИ. Имена гнёзд — ctaStart, ctaNext,
-         ctaDone — с большой буквой посередине, а сервер принимает ключ только
-         из строчных букв. Без toLowerCase() сохранение падало с «Ключ
-         элемента: латиница, цифры, дефис, подчёркивание, слеш», и по тексту
-         совершенно непонятно, что не так: буквы-то латинские. */
-      var elKey = kind + '/' + slug + '-' + slot.toLowerCase();   // ключ выписан сам
-      var got = await readElementFile(fileEl.files[0], kind);
-      var ur = await fetch(API + '/cards/admin/elements/upload?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ key: elKey, kind: kind, image_base64: got.data, ext: got.ext }) });
-      var ud = await ur.json().catch(function(){ return {}; });
-      if (!ur.ok) throw new Error(ud.detail || ('загрузка не прошла, ' + ur.status));
-      // Тема и сезон у кирпичика те же, что у экрана — своей жизни у него нет
-      await fetch(API + '/cards/admin/elements?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ key: elKey, kind: kind, title: title + ' · ' + SCREEN_FIELDS[i][2],
-                               theme: theme, style: '', god: '', series_key: v('sc-series').trim(),
-                               plate_mode: 'key', layout: {}, active: true, sort_order: 100 }) });
-      lay[slot] = elKey;
-    }
-    st.textContent = 'Сохраняю экран…';
-    await putScreen({ key: key, title: title, theme: theme,
-                      series_key: v('sc-series').trim(), layout: lay,
-                      active: document.getElementById('sc-active').checked });
-    screenOpen = key;
-    await loadScreens();
-    var st2 = document.getElementById('sc-status');
-    if (st2) st2.textContent = 'Готово.';
-  } catch(e){ st.textContent = 'Не сохранилось: ' + e.message; }
-}
-
-async function putScreen(e){
-  var r = await fetch(API + '/cards/admin/elements?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ key: e.key, kind: 'screen', title: e.title || '', theme: e.theme || 'dark',
-                           style: '', god: '', series_key: e.series_key || '', plate_mode: 'key',
-                           layout: e.layout || {}, active: e.active !== false, sort_order: 100 }) });
-  var d = await r.json().catch(function(){ return {}; });
-  if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
-}
-
-async function deleteScreen(key){
-  if (!confirm('Удалить экран «' + key + '»? Загруженные картинки останутся.')) return;
-  await fetch(API + '/cards/admin/elements?key=' + encodeURIComponent(key)
-    + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), { method:'DELETE' });
-  screenOpen = null;
-  loadScreens();
 }
 
 async function deleteElement(key){
