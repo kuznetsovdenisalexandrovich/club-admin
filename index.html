@@ -9056,6 +9056,7 @@ var bonusList = [], bonusExpanded = null, bonusItems = [];
    площадку было некуда. Теперь справочник, и всё — выдача ссылок, одобрение
    заявок, сверка вступлений, закрытие доступа — ходит по нему.               */
 var placesList = [];
+var placesRewards = [];
 var placeEditing = null;
 
 function openPlacesPopup(){
@@ -9074,6 +9075,10 @@ async function loadPlaces(){
     var r = await fetch(API + '/admin/tg/places?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN))
       .then(function(x){ return x.json(); });
     placesList = (r && r.places) || [];
+    try {
+      placesRewards = await fetch(API + '/reward-catalog').then(function(x){ return x.json(); });
+      if (!Array.isArray(placesRewards)) placesRewards = [];
+    } catch(e){ placesRewards = []; }
     renderPlaces();
   } catch(e){
     box.innerHTML = '<div style="color:var(--text-faint);font-size:12px">Не загрузилось: ' + elEsc(e.message) + '</div>';
@@ -9082,6 +9087,14 @@ async function loadPlaces(){
 
 function placeAccessLabel(p){
   if (p.access === 'bonus') return 'по бонусу' + (p.bonus_key ? ' «' + elEsc(p.bonus_key) + '»' : ' (бонус не выбран)');
+  if (p.access === 'reward'){
+    if (!p.reward_key) return 'по награде (награда не выбрана)';
+    var t = (placesRewards.filter(function(r){ return r.key === p.reward_key; })[0] || {}).title || p.reward_key;
+    /* Уровень ПОКАЗЫВАЕМ, но не храним: считает бэкенд по самой награде */
+    return 'вместе с наградой «' + elEsc(t) + '»'
+      + (p.reward_level ? ' — это уровень ' + p.reward_level
+                        : ' — награда ни к какому уровню не привязана, значит всем участникам');
+  }
   if (p.access === 'level') return 'с уровня ' + (p.min_level || 0);
   if (p.access === 'manual') return 'только вручную';
   return 'всем участникам';
@@ -9136,11 +9149,20 @@ function placeEdit(key){
     + '<select id="pl-access" onchange="placeAccessChanged()">'
     +   opt('member', 'всем участникам', p.access)
     +   opt('bonus', 'кому открыт бонус', p.access)
+    +   opt('reward', 'вместе с наградой из каталога', p.access)
     +   opt('level', 'с определённого уровня', p.access)
     +   opt('manual', 'только вручную', p.access)
     + '</select>'
     + '<input id="pl-bonus" placeholder="ключ бонуса" value="' + elEsc(p.bonus_key) + '" style="display:' + (p.access === 'bonus' ? 'block' : 'none') + '">'
+    + '<select id="pl-reward" style="display:' + (p.access === 'reward' ? 'block' : 'none') + '">'
+    +   '<option value="">— выбери награду —</option>'
+    +   placesRewards.map(function(r){
+          return '<option value="' + elEsc(r.key) + '"' + (p.reward_key === r.key ? ' selected' : '') + '>'
+               + elEsc(r.title || r.key) + '</option>';
+        }).join('')
+    + '</select>'
     + '<input id="pl-level" type="number" placeholder="минимальный уровень" value="' + (p.min_level || 0) + '" style="display:' + (p.access === 'level' ? 'block' : 'none') + '">'
+    + '<div style="font-size:11px;color:var(--text-faint)">Порог для награды задаётся один раз в «Настроить уровни» — здесь его дублировать не надо.</div>'
     + '<label style="font-size:12px;color:var(--text-faint)">Ждать бота Salebot, секунд'
     +   '<input id="pl-delay" type="number" value="' + (p.approve_delay_sec || 0) + '"></label>'
     + '<div style="font-size:11px;color:var(--text-faint)">'
@@ -9159,6 +9181,7 @@ function placeEdit(key){
 function placeAccessChanged(){
   var v = document.getElementById('pl-access').value;
   document.getElementById('pl-bonus').style.display = (v === 'bonus' ? 'block' : 'none');
+  document.getElementById('pl-reward').style.display = (v === 'reward' ? 'block' : 'none');
   document.getElementById('pl-level').style.display = (v === 'level' ? 'block' : 'none');
 }
 
@@ -9171,6 +9194,7 @@ async function placeSave(){
     link: document.getElementById('pl-link').value.trim(),
     access: document.getElementById('pl-access').value,
     bonus_key: document.getElementById('pl-bonus').value.trim(),
+    reward_key: document.getElementById('pl-reward').value,
     min_level: parseInt(document.getElementById('pl-level').value, 10) || 0,
     approve_delay_sec: parseInt(document.getElementById('pl-delay').value, 10) || 0,
     active: document.getElementById('pl-active').checked,
@@ -9178,6 +9202,8 @@ async function placeSave(){
   };
   if (!body.key){ alert('Нужен ключ'); return; }
   if (!body.chat_id){ alert('Нужен ID чата — число, начинается с -100'); return; }
+  if (body.access === 'reward' && !body.reward_key){ alert('Выбери награду из каталога'); return; }
+  if (body.access === 'bonus' && !body.bonus_key){ alert('Впиши ключ бонуса'); return; }
   try {
     var r = await fetch(API + '/admin/tg/places?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
       method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
