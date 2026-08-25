@@ -1073,6 +1073,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <button class="action-btn" onclick="openRafflePopup()">Розыгрыши</button>
         <button class="action-btn" onclick="openNudgesPopup()">Дожимные рассылки</button>
         <button class="action-btn" onclick="openBonusPopup()">Бонусы за вступление</button>
+        <button class="action-btn" onclick="openPlacesPopup()">Каналы и чаты</button>
         <button class="action-btn" onclick="openRefPostsPopup()">Посты для приглашений</button>
         <button class="action-btn" onclick="openTextsPopup()">Тексты приложения</button>
         <button class="action-btn" onclick="openHelpDocsPopup()">Справка клуба</button>
@@ -1353,6 +1354,27 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <div id="raffle-list"><div class="loading">Загрузка...</div></div>
       <button class="popup-save" style="margin-top:14px" onclick="newRaffle()">Новый розыгрыш</button>
       <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:8px" onclick="closeRafflePopup()">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<div class="popup-overlay popup-centered" id="places-popup-overlay" onclick="if(overlayShouldClose(event,this)) closePlacesPopup()">
+  <div class="popup" style="max-width:560px">
+    <button class="popup-close-x" onclick="closePlacesPopup()" title="Закрыть">✕</button>
+    <div class="popup-body" style="padding-top:20px">
+      <div class="popup-section-title" style="margin-top:0">Каналы и чаты</div>
+      <div style="font-size:12px;color:var(--text-faint);margin-bottom:10px">
+        Закрытые площадки в Telegram и правило, по которому туда пускают.
+        Бот должен быть администратором площадки с правом приглашать и банить.
+      </div>
+      <div id="places-list"><div class="loading">Загрузка...</div></div>
+      <div id="places-editor-slot" style="margin-top:12px"></div>
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+        <button class="action-btn" onclick="placeEdit(null)">Добавить площадку</button>
+        <button class="action-btn" onclick="placesResync()">Сверить вступления</button>
+      </div>
+      <div id="places-resync-out" style="font-size:12px;color:var(--text-faint);margin-top:8px"></div>
+      <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closePlacesPopup()">Закрыть</button>
     </div>
   </div>
 </div>
@@ -9007,6 +9029,172 @@ async function runCompose(commit){
    ═══════════════════════════════════════════════════════════════════════════ */
 
 var bonusList = [], bonusExpanded = null, bonusItems = [];
+
+
+/* ═══ КАНАЛЫ И ЧАТЫ (25.08.2026) ═══════════════════════════════════════════
+   Раньше айди канала и чата были прибиты в коде бэкенда, и добавить третью
+   площадку было некуда. Теперь справочник, и всё — выдача ссылок, одобрение
+   заявок, сверка вступлений, закрытие доступа — ходит по нему.               */
+var placesList = [];
+var placeEditing = null;
+
+function openPlacesPopup(){
+  document.getElementById('places-popup-overlay').classList.add('open');
+  loadPlaces();
+}
+function closePlacesPopup(){
+  document.getElementById('places-popup-overlay').classList.remove('open');
+  placeEditing = null;
+  document.getElementById('places-editor-slot').innerHTML = '';
+}
+
+async function loadPlaces(){
+  var box = document.getElementById('places-list');
+  try {
+    var r = await fetch(API + '/admin/tg/places?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN))
+      .then(function(x){ return x.json(); });
+    placesList = (r && r.places) || [];
+    renderPlaces();
+  } catch(e){
+    box.innerHTML = '<div style="color:var(--text-faint);font-size:12px">Не загрузилось: ' + elEsc(e.message) + '</div>';
+  }
+}
+
+function placeAccessLabel(p){
+  if (p.access === 'bonus') return 'по бонусу' + (p.bonus_key ? ' «' + elEsc(p.bonus_key) + '»' : ' (бонус не выбран)');
+  if (p.access === 'level') return 'с уровня ' + (p.min_level || 0);
+  if (p.access === 'manual') return 'только вручную';
+  return 'всем участникам';
+}
+
+function renderPlaces(){
+  var box = document.getElementById('places-list');
+  if (!placesList.length){
+    box.innerHTML = '<div style="font-size:12px;color:var(--text-faint)">Пока пусто</div>';
+    return;
+  }
+  var h = '<div style="display:flex;flex-direction:column;gap:8px">';
+  placesList.forEach(function(p){
+    h += '<div style="border:1px solid var(--line);border-radius:10px;padding:10px">'
+      +    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+      +      '<div style="font-weight:600">' + elEsc(p.title || p.key) + '</div>'
+      +      '<div style="font-size:11px;color:var(--text-faint)">' + (p.kind === 'chat' ? 'чат' : 'канал') + '</div>'
+      +      (p.active ? '' : '<div style="font-size:11px;color:var(--text-faint)">выключен</div>')
+      +      '<div style="margin-left:auto;font-size:11px;color:var(--text-faint)">внутри: ' + (p.inside || 0) + '</div>'
+      +    '</div>'
+      +    '<div style="font-size:12px;color:var(--text-faint);margin-top:4px">'
+      +      placeAccessLabel(p) + ' · ' + elEsc(String(p.chat_id))
+      +      (p.approve_delay_sec ? ' · ждём бота ' + p.approve_delay_sec + ' с' : '')
+      +    '</div>'
+      +    '<div style="display:flex;gap:6px;margin-top:8px">'
+      +      '<button class="action-btn" style="padding:4px 10px;font-size:11px" onclick="placeEdit(\'' + elEsc(p.key) + '\')">Изменить</button>'
+      +      (p.key === 'channel' || p.key === 'chat' ? ''
+          : '<button class="action-btn" style="padding:4px 10px;font-size:11px" onclick="placeDelete(\'' + elEsc(p.key) + '\')">Удалить</button>')
+      +    '</div>'
+      +  '</div>';
+  });
+  box.innerHTML = h + '</div>';
+}
+
+function placeEdit(key){
+  var p = placesList.filter(function(x){ return x.key === key; })[0] || {
+    key: '', title: '', chat_id: '', kind: 'channel', link: '',
+    access: 'member', bonus_key: '', min_level: 0, approve_delay_sec: 0,
+    active: true, sort_order: 100
+  };
+  placeEditing = p;
+  var core = (p.key === 'channel' || p.key === 'chat');
+  var slot = document.getElementById('places-editor-slot');
+  function opt(v, label, cur){ return '<option value="' + v + '"' + (cur === v ? ' selected' : '') + '>' + label + '</option>'; }
+  slot.innerHTML =
+    '<div style="border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px">'
+    + '<input id="pl-key" placeholder="ключ латиницей, напр. archive" value="' + elEsc(p.key) + '"' + (p.key ? ' readonly' : '') + '>'
+    + '<input id="pl-title" placeholder="Название для дашборда" value="' + elEsc(p.title) + '">'
+    + '<input id="pl-chat" placeholder="ID чата, начинается с -100" value="' + elEsc(String(p.chat_id || '')) + '">'
+    + '<select id="pl-kind">' + opt('channel', 'канал', p.kind) + opt('chat', 'чат', p.kind) + '</select>'
+    + '<input id="pl-link" placeholder="запасная ссылка-приглашение" value="' + elEsc(p.link) + '">'
+    + '<select id="pl-access" onchange="placeAccessChanged()">'
+    +   opt('member', 'всем участникам', p.access)
+    +   opt('bonus', 'кому открыт бонус', p.access)
+    +   opt('level', 'с определённого уровня', p.access)
+    +   opt('manual', 'только вручную', p.access)
+    + '</select>'
+    + '<input id="pl-bonus" placeholder="ключ бонуса" value="' + elEsc(p.bonus_key) + '" style="display:' + (p.access === 'bonus' ? 'block' : 'none') + '">'
+    + '<input id="pl-level" type="number" placeholder="минимальный уровень" value="' + (p.min_level || 0) + '" style="display:' + (p.access === 'level' ? 'block' : 'none') + '">'
+    + '<label style="font-size:12px;color:var(--text-faint)">Ждать бота Salebot, секунд'
+    +   '<input id="pl-delay" type="number" value="' + (p.approve_delay_sec || 0) + '"></label>'
+    + '<div style="font-size:11px;color:var(--text-faint)">'
+    +   (core ? 'Основные канал и чат: заявки одобряет бот Salebot, и после одобрения он пишет списки и сообщает боту ВК. Успеем первыми — это не выполнится. Не ставь здесь ноль.'
+            : 'Своя площадка: Salebot о ней не знает, одобряем сразу. Ноль — правильное значение.')
+    + '</div>'
+    + '<label style="font-size:12px"><input type="checkbox" id="pl-active"' + (p.active ? ' checked' : '') + '> включена</label>'
+    + '<div style="display:flex;gap:8px">'
+    +   '<button class="action-btn" onclick="placeSave()">Сохранить</button>'
+    +   '<button class="action-btn" onclick="document.getElementById(\'places-editor-slot\').innerHTML=\'\'">Отмена</button>'
+    + '</div>'
+    + '<div id="pl-warn" style="font-size:12px;color:var(--text-faint)"></div>'
+    + '</div>';
+}
+
+function placeAccessChanged(){
+  var v = document.getElementById('pl-access').value;
+  document.getElementById('pl-bonus').style.display = (v === 'bonus' ? 'block' : 'none');
+  document.getElementById('pl-level').style.display = (v === 'level' ? 'block' : 'none');
+}
+
+async function placeSave(){
+  var body = {
+    key: document.getElementById('pl-key').value.trim(),
+    title: document.getElementById('pl-title').value.trim(),
+    chat_id: parseInt(document.getElementById('pl-chat').value.trim(), 10),
+    kind: document.getElementById('pl-kind').value,
+    link: document.getElementById('pl-link').value.trim(),
+    access: document.getElementById('pl-access').value,
+    bonus_key: document.getElementById('pl-bonus').value.trim(),
+    min_level: parseInt(document.getElementById('pl-level').value, 10) || 0,
+    approve_delay_sec: parseInt(document.getElementById('pl-delay').value, 10) || 0,
+    active: document.getElementById('pl-active').checked,
+    sort_order: (placeEditing && placeEditing.sort_order) || 100
+  };
+  if (!body.key){ alert('Нужен ключ'); return; }
+  if (!body.chat_id){ alert('Нужен ID чата — число, начинается с -100'); return; }
+  try {
+    var r = await fetch(API + '/admin/tg/places?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+    }).then(function(x){ return x.json(); });
+    if (r && r.warning){
+      document.getElementById('pl-warn').textContent = 'Сохранено, но: ' + r.warning;
+    } else {
+      document.getElementById('places-editor-slot').innerHTML = '';
+    }
+    await loadPlaces();
+  } catch(e){ alert('Не сохранилось: ' + e.message); }
+}
+
+async function placeDelete(key){
+  if (!confirm('Убрать площадку «' + key + '» из справочника? Люди из канала не вылетят, отметки сохранятся.')) return;
+  try {
+    await fetch(API + '/admin/tg/places?key=' + encodeURIComponent(key) + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN),
+                { method: 'DELETE' });
+    await loadPlaces();
+  } catch(e){ alert('Не удалилось: ' + e.message); }
+}
+
+async function placesResync(){
+  var out = document.getElementById('places-resync-out');
+  out.textContent = 'Спрашиваю Telegram по каждому участнику, это небыстро...';
+  try {
+    var r = await fetch(API + '/admin/tg/resync-joins?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN) + '&limit=300',
+                        { method: 'POST' }).then(function(x){ return x.json(); });
+    var parts = [];
+    var by = (r && r.fixed_by_place) || {};
+    Object.keys(by).forEach(function(k){ parts.push(k + ': ' + by[k]); });
+    out.textContent = 'Проверено людей: ' + (r.checked || 0)
+      + (parts.length ? '. Отметок поставлено — ' + parts.join(', ') : '. Новых отметок нет')
+      + '. Осталось дыр: ' + (r.still_open || 0);
+    await loadPlaces();
+  } catch(e){ out.textContent = 'Не вышло: ' + e.message; }
+}
 
 function openBonusPopup(){
   document.getElementById('bonus-popup-overlay').classList.add('open');
