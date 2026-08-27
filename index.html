@@ -1767,7 +1767,16 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           </select>
         </div>
         <input class="popup-input" type="text" id="live-admin-title" placeholder="Название эфира (увидят участники и площадки)" style="margin-bottom:8px">
-        <textarea class="popup-input" id="live-admin-desc" placeholder="Описание — уйдёт в трансляции ВК" style="margin-bottom:8px;min-height:60px"></textarea>
+        <textarea class="popup-input" id="live-admin-desc" placeholder="Текст анонса — он же описание трансляции ВК. Например: «Как продавать даже без скриптов?»" style="margin-bottom:8px;min-height:60px"></textarea>
+        <!-- ⚠️ ЕДИНСТВЕННАЯ НАСТРОЙКА В ОСНОВНОЙ ЦЕПОЧКЕ. Включена по умолчанию —
+             так эфир шёл всегда; снятая означает «сразу только для участников» -->
+        <label class="pay-item" style="cursor:pointer;margin-bottom:8px">
+          <input type="checkbox" id="live-free-part" checked style="flex-shrink:0">
+          <div style="flex:1;min-width:0">
+            <div class="pay-name">С бесплатной частью</div>
+            <div class="pay-meta">Снять — эфир сразу только для участников клуба.</div>
+          </div>
+        </label>
         <button class="popup-save" onclick="liveAutoStart()">Начать эфир</button>
         <div class="pay-meta" style="margin-top:6px">Сам включит трансляцию, создаст площадки ВК и пропишет точки ретрансляции. Дальше остаётся запустить OBS.</div>
       </div>
@@ -5148,7 +5157,9 @@ async function liveStart(){
   try{
     const r = await fetch(API + '/admin/live/start?x_admin_token=' + ADMIN_TOKEN, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({live_event_id, play_code, title})
+      body: JSON.stringify({live_event_id, play_code, title,
+        description: (document.getElementById('live-admin-desc').value || '').trim(),
+        free_part: !!document.getElementById('live-free-part').checked})
     });
     const d = await r.json();
     if (!d.ok){ alert('Не начали: ' + (d.error || 'неизвестно')); }
@@ -5233,7 +5244,8 @@ async function liveAutoStart(){
   try{
     const r = await fetch(API + '/admin/live/auto-start?x_admin_token=' + ADMIN_TOKEN, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({live_event_id, play_code, title, description})
+      body: JSON.stringify({live_event_id, play_code, title, description,
+        free_part: !!document.getElementById('live-free-part').checked})
     });
     const d = await r.json();
     let msg = (d.steps || []).join('\n');
@@ -10291,6 +10303,6 @@ function wireShelfSwipe(pages){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v83</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v84</div>
 </body>
 </html>
