@@ -2,7 +2,7 @@
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Задачи клуба</title>
 <meta name="theme-color" content="#7c6cf0">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -73,6 +73,10 @@
 }
 
 :root{
+  /* ⚠️ ЗОНА ПОД ЧАСАМИ ОДНОЙ ПЕРЕМЕННОЙ. Ниже её берут и шапка, и экран
+     пин-кода: разъезжаться им нельзя, а env() в двух местах правится в
+     одном и забывается в другом */
+  --safe-top:max(env(safe-area-inset-top), 12px);
   --lav:#9b8cf2; --lav-deep:#7c6cf0; --lav-dim:rgba(155,140,242,0.16);
   --peach:#ffb199; --mint:#8fe3c0; --coral:#ff8fa3;
   --green:#3ecf8e; --red:#ff453a;
@@ -86,6 +90,9 @@
 }
 
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+/* ⚠️ ВТОРОЙ ЗАМОК ЗУМА. maximum-scale в мете гасит «щипок», но двойное
+   касание по кнопке в webkit всё равно приближает — лечится только этим */
+body,.pin-btn,.round,.tab,.task,.box,.adder button,.linky{touch-action:manipulation}
 html{background:var(--bg);transition:background .3s}
 body{
   font-family:var(--body);color:var(--text);font-size:15px;line-height:1.45;
@@ -110,9 +117,41 @@ body::after{width:250px;height:250px;bottom:12%;left:-100px;background:var(--pea
 
 .wrap{position:relative;z-index:1;max-width:480px;margin:0 auto;padding:0 16px}
 
+/* ── СВЕТОВЫЕ ЛУЧИ НА ФОНЕ ─────────────────────────────────────────────
+   Рецепт взят с экрана раскрытия пака в club-app: наклонные полосы с
+   размытием и режимом наложения screen. Отличия сознательные — здесь это
+   не сцена, а обои: лучи неподвижны, идут сверху и живут под содержимым.
+   ⚠️ СЛОЙ НЕ ЛОВИТ КАСАНИЯ (pointer-events:none) и стоит z-index:0 —
+   иначе накрыл бы собой пин-пад, а тот кликается на весь экран */
+.rays{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.rays span{
+  position:absolute;top:-18%;left:50%;width:74px;height:96vh;
+  transform:translateX(-50%) rotate(var(--rot));transform-origin:50% 0;
+  margin-left:var(--off);border-radius:74px 74px 0 0;
+  filter:blur(14px);mix-blend-mode:screen;opacity:var(--op);
+  background:linear-gradient(180deg,
+    rgba(255,255,255,.42) 0%,
+    var(--ray) 30%,
+    transparent 72%);
+}
+/* ⚠️ ЛУЧИ ДОЛЖНЫ ЧИТАТЬСЯ ПОРОЗНЬ. Первая версия была вдвое шире и с
+   размытием 26-34: полосы сливались в одно светлое пятно во весь верх
+   экрана — не лучи, а засветка. Узко и слабо размыто — видно, что их
+   несколько, и фон остаётся фоном */
+.rays span:nth-child(1){--rot:-25deg;--off:-132px;--ray:var(--lav);--op:.26}
+.rays span:nth-child(2){--rot:-10deg;--off:-48px;--ray:var(--peach);--op:.17}
+.rays span:nth-child(3){--rot:8deg;--off:40px;--ray:var(--lav);--op:.22}
+.rays span:nth-child(4){--rot:23deg;--off:130px;--ray:var(--mint);--op:.14}
+/* На картонном фоне screen не виден вовсе, поэтому светлой теме — мягкий
+   свет и вчетверо меньшая плотность: неоморфизм живёт ровным фоном, и
+   заметные лучи спорят с ним */
+[data-theme="light"] .rays span{mix-blend-mode:soft-light;opacity:.22}
+[data-theme="light"] .rays span:nth-child(2),[data-theme="light"] .rays span:nth-child(4){opacity:.14}
+@media (prefers-reduced-motion:reduce){.rays{opacity:.6}}
+
 /* ── Шапка: тот же ритм, что на главной дашборда ────────── */
 header{
-  padding:calc(max(env(safe-area-inset-top), 8px) + 20px) 0 16px;
+  padding:calc(var(--safe-top) + 26px) 0 16px;
   display:flex;align-items:center;justify-content:space-between;gap:12px;
 }
 h1{
@@ -264,6 +303,10 @@ h1::before{
 .pin-screen{
   position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:20px;
+  padding:calc(var(--safe-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 16px);
+  /* ⚠️ ФОН НЕПРОЗРАЧНЫЙ. Первый заход сделал его прозрачным, чтобы
+     сквозь него светили лучи, — и сквозь него стала просвечивать вся
+     доска с задачами. Лучи на этом экране рисует свой вложенный слой */
   background:
     radial-gradient(800px 500px at -10% -10%,var(--bg-c),transparent 60%),
     radial-gradient(700px 500px at 110% 5%,var(--bg-b),transparent 55%),
@@ -307,7 +350,10 @@ h1::before{
 <body>
 
 
+<div class="rays" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+
 <div class="pin-screen" id="pin-screen">
+  <div class="rays" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
   <div class="pin-logo">БП</div>
   <div class="pin-title">Введите пин-код</div>
   <div class="pin-dots">
@@ -371,7 +417,7 @@ h1::before{
   <div class="adder"><select id="new-group"></select></div>
 
   <div class="foot"><button class="linky" id="show-done" onclick="toggleDone()">Показать сделанное</button>
-    <div style="margin-top:11px">доска задач · <span id="build">tasks-v7</span></div></div>
+    <div style="margin-top:11px">доска задач · <span id="build">tasks-v8</span></div></div>
 </div>
 
 <script>
