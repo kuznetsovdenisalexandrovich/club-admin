@@ -311,6 +311,17 @@ header{padding:calc(max(env(safe-area-inset-top), 8px) + 20px) 0 16px;display:fl
 .chat-ico.danger:hover{color:var(--red)}
 
 .tools-grid .action-btn{padding:12px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* ── Группы внутри «Инструментов».
+   ⚠️ Отступы держит ГРУППА, а у вложенной сетки они снимаются: у `.tools-grid`
+   свой padding, и в медиазапросах он переопределяется ещё дважды — селектор
+   `.tools-group .tools-grid` (0,2,0) перебивает все три. Раздельные свойства,
+   без var() в отступах: вычисленные значения с var разбором не проверить */
+.tools-group{padding:13px 14px 0}
+.tools-group:last-child{padding-bottom:14px}
+.tools-group + .tools-group{border-top:1px solid var(--border);margin-top:13px}
+.tools-group-t{font-size:11px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--text-faint);margin:0 2px 9px}
+.tools-group .tools-grid{padding:0}
 .tools-grid .action-btn--lav{background:var(--lav-deep)!important;color:#fff!important;border:none!important;box-shadow:none!important;font-family:var(--disp);font-weight:700}
 .action-btn:active{opacity:.75;transform:scale(0.97)}
 .action-btn.danger{color:var(--red);border-color:rgba(255,69,58,0.25);background:rgba(255,69,58,0.06)}
@@ -1109,27 +1120,50 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 
   <div class="section">
     <div class="section-head"><div class="section-title">Инструменты</div></div>
+    <!-- ⚠️ ГРУППЫ, А НЕ ОДИН СПИСОК ИЗ ВОСЕМНАДЦАТИ. Восемнадцать одинаковых
+         кнопок подряд читаются перебором: нужную ищешь глазами каждый раз
+         заново. Кнопки и обработчики те же, добавлены только подписи групп -->
     <div class="card">
-      <div class="tools-grid">
-        <button class="action-btn" onclick="openSettingsPopup()">Настройки клуба</button>
-        <button class="action-btn" onclick="openRegistrationReport()">Статистика</button>
-        <button class="action-btn" onclick="openLectureStats()">Статистика лекций</button>
-        <button class="action-btn" onclick="openViewLog()">Журнал просмотров</button>
-        <button class="action-btn" onclick="openDupes()">Сцепленные карточки</button>
-        <button class="action-btn" onclick="openBulkPointsPopup()">Раздать баллы всем</button>
-        <button class="action-btn" onclick="openLevelConfigPopup()">Настроить уровни</button>
-        <button class="action-btn" onclick="openRewardCatalogPopup()">Управление наградами</button>
-        <button class="action-btn" onclick="openCardsPopup()">Колода карточек</button>
-        
-        <button class="action-btn" onclick="openRafflePopup()">Розыгрыши</button>
-        <button class="action-btn" onclick="openNudgesPopup()">Дожимные рассылки</button>
-        <button class="action-btn" onclick="openBonusPopup()">Бонусы за вступление</button>
-        <button class="action-btn" onclick="openPlacesPopup()">Каналы и чаты</button>
-        <button class="action-btn" onclick="openRefPostsPopup()">Посты для приглашений</button>
-        <button class="action-btn" onclick="openLinkGenPopup()">Генератор ссылок</button>
-        <button class="action-btn" onclick="openTextsPopup()">Тексты приложения</button>
-        <button class="action-btn" onclick="openHelpDocsPopup()">Справка клуба</button>
-        <button class="action-btn" onclick="openGamesPopup()">Конструктор игр</button>
+      <div class="tools-group">
+        <div class="tools-group-t">Клуб и доступы</div>
+        <div class="tools-grid">
+          <button class="action-btn" onclick="openSettingsPopup()">Настройки клуба</button>
+          <button class="action-btn" onclick="openPlacesPopup()">Каналы и чаты</button>
+          <button class="action-btn" onclick="openBonusPopup()">Бонусы за вступление</button>
+          <button class="action-btn" onclick="openNudgesPopup()">Дожимные рассылки</button>
+        </div>
+      </div>
+
+      <div class="tools-group">
+        <div class="tools-group-t">Цифры</div>
+        <div class="tools-grid">
+          <button class="action-btn" onclick="openRegistrationReport()">Статистика</button>
+          <button class="action-btn" onclick="openLectureStats()">Статистика лекций</button>
+          <button class="action-btn" onclick="openViewLog()">Журнал просмотров</button>
+          <button class="action-btn" onclick="openDupes()">Сцепленные карточки</button>
+        </div>
+      </div>
+
+      <div class="tools-group">
+        <div class="tools-group-t">Баллы и карточки</div>
+        <div class="tools-grid">
+          <button class="action-btn" onclick="openBulkPointsPopup()">Раздать баллы всем</button>
+          <button class="action-btn" onclick="openLevelConfigPopup()">Настроить уровни</button>
+          <button class="action-btn" onclick="openRewardCatalogPopup()">Управление наградами</button>
+          <button class="action-btn" onclick="openRafflePopup()">Розыгрыши</button>
+          <button class="action-btn" onclick="openCardsPopup()">Колода карточек</button>
+        </div>
+      </div>
+
+      <div class="tools-group">
+        <div class="tools-group-t">Содержимое и привлечение</div>
+        <div class="tools-grid">
+          <button class="action-btn" onclick="openTextsPopup()">Тексты приложения</button>
+          <button class="action-btn" onclick="openHelpDocsPopup()">Справка клуба</button>
+          <button class="action-btn" onclick="openGamesPopup()">Конструктор игр</button>
+          <button class="action-btn" onclick="openRefPostsPopup()">Посты для приглашений</button>
+          <button class="action-btn" onclick="openLinkGenPopup()">Генератор ссылок</button>
+        </div>
       </div>
     </div>
   </div>
@@ -14815,6 +14849,6 @@ async function placesResync(){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v85</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v86</div>
 </body>
 </html>
