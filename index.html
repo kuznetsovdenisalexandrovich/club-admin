@@ -1815,6 +1815,21 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <button class="action-btn" onclick="liveStart()">Только открыть сессию</button>
         </div>
         <div class="pay-meta" style="margin-top:4px">«Только открыть сессию» — если площадки заведены руками и надо просто включить блок в аппе.</div>
+        <!-- ⚠️ ПЕСОЧНИЦА КЛЮЧЕЙ ВК. Ключ проверяется ЗДЕСЬ, а не подбором через
+             переменные окружения: там каждая попытка стоит пересборки, а
+             результат виден лишь в момент эфира. Введённое никуда не
+             сохраняется — уходит одним запросом и забывается -->
+        <div class="section-title" style="margin:16px 0 6px;font-size:13px">Песочница ключей ВК</div>
+        <input class="popup-input" type="password" id="vk-try-token" autocomplete="off"
+               placeholder="Вставь ключ ВК — он никуда не сохранится" style="margin-bottom:6px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="action-btn" onclick="vkTryToken(false)">Проверить ключ</button>
+          <button class="action-btn" onclick="vkTryToken(true)">Проверить с запуском трансляции</button>
+          <button class="action-btn" onclick="vkTokensKind()">Что лежит сейчас</button>
+        </div>
+        <div class="pay-meta" style="margin-top:4px">Вторая кнопка ПО-НАСТОЯЩЕМУ запускает трансляции в обоих сообществах и сразу их гасит — это единственная полная проверка.</div>
+        <div id="vk-try-out" class="pay-meta" style="margin:8px 2px 0"></div>
+
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
           <button class="action-btn" onclick="liveWebhookSetup()">Завести вебхук Kinescope</button>
           <button class="action-btn" onclick="liveWebhookList()">Показать вебхуки</button>
@@ -4567,6 +4582,49 @@ function liveEventPicked(){
   const sel = document.getElementById('live-admin-event');
   liveRememberEvent(sel.value);
   liveApplyDefaultEvent();
+}
+
+/* Ключ уходит ТЕЛОМ запроса, а не в адресе: адреса оседают в журналах
+   сервера и в истории браузера, а это ключ от аккаунта */
+async function vkTryToken(create){
+  const el = document.getElementById('vk-try-token');
+  const out = document.getElementById('vk-try-out');
+  const token = (el.value || '').trim();
+  if (!token){ out.textContent = 'Вставь ключ в поле выше.'; return; }
+  if (create && !confirm('Будут ПО-НАСТОЯЩЕМУ запущены трансляции в обоих сообществах '
+      + 'и сразу остановлены. Продолжить?')) return;
+  out.textContent = 'Проверяю…';
+  try{
+    const r = await fetch(API + '/admin/vk/try-token?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ token: token, create: !!create })
+    });
+    const d = await r.json();
+    out.innerHTML = '<div class="pay-name" style="color:' + (d.ok ? 'inherit' : '#e8614a') + '">'
+      + escapeHtmlAdm(d.verdict || '') + '</div>'
+      + (d.steps || []).map(function(s){
+          return '<div class="pay-meta">• ' + escapeHtmlAdm(s) + '</div>'; }).join('');
+  }catch(e){
+    out.innerHTML = '<span style="color:#e8614a">Нет связи с бэкендом: '
+      + escapeHtmlAdm(e && e.message || String(e)) + '</span>';
+  }
+}
+
+async function vkTokensKind(){
+  const out = document.getElementById('vk-try-out');
+  out.textContent = 'Смотрю, что в переменных…';
+  try{
+    const r = await fetch(API + '/admin/vk/tokens-kind?x_admin_token=' + ADMIN_TOKEN);
+    const d = await r.json();
+    out.innerHTML = '<div class="pay-name" style="color:' + (d.ok ? 'inherit' : '#e8614a') + '">'
+      + escapeHtmlAdm(d.verdict || '') + '</div>'
+      + (d.tokens || []).map(function(t){
+          return '<div class="pay-meta">• ' + escapeHtmlAdm(t.name) + ' — ' + escapeHtmlAdm(t.kind)
+            + (t.tail ? ' (' + escapeHtmlAdm(t.tail) + ')' : '')
+            + (t.note ? ': ' + escapeHtmlAdm(t.note) : '') + '</div>'; }).join('');
+  }catch(e){
+    out.innerHTML = '<span style="color:#e8614a">Нет связи: ' + escapeHtmlAdm(e && e.message || String(e)) + '</span>';
+  }
 }
 
 function toggleLiveMaint(){
@@ -10233,6 +10291,6 @@ function wireShelfSwipe(pages){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v82</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v83</div>
 </body>
 </html>
