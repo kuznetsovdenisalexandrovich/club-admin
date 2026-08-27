@@ -101,6 +101,7 @@ h1{font-family:var(--disp);font-weight:900;font-size:23px;letter-spacing:-.02em;
   vertical-align:1px;background:var(--surface2);color:var(--text-faint)}
 .tag.hot{background:rgba(217,139,74,.16);color:var(--warm)}
 .tag.me{background:rgba(123,97,255,.14);color:var(--accent)}
+.tag.plan{background:rgba(89,194,168,.18);color:var(--accent-2)}
 .del{margin-left:auto;flex:none;border:none;background:transparent;cursor:pointer;
   color:var(--text-faint);font-size:15px;padding:0 2px;font-family:inherit}
 
@@ -113,6 +114,11 @@ h1{font-family:var(--disp);font-weight:900;font-size:23px;letter-spacing:-.02em;
   font-size:14px;padding:0 18px;border-radius:16px;background:var(--accent);color:#fff;
   box-shadow:var(--sh-sm)}
 .adder button:active{transform:scale(.97)}
+.adder select{flex:1;min-width:0;border:none;outline:none;font-family:inherit;
+  font-size:13.5px;padding:11px 16px;border-radius:16px;color:var(--text-dim);
+  background:var(--surface);box-shadow:var(--sh-is);-webkit-appearance:none;
+  appearance:none}
+.adder select:disabled{opacity:.5}
 
 .empty{padding:26px 16px;text-align:center;color:var(--text-faint);font-size:13px}
 .foot{text-align:center;font-size:11px;color:var(--text-faint);margin-top:22px}
@@ -205,9 +211,10 @@ h1{font-family:var(--disp);font-weight:900;font-size:23px;letter-spacing:-.02em;
            onkeydown="if(event.key==='Enter')addTask()">
     <button onclick="addTask()">+</button>
   </div>
+  <div class="adder"><select id="new-group"></select></div>
 
   <div class="foot"><button class="linky" id="show-done" onclick="toggleDone()">Показать сделанное</button>
-    <div style="margin-top:10px">доска задач · <span id="build">tasks-v2</span></div></div>
+    <div style="margin-top:10px">доска задач · <span id="build">tasks-v4</span></div></div>
 </div>
 
 <script>
@@ -238,6 +245,13 @@ const FALLBACK_SECTIONS = [
 ];
 let SECTIONS = FALLBACK_SECTIONS.slice();
 let ITEMS = [];
+/* ⚠️ РАЗДЕЛ ЛЕКЦИЙ НЕ ХРАНИТСЯ НА ДОСКЕ — он считается сервером из самой базы
+   лекций. Иначе новая лекция не появлялась бы, пока её не занесут руками, а
+   заполненное поле не убирало бы строку «нет таймкодов». На доске живёт только
+   галочка «эту я доделал», задача заводится в момент первого нажатия */
+const LEC_SEC = 'lec';
+let LECTURES = [];
+let CHECKS = {};
 let cur = 'dev';
 let showDone = false;
 let saveTimer = null;
@@ -252,8 +266,7 @@ function sectionItems(sec){
      закрыто, а закрытое спрятано) не рисуем вовсе */
   const out = [];
   const byName = {};
-  ITEMS.forEach(function(it){
-    if (it.sec !== sec) return;
+  allItems(sec).forEach(function(it){
     if (it.done && !showDone) return;
     const g = it.g || 'Разное';
     if (!byName[g]){ byName[g] = { g:g, items:[] }; out.push(byName[g]); }
@@ -261,7 +274,36 @@ function sectionItems(sec){
   });
   return out;
 }
-function allItems(sec){ return ITEMS.filter(function(i){ return i.sec === sec; }); }
+function allItems(sec){
+  /* ⚠️ В РАЗДЕЛЕ ЛЕКЦИЙ ДВА РОДА СТРОК. Из базы приходит то, что уже записано;
+     свои строки — это ПЛАН на потоки, которых ещё нет. Сервер про них знать не
+     может, а планировать наперёд надо. Плановые идут ПОСЛЕ настоящих внутри
+     своей группы, чтобы записанное было видно первым */
+  const own = ITEMS.filter(function(i){ return i.sec === sec; });
+  if (sec !== LEC_SEC) return own;
+  const real = lectureRows();
+  const seen = {};
+  real.forEach(function(r){ seen[r.id] = true; });
+  return real.concat(own.filter(function(i){ return !seen[i.id]; }));
+}
+function tabs(){
+  const t = SECTIONS.slice();
+  if (LECTURES.length) t.push({ key:LEC_SEC, title:'Лекции' });
+  return t;
+}
+/* Строка лекции — это её готовность ИЗ БАЗЫ плюс отметка С ДОСКИ, если она
+   уже ставилась. Ключ задачи привязан к слагу, поэтому переименование лекции
+   отметку не теряет */
+function lectureRows(){
+  return LECTURES.map(function(l){
+    const id = 'lec:' + l.slug;
+    const saved = ITEMS.filter(function(i){ return i.id === id; })[0];
+    const miss = (l.missing || []).map(function(k){ return CHECKS[k] || k; });
+    return { id:id, sec:LEC_SEC, g:l.group || 'Вне потоков', t:l.title,
+             n: miss.length ? 'нет: ' + miss.join(', ') : 'всё на месте',
+             done: saved ? saved.done : '', lecture:true };
+  });
+}
 function doneCount(list){ return list.filter(function(i){ return !!i.done; }).length; }
 function findItem(id){
   for (let i = 0; i < ITEMS.length; i++) if (ITEMS[i].id === id) return ITEMS[i];
@@ -269,7 +311,7 @@ function findItem(id){
 }
 
 function render(){
-  document.getElementById('tabs').innerHTML = SECTIONS.map(function(s){
+  document.getElementById('tabs').innerHTML = tabs().map(function(s){
     const list = allItems(s.key);
     return '<button class="tab' + (s.key===cur ? ' on' : '') + '" onclick="switchTab(\'' + s.key + '\')">'
       + esc(s.title) + '<i>' + doneCount(list) + '/' + list.length + '</i></button>';
@@ -287,10 +329,12 @@ function render(){
          + '<div class="box">✓</div><div style="min-width:0"><div class="task-t">'
          + (it.tag === 'hot' ? '<span class="tag hot">срочное</span>' : '')
          + (it.tag === 'me'  ? '<span class="tag me">за мной</span>'  : '')
+         + (it.tag === 'plan' ? '<span class="tag plan">план</span>'  : '')
          + esc(it.t) + '</div>'
          + (it.n ? '<span class="task-n">' + esc(it.n) + '</span>' : '')
          + '</div>'
-         + '<button class="del" onclick="event.stopPropagation();dropTask(\'' + esc(it.id) + '\')">✕</button>'
+         + (it.lecture ? ''
+            : '<button class="del" onclick="event.stopPropagation();dropTask(\'' + esc(it.id) + '\')">✕</button>')
          + '</div>';
     });
     h += '</div></div>';
@@ -303,7 +347,7 @@ function render(){
   document.getElementById('body').innerHTML = h;
 
   let all = 0, dn = 0;
-  SECTIONS.forEach(function(s){
+  tabs().forEach(function(s){
     const list = allItems(s.key);
     all += list.length; dn += doneCount(list);
   });
@@ -317,6 +361,28 @@ function render(){
     + ' · осталось ' + (all - dn);
   const sw = document.getElementById('show-done');
   if (sw) sw.textContent = showDone ? 'Скрыть сделанное' : 'Показать сделанное';
+  const inp = document.getElementById('new-task');
+  if (inp) inp.placeholder = (cur === LEC_SEC)
+    ? 'Запланировать занятие — впишется в поток…'
+    : 'Своя задача в этот раздел…';
+
+  /* Список групп текущего раздела — берётся из ВСЕХ задач, не только видимых:
+     иначе группа, где всё закрыто, пропадала бы из выбора */
+  const sel = document.getElementById('new-group');
+  if (sel){
+    const seen = [];
+    allItems(cur).forEach(function(i){
+      const g = i.g || 'Мои';
+      if (seen.indexOf(g) < 0) seen.push(g);
+    });
+    if (seen.indexOf('Мои') < 0) seen.push('Мои');
+    const keep = sel.value;
+    sel.innerHTML = seen.map(function(g){
+      return '<option value="' + esc(g) + '">' + esc(g) + '</option>';
+    }).join('') + '<option value="__new__">+ новая группа…</option>';
+    if (seen.indexOf(keep) >= 0 || keep === '__new__') sel.value = keep;
+    sel.disabled = false;
+  }
 }
 
 function heroTitle(p){
@@ -334,10 +400,33 @@ function switchTab(k){ cur = k; render(); window.scrollTo({top:0, behavior:'smoo
 function toggleDone(){ showDone = !showDone; render(); }
 
 function toggle(id){
+  if (id.indexOf('lec:') === 0) return toggleLecture(id);
   const it = findItem(id);
   if (!it) return;
-  if (it.done){ it.done = ''; pending.undone.push(id); }
-  else { it.done = new Date().toISOString().slice(0,10); pending.done.push(id); }
+  if (it.done){ it.done = ''; markPending('undone', 'done', id); }
+  else { it.done = new Date().toISOString().slice(0,10); markPending('done', 'undone', id); }
+  render();
+  save();
+}
+
+/* ⚠️ У ЛЕКЦИИ ЗАДАЧИ МОЖЕТ ЕЩЁ НЕ БЫТЬ. Первое нажатие её создаёт и сразу
+   отмечает — двумя действиями в одном патче, иначе `done` не к чему прицепить */
+function toggleLecture(id){
+  const row = lectureRows().filter(function(r){ return r.id === id; })[0];
+  if (!row) return;
+  const saved = findItem(id);
+  if (saved && saved.done){
+    saved.done = '';
+    markPending('undone', 'done', id);
+  } else if (saved){
+    saved.done = new Date().toISOString().slice(0,10);
+    markPending('done', 'undone', id);
+  } else {
+    const it = { id:id, sec:LEC_SEC, g:row.g, t:row.t,
+                 done:new Date().toISOString().slice(0,10) };
+    ITEMS.push(it);
+    pending.add.push(it);
+  }
   render();
   save();
 }
@@ -346,7 +435,16 @@ function addTask(){
   const inp = document.getElementById('new-task');
   const text = (inp.value || '').trim();
   if (!text) return;
-  const it = { id:'x' + Date.now().toString(36), sec:cur, g:'Мои', t:text, done:'' };
+  /* Группа: выбранная в списке, либо своя по кнопке «новая». Так и получаются
+     подсписки — «Поток про возражения» и что угодно ещё */
+  let g = document.getElementById('new-group').value || 'Мои';
+  if (g === '__new__'){
+    g = (prompt('Название новой группы:') || '').trim();
+    if (!g) return;
+  }
+  const it = { id:'x' + Date.now().toString(36), sec:cur, g:g, t:text, done:'' };
+  // В разделе лекций своя строка — это план: метка отличает её от записанного
+  if (cur === LEC_SEC) it.tag = 'plan';
   ITEMS.push(it);
   pending.add.push(it);
   inp.value = '';
@@ -359,7 +457,7 @@ function dropTask(id){
   if (!it) return;
   if (!confirm('Убрать задачу «' + it.t + '» насовсем?')) return;
   ITEMS = ITEMS.filter(function(i){ return i.id !== id; });
-  pending.remove.push(id);
+  dropPending(id);
   render();
   save();
 }
@@ -368,7 +466,7 @@ function dropAllDone(){
   const n = ITEMS.filter(function(i){ return !!i.done; }).length;
   if (!n) return;
   if (!confirm('Убрать все закрытые задачи (' + n + ') насовсем?')) return;
-  ITEMS.filter(function(i){ return !!i.done; }).forEach(function(i){ pending.remove.push(i.id); });
+  ITEMS.filter(function(i){ return !!i.done; }).forEach(function(i){ dropPending(i.id); });
   ITEMS = ITEMS.filter(function(i){ return !i.done; });
   render();
   save();
@@ -376,6 +474,32 @@ function dropAllDone(){
 
 /* ⚠️ КОПИМ ПРАВКИ И ШЛЁМ ПАЧКОЙ. Отметить десять задач подряд — обычное дело,
    и десять запросов ни к чему; при уходе со страницы пачка дожимается */
+/* ⚠️ ОДНА ЗАДАЧА — ОДНО РЕШЕНИЕ В ПАЧКЕ. Поймано на стенде: отметил, снял,
+   снова отметил — и в патче ехали и `done`, и `undone` для того же ключа.
+   Сервер применяет `undone` последним, так что на экране галочка стояла бы, а
+   в базе снялась. Держим ПОСЛЕДНЕЕ действие: кладя ключ в один список, убираем
+   его из противоположного */
+function markPending(list, other, id){
+  const i = pending[other].indexOf(id);
+  if (i >= 0) pending[other].splice(i, 1);
+  if (pending[list].indexOf(id) < 0) pending[list].push(id);
+}
+/* Задача, созданная и удалённая до отправки, на сервер не ездила вовсе —
+   слать `remove` по ключу, которого там нет, незачем */
+function dropPending(id){
+  const i = pending.add.map(function(x){ return x.id; }).indexOf(id);
+  markPending('remove', 'add', id);
+  if (i >= 0){
+    pending.add.splice(i, 1);
+    const j = pending.remove.indexOf(id);
+    if (j >= 0) pending.remove.splice(j, 1);
+  }
+  ['done','undone'].forEach(function(k){
+    const j = pending[k].indexOf(id);
+    if (j >= 0) pending[k].splice(j, 1);
+  });
+}
+
 function save(){
   clearTimeout(saveTimer);
   setSaved('сохраняю…');
@@ -410,6 +534,21 @@ document.addEventListener('visibilitychange', function(){
   if (document.visibilityState === 'hidden') saveNow();
 });
 
+/* ⚠️ ОТКАЗ ПО ЛЕКЦИЯМ НЕ ДОЛЖЕН РОНЯТЬ ДОСКУ: раздел просто не появится,
+   остальные четыре работают как работали */
+async function loadLectures(){
+  try {
+    const r = await fetch(API + '/admin/lectures/readiness?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    if (!r.ok) throw new Error('код ' + r.status);
+    const d = await r.json();
+    LECTURES = Array.isArray(d.items) ? d.items.filter(function(l){ return l && l.slug; }) : [];
+    CHECKS = {};
+    (d.checks || []).forEach(function(c){ if (c && c.key) CHECKS[c.key] = c.label; });
+  } catch (e) {
+    LECTURES = [];
+  }
+}
+
 async function loadAll(){
   document.getElementById('app').style.display = '';
   try {
@@ -426,6 +565,7 @@ async function loadAll(){
       ? data.sections.filter(function(s){ return s && s.key && s.title; })
       : FALLBACK_SECTIONS.slice();
     if (!SECTIONS.some(function(s){ return s.key === cur; }) && SECTIONS.length) cur = SECTIONS[0].key;
+    await loadLectures();
     setSaved(d.updated_at ? 'последняя правка: ' + new Date(d.updated_at).toLocaleString('ru-RU',
       {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '');
   } catch (e) {
