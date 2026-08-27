@@ -276,12 +276,36 @@ header{padding:calc(max(env(safe-area-inset-top), 8px) + 20px) 0 16px;display:fl
 .popup-input{width:100%;font-size:13px;font-family:var(--body);padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);margin-bottom:8px}
 .popup-input::placeholder{color:var(--text-faint)}
 .popup-save{width:100%;padding:12px;border-radius:14px;background:var(--accent);color:white;font-family:var(--disp);font-weight:700;font-size:13px;border:none;cursor:pointer;margin-top:4px;transition:opacity .15s}
+
+/* ── БОЛЬШАЯ КНОПКА ЭФИРА НА ГЛАВНОЙ ─────────────────────────────────────
+   Своя секция, а не мелкая кнопка в углу расписания: эфир — главное живое
+   действие клуба, и в его минуту искать управление глазами нельзя.
+   Раздельные свойства и простые запасные значения выше по правилу —
+   вычисленные значения с var() врут при разборе (урок 233) */
+.live-hero{width:100%;padding:20px 18px;border-radius:18px;border:none;cursor:pointer;
+  background:#e8614a;background:linear-gradient(135deg,var(--accent),var(--accent-deep));
+  color:#fff;font-family:var(--disp);font-weight:700;font-size:17px;text-align:left;
+  box-shadow:0 6px 18px rgba(232,97,74,.28);transition:transform .12s,box-shadow .12s}
+.live-hero:active{transform:translateY(1px);box-shadow:0 3px 10px rgba(232,97,74,.24)}
+.live-hero-sub{display:block;margin-top:5px;font-family:var(--body);font-weight:600;
+  font-size:12px;opacity:.92}
+/* Идущий эфир — живая метка, чтобы состояние читалось не текстом, а взглядом */
+.live-hero-dot{display:inline-block;width:9px;height:9px;border-radius:50%;
+  background:#fff;margin-right:8px;vertical-align:middle;animation:liveHeroPulse 1.4s infinite}
+@keyframes liveHeroPulse{0%,100%{opacity:1}50%{opacity:.35}}
 .popup-save:active{opacity:.8}
 
 /* Action buttons */
 .actions-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
 .action-btn{padding:10px 8px;border-radius:14px;border:1px solid var(--border);background:var(--stat-bg);font-size:12px;font-weight:600;font-family:var(--body);color:var(--text);cursor:pointer;text-align:center;transition:all .15s;line-height:1.3}
 .tools-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:stretch;padding:14px}
+/* Сетка внутри уже отступившей карточки — свой padding не нужен, иначе
+   группы разъезжаются вдвое шире остального содержимого */
+.tools-grid--tight{padding:0}
+.tools-group-title{font-family:var(--disp);font-weight:700;font-size:11px;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);
+  margin:16px 2px 7px}
+.tools-group-title:first-child{margin-top:0}
 /* ── Чат эфира в пульте: одна строка на сообщение, прижат к низу ──────────
    Прижатие делает `margin-top:auto` у первого элемента, а НЕ
    `justify-content:flex-end` — второе в прокручиваемом блоке обрезает верх,
@@ -1017,6 +1041,15 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     </div>
   </div>
 
+  <!-- ⚠️ ЭФИР — ПЕРВОЕ, ЧТО ВИДНО ПОСЛЕ ЦИФР. Кнопка сама говорит своё
+       состояние: в покое зовёт подготовиться, во время эфира пульсирует -->
+  <div class="section">
+    <button class="live-hero" id="live-hero-btn" onclick="openLivePopup()">
+      Эфир
+      <span class="live-hero-sub" id="live-hero-sub">Пульт трансляции — подготовка, площадки, чат</span>
+    </button>
+  </div>
+
   <div class="section">
     <div class="section-head">
       <div class="section-title">Выручка</div>
@@ -1041,7 +1074,6 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     <div class="section-head">
       <div class="section-title">Расписание</div>
       <div style="display:flex;gap:6px">
-        <button class="action-btn" style="padding:5px 10px;font-size:11px" onclick="openLivePopup()">Эфир</button>
         <button class="action-btn" style="padding:5px 10px;font-size:11px" onclick="openSchedulePopup()">Управлять</button>
       </div>
     </div>
@@ -1057,27 +1089,47 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     </div>
   </div>
 
+  <!-- ⚠️ ИНСТРУМЕНТЫ РАЗОБРАНЫ ПО ГРУППАМ. Восемнадцать одинаковых кнопок
+       подряд читаются перебором: чтобы найти нужную, приходилось читать все.
+       Порядок групп — по частоте обращения, а не по алфавиту -->
   <div class="section">
     <div class="section-head"><div class="section-title">Инструменты</div></div>
-    <div class="card">
-      <div class="tools-grid">
+    <div class="card" style="padding:14px">
+      <div class="tools-group-title">Клуб и участники</div>
+      <div class="tools-grid tools-grid--tight">
         <button class="action-btn" onclick="openSettingsPopup()">Настройки клуба</button>
         <button class="action-btn" onclick="openRegistrationReport()">Статистика</button>
+        <button class="action-btn" onclick="openPlacesPopup()">Каналы и чаты</button>
+        <button class="action-btn" onclick="openDupes()">Сцепленные карточки</button>
+      </div>
+
+      <div class="tools-group-title">Занятия и контент</div>
+      <div class="tools-grid tools-grid--tight">
         <button class="action-btn" onclick="openLectureStats()">Статистика лекций</button>
         <button class="action-btn" onclick="openViewLog()">Журнал просмотров</button>
-        <button class="action-btn" onclick="openDupes()">Сцепленные карточки</button>
+        <button class="action-btn" onclick="openTextsPopup()">Тексты приложения</button>
+        <button class="action-btn" onclick="openHelpDocsPopup()">Справка клуба</button>
+      </div>
+
+      <div class="tools-group-title">Баллы и награды</div>
+      <div class="tools-grid tools-grid--tight">
         <button class="action-btn" onclick="openBulkPointsPopup()">Раздать баллы всем</button>
         <button class="action-btn" onclick="openLevelConfigPopup()">Настроить уровни</button>
         <button class="action-btn" onclick="openRewardCatalogPopup()">Управление наградами</button>
+      </div>
+
+      <div class="tools-group-title">Карточки</div>
+      <div class="tools-grid tools-grid--tight">
         <button class="action-btn" onclick="openCardsPopup()">Колода карточек</button>
         <button class="action-btn" onclick="openScreensPopup()">Экраны открытия</button>
         <button class="action-btn" onclick="openRafflePopup()">Розыгрыши</button>
+      </div>
+
+      <div class="tools-group-title">Привлечение и возврат</div>
+      <div class="tools-grid tools-grid--tight">
         <button class="action-btn" onclick="openNudgesPopup()">Дожимные рассылки</button>
         <button class="action-btn" onclick="openBonusPopup()">Бонусы за вступление</button>
-        <button class="action-btn" onclick="openPlacesPopup()">Каналы и чаты</button>
         <button class="action-btn" onclick="openRefPostsPopup()">Посты для приглашений</button>
-        <button class="action-btn" onclick="openTextsPopup()">Тексты приложения</button>
-        <button class="action-btn" onclick="openHelpDocsPopup()">Справка клуба</button>
       </div>
     </div>
   </div>
@@ -1705,16 +1757,19 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       </div>
 
       <div id="live-admin-start" style="display:none">
-        <select class="popup-input" id="live-admin-event" style="margin-bottom:8px">
-          <option value="">Выбери трансляцию Kinescope</option>
-        </select>
+        <!-- ⚠️ ТРАНСЛЯЦИЯ ПО УМОЛЧАНИЮ. У Denis'а она одна и постоянная —
+             выбор на каждый эфир был лишним решением в горячий момент.
+             Селектор спрятан за «изменить», выбранное запоминается -->
+        <div class="pay-meta" id="live-default-line" style="margin-bottom:8px">Трансляция: загружаю…</div>
+        <div id="live-event-picker" style="display:none">
+          <select class="popup-input" id="live-admin-event" style="margin-bottom:8px" onchange="liveEventPicked()">
+            <option value="">Выбери трансляцию Kinescope</option>
+          </select>
+        </div>
         <input class="popup-input" type="text" id="live-admin-title" placeholder="Название эфира (увидят участники и площадки)" style="margin-bottom:8px">
         <textarea class="popup-input" id="live-admin-desc" placeholder="Описание — уйдёт в трансляции ВК" style="margin-bottom:8px;min-height:60px"></textarea>
-        <button class="popup-save" onclick="liveAutoStart()">Начать эфир и завести площадки</button>
-        <div class="pay-meta" style="margin-top:6px">Создаёт трансляции во всех настроенных сообществах ВК, забирает свежие ключи и прописывает их точками ретрансляции в Kinescope. Дальше остаётся запустить OBS.</div>
-        <button class="action-btn" style="margin-top:8px" onclick="liveStart()">Только открыть сессию</button>
-        <div class="pay-meta" style="margin-top:4px">Если площадки заведены руками и надо просто включить блок в аппе.</div>
-        <button class="action-btn" style="margin-top:8px" onclick="liveShowTargets()">Какие площадки настроены</button>
+        <button class="popup-save" onclick="liveAutoStart()">Начать эфир</button>
+        <div class="pay-meta" style="margin-top:6px">Сам включит трансляцию, создаст площадки ВК и пропишет точки ретрансляции. Дальше остаётся запустить OBS.</div>
       </div>
 
       <div id="live-admin-running" style="display:none">
@@ -1727,12 +1782,14 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <button class="action-btn" onclick="chatSetSlow()">Медленный режим</button>
           <button class="action-btn" id="chat-toggle-btn" onclick="chatToggleOpen()">Закрыть чат</button>
         </div>
-        <div class="section-title" style="margin:14px 0 6px;font-size:13px">Анонс по площадкам</div>
+        <div class="section-title" style="margin:14px 0 6px;font-size:13px">Позвать людей</div>
+        <!-- ⚠️ БЕЗ ГАЛОЧЕК. Состав площадок — настройка, а не решение в момент
+             живого эфира: анонс уходит по всем АКТИВНЫМ из справочника.
+             Исключить площадку = снять «активна» в настройках заранее -->
         <div id="live-announce-targets"></div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">
           <button class="action-btn" onclick="announcePreview()">Показать, что уйдёт</button>
-          <button class="action-btn" onclick="announceSend()">Разослать анонс</button>
-          <button class="action-btn" onclick="openTargetsPopup()">Настроить площадки</button>
+          <button class="popup-save" style="width:auto;padding:8px 14px" onclick="announceSend()">Позвать всех</button>
         </div>
         <div id="live-announce-out" class="pay-meta" style="margin:0 2px 12px"></div>
 
@@ -1748,11 +1805,23 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <button class="popup-save" onclick="liveFinish()" style="background:#e8614a">Завершить эфир</button>
       </div>
 
-      <div class="section-title" style="margin:16px 0 6px;font-size:13px">Обслуживание</div>
-      <button class="action-btn" onclick="liveWebhookSetup()">Завести вебхук Kinescope</button>
-      <button class="action-btn" onclick="liveWebhookList()" style="margin-left:6px">Показать вебхуки</button>
-      <button class="action-btn" onclick="liveWebhookLog()" style="margin-left:6px">Что нам присылали</button>
-      <div class="pay-meta" style="margin-top:6px">Вебхук нужен, чтобы апп знал, что поток РЕАЛЬНО пошёл, а не только что по расписанию пора.</div>
+      <!-- ⚠️ ВСЁ РЕДКОЕ — ЗА ОДНОЙ СВЁРНУТОЙ ДВЕРЬЮ. В день эфира сюда
+           заходить не нужно; развернул — получил обслуживание и запасные ходы -->
+      <button class="action-btn" style="margin-top:16px" onclick="toggleLiveMaint()">Настройка и обслуживание</button>
+      <div id="live-maint" style="display:none;margin-top:10px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="action-btn" onclick="openTargetsPopup()">Настроить площадки</button>
+          <button class="action-btn" onclick="liveShowTargets()">Какие площадки настроены</button>
+          <button class="action-btn" onclick="liveStart()">Только открыть сессию</button>
+        </div>
+        <div class="pay-meta" style="margin-top:4px">«Только открыть сессию» — если площадки заведены руками и надо просто включить блок в аппе.</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+          <button class="action-btn" onclick="liveWebhookSetup()">Завести вебхук Kinescope</button>
+          <button class="action-btn" onclick="liveWebhookList()">Показать вебхуки</button>
+          <button class="action-btn" onclick="liveWebhookLog()">Что нам присылали</button>
+        </div>
+        <div class="pay-meta" style="margin-top:6px">Вебхук нужен, чтобы апп знал, что поток РЕАЛЬНО пошёл, а не только что по расписанию пора.</div>
+      </div>
     </div>
   </div>
 </div>
@@ -2221,7 +2290,35 @@ async function loadAll(){
   loadSupport();
   loadRewardRequests();
   document.getElementById('last-update').textContent='Обновлено в '+new Date().toLocaleTimeString('ru');
-  await Promise.all([loadStats(),loadUsers(),loadPayments(),loadNotificationLists(),loadCampaigns(),loadAdminCalendarMonth(),loadQuestions(),loadCardsWidget(),loadSeasonWidget()]);
+  await Promise.all([loadStats(),loadUsers(),loadPayments(),loadNotificationLists(),loadCampaigns(),loadAdminCalendarMonth(),loadQuestions(),loadCardsWidget(),loadSeasonWidget(),loadLiveHero()]);
+}
+
+/* ⚠️ КНОПКА ЭФИРА НА ГЛАВНОЙ ЗНАЕТ, ИДЁТ ЛИ ЭФИР. Иначе состояние приходится
+   выяснять открытием пульта — а «идёт ли у меня сейчас трансляция» это ровно
+   тот вопрос, ответ на который должен быть виден сразу. Сбой запроса кнопку
+   НЕ ломает: она остаётся в спокойном виде и открывается как обычно */
+async function loadLiveHero(){
+  const btn = document.getElementById('live-hero-btn');
+  // ⚠️ ПОДПИСЬ ЗДЕСЬ НЕ ПРОВЕРЯЕМ. Первая же перерисовка заменяет содержимое
+  // кнопки вместе с id подписи — требование «оба элемента на месте» после
+  // этого не выполнялось НИКОГДА, и кнопка навсегда застывала в первом
+  // показанном состоянии. Класс ошибки: код зависит от того, что сам же
+  // уничтожает. Зависим только от кнопки, id подписи восстанавливаем
+  if (!btn) return;
+  try{
+    const r = await fetch(API + '/admin/live/state?x_admin_token=' + ADMIN_TOKEN);
+    const d = await r.json();
+    if (d.active){
+      const s = d.session || {};
+      btn.innerHTML = '<span class="live-hero-dot"></span>Эфир идёт'
+        + '<span class="live-hero-sub" id="live-hero-sub">' + escapeHtmlAdm(s.title || 'Прямой эфир')
+        + (s.is_streaming ? ' · картинка идёт' : ' · картинки ещё нет')
+        + '</span>';
+    } else {
+      btn.innerHTML = 'Эфир<span class="live-hero-sub" id="live-hero-sub">'
+        + 'Пульт трансляции — подготовка, площадки, чат</span>';
+    }
+  }catch(e){ /* молчим: кнопка работает и без статуса */ }
 }
 
 async function loadQuestions(){
@@ -4429,6 +4526,54 @@ function renderTeaserList(){
    показывает результат текстом, а не молча меняет вид. */
 let liveAdminState = null;
 
+/* Трансляция по умолчанию: у клуба она одна и постоянная. Запоминаем выбор
+   и не спрашиваем на каждый эфир; селектор — за ссылкой «изменить» */
+const LIVE_DEFAULT_KEY = 'live_default_event';
+
+function liveRememberEvent(id){
+  try { localStorage.setItem(LIVE_DEFAULT_KEY, id || ''); } catch(e) {}
+}
+
+function liveApplyDefaultEvent(){
+  const sel = document.getElementById('live-admin-event');
+  const line = document.getElementById('live-default-line');
+  if (!sel || !line) return;
+  let saved = '';
+  try { saved = localStorage.getItem(LIVE_DEFAULT_KEY) || ''; } catch(e) {}
+  // сохранённая трансляция должна СУЩЕСТВОВАТЬ в свежем списке Кинескопа —
+  // удалённая там не выберется, и мы честно попросим выбрать заново
+  if (saved && !sel.value){
+    const has = Array.from(sel.options).some(function(o){ return o.value === saved; });
+    if (has) sel.value = saved;
+  }
+  const opt = sel.options[sel.selectedIndex];
+  if (sel.value && opt){
+    line.innerHTML = 'Трансляция: <b>' + escapeHtmlAdm(opt.textContent) + '</b> '
+      + '<a href="#" onclick="liveShowEventPicker(); return false">изменить</a>';
+    document.getElementById('live-event-picker').style.display = 'none';
+  } else {
+    line.innerHTML = kinescopeLoadError
+      ? 'Трансляции не загрузились: ' + escapeHtmlAdm(kinescopeLoadError)
+      : 'Выбери трансляцию — выбор запомнится:';
+    document.getElementById('live-event-picker').style.display = 'block';
+  }
+}
+
+function liveShowEventPicker(){
+  document.getElementById('live-event-picker').style.display = 'block';
+}
+
+function liveEventPicked(){
+  const sel = document.getElementById('live-admin-event');
+  liveRememberEvent(sel.value);
+  liveApplyDefaultEvent();
+}
+
+function toggleLiveMaint(){
+  const el = document.getElementById('live-maint');
+  el.style.display = (el.style.display === 'none') ? 'block' : 'none';
+}
+
 async function openLivePopup(){
   document.getElementById('live-popup-overlay').classList.add('open');
   chatAdminLastId = 0;
@@ -4457,6 +4602,7 @@ async function loadLiveAdminState(){
     const d = await r.json();
     liveAdminState = d;
     renderLiveAdmin();
+    loadLiveHero();   // состояние изменилось — обновляем и кнопку на главной
   }catch(e){
     box.innerHTML = '<div class="pay-meta" style="color:#e8614a">Нет связи с бэкендом: '
       + (e && e.message || e) + '</div>';
@@ -4544,34 +4690,43 @@ async function loadTargets(){
   }
 }
 
-/* Галочки в пульте: по умолчанию отмечены активные. Перед конкретным эфиром
-   любую можно снять — например, когда эфир только для клуба */
+/* ⚠️ БЕЗ ГАЛОЧЕК. Выбор площадок в момент живого эфира был лишним решением
+   в горячую минуту — Denis прямо сказал, что не понимает, что от него
+   требуется. Состав определяется заранее флагом «активна» в справочнике;
+   пульт лишь называет, куда уйдёт, и показывает ошибки прошлых отправок */
+function activeTargets(){
+  return targetsCache.filter(function(t){ return t.active; });
+}
+
 function renderAnnounceTargets(){
   const box = document.getElementById('live-announce-targets');
   if (!box) return;
   if (!targetsCache.length){
-    box.innerHTML = '<div class="pay-meta">Площадок пока нет. Нажми «Настроить площадки» и заведи их — тогда анонс будет уходить одним нажатием.</div>';
+    box.innerHTML = '<div class="pay-meta">Площадок пока нет. Открой «Настройка и обслуживание» → «Настроить площадки» — тогда анонс будет уходить одним нажатием.</div>';
     return;
   }
-  box.innerHTML = targetsCache.map(function(t){
-    return '<label class="pay-item" style="cursor:pointer">'
-      + '<input type="checkbox" class="ann-t" value="' + t.id + '" ' + (t.active ? 'checked' : '') + ' style="flex-shrink:0">'
-      + '<div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(t.name) + '</div>'
-      + '<div class="pay-meta">' + (TARGET_METHOD_LABELS[t.method] || t.method) + ' · ' + (TARGET_LINK_LABELS[t.link_mode] || '')
-      + (t.last_ok_at ? ' · последний раз ' + t.last_ok_at : '')
-      + (t.last_error ? ' · <span style="color:#e8614a">ошибка: ' + escapeHtmlAdm(t.last_error.slice(0, 60)) + '</span>' : '')
-      + '</div></div></label>';
-  }).join('');
+  const act = activeTargets();
+  if (!act.length){
+    box.innerHTML = '<div class="pay-meta" style="color:#e8614a">Все площадки выключены — звать некого. Включи нужные в настройках площадок.</div>';
+    return;
+  }
+  box.innerHTML = '<div class="pay-meta">Уйдёт в ' + act.length + ' мест: '
+    + act.map(function(t){
+        return escapeHtmlAdm(t.name)
+          + (t.last_error ? ' <span style="color:#e8614a">(прошлый раз: ' + escapeHtmlAdm(t.last_error.slice(0, 50)) + ')</span>' : '');
+      }).join(' · ')
+    + '</div>'
+    + '<div class="pay-meta" style="margin-top:2px">Состав меняется в «Настройка и обслуживание» → «Настроить площадки».</div>';
 }
 
 function checkedTargetIds(){
-  return Array.from(document.querySelectorAll('.ann-t:checked')).map(function(el){ return Number(el.value); });
+  return activeTargets().map(function(t){ return Number(t.id); });
 }
 
 async function announceCall(preview){
   const out = document.getElementById('live-announce-out');
   const ids = checkedTargetIds();
-  if (!ids.length){ out.textContent = 'Ни одна площадка не отмечена.'; return null; }
+  if (!ids.length){ out.textContent = 'Все площадки выключены — включи нужные в настройках площадок.'; return null; }
   out.textContent = preview ? 'Собираю тексты…' : 'Рассылаю…';
   try{
     const r = await fetch(API + '/admin/live/announce?x_admin_token=' + ADMIN_TOKEN, {
@@ -4602,8 +4757,8 @@ async function announcePreview(){
 
 async function announceSend(){
   const ids = checkedTargetIds();
-  if (!ids.length){ document.getElementById('live-announce-out').textContent = 'Ни одна площадка не отмечена.'; return; }
-  if (!confirm('Разослать анонс в ' + ids.length + ' мест? Отозвать посты будет нельзя.')) return;
+  if (!ids.length){ document.getElementById('live-announce-out').textContent = 'Все площадки выключены — включи нужные в настройках площадок.'; return; }
+  if (!confirm('Позвать людей в ' + ids.length + ' мест? Отозвать посты будет нельзя.')) return;
   const d = await announceCall(false);
   if (!d) return;
   document.getElementById('live-announce-out').innerHTML =
@@ -4939,6 +5094,7 @@ async function liveStart(){
     });
     const d = await r.json();
     if (!d.ok){ alert('Не начали: ' + (d.error || 'неизвестно')); }
+    else { liveRememberEvent(live_event_id); }
     loadLiveAdminState();
   }catch(e){ alert('Ошибка: ' + (e && e.message || e)); }
 }
@@ -5030,6 +5186,7 @@ async function liveAutoStart(){
       msg += '\n\nССЫЛКИ НА ТРАНСЛЯЦИИ:\n' + d.links.map(function(l){ return l.label + ': ' + l.link; }).join('\n');
     }
     alert(msg || 'Готово');
+    liveRememberEvent(live_event_id);
     loadLiveAdminState();
   }catch(e){ alert('Ошибка: ' + (e && e.message || e)); }
 }
@@ -5152,6 +5309,7 @@ async function loadKinescopeEvents(){
     el.innerHTML = html;
     el.value = keep;
   });
+  liveApplyDefaultEvent();
   const hint = document.getElementById('sched-event-live-hint');
   if (hint && kinescopeLoadError){
     hint.innerHTML = '<span style="color:#e8614a">Не получилось загрузить список трансляций: '
@@ -10075,5 +10233,6 @@ function wireShelfSwipe(pages){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v82</div>
 </body>
 </html>
