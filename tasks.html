@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Задачи клуба</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@700;900&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+/* ⚠️ ТОКЕНЫ ВЗЯТЫ ИЗ ДАШБОРДА ОДИН В ОДИН — страница живёт в том же
+   репозитории и должна выглядеть его частью, а не соседним сайтом */
+:root{
+  --bg:#e2dbd2; --bg-c:#ede6de;
+  --surface:#e2dbd2; --surface2:#ddd6cc;
+  --line:rgba(100,80,60,0.09);
+  --text:#3a3028; --text-dim:#7a6a60; --text-faint:#a89888;
+  --sh-r: 6px 6px 16px #c2bab0, -6px -6px 16px #faf4ec;
+  --sh-sm: 3px 3px 9px #c2bab0, -3px -3px 9px #faf4ec;
+  --sh-i: inset 5px 5px 12px #c2bab0, inset -5px -5px 12px #faf4ec;
+  --sh-is: inset 3px 3px 7px #c2bab0, inset -3px -3px 7px #faf4ec;
+  --accent:#7b61ff; --accent-2:#59c2a8; --warm:#d98b4a;
+  --disp:'Unbounded', system-ui, sans-serif;
+}
+[data-theme="dark"]{
+  --bg:#0c0a15; --bg-c:#110f1e;
+  --surface:rgba(255,255,255,0.05); --surface2:rgba(255,255,255,0.09);
+  --line:rgba(255,255,255,0.07);
+  --text:#f0eefc; --text-dim:#a29dc2; --text-faint:#655f80;
+  --sh-r:0 10px 30px -12px rgba(0,0,0,.6);
+  --sh-sm:0 6px 18px -10px rgba(0,0,0,.5);
+  --sh-i:inset 0 1px 0 rgba(255,255,255,.05);
+  --sh-is:inset 0 1px 0 rgba(255,255,255,.05);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:'Manrope',system-ui,sans-serif;font-size:15px;line-height:1.45;
+  padding:0 0 calc(40px + env(safe-area-inset-bottom));
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:720px;margin:0 auto;padding:0 16px}
+
+/* ── Шапка ── */
+header{padding:calc(env(safe-area-inset-top) + 22px) 0 6px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px}
+h1{font-family:var(--disp);font-weight:900;font-size:23px;letter-spacing:-.02em;margin:0}
+.head-acts{display:flex;gap:8px}
+.round{width:38px;height:38px;border-radius:50%;border:none;cursor:pointer;
+  background:var(--surface);color:var(--text-dim);box-shadow:var(--sh-sm);
+  font-size:15px;display:grid;place-items:center;font-family:inherit}
+.round:active{box-shadow:var(--sh-is)}
+
+/* ── Общий прогресс ── */
+.hero{background:var(--surface);border-radius:24px;box-shadow:var(--sh-r);
+  padding:20px 20px 18px;margin:14px 0 16px;position:relative;overflow:hidden}
+.hero-row{display:flex;align-items:center;gap:18px}
+.ring{width:84px;height:84px;flex:none;position:relative;display:grid;place-items:center}
+.ring svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.ring-num{font-family:var(--disp);font-weight:900;font-size:21px;letter-spacing:-.03em}
+.hero-t{font-family:var(--disp);font-weight:700;font-size:16px;margin-bottom:5px}
+.hero-x{font-size:13px;color:var(--text-dim)}
+.hero-saved{font-size:11.5px;color:var(--text-faint);margin-top:9px;min-height:15px}
+
+/* ── Вкладки ── */
+.tabs{display:flex;gap:6px;background:var(--surface);border-radius:999px;
+  box-shadow:var(--sh-is);padding:5px;margin-bottom:16px;overflow-x:auto;
+  scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:1 0 auto;border:none;cursor:pointer;font-family:inherit;
+  padding:9px 14px;border-radius:999px;background:transparent;color:var(--text-dim);
+  font-size:13px;font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:7px}
+.tab.on{background:var(--surface);color:var(--text);box-shadow:var(--sh-sm)}
+.tab i{font-style:normal;font-size:11px;font-weight:800;color:var(--text-faint)}
+.tab.on i{color:var(--accent)}
+
+/* ── Группы и задачи ── */
+.group{margin-bottom:16px}
+.group-head{display:flex;align-items:baseline;justify-content:space-between;
+  gap:10px;margin:0 4px 8px}
+.group-t{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--text-faint)}
+.group-n{font-size:11px;font-weight:700;color:var(--text-faint)}
+.list{background:var(--surface);border-radius:20px;box-shadow:var(--sh-r);
+  padding:6px 4px;overflow:hidden}
+.task{display:flex;align-items:flex-start;gap:12px;padding:11px 14px;cursor:pointer;
+  border-radius:16px;position:relative}
+.task + .task::before{content:"";position:absolute;left:48px;right:14px;top:0;
+  height:1px;background:var(--line)}
+.task:active{background:var(--surface2)}
+.box{width:23px;height:23px;flex:none;border-radius:8px;margin-top:1px;
+  background:var(--surface);box-shadow:var(--sh-is);display:grid;place-items:center;
+  color:transparent;font-size:13px;font-weight:800;transition:color .15s ease}
+.task.done .box{background:var(--accent);box-shadow:none;color:#fff}
+.task-t{font-size:14px;line-height:1.4}
+.task.done .task-t{color:var(--text-faint);text-decoration:line-through}
+.task-n{display:block;font-size:11.5px;color:var(--text-faint);margin-top:3px;
+  text-decoration:none}
+.task.done .task-n{opacity:.6}
+.tag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.04em;
+  text-transform:uppercase;padding:2px 7px;border-radius:999px;margin-right:6px;
+  vertical-align:1px;background:var(--surface2);color:var(--text-faint)}
+.tag.hot{background:rgba(217,139,74,.16);color:var(--warm)}
+.tag.me{background:rgba(123,97,255,.14);color:var(--accent)}
+.del{margin-left:auto;flex:none;border:none;background:transparent;cursor:pointer;
+  color:var(--text-faint);font-size:15px;padding:0 2px;font-family:inherit}
+
+/* ── Добавление своей задачи ── */
+.adder{display:flex;gap:8px;margin:12px 0 4px}
+.adder input{flex:1;min-width:0;border:none;outline:none;font-family:inherit;
+  font-size:14px;padding:13px 16px;border-radius:16px;
+  background:var(--surface);box-shadow:var(--sh-is);color:var(--text)}
+.adder button{flex:none;border:none;cursor:pointer;font-family:inherit;font-weight:700;
+  font-size:14px;padding:0 18px;border-radius:16px;background:var(--accent);color:#fff;
+  box-shadow:var(--sh-sm)}
+.adder button:active{transform:scale(.97)}
+
+.empty{padding:26px 16px;text-align:center;color:var(--text-faint);font-size:13px}
+.foot{text-align:center;font-size:11px;color:var(--text-faint);margin-top:22px}
+
+/* ── PIN ── */
+.pin-screen{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;
+  align-items:center;justify-content:center;flex-direction:column;gap:22px}
+.pin-screen.hidden{display:none}
+.pin-logo{width:64px;height:64px;border-radius:50%;background:var(--surface);
+  box-shadow:var(--sh-r);display:grid;place-items:center;font-family:var(--disp);
+  font-weight:900;font-size:20px}
+.pin-title{font-size:14px;color:var(--text-dim)}
+.pin-dots{display:flex;gap:12px}
+.pin-dot{width:12px;height:12px;border-radius:50%;background:var(--surface);
+  box-shadow:var(--sh-is)}
+.pin-dot.filled{background:var(--accent);box-shadow:none}
+.pin-error{font-size:12.5px;color:#d9534f;min-height:18px;text-align:center;padding:0 24px}
+.pin-pad{display:grid;grid-template-columns:repeat(3,72px);gap:14px}
+.pin-btn{width:72px;height:72px;border-radius:50%;border:none;cursor:pointer;
+  background:var(--surface);box-shadow:var(--sh-r);color:var(--text);
+  font-family:var(--disp);font-weight:700;font-size:22px}
+.pin-btn:active{box-shadow:var(--sh-is)}
+.pin-btn.del{font-family:inherit;font-size:17px;color:var(--text-dim)}
+</style>
+</head>
+<body>
+
+<div class="pin-screen" id="pin-screen">
+  <div class="pin-logo">БП</div>
+  <div class="pin-title">Введите пин-код</div>
+  <div class="pin-dots">
+    <div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div>
+    <div class="pin-dot" id="d2"></div><div class="pin-dot" id="d3"></div>
+    <div class="pin-dot" id="d4"></div>
+  </div>
+  <div class="pin-error" id="pin-error"></div>
+  <div class="pin-pad">
+    <button class="pin-btn" onclick="pinKey('1')">1</button>
+    <button class="pin-btn" onclick="pinKey('2')">2</button>
+    <button class="pin-btn" onclick="pinKey('3')">3</button>
+    <button class="pin-btn" onclick="pinKey('4')">4</button>
+    <button class="pin-btn" onclick="pinKey('5')">5</button>
+    <button class="pin-btn" onclick="pinKey('6')">6</button>
+    <button class="pin-btn" onclick="pinKey('7')">7</button>
+    <button class="pin-btn" onclick="pinKey('8')">8</button>
+    <button class="pin-btn" onclick="pinKey('9')">9</button>
+    <button class="pin-btn del" onclick="pinKey('del')">⌫</button>
+    <button class="pin-btn" onclick="pinKey('0')">0</button>
+    <button class="pin-btn del" onclick="pinKey('clear')">C</button>
+  </div>
+</div>
+
+<div class="wrap" id="app" style="display:none">
+  <header>
+    <h1>Задачи клуба</h1>
+    <div class="head-acts">
+      <button class="round" onclick="toggleTheme()" title="Тема">◐</button>
+      <button class="round" onclick="location.href='./'" title="К дашборду">←</button>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="hero-row">
+      <div class="ring">
+        <svg viewBox="0 0 84 84">
+          <circle cx="42" cy="42" r="36" fill="none" stroke="var(--surface2)" stroke-width="9"/>
+          <circle cx="42" cy="42" r="36" fill="none" stroke="var(--accent)" stroke-width="9"
+                  stroke-linecap="round" id="ring-arc" stroke-dasharray="0 999"/>
+        </svg>
+        <div class="ring-num" id="ring-num">0%</div>
+      </div>
+      <div style="min-width:0">
+        <div class="hero-t" id="hero-t">Считаю…</div>
+        <div class="hero-x" id="hero-x"></div>
+        <div class="hero-saved" id="hero-saved"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+  <div id="body"></div>
+
+  <div class="adder">
+    <input id="new-task" placeholder="Своя задача в этот раздел…"
+           onkeydown="if(event.key==='Enter')addTask()">
+    <button onclick="addTask()">+</button>
+  </div>
+
+  <div class="foot">доска задач · <span id="build">tasks-v1</span></div>
+</div>
+
+<script>
+const API = 'https://api.youselllikeagod-magazine.ru';
+const ADMIN_TOKEN_KEY = 'admin_token';
+const DOC_KEY = 'tasks';
+let ADMIN_TOKEN = '';
+try { ADMIN_TOKEN = sessionStorage.getItem(ADMIN_TOKEN_KEY) || ''; } catch(e) {}
+
+/* ═══ ЗАДАЧИ ══════════════════════════════════════════════════════════════════
+   ⚠️ ТЕКСТЫ ЖИВУТ ЗДЕСЬ, А НА СЕРВЕРЕ — ТОЛЬКО ОТМЕТКИ. Так список правится
+   выкладкой файла, а отметки при этом не сбрасываются: они привязаны к `id`.
+   ПРАВИЛО ПРАВКИ: текст менять можно, `id` — никогда, иначе задача вернётся
+   в незакрытые. Удалённая из списка задача просто перестаёт показываться,
+   её отметка остаётся в документе и не мешает.                              */
+const SECTIONS = [
+  { key:'dev',  title:'Разработка',   icon:'⚙' },
+  { key:'test', title:'Тестирование', icon:'✓' },
+  { key:'fill', title:'Наполнение',   icon:'✎' },
+  { key:'ask',  title:'Решить',       icon:'?' }
+];
+
+const TASKS = {
+dev: [
+  { g:'Горит', items:[
+    { id:'d01', t:'Сменить админ-токен', n:'Прислан в чат 25.08 — засвечен. Переменная Timeweb → перезапуск → перевход по PIN', tag:'me' },
+    { id:'d02', t:'Сменить защищённый ключ приложения ВК', n:'Попал на скриншот 27.08', tag:'me' },
+    { id:'d03', t:'Поймать пустой плеер эфира', n:'Версии «старый код» и «запрет встраивания» опровергнуты. Ловить на следующем эфире: апп и live-test.html рядом', tag:'hot' },
+    { id:'d04', t:'Пейвол на чипе разбора хода', n:'Замок уместен на закрытой игре, но не на подсказке посреди партии' },
+    { id:'d05', t:'Экспорт постера теста на /quiz/poster', n:'Сейчас зовётся старый рисовщик. Откат на него, если у бога нет пака' },
+    { id:'d06', t:'Шрифты для картинок — 4 файла в репозиторий', n:'Manrope 400/700/800 + Unbounded 700. Скачать со своей стороны я не могу', tag:'me' },
+  ]},
+  { g:'Деньги и цена', items:[
+    { id:'d10', t:'Рассрочка 990 → два по 495', n:'Под вопросом: Продамус вряд ли даст дробить платежи внутри подписки' },
+    { id:'d11', t:'«Отработай подпиской» — скидка за задание или отзыв' },
+    { id:'d12', t:'Пересмотреть 10 попыток списания по 12 часов', n:'Не выжигает ли. Паузы наполнить пользой, а не темой оплаты' },
+    { id:'d13', t:'Переформулировать сообщения о неудачной оплате', n:'Убрать рамку «неудачная попытка»' },
+    { id:'d14', t:'Разовая покупка вечного доступа', n:'Просил запомнить трижды' },
+    { id:'d15', t:'Семейный тариф и командный тариф', n:'Отдел продаж на одном доступе — это лид, а не нарушитель' },
+    { id:'d16', t:'Срок пробного привязать к ближайшей встрече', n:'Иначе человек может не попасть на главную ценность' },
+  ]},
+  { g:'Верх воронки', items:[
+    { id:'d20', t:'Короткая версия фильма 5–7 минут' },
+    { id:'d21', t:'A/B сокращённого призыва внутри фильма' },
+    { id:'d22', t:'Текстовая выжимка онбординг-видео рядом с видео' },
+    { id:'d23', t:'Продающая цепочка для зашедших, но не купивших' },
+    { id:'d24', t:'Демо-карточка бесплатного контента в «Что посмотреть» для гостей' },
+    { id:'d25', t:'Open Graph-превью для ссылки на тест', n:'Вирусность вне Telegram' },
+    { id:'d26', t:'ВК: трекинг событий мини-приложения', n:'Ждём одобрения заявки, пока крутим на «запуск мини-приложения»' },
+  ]},
+  { g:'Первые сутки', items:[
+    { id:'d30', t:'Единый пост-навигатор', n:'«Есть 2 минуты — вот это, есть 10 — вот это»' },
+    { id:'d31', t:'Закреплённое сообщение в чате с картой пути из 4 шагов' },
+    { id:'d32', t:'Кнопки «С чего начать» и «Полный тур по приложению»' },
+  ]},
+  { g:'Возврат и вовлечение', items:[
+    { id:'d40', t:'Подключить триггеры автоотправки push', n:'Механика готова, события не связаны с отправкой' },
+    { id:'d41', t:'Показать дайджест участнику', n:'Баннер на главной или карточка рядом со «Смотреть позже»' },
+    { id:'d42', t:'Автоподбор занятий под свободный текст' },
+    { id:'d43', t:'Уведомлять интересовавшихся темой при появлении контента' },
+    { id:'d44', t:'Лидерборд участников' },
+    { id:'d45', t:'Архивные номера журнала отдавать новичку быстрее' },
+    { id:'d46', t:'Переделать «Пригласить друга» под новые способы шеринга' },
+  ]},
+  { g:'Игры', items:[
+    { id:'d50', t:'Довести игру «И чё»', n:'По оценке лучший лид-магнит: на выходе готовая формулировка оффера' },
+    { id:'d51', t:'Игра «Уточнение»', n:'Туда ложатся боги как трудные клиенты' },
+    { id:'d52', t:'Финал партии не срабатывает', n:'Причина не найдена, закрыто подстраховкой ggRescueFinal' },
+    { id:'d53', t:'Привязать лекции к играм', n:'«Разобрать теорию» на финале ведёт в пустоту' },
+  ]},
+  { g:'Эфиры', items:[
+    { id:'d60', t:'Запись с границей бесплатной части', n:'Момент закрытия уже сохраняется. Не разведано: умеет ли плеер Кинескопа стоп на секунде' },
+    { id:'d61', t:'Плашка «бесплатная часть закончилась»', n:'Сейчас гость просто перестаёт видеть плеер — потерянная продажа' },
+    { id:'d62', t:'Плашка вместо пустого плеера, когда потока нет' },
+    { id:'d63', t:'Дожимы «был эфир, посмотри запись»' },
+    { id:'d64', t:'Шеринг эфира как рефералка', n:'Ссылка та же, что в дожиме — делать вместе' },
+  ]},
+  { g:'Карточки', items:[
+    { id:'d70', t:'Притушить сигилы (url_soft пуст у всех 57)', n:'На картинке шеринга сигил уйдёт в полную яркость поверх карты. Предложено разовой командой на сервере' },
+    { id:'d71', t:'Три файла общего сигила __общий__', n:'Светлый, тёмный, особый — для героев и существ. Откат в коде готов', tag:'me' },
+    { id:'d72', t:'Главные боги: подмена сета на особый', n:'В pick_frame_for логики бога нет вовсе. Сначала назвать список — сузить до трёх-четырёх' },
+    { id:'d73', t:'Рамка на полке в альбоме', n:'/cards/my отдаёт frame_url, альбом его не рисует — карта голая' },
+    { id:'d74', t:'Шеринг карточки уходит без рамки' },
+    { id:'d75', t:'Увеличить карту на витрине', n:'Центрирование отступами дало мало, потолок min(80vw,340px)' },
+    { id:'d76', t:'Анимированные сигилы (50 МБ) перевести в S3', n:'Механизм пережатия уже есть, задача подешевела' },
+    { id:'d77', t:'Стенд одной карты', n:'QR с экспорта ведёт туда, работает без Telegram' },
+    { id:'d78', t:'Герои и существа вне пантеона', n:'Геракл, Тесей, Персей, медузы, сирены — с флажком, чтобы не занимать слоты' },
+    { id:'d79', t:'Превью арта под рамкой в редакторе', n:'Обещано 23.08: кроп в окне 0.70 в момент загрузки' },
+  ]},
+  { g:'Гигиена и мелочи', items:[
+    { id:'d80', t:'Проверить still_open на боевом', n:'Уходил в минус, починено в v198' },
+    { id:'d81', t:'Проверить метку сборки', n:'Врала (v155 при v196), исправлено в v198' },
+    { id:'d82', t:'Экран по home_block_hidden', n:'Данные копятся, смотреть негде. Единственный честный сигнал «блок плохой»' },
+    { id:'d83', t:'Сводка по пути клиента', n:'Конверсия и срок до покупки по источникам, топ пригласивших' },
+    { id:'d84', t:'Реальный трекинг просмотра занятий', n:'Упоминался в четырёх сессиях, не сделан ни разу. Самоотметка или плеер?' },
+    { id:'d85', t:'Симулятор выдачи карточек перенести на сервер', n:'Сейчас дублирует draw_pack и соврёт после правки правил' },
+    { id:'d86', t:'Проверить PDF-выжимки', n:'Тот же движок, что у экспорта — молча не работали' },
+    { id:'d87', t:'pdf_vyzhimka посадить на warm_fonts', n:'Тянет Google Fonts в момент рендера' },
+    { id:'d88', t:'Второй проход по дашборду: Пантеон и Уникальные' },
+    { id:'d89', t:'Удалить мёртвый workflow deploy.yml' },
+    { id:'d90', t:'Удалить картинки карточек из репозитория' },
+    { id:'d91', t:'Вычистить мёртвый код старой карты плана', n:'40 картинок и 5 функций' },
+    { id:'d92', t:'Удаление старых файлов из S3', n:'Зачистка чистит базу, но не хранилище' },
+    { id:'d93', t:'Пересобрать lab.html под новый код' },
+    { id:'d94', t:'FAQ в справке и ссылка на справку из бота' },
+    { id:'d95', t:'Автовыгрузка журнала через Tilda API' },
+    { id:'d96', t:'Приватная сеть Timeweb', n:'−200 ₽/мес' },
+    { id:'d97', t:'Дозалить паки богов и ассеты images/reveal/', n:'Заведено четыре пака из девятнадцати' },
+    { id:'d98', t:'Редизайн приложения', n:'«Функционалом доволен, хочется редизайн»' },
+    { id:'d99', t:'Резервный контур на падение Timeweb', n:'Не спроектировано' },
+  ]}
+],
+
+test: [
+  { g:'Деньги', items:[
+    { id:'t01', t:'Оплата тест-драйва 1 ₽ — доступ открылся' },
+    { id:'t02', t:'Переход с тест-драйва на 990 — списание и продление' },
+    { id:'t03', t:'Покупка вечного доступа 19 990' },
+    { id:'t04', t:'Отмена подписки — доступ закрывается сразу' },
+    { id:'t05', t:'Неудачное списание — текст сообщения и повторные попытки' },
+    { id:'t06', t:'Возврат в Продамусе отражается в дашборде' },
+    { id:'t07', t:'Двойной вебхук не создаёт две записи об оплате' },
+    { id:'t08', t:'Пак карточек выдаётся за продление' },
+  ]},
+  { g:'Доступы', items:[
+    { id:'t10', t:'Заявка в закрытый канал одобряется автоматом' },
+    { id:'t11', t:'Заявка в чат одобряется автоматом' },
+    { id:'t12', t:'Ворота Telegram: не в канале → цепочка доступа, а не ссылка' },
+    { id:'t13', t:'«Я уже в канале» действительно проверяется' },
+    { id:'t14', t:'Ворота ВК на кнопке лекции' },
+    { id:'t15', t:'Доступ в группу ВК выдаётся из приложения' },
+    { id:'t16', t:'Рукопожатие ВК → Telegram кнопкой в настройках' },
+    { id:'t17', t:'Отмена подписки закрывает канал' },
+    { id:'t18', t:'Ручное открытие доступа из дашборда' },
+  ]},
+  { g:'Вход и регистрация', items:[
+    { id:'t20', t:'Первый вход через Telegram — карточка создаётся' },
+    { id:'t21', t:'Вход в ВК-мини-аппе узнаёт привязанного' },
+    { id:'t22', t:'Шаги регистрации отмечаются реальными событиями' },
+    { id:'t23', t:'Дожим «закончи регистрацию» приходит' },
+    { id:'t24', t:'Подписка на push и доставка уведомления' },
+    { id:'t25', t:'Приложение на экране «Домой» открывается и работает' },
+  ]},
+  { g:'Приложение — общее', items:[
+    { id:'t30', t:'Светлая и тёмная тема на всех экранах' },
+    { id:'t31', t:'Зона под часами не перекрывает содержимое', n:'Особенно новые экраны: витрина карты, финал партии' },
+    { id:'t32', t:'Скрытие блоков главной и возврат первоначального вида' },
+    { id:'t33', t:'Порядок блоков сохраняется' },
+    { id:'t34', t:'Правка текста в дашборде долетает до приложения' },
+    { id:'t35', t:'Медленная сеть: скелеты, без рывков и прыжков' },
+    { id:'t36', t:'Падение хранилища — баннер вместо битых картинок' },
+  ]},
+  { g:'Библиотека и плеер', items:[
+    { id:'t40', t:'Поиск ИИ-помощником отвечает по делу' },
+    { id:'t41', t:'«Смотреть позже» добавляется и снимается' },
+    { id:'t42', t:'Потоки открываются, обложки на месте' },
+    { id:'t43', t:'Лекция открывается в Telegram и в ВК' },
+    { id:'t44', t:'Аудио: фон, сворачивание, таймкоды' },
+    { id:'t45', t:'PDF-выжимка приходит ботом' },
+  ]},
+  { g:'Личный план', items:[
+    { id:'t50', t:'Тест архетипов проходится до конца, карта в подарок' },
+    { id:'t51', t:'После теста план не пустой (засев)' },
+    { id:'t52', t:'Каскад тем: выбор, облачки по родству' },
+    { id:'t53', t:'Пересборка анкеты не сносит засев' },
+    { id:'t54', t:'Путь рисуется без единой отмеченной темы' },
+    { id:'t55', t:'Бесплатная короткая лекция открывается гостю' },
+    { id:'t56', t:'Теневая сторона показывается' },
+  ]},
+  { g:'Карточки и баллы', items:[
+    { id:'t60', t:'Экран вскрытия: анимация, сигил, рамка' },
+    { id:'t61', t:'Карта попадает в альбом' },
+    { id:'t62', t:'Просмотр карты и увеличение' },
+    { id:'t63', t:'Шеринг карточки — картинка приходит с рамкой' },
+    { id:'t64', t:'Розыгрыш: участие и подведение итога' },
+    { id:'t65', t:'Баллы за победу начисляются один раз' },
+    { id:'t66', t:'Сгорание баллов работает по правилам' },
+    { id:'t67', t:'Уровни и пороги совпадают с настройкой' },
+    { id:'t68', t:'Каталог наград: заявка доходит до дашборда' },
+    { id:'t69', t:'«Раздать баллы всем» не задваивает' },
+  ]},
+  { g:'Игры', items:[
+    { id:'t70', t:'Партия начинается гостем' },
+    { id:'t71', t:'Партия начинается участником' },
+    { id:'t72', t:'Правила открываются кнопкой у арбитра' },
+    { id:'t73', t:'Плашка «не понял правила», со второго раза попап сам' },
+    { id:'t74', t:'Финал: счёт, разбор, «Разобрать теорию»' },
+    { id:'t75', t:'Прерванная партия возобновляется' },
+    { id:'t76', t:'Мусорный ввод не тратит ход' },
+    { id:'t77', t:'Победа засчитывается до потолка ходов' },
+    { id:'t78', t:'Новая игра из конструктора реально играется' },
+  ]},
+  { g:'Эфиры', items:[
+    { id:'t80', t:'Запуск: Кинескоп и обе группы ВК' },
+    { id:'t81', t:'Анонс уходит по выбранным каналам' },
+    { id:'t82', t:'Плеер эфира в приложении показывает картинку' },
+    { id:'t83', t:'Чат эфира: сообщения, модерация, опрос' },
+    { id:'t84', t:'Завершение — запись остаётся доступной' },
+    { id:'t85', t:'Точки ретрансляции, заведённые руками, не сносятся' },
+  ]},
+  { g:'Воронка гостя', items:[
+    { id:'t90', t:'Тур по приложению проходится целиком' },
+    { id:'t91', t:'Фильм: картинка в углу, честное окончание' },
+    { id:'t92', t:'Окно бонусов: бар, шторка, завершение' },
+    { id:'t93', t:'Тест открывается по ссылке startapp' },
+    { id:'t94', t:'Шеринг результата теста — картинка' },
+    { id:'t95', t:'Приглашение друга «в гости»' },
+    { id:'t96', t:'Реферальная ссылка засчитывается пригласившему' },
+  ]},
+  { g:'Рассылки и дашборд', items:[
+    { id:'ta0', t:'Кампания уходит в Telegram и в ВК' },
+    { id:'ta1', t:'Лента новостей видна в приложении' },
+    { id:'ta2', t:'Дожимные рассылки идут по сценариям' },
+    { id:'ta3', t:'Уведомление о новом потоке' },
+    { id:'ta4', t:'Карточка участника: подписка, баллы, активность' },
+    { id:'ta5', t:'Просмотр глазами участника' },
+    { id:'ta6', t:'Сцепленные карточки сливаются верно' },
+    { id:'ta7', t:'Статистика сходится с реальностью' },
+    { id:'ta8', t:'Справка клуба: статья публикуется и видна' },
+  ]},
+  { g:'Площадки', items:[
+    { id:'tb0', t:'Всё то же на телефоне в Telegram' },
+    { id:'tb1', t:'Всё то же в ВК-мини-аппе' },
+    { id:'tb2', t:'Всё то же в MAX' },
+    { id:'tb3', t:'Всё то же в браузере на компьютере' },
+  ]}
+],
+
+fill: [
+  { g:'Игры', items:[
+    { id:'f01', t:'Правила игр — заполнить поле у всех трёх', n:'Пока пусто, попап показывает вводную', tag:'hot' },
+    { id:'f02', t:'Материалы игр', n:'Без них платный судья отличается от бесплатного только режимом размышления' },
+  ]},
+  { g:'Лекции', items:[
+    { id:'f10', t:'Разметка лекций по проблемам клиента', n:'Главный ключ маршрутизации личного плана' },
+    { id:'f11', t:'Восемь полюсов (develops) у лекций' },
+    { id:'f12', t:'Главные мысли и выжимки' },
+    { id:'f13', t:'Таймкоды' },
+    { id:'f14', t:'Аудиоверсии — ссылки в audio_url', n:'Пусто = лекция не попадает в подкаст-плейлист' },
+    { id:'f15', t:'Бесплатные короткие версии занятий', n:'Первая остановка плана должна открываться без оплаты' },
+    { id:'f16', t:'Описания и обложки потоков' },
+  ]},
+  { g:'Пантеон', items:[
+    { id:'f20', t:'Арты богов — дозалить паки', n:'Заведено четыре из девятнадцати' },
+    { id:'f21', t:'Проверить, у скольких богов нет карты за тест' },
+    { id:'f22', t:'Назвать список главных богов' },
+    { id:'f23', t:'Герои и существа: имена и арты' },
+  ]},
+  { g:'Тексты и материалы', items:[
+    { id:'f30', t:'Пройтись по реестру текстов приложения' },
+    { id:'f31', t:'Справка клуба: статьи' },
+    { id:'f32', t:'FAQ' },
+    { id:'f33', t:'Посты для приглашений' },
+    { id:'f34', t:'Бонусы за вступление' },
+    { id:'f35', t:'Каталог наград' },
+    { id:'f36', t:'Сценарии дожимных рассылок' },
+    { id:'f37', t:'Выпуски журнала' },
+    { id:'f38', t:'Месячный дайджест' },
+    { id:'f39', t:'Настроить уровни и пороги' },
+  ]}
+],
+
+ask: [
+  { g:'Ждут решения', items:[
+    { id:'q01', t:'Инфляция баллов', n:'Пороги настраивались под 500 за продление, поводов добавилось' },
+    { id:'q02', t:'Что делать с бесплатными третями номеров журнала' },
+    { id:'q03', t:'Формат месячного дайджеста: текст или видео-нарезка' },
+    { id:'q04', t:'Слова граней теста', n:'В макете «Эмпат», на экране «Эмоция»' },
+    { id:'q05', t:'Единицы учёта контент-завода', n:'Чтобы наполнение считалось само, а не руками' },
+    { id:'q06', t:'Правила игры «Уточнение» — замысел целиком' },
+    { id:'q07', t:'Долговечность личного ключа ВК', n:'Прожил недели, но бессрочный или просто долгий — не выяснено. Перед эфиром жать «Что лежит сейчас»' },
+  ]}
+]
+};
+
+/* ═══ СОСТОЯНИЕ ══════════════════════════════════════════════════════════════
+   Документ на сервере: { done:{id:"дата"}, custom:[{id,t,sec}] }.
+   ⚠️ ДЕРЖИМ ЕГО ЦЕЛИКОМ И ШЛЁМ ЦЕЛИКОМ — сервер не сливает по ключам, иначе
+   удалённая своя задача воскресала бы при следующем сохранении.            */
+let DOC = { done:{}, custom:[] };
+let cur = 'dev';
+let saveTimer = null;
+
+function esc(s){ return String(s==null?'':s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+function sectionItems(sec){
+  /* Свои задачи идут отдельной группой в конце — так видно, что добавлено
+     руками, и они не путаются с моим списком */
+  const groups = (TASKS[sec] || []).map(function(g){
+    return { g:g.g, items:g.items.slice() };
+  });
+  const mine = DOC.custom.filter(function(c){ return c.sec === sec; });
+  if (mine.length) groups.push({ g:'Мои', items:mine.map(function(c){
+    return { id:c.id, t:c.t, own:true };
+  })});
+  return groups;
+}
+function allItems(sec){
+  return sectionItems(sec).reduce(function(a,g){ return a.concat(g.items); }, []);
+}
+function doneCount(list){
+  return list.filter(function(i){ return !!DOC.done[i.id]; }).length;
+}
+
+function render(){
+  // вкладки
+  document.getElementById('tabs').innerHTML = SECTIONS.map(function(s){
+    const list = allItems(s.key);
+    return '<button class="tab' + (s.key===cur ? ' on' : '') + '" onclick="switchTab(\'' + s.key + '\')">'
+      + esc(s.title) + '<i>' + doneCount(list) + '/' + list.length + '</i></button>';
+  }).join('');
+
+  // тело
+  const groups = sectionItems(cur);
+  let h = '';
+  groups.forEach(function(g){
+    const dn = doneCount(g.items);
+    h += '<div class="group"><div class="group-head">'
+       + '<div class="group-t">' + esc(g.g) + '</div>'
+       + '<div class="group-n">' + dn + ' из ' + g.items.length + '</div></div><div class="list">';
+    g.items.forEach(function(it){
+      const done = !!DOC.done[it.id];
+      h += '<div class="task' + (done ? ' done' : '') + '" onclick="toggle(\'' + it.id + '\')">'
+         + '<div class="box">✓</div><div style="min-width:0"><div class="task-t">'
+         + (it.tag === 'hot' ? '<span class="tag hot">срочное</span>' : '')
+         + (it.tag === 'me'  ? '<span class="tag me">за мной</span>'  : '')
+         + esc(it.t) + '</div>'
+         + (it.n ? '<span class="task-n">' + esc(it.n) + '</span>' : '')
+         + '</div>'
+         + (it.own ? '<button class="del" onclick="event.stopPropagation();dropTask(\'' + it.id + '\')">✕</button>' : '')
+         + '</div>';
+    });
+    h += '</div></div>';
+  });
+  if (!groups.length) h = '<div class="list"><div class="empty">Пусто</div></div>';
+  document.getElementById('body').innerHTML = h;
+
+  // кольцо: считаем ПО ВСЕМ разделам, это и есть общий прогресс проекта
+  let all = 0, dn = 0;
+  SECTIONS.forEach(function(s){
+    const list = allItems(s.key);
+    all += list.length; dn += doneCount(list);
+  });
+  const pct = all ? Math.round(dn * 100 / all) : 0;
+  const arc = document.getElementById('ring-arc');
+  const len = 2 * Math.PI * 36;
+  arc.setAttribute('stroke-dasharray', (len * pct / 100).toFixed(1) + ' ' + len.toFixed(1));
+  document.getElementById('ring-num').textContent = pct + '%';
+  document.getElementById('hero-t').textContent = heroTitle(pct);
+  document.getElementById('hero-x').textContent = 'Закрыто ' + dn + ' из ' + all
+    + ' · осталось ' + (all - dn);
+}
+
+function heroTitle(p){
+  if (p === 0)   return 'Начинаем';
+  if (p < 15)    return 'Первые сдвинулись';
+  if (p < 35)    return 'Пошло дело';
+  if (p < 55)    return 'Уже видно берег';
+  if (p < 75)    return 'Больше половины позади';
+  if (p < 95)    return 'Финальный бросок';
+  if (p < 100)   return 'Почти всё';
+  return 'Готово. Всё.';
+}
+
+function switchTab(k){ cur = k; render(); window.scrollTo({top:0, behavior:'smooth'}); }
+
+function toggle(id){
+  if (DOC.done[id]) delete DOC.done[id];
+  else DOC.done[id] = new Date().toISOString().slice(0,10);
+  render();
+  save();
+}
+
+function addTask(){
+  const inp = document.getElementById('new-task');
+  const text = (inp.value || '').trim();
+  if (!text) return;
+  /* Идентификатор из времени: свои задачи живут только в документе, столкнуться
+     с моими ключами не могут — у тех формат другой */
+  DOC.custom.push({ id:'x' + Date.now().toString(36), t:text, sec:cur });
+  inp.value = '';
+  render();
+  save();
+}
+
+function dropTask(id){
+  DOC.custom = DOC.custom.filter(function(c){ return c.id !== id; });
+  delete DOC.done[id];
+  render();
+  save();
+}
+
+/* ⚠️ СОХРАНЯЕМ С ЗАДЕРЖКОЙ, НО ОБЯЗАТЕЛЬНО. Отметить десять задач подряд —
+   обычное дело, и десять запросов тут ни к чему; при этом уход со страницы
+   не должен терять последнюю отметку, поэтому на `visibilitychange` дожимаем */
+function save(){
+  clearTimeout(saveTimer);
+  setSaved('сохраняю…');
+  saveTimer = setTimeout(saveNow, 700);
+}
+async function saveNow(){
+  clearTimeout(saveTimer);
+  try {
+    const r = await fetch(API + '/admin/doc/' + DOC_KEY + '?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(DOC)
+    });
+    if (!r.ok) throw new Error('код ' + r.status);
+    setSaved('сохранено ' + new Date().toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}));
+  } catch (e) {
+    setSaved('не сохранилось (' + e.message + ') — отметки в этой вкладке целы');
+  }
+}
+function setSaved(s){ const el = document.getElementById('hero-saved'); if (el) el.textContent = s; }
+
+document.addEventListener('visibilitychange', function(){
+  if (document.visibilityState === 'hidden' && saveTimer) saveNow();
+});
+
+async function loadAll(){
+  document.getElementById('app').style.display = '';
+  try {
+    const r = await fetch(API + '/admin/doc/' + DOC_KEY + '?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    if (!r.ok) throw new Error('код ' + r.status);
+    const d = await r.json();
+    const data = d.data || {};
+    /* ⚠️ ЧТО ПРИШЛО — ПРОВЕРЯЕМ. Пустой или битый документ не должен ронять
+       страницу: доска обязана открываться даже когда сохранять ещё нечего */
+    DOC = { done: (data.done && typeof data.done === 'object') ? data.done : {},
+            custom: Array.isArray(data.custom) ? data.custom : [] };
+    setSaved(d.updated_at ? 'последняя правка: ' + new Date(d.updated_at).toLocaleString('ru-RU',
+      {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '');
+  } catch (e) {
+    setSaved('не удалось прочитать сохранённое (' + e.message + ')');
+  }
+  render();
+}
+
+function toggleTheme(){
+  const html = document.documentElement;
+  html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+  try { localStorage.setItem('theme', html.dataset.theme); } catch(e) {}
+}
+(function(){
+  let saved = 'light';
+  try { saved = localStorage.getItem('theme') || 'light'; } catch(e) {}
+  document.documentElement.dataset.theme = saved;
+})();
+
+/* ═══ ПИН ═════════════════════════════════════════════════════════════════════
+   Тот же механизм, что в дашборде: пин уходит на сервер, обратно приходит ключ
+   на 12 часов. ⚠️ Ключ лежит в sessionStorage, а он у каждой вкладки свой —
+   значит вход сюда отдельный от дашборда, это нормально, а не поломка */
+const PIN_LENGTH = 5;
+let pinEntered = '';
+let pinBusy = false;
+
+async function submitPin(){
+  const err = document.getElementById('pin-error');
+  pinBusy = true;
+  try {
+    const r = await fetch(API + '/admin/login', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ pin: pinEntered })
+    });
+    const data = await r.json().catch(function(){ return {}; });
+    if (!r.ok) throw new Error(data.detail || 'Не получилось войти');
+    ADMIN_TOKEN = data.token;
+    try { sessionStorage.setItem(ADMIN_TOKEN_KEY, data.token); } catch(e) {}
+    err.textContent = '';
+    document.getElementById('pin-screen').classList.add('hidden');
+    loadAll();
+  } catch (e) {
+    err.textContent = e.message;
+  } finally {
+    pinBusy = false;
+    pinEntered = '';
+    for (let i = 0; i < PIN_LENGTH; i++){
+      const d = document.getElementById('d'+i);
+      if (d) d.classList.remove('filled');
+    }
+  }
+}
+function pinKey(k){
+  const err = document.getElementById('pin-error');
+  err.textContent = '';
+  if (k === 'del') pinEntered = pinEntered.slice(0,-1);
+  else if (k === 'clear') pinEntered = '';
+  else if (pinEntered.length < PIN_LENGTH && !pinBusy) pinEntered += k;
+  for (let i = 0; i < PIN_LENGTH; i++){
+    document.getElementById('d'+i).classList.toggle('filled', i < pinEntered.length);
+  }
+  if (pinEntered.length === PIN_LENGTH) submitPin();
+}
+document.addEventListener('keydown', function(e){
+  if (document.getElementById('pin-screen').classList.contains('hidden')) return;
+  if (e.key >= '0' && e.key <= '9') pinKey(e.key);
+  else if (e.key === 'Backspace') pinKey('del');
+  else if (e.key === 'Escape') pinKey('clear');
+});
+(function(){
+  if (ADMIN_TOKEN){
+    document.getElementById('pin-screen').classList.add('hidden');
+    loadAll();
+  }
+})();
+</script>
+</body>
+</html>
