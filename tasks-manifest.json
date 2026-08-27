@@ -1,0 +1,27 @@
+{
+  "name": "Задачи клуба",
+  "short_name": "Задачи",
+  "start_url": "./tasks.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#e2dbd2",
+  "theme_color": "#7c6cf0",
+  "icons": [
+    {
+      "src": "icons/tasks-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/tasks-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/tasks-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

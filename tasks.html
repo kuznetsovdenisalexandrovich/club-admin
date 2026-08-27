@@ -4,6 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Задачи клуба</title>
+<meta name="theme-color" content="#7c6cf0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Задачи">
+<link rel="manifest" href="tasks-manifest.json">
+<!-- ⚠️ ИМЕНА С ПРЕФИКСОМ tasks-: каталог icons/ общий с дашбордом,
+     и его favicon-32.png там уже занят. Свой набор не перетирает чужой -->
+<link rel="icon" type="image/png" sizes="32x32" href="icons/tasks-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/tasks-16.png">
+<link rel="icon" type="image/png" sizes="48x48" href="icons/tasks-48.png">
+<link rel="icon" href="icons/tasks-favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="icons/tasks-apple-touch.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <style>
@@ -359,7 +371,7 @@ h1::before{
   <div class="adder"><select id="new-group"></select></div>
 
   <div class="foot"><button class="linky" id="show-done" onclick="toggleDone()">Показать сделанное</button>
-    <div style="margin-top:11px">доска задач · <span id="build">tasks-v6</span></div></div>
+    <div style="margin-top:11px">доска задач · <span id="build">tasks-v7</span></div></div>
 </div>
 
 <script>
