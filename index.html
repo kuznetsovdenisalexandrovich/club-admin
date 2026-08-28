@@ -12729,7 +12729,7 @@ const LG_ACTIONS = [
 
   { group: 'С параметром' },
   { key:'bonus',      title:'Конкретный бонус',           guests:true,  param:'bonus'  },
-  { key:'pay',        title:'Оплата с меткой источника',  guests:true,  param:'paytag' },
+  { key:'pay',        title:'Оплата — сразу страница оплаты', guests:true, param:'paytag_opt' },
   { key:'u',          title:'Только метка источника (мягкая)', guests:true, param:'unit' },
 
   { group: 'Только участникам — гость упрётся в пейвол' },
@@ -12929,8 +12929,14 @@ function lgRenderParam(force){
       : '<option value="">Единиц пока нет — заведи их в отчёте по источникам</option>';
     slot.innerHTML = '<div class="pay-meta" style="margin-bottom:6px">' + head + '</div>' +
       '<select id="lg-param" class="popup-input" onchange="lgBuild()">' + empty + opts + '</select>';
-  } else if (kind === 'paytag'){
-    slot.innerHTML = '<div class="pay-meta" style="margin-bottom:6px">Метка источника (латиница, цифры, дефис, подчёркивание)</div>' +
+  } else if (kind === 'paytag' || kind === 'paytag_opt'){
+    /* ⚠️ МЕТКА НЕОБЯЗАТЕЛЬНА (28.08). Раньше без неё ссылка не собиралась
+       вовсе, а голая ссылка на оплату нужна чаще: в кнопку канала, в шапку
+       профиля, в переписку. С меткой — когда важно знать, что продало. */
+    const head = (kind === 'paytag_opt')
+      ? 'Метка источника (необязательно — без неё просто ссылка на оплату)'
+      : 'Метка источника (латиница, цифры, дефис, подчёркивание)';
+    slot.innerHTML = '<div class="pay-meta" style="margin-bottom:6px">' + head + '</div>' +
       '<input id="lg-param" class="popup-input" placeholder="magazine_pilot" oninput="lgBuild()">';
   }
 }
@@ -12967,14 +12973,14 @@ function lgBuild(){
   }
 
   if (kind === 'bonus' && !value)  return fail('Выбери бонус');
-  if (kind === 'paytag' && !value) return fail('Впиши метку источника');
+  if (kind === 'paytag' && !value) return fail('Впиши метку источника');   // paytag_opt пуст — это нормально
   if (kind === 'unit' && !value)   return fail('Выбери единицу контента');
   if (value && lgBadChars(value))  return fail('В метке есть недопустимые символы — только латиница, цифры, дефис, подчёркивание');
 
   // Полезная нагрузка: то, что приложение прочитает из параметра запуска
   let payload = a.key;
   if (a.key === 'bonus') payload = 'bonus_' + value;
-  else if (a.key === 'pay') payload = 'pay_' + value;
+  else if (a.key === 'pay') payload = value ? ('pay_' + value) : 'pay';
   else if (a.key === 'u')   payload = 'u_' + value;
   else if (a.key === 'film' && value) payload = 'film_' + value;
 
@@ -14850,6 +14856,6 @@ async function placesResync(){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v87</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v88</div>
 </body>
 </html>
