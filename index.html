@@ -5643,7 +5643,9 @@ async function loadFunnelReport(){
     if (!r.ok){ box.textContent = d.detail || 'Не получилось'; return; }
 
     const who = { guests:'гостей', members:'участников', staff:'своих' }[d.audience] || 'людей';
-    box.textContent = 'За ' + d.days + ' дн.: ' + d.total_people + ' ' + who;
+    const muted = (d.leads || []).filter(function(x){ return x.can_write === false; }).length;
+    box.textContent = 'За ' + d.days + ' дн.: ' + d.total_people + ' ' + who
+      + (muted ? ' · из последних ' + muted + ' боту писать нельзя' : '');
 
     steps.innerHTML = (d.steps || []).map(function(x){
       /* ⚠️ ОТВАЛ ПОКАЗЫВАЕМ ТОЛЬКО КОГДА ОН ЕСТЬ. Ноль потерянных на ступени,
@@ -5665,9 +5667,14 @@ async function loadFunnelReport(){
         ? '<a href="https://t.me/' + encodeURIComponent(x.username) + '" target="_blank" rel="noopener">написать</a>'
         : '';
       const mark = x.confused ? ' · запутался' : '';
+      /* ⚠️ НЕДОСТИЖИМОГО НАДО ВИДЕТЬ. Бот не может писать первым тому, кто ему
+         не разрешал: дожим до такого человека не доедет вовсе, и без метки
+         конверсия дожимов считалась бы по людям, не получавшим сообщений.
+         Про «ещё не знаем» (null) молчим — это не то же самое, что отказ */
+      const mute = (x.can_write === false) ? ' · боту писать нельзя' : '';
       const src = x.source ? ' · ' + escapeHtmlAdm(x.source) : '';
       return '<div class="pay-item">'
-        + '<div style="flex:1;min-width:0"><div class="pay-name">' + who2 + mark + '</div>'
+        + '<div style="flex:1;min-width:0"><div class="pay-name">' + who2 + mark + mute + '</div>'
         + '<div class="pay-meta">' + escapeHtmlAdm(x.reached || '—') + src
         + ' · ' + funnelWhen(x.last_at) + '</div></div>'
         + '<div class="pay-meta" style="flex-shrink:0">' + link + '</div>'
@@ -13007,6 +13014,23 @@ function lgApplyRoutes(routes, live){
     delete byKey[a.key];
   });
 
+  /* ⚠️ ССЫЛКИ С ПАРАМЕТРОМ ИЗ ПРИЛОЖЕНИЯ (28.08.2026). Сервер теперь читает из
+     аппа ВТОРУЮ таблицу — PARAM_LINKS, где живут тест, бонусы, журнал, занятия
+     и игры. До неё генератор знал только маршруты БЕЗ параметра, и эти ссылки
+     для него не существовали, хотя работали всё это время.
+     Название и подпись параметра приходят оттуда же: своей копии тут не
+     заводим, она разъехалась бы при первой правке в приложении */
+  const withParam = Object.keys(byKey).filter(function(k){ return !!byKey[k].label; });
+  if (withParam.length){
+    merged.push({ group: 'С параметром — из приложения' });
+    withParam.forEach(function(k){
+      const r = byKey[k];
+      merged.push({ key: k, title: r.label, guests: r.guests,
+                    param: r.param ? 'free' : '', paramHead: r.param || '' });
+      delete byKey[k];
+    });
+  }
+
   // Всё, что осталось, — новые диплинки, о которых дашборд не знал
   const extra = Object.keys(byKey);
   if (extra.length){
@@ -13112,6 +13136,13 @@ function lgRenderParam(force){
       : '<option value="">Единиц пока нет — заведи их в отчёте по источникам</option>';
     slot.innerHTML = '<div class="pay-meta" style="margin-bottom:6px">' + head + '</div>' +
       '<select id="lg-param" class="popup-input" onchange="lgBuild()">' + empty + opts + '</select>';
+  } else if (kind === 'free'){
+    /* Свободный ввод для ссылок из PARAM_LINKS. Подпись приходит из приложения
+       — там же и знание, что подставляется: ключ занятия, выпуска, игры */
+    const a2 = lgAction();
+    const head = (a2 && a2.paramHead) ? a2.paramHead : 'Параметр';
+    slot.innerHTML = '<div class="pay-meta" style="margin-bottom:6px">' + head + '</div>' +
+      '<input id="lg-param" class="popup-input" placeholder="' + head + '" oninput="lgBuild()">';
   } else if (kind === 'paytag' || kind === 'paytag_opt'){
     /* ⚠️ МЕТКА НЕОБЯЗАТЕЛЬНА (28.08). Раньше без неё ссылка не собиралась
        вовсе, а голая ссылка на оплату нужна чаще: в кнопку канала, в шапку
@@ -13155,6 +13186,7 @@ function lgBuild(){
     note.innerHTML = '';
   }
 
+  if (kind === 'free' && !value && a.paramHead) return fail('Впиши: ' + a.paramHead);
   if (kind === 'bonus' && !value)  return fail('Выбери бонус');
   if (kind === 'paytag' && !value) return fail('Впиши метку источника');   // paytag_opt пуст — это нормально
   if (kind === 'unit' && !value)   return fail('Выбери единицу контента');
@@ -13162,7 +13194,11 @@ function lgBuild(){
 
   // Полезная нагрузка: то, что приложение прочитает из параметра запуска
   let payload = a.key;
-  if (a.key === 'bonus') payload = 'bonus_' + value;
+  /* ⚠️ У ССЫЛОК ИЗ PARAM_LINKS НАГРУЗКА СТРОИТСЯ ОДИНАКОВО: `<ключ>_<значение>`.
+     Правило одно на все — иначе каждый новый разбор в приложении требовал бы
+     правки ещё и здесь, и списки снова разъехались бы */
+  if (kind === 'free') payload = value ? (a.key + '_' + value) : a.key;
+  else if (a.key === 'bonus') payload = 'bonus_' + value;
   else if (a.key === 'pay') payload = value ? ('pay_' + value) : 'pay';
   else if (a.key === 'u')   payload = 'u_' + value;
   else if (a.key === 'film' && value) payload = 'film_' + value;
@@ -15039,6 +15075,6 @@ async function placesResync(){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v89</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v90</div>
 </body>
 </html>
