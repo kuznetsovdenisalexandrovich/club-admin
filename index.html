@@ -1099,6 +1099,19 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     <div class="pay-meta" style="margin:0 2px 4px">Какой рилс, пост или выпуск журнала привёл к оплате — и откуда вообще берутся новые люди.</div>
   </div>
 
+  <!-- ⚠️ ВОРОНКА ХОЛОДНОГО ТРАФИКА (28.08.2026). Отдельно от «Источников
+       продаж»: там считаются ПЛАТЕЖИ и кто их привёл, здесь — ЛЮДИ и где они
+       отваливаются, не дойдя до платежа. Разные вопросы, разные экраны. -->
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">Воронка лидов</div>
+      <div style="display:flex;gap:6px">
+        <button class="action-btn" style="padding:5px 10px;font-size:11px" onclick="openFunnelPopup()">Смотреть</button>
+      </div>
+    </div>
+    <div class="pay-meta" style="margin:0 2px 4px">Кто зашёл, до какой ступени дошёл и где отвалился. Плюс настройка сигналов «кажется, запутался».</div>
+  </div>
+
   <div class="section">
     <div class="section-head">
       <div class="section-title">Расписание</div>
@@ -2183,6 +2196,60 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     </div>
   </div>
 </div>
+<div class="popup-overlay" id="funnel-popup-overlay">
+  <div class="popup" id="funnel-popup">
+    <div class="popup-handle"></div>
+    <div class="popup-body" style="padding-top:0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div class="popup-section-title" style="margin:0">Воронка лидов</div>
+        <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeFunnelPopup()"><svg width="14" height="14" viewBox="0 0 14 14" style="display:block"><path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+      </div>
+
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <button class="action-btn" onclick="setFunnelPeriod(7)">7 дней</button>
+        <button class="action-btn" onclick="setFunnelPeriod(30)">30 дней</button>
+        <button class="action-btn" onclick="setFunnelPeriod(90)">90 дней</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button class="action-btn" onclick="setFunnelAudience('guests')">Гости</button>
+        <button class="action-btn" onclick="setFunnelAudience('members')">Участники</button>
+        <button class="action-btn" onclick="setFunnelAudience('staff')">Свои</button>
+      </div>
+      <div id="funnel-summary" class="pay-meta" style="margin-bottom:10px">—</div>
+
+      <div class="section-title" style="margin:8px 0 6px;font-size:13px">Ступени и отвалы</div>
+      <div class="pay-meta" style="margin-bottom:6px">Процент — сколько дошло с предыдущей ступени. Дата под ступенью — с какого числа этот шаг вообще пишется: у части шагов за плечами дни, а не весь период.</div>
+      <div id="funnel-steps"><div class="pay-meta">—</div></div>
+
+      <div class="section-title" style="margin:16px 0 6px;font-size:13px">Последние лиды</div>
+      <div id="funnel-leads"><div class="pay-meta">—</div></div>
+
+      <div class="section-title" style="margin:16px 0 6px;font-size:13px">Сигнал «кажется, запутался»</div>
+      <div class="pay-meta" style="margin-bottom:6px">Приходит в чат не чаще раза в сутки на человека. Ноль в любом поле вернёт значение по умолчанию.</div>
+      <label class="pay-meta" style="display:flex;align-items:center;gap:8px;margin:0 2px 8px">
+        <input type="checkbox" id="fx-enabled"> Присылать эти сигналы
+      </label>
+      <div class="pay-meta" style="margin:0 2px 4px">Заходов на оплату подряд / за сколько минут</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input class="popup-input" type="number" id="fx-pay-n" style="margin:0">
+        <input class="popup-input" type="number" id="fx-pay-min" style="margin:0">
+      </div>
+      <div class="pay-meta" style="margin:0 2px 4px">Упоров в замок / за сколько минут</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input class="popup-input" type="number" id="fx-wall-n" style="margin:0">
+        <input class="popup-input" type="number" id="fx-wall-min" style="margin:0">
+      </div>
+      <div class="pay-meta" style="margin:0 2px 4px">Запусков без единого шага внутри / за сколько минут</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input class="popup-input" type="number" id="fx-open-n" style="margin:0">
+        <input class="popup-input" type="number" id="fx-open-min" style="margin:0">
+      </div>
+      <button class="popup-save" onclick="saveFunnelThresholds()">Сохранить пороги</button>
+      <div id="fx-out" class="pay-meta" style="margin-top:8px"></div>
+    </div>
+  </div>
+</div>
+
 <div class="popup-overlay" id="attribution-popup-overlay">
   <div class="popup" id="attribution-popup">
     <div class="popup-handle"></div>
@@ -5534,6 +5601,122 @@ async function deleteHandout(){
    рядом видишь, что уже принесло деньги — не нужно прыгать между экранами. */
 let attrSourcesCache = [];
 let attrPeriodDays = 30;
+
+/* ══ ВОРОНКА ЛИДОВ (28.08.2026) ═══════════════════════════════════════════
+   Ступени берутся С СЕРВЕРА в том же порядке, в каком по ним шлются
+   уведомления в чат (NOTICE_STEPS). Свой список ступеней здесь заводить
+   нельзя: он разъедется с уведомлениями при первой же правке, и «в чате одно,
+   в статистике другое» — ровно тот класс расхождения, который уже стоил
+   разбора с названиями маршрутов. */
+let funnelDays = 30;
+let funnelAudience = 'guests';
+
+function openFunnelPopup(){
+  document.getElementById('funnel-popup-overlay').classList.add('open');
+  loadFunnelReport();
+  loadFunnelThresholds();
+}
+function closeFunnelPopup(){
+  document.getElementById('funnel-popup-overlay').classList.remove('open');
+}
+function setFunnelPeriod(d){ funnelDays = d; loadFunnelReport(); }
+function setFunnelAudience(a){ funnelAudience = a; loadFunnelReport(); }
+
+function funnelWhen(iso){
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('ru-RU', { day:'numeric', month:'short' });
+  } catch(e){ return ''; }
+}
+
+async function loadFunnelReport(){
+  const box = document.getElementById('funnel-summary');
+  const steps = document.getElementById('funnel-steps');
+  const leads = document.getElementById('funnel-leads');
+  box.textContent = 'Считаю…';
+  try{
+    const r = await fetch(API + '/admin/funnel/report?days=' + funnelDays
+                          + '&audience=' + funnelAudience
+                          + '&x_admin_token=' + ADMIN_TOKEN);
+    const d = await r.json();
+    if (!r.ok){ box.textContent = d.detail || 'Не получилось'; return; }
+
+    const who = { guests:'гостей', members:'участников', staff:'своих' }[d.audience] || 'людей';
+    box.textContent = 'За ' + d.days + ' дн.: ' + d.total_people + ' ' + who;
+
+    steps.innerHTML = (d.steps || []).map(function(x){
+      /* ⚠️ ОТВАЛ ПОКАЗЫВАЕМ ТОЛЬКО КОГДА ОН ЕСТЬ. Ноль потерянных на ступени,
+         куда никто и не дошёл, читается как «всё хорошо» — а это пустота */
+      const conv = (x.conv === null || x.conv === undefined) ? '' : (x.conv + '%');
+      const lost = x.lost ? ' · отвал ' + x.lost : '';
+      const since = x.since ? ' · пишется с ' + funnelWhen(x.since) : '';
+      return '<div class="pay-item">'
+        + '<div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(x.label) + '</div>'
+        + '<div class="pay-meta">' + x.people + ' чел.' + lost + since + '</div></div>'
+        + '<div class="pay-name" style="flex-shrink:0">' + conv + '</div>'
+        + '</div>';
+    }).join('') || '<div class="pay-meta">Пока пусто.</div>';
+
+    leads.innerHTML = (d.leads || []).map(function(x){
+      const nick = x.username ? ('@' + escapeHtmlAdm(x.username)) : '';
+      const who2 = escapeHtmlAdm(x.name) || nick || (x.vk ? 'гость ВК' : 'без имени');
+      const link = (x.username && !x.vk)
+        ? '<a href="https://t.me/' + encodeURIComponent(x.username) + '" target="_blank" rel="noopener">написать</a>'
+        : '';
+      const mark = x.confused ? ' · запутался' : '';
+      const src = x.source ? ' · ' + escapeHtmlAdm(x.source) : '';
+      return '<div class="pay-item">'
+        + '<div style="flex:1;min-width:0"><div class="pay-name">' + who2 + mark + '</div>'
+        + '<div class="pay-meta">' + escapeHtmlAdm(x.reached || '—') + src
+        + ' · ' + funnelWhen(x.last_at) + '</div></div>'
+        + '<div class="pay-meta" style="flex-shrink:0">' + link + '</div>'
+        + '</div>';
+    }).join('') || '<div class="pay-meta">Пока никого.</div>';
+  }catch(e){
+    box.textContent = 'Нет связи с бэкендом: ' + (e && e.message || e);
+  }
+}
+
+const FX_FIELDS = {
+  'fx-pay-n':'funnel_confuse_pay_n',   'fx-pay-min':'funnel_confuse_pay_min',
+  'fx-wall-n':'funnel_confuse_wall_n', 'fx-wall-min':'funnel_confuse_wall_min',
+  'fx-open-n':'funnel_confuse_open_n', 'fx-open-min':'funnel_confuse_open_min'
+};
+
+async function loadFunnelThresholds(){
+  try{
+    const r = await fetch(API + '/settings');
+    const d = await r.json();
+    document.getElementById('fx-enabled').checked = (d.funnel_confuse_enabled === '1');
+    Object.keys(FX_FIELDS).forEach(function(id){
+      const el = document.getElementById(id);
+      if (el) el.value = d[FX_FIELDS[id]] || '';
+    });
+  }catch(e){}
+}
+
+async function saveFunnelThresholds(){
+  const out = document.getElementById('fx-out');
+  const body = { funnel_confuse_enabled: document.getElementById('fx-enabled').checked };
+  Object.keys(FX_FIELDS).forEach(function(id){
+    const el = document.getElementById(id);
+    /* ⚠️ ПУСТОЕ ПОЛЕ НЕ ОТПРАВЛЯЕМ ВОВСЕ. Пустая строка перезаписала бы
+       настройку пустотой, и сервер молча вернулся бы к значению по умолчанию —
+       выглядело бы как «сохранение не сработало» */
+    if (el && el.value !== '') body[FX_FIELDS[id]] = String(el.value);
+  });
+  out.textContent = 'Сохраняю…';
+  try{
+    const r = await fetch(API + '/settings?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    out.textContent = r.ok ? 'Сохранено.' : 'Не получилось сохранить.';
+  }catch(e){
+    out.textContent = 'Нет связи с бэкендом.';
+  }
+}
 
 function openAttributionPopup(){
   document.getElementById('attribution-popup-overlay').classList.add('open');
@@ -14856,6 +15039,6 @@ async function placesResync(){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v88</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v89</div>
 </body>
 </html>
