@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: tasks-v8 -->
+<!-- FILE_VERSION: tasks-v9 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -188,6 +188,29 @@ h1::before{
 }
 [data-theme="light"] .hero{background:var(--bg);box-shadow:var(--sh-r);border:none;backdrop-filter:none;-webkit-backdrop-filter:none}
 .hero-row{display:flex;align-items:center;gap:16px}
+/* ЦЕЛИ ДНЯ. Отдельная полоса под кольцом прогресса: это про сегодня, а кольцо
+   про весь путь. Смешивать их в одном числе нельзя — дневная норма закрывается
+   каждый день заново, а доска накапливается. */
+.goals{margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}
+.goals-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}
+.goals-t{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-dim)}
+.goals-d{font-size:11px;color:var(--text-faint)}
+.goal{display:flex;align-items:center;gap:10px;padding:7px 0}
+.goal-n{flex:1;min-width:0;font-size:13px;font-weight:600}
+.goal-auto{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin-left:6px;font-weight:500}
+.goal-bar{flex:0 0 74px;height:6px;border-radius:6px;background:var(--surface2);overflow:hidden}
+.goal-bar i{display:block;height:100%;background:var(--accent);border-radius:6px;transition:width .25s}
+.goal-bar.full i{background:#5f9e63}
+.goal-v{flex:0 0 46px;text-align:right;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.goal-plus{flex:0 0 auto;width:28px;height:28px;border-radius:9px;border:0;cursor:pointer;
+  background:var(--surface2);color:var(--text);font-size:16px;font-weight:700;line-height:1}
+.goal-plus:disabled{opacity:.32;cursor:default}
+.goals-week{display:flex;gap:3px;margin-top:11px}
+.goals-week i{flex:1;height:22px;border-radius:5px;background:var(--surface2);position:relative}
+.goals-week i.part{background:linear-gradient(to top,var(--accent) var(--p),var(--surface2) var(--p))}
+.goals-week i.all{background:#5f9e63}
+.goals-week i.today{outline:2px solid var(--accent);outline-offset:1px}
+.goals-streak{font-size:11px;color:var(--text-faint);margin-top:7px}
 .ring{width:84px;height:84px;flex:none;position:relative;display:grid;place-items:center;border-radius:50%}
 [data-theme="light"] .ring{box-shadow:var(--sh-is)}
 .ring svg{position:absolute;inset:2px;transform:rotate(-90deg)}
@@ -405,6 +428,7 @@ h1::before{
         <div class="hero-saved" id="hero-saved"></div>
       </div>
     </div>
+    <div class="goals" id="goals"></div>
   </div>
 
   <div class="tabs" id="tabs"></div>
@@ -418,7 +442,7 @@ h1::before{
   <div class="adder"><select id="new-group"></select></div>
 
   <div class="foot"><button class="linky" id="show-done" onclick="toggleDone()">Показать сделанное</button>
-    <div style="margin-top:11px">доска задач · <span id="build">tasks-v8</span></div></div>
+    <div style="margin-top:11px">доска задач · <span id="build">tasks-v9</span></div></div>
 </div>
 
 <script>
@@ -445,7 +469,10 @@ const FALLBACK_SECTIONS = [
   { key:'dev',  title:'Разработка'   },
   { key:'test', title:'Тестирование' },
   { key:'fill', title:'Наполнение'   },
-  { key:'ask',  title:'Решить'       }
+  { key:'ask',  title:'Решить'       },
+  /* ⚠️ ЛИЧНОЕ НЕ ПРО КЛУБ. Раздел живёт на сервере вместе с остальными; здесь он
+     только в запасном списке, на случай пустого документа */
+  { key:'self', title:'Личное'       }
 ];
 let SECTIONS = FALLBACK_SECTIONS.slice();
 let ITEMS = [];
@@ -454,6 +481,7 @@ let ITEMS = [];
    заполненное поле не убирало бы строку «нет таймкодов». На доске живёт только
    галочка «эту я доделал», задача заводится в момент первого нажатия */
 const LEC_SEC = 'lec';
+const SELF_SEC = 'self';   // личные задачи — вне общего прогресса
 let LECTURES = [];
 let CHECKS = {};
 let cur = 'dev';
@@ -550,8 +578,12 @@ function render(){
   }
   document.getElementById('body').innerHTML = h;
 
+  /* ⚠️ ЛИЧНОЕ В ОБЩИЙ СЧЁТЧИК НЕ ИДЁТ. Кольцо считает путь к запуску клуба;
+     подмешать туда таргет ВК и бытовые дела — значит сделать число «закрыто N
+     из M» бессмысленным. Свой счётчик у раздела на вкладке и так есть */
   let all = 0, dn = 0;
   tabs().forEach(function(s){
+    if (s.key === SELF_SEC) return;
     const list = allItems(s.key);
     all += list.length; dn += doneCount(list);
   });
@@ -589,6 +621,124 @@ function render(){
   }
 }
 
+/* ═══════════ ЦЕЛИ ДНЯ ═══════════
+   [stated] Denis 31.08.2026: N рассылок, N клиентов, N постов, N задач по
+   архитектуре — каждый день заново.
+
+   ⚠️ КЛИЕНТЫ И ЗАДАЧИ СЧИТАЮТСЯ САМИ. Оплаты сервер видит, закрытые сегодня
+   строки доски — тоже. Заставлять вбивать то, что мы и так знаем, — верный
+   способ бросить отмечать вообще. У таких целей плюсика нет вовсе.
+
+   ⚠️ ЦЕЛИ НЕ ВХОДЯТ В КОЛЬЦО ПРОГРЕССА. Кольцо про весь путь, цели про сегодня. */
+const GOAL_NAMES = { sends:'Рассылки', clients:'Клиенты', posts:'Посты', arch:'Задачи по архитектуре' };
+const GOAL_ORDER = ['sends','clients','posts','arch'];
+let GOALS = null;
+
+async function loadGoals(){
+  try{
+    const r = await fetch(API + '/admin/daily-goals?days=14&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    if (!r.ok) return;
+    GOALS = await r.json();
+    renderGoals();
+  }catch(e){}
+}
+
+async function goalTick(metric){
+  if (!GOALS) return;
+  const body = JSON.stringify({ метрика: metric, шаг: 1 });
+  /* Рисуем сразу, не дожидаясь сервера: плюсик должен отзываться мгновенно.
+     Ответ сервера всё равно перетрёт число — он источник правды */
+  GOALS['сегодня'][metric] = (GOALS['сегодня'][metric] || 0) + 1;
+  renderGoals();
+  try{
+    const r = await fetch(API + '/admin/daily-goals?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN),
+      { method:'POST', headers:{'Content-Type':'application/json'}, body: body });
+    if (r.ok){ GOALS = await r.json(); renderGoals(); }
+  }catch(e){}
+}
+
+async function goalNorms(){
+  if (!GOALS) return;
+  const нормы = {};
+  for (const k of GOAL_ORDER){
+    const был = (GOALS['нормы'] || {})[k];
+    const ответ = prompt('Норма на день — ' + GOAL_NAMES[k], был == null ? '' : был);
+    if (ответ === null) return;              // отменил на любом шаге — не трогаем ничего
+    const n = parseInt(ответ, 10);
+    if (!isNaN(n) && n >= 0) нормы[k] = n;
+  }
+  try{
+    const r = await fetch(API + '/admin/daily-goals?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN),
+      { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ нормы: нормы }) });
+    if (r.ok){ GOALS = await r.json(); renderGoals(); }
+  }catch(e){}
+}
+
+/* Доля выполненного за день — среднее по четырём целям, каждая не выше единицы.
+   Без потолка один ударный день по рассылкам закрашивал бы день целиком */
+function goalDayShare(row, нормы){
+  let сумма = 0, всего = 0;
+  GOAL_ORDER.forEach(function(k){
+    const норма = Number((нормы || {})[k] || 0);
+    if (!норма) return;
+    всего++;
+    сумма += Math.min(1, Number((row || {})[k] || 0) / норма);
+  });
+  return всего ? сумма / всего : 0;
+}
+
+function renderGoals(){
+  const box = document.getElementById('goals');
+  if (!box || !GOALS){ return; }
+  const нормы = GOALS['нормы'] || {};
+  const сег = GOALS['сегодня'] || {};
+  const само = GOALS['считается_само'] || [];
+
+  let h = '<div class="goals-head"><div class="goals-t">Цели на сегодня</div>'
+        + '<button class="linky goals-d" onclick="goalNorms()">Изменить нормы</button></div>';
+
+  GOAL_ORDER.forEach(function(k){
+    const норма = Number(нормы[k] || 0);
+    const есть  = Number(сег[k] || 0);
+    const доля  = норма ? Math.min(100, Math.round(есть * 100 / норма)) : 0;
+    const авто  = само.indexOf(k) >= 0;
+    h += '<div class="goal">'
+       + '<div class="goal-n">' + esc(GOAL_NAMES[k])
+       + (авто ? '<span class="goal-auto">само</span>' : '') + '</div>'
+       + '<div class="goal-bar' + (норма && есть >= норма ? ' full' : '') + '">'
+       + '<i style="width:' + доля + '%"></i></div>'
+       + '<div class="goal-v">' + есть + '<span style="opacity:.45">/' + норма + '</span></div>'
+       + (авто ? '<button class="goal-plus" disabled title="считается само">+</button>'
+               : '<button class="goal-plus" onclick="goalTick(\'' + k + '\')">+</button>')
+       + '</div>';
+  });
+
+  /* Полоска последних двух недель: видно серию и провалы */
+  const история = (GOALS['история'] || []).slice(-14);
+  if (история.length){
+    h += '<div class="goals-week">' + история.map(function(row){
+      const доля = goalDayShare(row, нормы);
+      const кл = доля >= 1 ? 'all' : (доля > 0 ? 'part' : '');
+      const сегодня = row['день'] === GOALS['день'] ? ' today' : '';
+      return '<i class="' + кл + сегодня + '" style="--p:' + Math.round(доля * 100) + '%" title="'
+           + esc(row['день']) + ' · ' + Math.round(доля * 100) + '%"></i>';
+    }).join('') + '</div>';
+
+    /* Серия — сколько дней подряд норма закрыта. Сегодня считаем только если
+       уже закрыт: незакрытый сегодняшний день не должен обнулять вчерашнюю серию */
+    let серия = 0;
+    for (let i = история.length - 1; i >= 0; i--){
+      const полн = goalDayShare(история[i], нормы) >= 1;
+      if (i === история.length - 1 && !полн) continue;
+      if (полн) серия++; else break;
+    }
+    h += '<div class="goals-streak">' + (серия
+        ? 'Норма закрыта ' + серия + ' ' + (серия === 1 ? 'день' : (серия < 5 ? 'дня' : 'дней')) + ' подряд'
+        : 'Серия прервана — начнём заново') + '</div>';
+  }
+  box.innerHTML = h;
+}
+
 function heroTitle(p){
   if (p === 0)   return 'Начинаем';
   if (p < 15)    return 'Первые сдвинулись';
@@ -603,7 +753,15 @@ function heroTitle(p){
 function switchTab(k){ cur = k; render(); window.scrollTo({top:0, behavior:'smooth'}); }
 function toggleDone(){ showDone = !showDone; render(); }
 
+/* Закрыл задачу — цель «задачи по архитектуре» должна тронуться сразу, а не
+   после перезагрузки. Считает её всё равно сервер, мы лишь просим пересчитать */
+function refreshGoalsSoon(){
+  clearTimeout(window.__goalsTimer);
+  window.__goalsTimer = setTimeout(loadGoals, 1200);
+}
+
 function toggle(id){
+  refreshGoalsSoon();
   if (id.indexOf('lec:') === 0) return toggleLecture(id);
   const it = findItem(id);
   if (!it) return;
@@ -772,6 +930,9 @@ async function loadAll(){
     await loadLectures();
     setSaved(d.updated_at ? 'последняя правка: ' + new Date(d.updated_at).toLocaleString('ru-RU',
       {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '');
+    /* Цели грузим отдельным запросом и НЕ роняем доску, если он не удался:
+       ежедневные цели — довесок, задачи важнее */
+    loadGoals();
   } catch (e) {
     setSaved('не удалось прочитать список (' + e.message + ')');
   }
