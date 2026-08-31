@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v98 -->
+<!-- FILE_VERSION: admin-v99 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -15656,6 +15656,10 @@ function dgRenderTypes(){
       + '<select class="popup-input" style="margin:0;max-width:150px" id="dgt-l-'+t.id+'">'+layouts+'</select>'
       + '<input class="popup-input" style="margin:0;max-width:64px" type="number" min="1" max="3" value="'+t.weight+'" title="Вес" id="dgt-w-'+t.id+'">'
       + '<input class="popup-input" style="margin:0;max-width:64px" type="number" min="0" value="'+t.per_page+'" title="Записей на полосу, 0 — как на пульте" id="dgt-p-'+t.id+'">'
+      /* ⚠️ ПУБЛИЧНОСТЬ СТОИТ У РОДА, А НЕ У ЗАПИСИ: решение принимается один раз
+         при заведении рода, а не заново на каждой строке, где его забудут. */
+      + '<label style="font-size:12px;display:flex;align-items:center;gap:5px;white-space:nowrap" title="Показывать записи этого рода в ленте обновлений у участников">'
+      +   '<input type="checkbox" id="dgt-pub-'+t.id+'"'+(t.public?' checked':'')+'> людям</label>'
       + '<button class="action-btn" style="flex-shrink:0" onclick="dgSaveType('+t.id+')">Сохранить</button>'
       + '</div>';
   }).join('');
@@ -15670,6 +15674,7 @@ async function dgSaveType(id){
     layout: document.getElementById('dgt-l-'+id).value,
     weight: Number(document.getElementById('dgt-w-'+id).value || 2),
     per_page: Number(document.getElementById('dgt-p-'+id).value || 0),
+    public: document.getElementById('dgt-pub-'+id).checked,
     auto: t.auto, active: t.active, sort_order: t.sort_order};
   try{
     var r = await fetch(API+'/admin/digest/types/'+id+'?x_admin_token='+ADMIN_TOKEN,
@@ -15688,7 +15693,8 @@ async function dgAddType(){
     var r = await fetch(API+'/admin/digest/types?x_admin_token='+ADMIN_TOKEN, {method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({code:код, title:имя, rubric:рубрика, layout:'list',
-                            weight:2, per_page:0, auto:false, active:true, sort_order:70})});
+                            weight:2, per_page:0, auto:false, active:true,
+                            public:false, sort_order:70})});
     if(!r.ok) throw new Error('сервер ответил '+r.status);
     dgLoadTypes();
   }catch(e){ alert('Не завелось: '+e.message); }
@@ -15957,6 +15963,6 @@ function dgOpenPdf(id){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v98</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v99</div>
 </body>
 </html>
