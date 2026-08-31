@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v97 -->
+<!-- FILE_VERSION: admin-v98 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -15460,6 +15460,7 @@ function openDigestPopup(){
   dgTab('feed');
   dgLoadTypes().then(dgLoadFeed);
   dgLoadIssues();
+  dgLoadAccess();
 }
 function closeDigestPopup(){ document.getElementById('digest-overlay').classList.remove('open'); }
 
@@ -15811,6 +15812,28 @@ async function dgPublish(id, выпустить){
 
 /* PDF рисуется браузером на сервере и занимает несколько секунд — открываем
    отдельной вкладкой, чтобы окно дашборда не выглядело зависшим. */
+/* Заслонка дайджеста. Значения живут в общих настройках приложения, поэтому
+   читаются публичной ручкой, а пишутся админской — как все прочие тумблеры. */
+async function dgLoadAccess(){
+  try{
+    const s = await fetch(API+'/settings').then(function(r){return r.json();});
+    document.getElementById('dg-public').checked = (s.digest_public === true || s.digest_public === '1');
+    document.getElementById('dg-testers').value = s.digest_testers || '';
+  }catch(e){}
+}
+
+async function dgSaveAccess(){
+  const открыт = document.getElementById('dg-public').checked;
+  const свои = document.getElementById('dg-testers').value.trim();
+  try{
+    const r = await fetch(API+'/settings?x_admin_token='+ADMIN_TOKEN, {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ digest_public: открыт, digest_testers: свои })});
+    if(!r.ok) throw new Error('сервер ответил '+r.status);
+    alert(открыт ? 'Дайджест открыт всем участникам' : 'Дайджест закрыт, кроме списка');
+  }catch(e){ alert('Не сохранилось: '+e.message); }
+}
+
 function dgOpenPdf(id){
   window.open(API+'/admin/digest/issues/'+id+'/pdf?x_admin_token='+encodeURIComponent(ADMIN_TOKEN), '_blank');
 }
@@ -15904,6 +15927,17 @@ function dgOpenPdf(id){
       </div>
 
       <div id="dg-pane-issues" style="display:none">
+        <!-- ⚠️ ЗАСЛОНКА СЕРВЕРНАЯ. Пока выключено, публичные ручки выпуска
+             отдают пустоту всем, кроме перечисленных айди: спрятать блок в
+             приложении было бы недостаточно — ссылка расходится по чатам сама. -->
+        <div class="card" style="padding:12px;margin-bottom:12px">
+          <label style="font-size:13px;display:flex;align-items:center;gap:8px">
+            <input type="checkbox" id="dg-public"> Выпуск виден участникам
+          </label>
+          <div style="font-size:11.5px;opacity:.6;margin:6px 0 8px">Пока выключено, дайджест видят только айди из списка. Дашборд и PDF по токену работают всегда.</div>
+          <input id="dg-testers" class="popup-input" placeholder="Кому показывать на время тестов: telegram_id через запятую">
+          <button class="action-btn" onclick="dgSaveAccess()">Сохранить доступ</button>
+        </div>
         <button class="action-btn" onclick="dgCreateIssue()" style="margin-bottom:10px">Завести черновик номера</button>
         <div id="dg-issues"><div class="loading">Загрузка...</div></div>
       </div>
@@ -15923,6 +15957,6 @@ function dgOpenPdf(id){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v97</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v98</div>
 </body>
 </html>
