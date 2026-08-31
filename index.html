@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v93 -->
+<!-- FILE_VERSION: admin-v94 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2755,6 +2755,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     <div class="popup-section-title">Когда предупреждать</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <label style="font-size:12px;opacity:.7">DeepSeek ниже, $<input id="thr-deepseek" type="number" step="0.5"></label>
+      <label style="font-size:12px;opacity:.7">DeepSeek ниже, ¥<input id="thr-deepseek-cny" type="number" step="5"></label>
       <label style="font-size:12px;opacity:.7">Timeweb ниже, ₽<input id="thr-timeweb" type="number" step="50"></label>
       <label style="font-size:12px;opacity:.7">Timeweb, дней<input id="thr-days" type="number" step="1"></label>
       <label style="font-size:12px;opacity:.7">Boomstream ниже, ₽<input id="thr-boomstream" type="number" step="50"></label>
@@ -4664,6 +4665,7 @@ async function loadBalances(){
     box.innerHTML = html;
     const п = d['пороги'] || {};
     document.getElementById('thr-deepseek').value = п.deepseek_usd;
+    document.getElementById('thr-deepseek-cny').value = п.deepseek_cny;
     document.getElementById('thr-timeweb').value  = п.timeweb_rub;
     document.getElementById('thr-days').value     = п.timeweb_days;
     document.getElementById('thr-boomstream').value = п.boomstream_rub;
@@ -4714,6 +4716,7 @@ async function ledgerDelete(id){
 async function saveThresholds(){
   const тело = {
     deepseek_usd: parseFloat(document.getElementById('thr-deepseek').value || '0'),
+    deepseek_cny: parseFloat(document.getElementById('thr-deepseek-cny').value || '0'),
     boomstream_rub: parseFloat(document.getElementById('thr-boomstream').value || '0'),
     timeweb_rub:  parseFloat(document.getElementById('thr-timeweb').value || '0'),
     timeweb_days: parseFloat(document.getElementById('thr-days').value || '0')
@@ -15256,6 +15259,6 @@ async function placesResync(){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v93</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v94</div>
 </body>
 </html>
