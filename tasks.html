@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: tasks-v9 -->
+<!-- FILE_VERSION: tasks-v10 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -210,6 +210,22 @@ h1::before{
 .goals-week i.part{background:linear-gradient(to top,var(--accent) var(--p),var(--surface2) var(--p))}
 .goals-week i.all{background:#5f9e63}
 .goals-week i.today{outline:2px solid var(--accent);outline-offset:1px}
+/* ГРАФИКИ ПО ДНЯМ. Столбики разметкой, а не canvas: их десятки, зато они
+   переживают смену темы и масштаб вместе со всем остальным. */
+.chart{margin-top:16px}
+.chart-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px}
+.chart-t{font-size:13px;font-weight:700;letter-spacing:-.01em}
+.chart-sum{font-size:11px;color:var(--text-faint)}
+.chart-legend{display:flex;flex-wrap:wrap;gap:10px;margin:7px 0 9px}
+.chart-legend span{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-dim)}
+.chart-legend i{width:9px;height:9px;border-radius:3px;display:inline-block}
+.chart-plot{display:flex;gap:3px;align-items:flex-end;height:110px}
+.chart-col{flex:1;min-width:4px;display:flex;gap:2px;align-items:flex-end;height:100%}
+.chart-col i{flex:1;border-radius:4px 4px 0 0;min-height:0;display:block}
+.chart-ticks{display:flex;gap:3px;margin-top:5px}
+.chart-ticks div{flex:1;min-width:4px;font-size:9px;color:var(--text-faint);position:relative;white-space:nowrap;height:12px}
+.chart-ticks span{position:absolute;left:0;transform:translateX(-30%)}
+.chart-empty{font-size:12px;color:var(--text-faint);padding:12px 0}
 .goals-streak{font-size:11px;color:var(--text-faint);margin-top:7px}
 .ring{width:84px;height:84px;flex:none;position:relative;display:grid;place-items:center;border-radius:50%}
 [data-theme="light"] .ring{box-shadow:var(--sh-is)}
@@ -429,6 +445,7 @@ h1::before{
       </div>
     </div>
     <div class="goals" id="goals"></div>
+    <div id="charts"></div>
   </div>
 
   <div class="tabs" id="tabs"></div>
@@ -442,7 +459,7 @@ h1::before{
   <div class="adder"><select id="new-group"></select></div>
 
   <div class="foot"><button class="linky" id="show-done" onclick="toggleDone()">Показать сделанное</button>
-    <div style="margin-top:11px">доска задач · <span id="build">tasks-v9</span></div></div>
+    <div style="margin-top:11px">доска задач · <span id="build">tasks-v10</span></div></div>
 </div>
 
 <script>
@@ -640,6 +657,7 @@ async function loadGoals(){
     if (!r.ok) return;
     GOALS = await r.json();
     renderGoals();
+    loadCharts();
   }catch(e){}
 }
 
@@ -654,6 +672,27 @@ async function goalTick(metric){
     const r = await fetch(API + '/admin/daily-goals?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN),
       { method:'POST', headers:{'Content-Type':'application/json'}, body: body });
     if (r.ok){ GOALS = await r.json(); renderGoals(); }
+  }catch(e){}
+}
+
+/* ⚠️ ТОЧНОЕ ЧИСЛО, А НЕ ТОЛЬКО ПЛЮСИК. [stated] Denis: «рассылок могло уйти
+   тысяча сегодня» — тыкать плюс тысячу раз никто не станет.
+   Принимаем и «+300» (прибавить), и «1200» (поставить как есть). */
+async function goalExact(metric){
+  if (!GOALS) return;
+  const было = Number((GOALS['сегодня'] || {})[metric] || 0);
+  const ответ = prompt(GOAL_NAMES[metric] + ' за сегодня. Число — поставить как есть, «+300» — прибавить.', было);
+  if (ответ === null) return;
+  const t = String(ответ).trim().replace(',', '.');
+  const n = parseInt(t.replace('+',''), 10);
+  if (isNaN(n) || n < 0) return;
+  const тело = t.charAt(0) === '+' ? { метрика:metric, шаг:n } : { метрика:metric, значение:n };
+  GOALS['сегодня'][metric] = t.charAt(0) === '+' ? было + n : n;
+  renderGoals();
+  try{
+    const r = await fetch(API + '/admin/daily-goals?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN),
+      { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(тело) });
+    if (r.ok){ GOALS = await r.json(); renderGoals(); renderCharts(); }
   }catch(e){}
 }
 
@@ -707,7 +746,11 @@ function renderGoals(){
        + (авто ? '<span class="goal-auto">само</span>' : '') + '</div>'
        + '<div class="goal-bar' + (норма && есть >= норма ? ' full' : '') + '">'
        + '<i style="width:' + доля + '%"></i></div>'
-       + '<div class="goal-v">' + есть + '<span style="opacity:.45">/' + норма + '</span></div>'
+       + (авто
+            ? '<div class="goal-v">' + есть + '<span style="opacity:.45">/' + норма + '</span></div>'
+            : '<div class="goal-v" style="cursor:pointer" title="вписать точное число"'
+              + ' onclick="goalExact(\'' + k + '\')">' + есть
+              + '<span style="opacity:.45">/' + норма + '</span></div>')
        + (авто ? '<button class="goal-plus" disabled title="считается само">+</button>'
                : '<button class="goal-plus" onclick="goalTick(\'' + k + '\')">+</button>')
        + '</div>';
@@ -735,6 +778,113 @@ function renderGoals(){
     h += '<div class="goals-streak">' + (серия
         ? 'Норма закрыта ' + серия + ' ' + (серия === 1 ? 'день' : (серия < 5 ? 'дня' : 'дней')) + ' подряд'
         : 'Серия прервана — начнём заново') + '</div>';
+  }
+  box.innerHTML = h;
+}
+
+/* ═══════════ ДВА ГРАФИКА ПО ДНЯМ ═══════════
+   Лиды берём из серверной ручки метрик, свои действия — из журнала целей.
+   Это РАЗНЫЕ величины и разные источники, поэтому и графика два: лидов бывают
+   десятки в день, задач единицы, в одной шкале мелкое исчезло бы. */
+const CHART_COLORS = ['#8b7ff0','#e8614a','#5f9e63','#d1a24a','#6f8fbf','#9a8a8a'];
+let METRICS = null;
+
+async function loadCharts(){
+  try{
+    const r = await fetch(API + '/admin/metrics?days=30&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    if (r.ok){ METRICS = await r.json(); }
+  }catch(e){}
+  renderCharts();
+}
+
+function chartHtml(title, sum, keys, series){
+  if (!keys.length) return '<div class="chart"><div class="chart-head"><div class="chart-t">'
+    + esc(title) + '</div></div><div class="chart-empty">Пока пусто</div></div>';
+  /* Потолок — по САМОМУ ВЫСОКОМУ СТОЛБИКУ, а не по сумме за день: столбики
+     стоят рядом, а не друг на друге */
+  /* ⚠️ РАЗНЫЕ ПОРЯДКИ В ОДНОМ ГРАФИКЕ. У рассылок бывает 1200 за день, у постов
+     два — в общей шкале посты превратились бы в невидимую полоску. Поэтому у
+     серии может быть СВОЯ мера (норма дня): столбик рисуется долей от неё, а в
+     подсказке и легенде остаётся настоящее число. */
+  const доля = function(s, k){
+    const v = s.data[k] || 0;
+    return s.norm ? Math.min(1.4, v / s.norm) : v;
+  };
+  let max = 1;
+  keys.forEach(function(k){ series.forEach(function(s){ max = Math.max(max, доля(s, k)); }); });
+  const step = Math.max(1, Math.ceil(keys.length / 7));
+  const cols = keys.map(function(k){
+    return '<div class="chart-col">' + series.map(function(s, i){
+      const v = s.data[k] || 0;
+      const h = v ? Math.max(3, Math.round(доля(s, k) / max * 100)) : 0;
+      return '<i style="height:' + h + '%;background:' + CHART_COLORS[i % CHART_COLORS.length]
+           + '" title="' + esc(chartLabel(k) + ' · ' + s.name + ': ' + v) + '"></i>';
+    }).join('') + '</div>';
+  }).join('');
+  const ticks = keys.map(function(k, i){
+    return '<div>' + (i % step === 0 ? '<span>' + esc(chartLabel(k)) + '</span>' : '') + '</div>';
+  }).join('');
+  const legend = series.map(function(s, i){
+    const всего = keys.reduce(function(a, k){ return a + (s.data[k] || 0); }, 0);
+    return '<span><i style="background:' + CHART_COLORS[i % CHART_COLORS.length] + '"></i>'
+         + esc(s.name) + ' · ' + всего + '</span>';
+  }).join('');
+  return '<div class="chart"><div class="chart-head"><div class="chart-t">' + esc(title) + '</div>'
+       + (sum ? '<div class="chart-sum">' + esc(sum) + '</div>' : '') + '</div>'
+       + '<div class="chart-legend">' + legend + '</div>'
+       + '<div class="chart-plot">' + cols + '</div>'
+       + '<div class="chart-ticks">' + ticks + '</div></div>';
+}
+function chartLabel(day){
+  const m = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+  return Number(day.slice(8,10)) + ' ' + m[Number(day.slice(5,7)) - 1];
+}
+/* Ряд дней строим СПЛОШНЫМ, а не по тем дням, где что-то было: пропуски должны
+   быть видны провалами, иначе неделя простоя выглядит как ровная работа */
+function chartDays(n){
+  const out = [];
+  const d = new Date();
+  d.setHours(12,0,0,0);
+  for (let i = n - 1; i >= 0; i--){
+    const x = new Date(d.getTime() - i * 86400000);
+    out.push(x.getFullYear() + '-' + String(x.getMonth()+1).padStart(2,'0')
+             + '-' + String(x.getDate()).padStart(2,'0'));
+  }
+  return out;
+}
+
+function renderCharts(){
+  const box = document.getElementById('charts');
+  if (!box) return;
+  const дни = chartDays(30);
+  let h = '';
+
+  /* 1. Лиды по площадкам */
+  if (METRICS){
+    const пл = {};
+    (METRICS['лиды'] || []).forEach(function(r){
+      const k = r['площадка'] || 'без площадки';
+      (пл[k] = пл[k] || {});
+      пл[k][r['день']] = (пл[k][r['день']] || 0) + Number(r['сколько'] || 0);
+    });
+    const серии = Object.keys(пл).sort().map(function(k){ return { name:k, data:пл[k] }; });
+    const всего = (METRICS['лиды'] || []).reduce(function(a, r){ return a + Number(r['сколько'] || 0); }, 0);
+    h += chartHtml('Лиды по площадкам', 'за 30 дней: ' + всего, дни, серии);
+  }
+
+  /* 2. Мои действия по дням — из журнала целей */
+  if (GOALS){
+    const ист = {};
+    (GOALS['история'] || []).forEach(function(row){ ист[row['день']] = row; });
+    const нормы = GOALS['нормы'] || {};
+    const серии = GOAL_ORDER.map(function(k){
+      const data = {};
+      дни.forEach(function(d){ data[d] = Number((ист[d] || {})[k] || 0); });
+      /* мера — дневная норма: столбик показывает, насколько цель закрыта,
+         а не сколько это в штуках */
+      return { name:GOAL_NAMES[k], data:data, norm:Number(нормы[k] || 0) || 1 };
+    });
+    h += chartHtml('Мои задачи по дням', 'высота — доля дневной нормы', дни, серии);
   }
   box.innerHTML = h;
 }
