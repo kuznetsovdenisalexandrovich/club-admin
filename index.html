@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v99 -->
+<!-- FILE_VERSION: admin-v100 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -15768,6 +15768,7 @@ async function dgLoadIssues(){
         + '<button class="action-btn" style="flex-shrink:0" onclick="dgEditColumn('+r.id+')">Колонка</button>'
         + '<button class="action-btn" style="flex-shrink:0" onclick="dgPublish('+r.id+','+(опубликован?'false':'true')+')">'+(опубликован?'Снять':'Выпустить')+'</button>'
         + '<button class="action-btn" style="flex-shrink:0" onclick="dgOpenPdf('+r.id+')">PDF</button>'
+        + '<button class="action-btn danger" style="flex-shrink:0" onclick="dgDeleteIssue('+r.id+')">Удл.</button>'
         + '</div>';
     }).join('');
   }catch(e){ box.innerHTML = '<div style="opacity:.6">Не удалось загрузить: '+e+'</div>'; }
@@ -15838,6 +15839,18 @@ async function dgSaveAccess(){
     if(!r.ok) throw new Error('сервер ответил '+r.status);
     alert(открыт ? 'Дайджест открыт всем участникам' : 'Дайджест закрыт, кроме списка');
   }catch(e){ alert('Не сохранилось: '+e.message); }
+}
+
+/* Удаление номера. ⚠️ ЗАПИСИ ЛЕНТЫ ОСТАЮТСЯ ЦЕЛЫ: сносится только сам выпуск —
+   период, колонка и снимок состава. Собрать заново из той же ленты можно в
+   любой момент, поэтому на этапе обкатки номера ничего не стоят. */
+async function dgDeleteIssue(id){
+  if(!confirm('Удалить номер? Записи ленты останутся на месте — исчезнет только сам выпуск с колонкой и снимком состава.')) return;
+  try{
+    var r = await fetch(API+'/admin/digest/issues/'+id+'?x_admin_token='+ADMIN_TOKEN, {method:'DELETE'});
+    if(!r.ok) throw new Error('сервер ответил '+r.status);
+    dgLoadIssues();
+  }catch(e){ alert('Не вышло: '+e.message); }
 }
 
 function dgOpenPdf(id){
@@ -15928,8 +15941,8 @@ function dgOpenPdf(id){
           <label><input type="checkbox" id="dg-s-toc" checked> содержание</label>
         </div>
         <select id="dg-s-issue" class="popup-input"><option value="">Без выпуска (просто период)</option></select>
-        <button class="popup-save" onclick="dgPreview()">Показать полосы</button>
-        <div id="dg-preview" style="margin-top:12px"><div style="opacity:.6;font-size:13px">Нажми «Показать полосы» — соберу состав, ничего не сохраняя.</div></div>
+        <button class="popup-save" onclick="dgPreview()">Показать состав</button>
+        <div id="dg-preview" style="margin-top:12px"><div style="opacity:.6;font-size:13px">Нажми «Показать состав» — покажу, из чего соберётся номер, ничего не сохраняя. Сам номер смотри кнопкой PDF на вкладке «Выпуски».</div></div>
       </div>
 
       <div id="dg-pane-issues" style="display:none">
@@ -15963,6 +15976,6 @@ function dgOpenPdf(id){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v99</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v100</div>
 </body>
 </html>
