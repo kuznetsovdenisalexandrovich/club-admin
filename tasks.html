@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: tasks-v10 -->
+<!-- FILE_VERSION: tasks-v11 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -459,7 +459,7 @@ h1::before{
   <div class="adder"><select id="new-group"></select></div>
 
   <div class="foot"><button class="linky" id="show-done" onclick="toggleDone()">Показать сделанное</button>
-    <div style="margin-top:11px">доска задач · <span id="build">tasks-v10</span></div></div>
+    <div style="margin-top:11px">доска задач · <span id="build">tasks-v11</span></div></div>
 </div>
 
 <script>
@@ -756,8 +756,18 @@ function renderGoals(){
        + '</div>';
   });
 
-  /* Полоска последних двух недель: видно серию и провалы */
-  const история = (GOALS['история'] || []).slice(-14);
+  /* Полоска последних двух недель: видно серию и провалы.
+     ⚠️ РЯД СТРОИМ ИЗ КАЛЕНДАРНЫХ ДНЕЙ, А НЕ ИЗ ЗАПИСЕЙ ЖУРНАЛА. Пока журнал
+     пуст, записей был ОДИН день — единственная ячейка растягивалась во всю
+     ширину и читалась как сломанный прогресс-бар. Дни без записей должны быть
+     видны пустыми: пропуск — это тоже факт о неделе. */
+  const поДням = {};
+  (GOALS['история'] || []).forEach(function(row){ поДням[row['день']] = row; });
+  const история = chartDays(14).map(function(d){
+    const row = поДням[d] || {};
+    return { 'день': d, sends: row.sends || 0, clients: row.clients || 0,
+             posts: row.posts || 0, arch: row.arch || 0, 'пусто': !поДням[d] };
+  });
   if (история.length){
     h += '<div class="goals-week">' + история.map(function(row){
       const доля = goalDayShare(row, нормы);
@@ -771,8 +781,8 @@ function renderGoals(){
        уже закрыт: незакрытый сегодняшний день не должен обнулять вчерашнюю серию */
     let серия = 0;
     for (let i = история.length - 1; i >= 0; i--){
-      const полн = goalDayShare(история[i], нормы) >= 1;
-      if (i === история.length - 1 && !полн) continue;
+      const полн = !история[i]['пусто'] && goalDayShare(история[i], нормы) >= 1;
+      if (i === история.length - 1 && !полн) continue;   // незакрытый сегодня серию не рвёт
       if (полн) серия++; else break;
     }
     h += '<div class="goals-streak">' + (серия
