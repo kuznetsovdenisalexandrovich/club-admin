@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v92 -->
+<!-- FILE_VERSION: admin-v93 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2733,6 +2733,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <option value="marketing">Маркетинг</option>
         <option value="deepseek">DeepSeek</option>
         <option value="timeweb">Timeweb</option>
+        <option value="boomstream">Boomstream</option>
       </select>
       <select id="ledger-kind">
         <option value="topup">Положил</option>
@@ -2756,6 +2757,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <label style="font-size:12px;opacity:.7">DeepSeek ниже, $<input id="thr-deepseek" type="number" step="0.5"></label>
       <label style="font-size:12px;opacity:.7">Timeweb ниже, ₽<input id="thr-timeweb" type="number" step="50"></label>
       <label style="font-size:12px;opacity:.7">Timeweb, дней<input id="thr-days" type="number" step="1"></label>
+      <label style="font-size:12px;opacity:.7">Boomstream ниже, ₽<input id="thr-boomstream" type="number" step="50"></label>
     </div>
     <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)" onclick="saveThresholds()">Сохранить пороги</button>
     <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)" onclick="testBalanceWarn()">Проверить сейчас и прислать в чат</button>
@@ -4656,13 +4658,15 @@ async function loadBalances(){
        отказывает даже админскому ключу. Ключ живёт дальше — им работает
        анализатор, — но денег по нему мы не считаем. */
     html += balanceRow('DeepSeek', s.deepseek)
-         +  balanceRow('Timeweb', s.timeweb) + balanceRow('Kinescope', s.kinescope)
+         +  balanceRow('Timeweb', s.timeweb) + balanceRow('Boomstream', s.boomstream)
+         +  balanceRow('Kinescope', s.kinescope)
          +  balanceRow('Маркетинг', s.marketing);
     box.innerHTML = html;
     const п = d['пороги'] || {};
     document.getElementById('thr-deepseek').value = п.deepseek_usd;
     document.getElementById('thr-timeweb').value  = п.timeweb_rub;
     document.getElementById('thr-days').value     = п.timeweb_days;
+    document.getElementById('thr-boomstream').value = п.boomstream_rub;
   } catch(e){
     box.innerHTML = '<div style="opacity:.6">Не удалось загрузить: ' + e + '</div>';
   }
@@ -4710,6 +4714,7 @@ async function ledgerDelete(id){
 async function saveThresholds(){
   const тело = {
     deepseek_usd: parseFloat(document.getElementById('thr-deepseek').value || '0'),
+    boomstream_rub: parseFloat(document.getElementById('thr-boomstream').value || '0'),
     timeweb_rub:  parseFloat(document.getElementById('thr-timeweb').value || '0'),
     timeweb_days: parseFloat(document.getElementById('thr-days').value || '0')
   };
@@ -15251,6 +15256,6 @@ async function placesResync(){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v92</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v93</div>
 </body>
 </html>
