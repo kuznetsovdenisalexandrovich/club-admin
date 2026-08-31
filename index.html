@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v95 -->
+<!-- FILE_VERSION: admin-v96 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1005,6 +1005,12 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
   word-break:break-all;cursor:pointer;min-height:22px}
 .lg-result.lg-bad{border-color:#d9534f;color:#d9534f;cursor:default}
 .lg-copied{border-style:solid;border-color:#2e9e63;color:#2e9e63}
+
+/* ⚠️ АКТИВНАЯ ВКЛАДКА ДОЛЖНА БЫТЬ ВИДНА. У `.scroll-btn` состояния `on` не было
+   вовсе: класс ставился (метрики, дайджест), а выглядели кнопки одинаково — на
+   двух вкладках это терпимо, на четырёх открытую уже не найти глазами.
+   Правило стоит в самом конце блока, иначе его перебивают общие правила кнопок. */
+.scroll-btn.on{background:var(--lav-deep,#7c6cf0)!important;border-color:var(--lav-deep,#7c6cf0)!important;color:#fff!important}
 </style>
 </head>
 
@@ -1175,6 +1181,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <div class="tools-group">
         <div class="tools-group-t">Содержимое и привлечение</div>
         <div class="tools-grid">
+          <button class="action-btn" onclick="openDigestPopup()">Дайджест</button>
           <button class="action-btn" onclick="openTextsPopup()">Тексты приложения</button>
           <button class="action-btn" onclick="openHelpDocsPopup()">Справка клуба</button>
           <button class="action-btn" onclick="openGamesPopup()">Конструктор игр</button>
@@ -15410,6 +15417,382 @@ async function placesResync(){
     await loadPlaces();
   } catch(e){ out.textContent = 'Не вышло: ' + e.message; }
 }
+
+/* ═══ ДАЙДЖЕСТ ═══════════════════════════════════════════════════════════
+   Четыре вкладки одного окна: ЛЕНТА (единственный источник выпуска),
+   РОДЫ (рубрика + вёрстка + вес), СБОРКА (пульт и превью полос),
+   ВЫПУСКИ (черновик → колонка → публикация со снимком состава).
+
+   ⚠️ ЛЕНТА ПЕРВИЧНА. Всё, что попадает в выпуск, лежит здесь: автосборщик
+   кладёт черновики из занятий, новостей, библиотеки и расписания, руками
+   дописывается остальное. Правка руками помечает запись, и следующий прогон
+   сборщика её текст уже не трогает.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+let dgTypes = [];
+let dgEvents = [];
+let dgEditingId = null;
+
+function openDigestPopup(){
+  document.getElementById('digest-overlay').classList.add('open');
+  dgTab('feed');
+  dgLoadTypes().then(dgLoadFeed);
+  dgLoadIssues();
+}
+function closeDigestPopup(){ document.getElementById('digest-overlay').classList.remove('open'); }
+
+function dgTab(name){
+  ['feed','types','build','issues'].forEach(function(t){
+    document.getElementById('dg-pane-'+t).style.display = (t === name ? '' : 'none');
+    var b = document.getElementById('dg-tab-'+t);
+    if(b) b.classList.toggle('on', t === name);
+  });
+}
+
+function dgType(code){
+  for(var i=0;i<dgTypes.length;i++) if(dgTypes[i].code === code) return dgTypes[i];
+  return null;
+}
+function dgTypeTitle(code){
+  var t = dgType(code);
+  return t ? (t.title || t.code) : (code || '—');
+}
+function dgDate(iso){
+  if(!iso) return '';
+  var d = new Date(iso);
+  if(isNaN(d)) return '';
+  return d.getDate() + '.' + String(d.getMonth()+1).padStart(2,'0');
+}
+
+/* ── ЛЕНТА ───────────────────────────────────────────────────────────── */
+
+async function dgLoadFeed(){
+  var box = document.getElementById('dg-feed');
+  box.innerHTML = '<div class="loading">Загрузка...</div>';
+  try{
+    var days = document.getElementById('dg-days').value || '35';
+    var d = await fetch(API+'/admin/digest/events?days='+days+'&x_admin_token='+ADMIN_TOKEN).then(function(r){return r.json();});
+    dgEvents = d.events || [];
+    dgRenderFeed();
+  }catch(e){ box.innerHTML = '<div style="opacity:.6">Не удалось загрузить: '+e+'</div>'; }
+}
+
+function dgRenderFeed(){
+  var box = document.getElementById('dg-feed');
+  var фильтр = document.getElementById('dg-filter').value;
+  var rows = dgEvents.filter(function(e){ return !фильтр || e.type === фильтр; });
+  if(!rows.length){ box.innerHTML = '<div style="opacity:.6;font-size:13px">За этот период в ленте пусто. Нажми «Собрать» — сборщик поднимет занятия, новости и пополнения библиотеки.</div>'; return; }
+  box.innerHTML = rows.map(function(e){
+    /* ⚠️ Скрытая запись НЕ удаляется, а гаснет: снятая с показа мелочь часто
+       нужна в следующем, более длинном выпуске. */
+    return '<div class="pay-item" style="align-items:flex-start;opacity:'+(e.visible?'1':'.45')+'">'
+      + '<div style="flex:1;min-width:0">'
+      +   '<div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)">'
+      +     escapeHtmlAdm(dgDate(e.date)) + ' · ' + escapeHtmlAdm(dgTypeTitle(e.type))
+      +     ' · вес ' + e.weight + (e.edited ? ' · правлено' : '') + '</div>'
+      +   '<div class="pay-name" style="margin-top:2px">' + escapeHtmlAdm(e.title || '(без заголовка)') + '</div>'
+      +   (e.text ? '<div style="font-size:12px;opacity:.65;margin-top:2px">' + escapeHtmlAdm(e.text.slice(0,140)) + (e.text.length>140?'…':'') + '</div>' : '')
+      + '</div>'
+      + '<button class="action-btn" style="flex-shrink:0" onclick="dgEditEvent('+e.id+')">Изм.</button>'
+      + '<button class="action-btn" style="flex-shrink:0" onclick="dgToggleEvent('+e.id+')">'+(e.visible?'Скрыть':'Вернуть')+'</button>'
+      + '<button class="action-btn danger" style="flex-shrink:0" onclick="dgDeleteEvent('+e.id+')">Удл.</button>'
+      + '</div>';
+  }).join('');
+}
+
+async function dgCollect(){
+  var days = document.getElementById('dg-days').value || '35';
+  var out = document.getElementById('dg-collect-out');
+  out.textContent = 'Собираю…';
+  try{
+    var d = await fetch(API+'/admin/digest/collect?days='+days+'&forward=14&x_admin_token='+ADMIN_TOKEN,
+      {method:'POST'}).then(function(r){return r.json();});
+    out.textContent = 'Новых: '+(d['new']||0)+' · обновлено: '+(d['updated']||0)+' · не тронуто (правлено руками): '+(d['kept']||0);
+    dgLoadFeed();
+  }catch(e){ out.textContent = 'Не вышло: '+e; }
+}
+
+function dgEditEvent(id){
+  var e = null;
+  for(var i=0;i<dgEvents.length;i++) if(dgEvents[i].id === id) e = dgEvents[i];
+  dgEditingId = id;
+  dgShowEventForm(e);
+}
+function dgNewEvent(){ dgEditingId = null; dgShowEventForm(null); }
+
+function dgShowEventForm(e){
+  var box = document.getElementById('dg-event-form');
+  var опции = dgTypes.map(function(t){
+    return '<option value="'+escapeHtmlAdm(t.code)+'"'+((e && e.type===t.code)?' selected':'')+'>'+escapeHtmlAdm(t.title||t.code)+'</option>';
+  }).join('');
+  var дата = (e && e.date) ? String(e.date).slice(0,10) : new Date().toISOString().slice(0,10);
+  var ссылки = ((e && e.links) || []).map(function(l){ return (l.label||'')+' | '+(l.url||''); }).join('\n');
+  box.style.display = '';
+  box.innerHTML =
+      '<div class="popup-section-title" style="margin-top:0">'+(e ? 'Правка записи' : 'Новая запись')+'</div>'
+    + '<select id="dg-f-type" class="popup-input">'+опции+'</select>'
+    + '<input id="dg-f-date" class="popup-input" type="date" value="'+дата+'">'
+    + '<input id="dg-f-title" class="popup-input" placeholder="Заголовок" value="'+escapeHtmlAdm(e ? e.title : '')+'">'
+    + '<textarea id="dg-f-text" class="popup-input" rows="3" placeholder="Текст">'+escapeHtmlAdm(e ? e.text : '')+'</textarea>'
+    + '<textarea id="dg-f-links" class="popup-input" rows="2" placeholder="Ссылки, по одной в строке: подпись | адрес">'+escapeHtmlAdm(ссылки)+'</textarea>'
+    + '<input id="dg-f-weight" class="popup-input" type="number" min="0" max="3" placeholder="Вес 1-3 (0 — брать у рода)" value="'+(e ? e.weight : 0)+'">'
+    + '<div style="display:flex;gap:8px">'
+    +   '<button class="popup-save" onclick="dgSaveEvent()">Сохранить</button>'
+    +   '<button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)" onclick="dgCancelEvent()">Отмена</button>'
+    + '</div>';
+  box.scrollIntoView({block:'nearest'});
+}
+function dgCancelEvent(){
+  dgEditingId = null;
+  var box = document.getElementById('dg-event-form');
+  box.style.display = 'none';
+  box.innerHTML = '';
+}
+
+/* Ссылки вводятся строками «подпись | адрес» — форма на два поля с плюсиком
+   стоила бы втрое больше кода ради двух ссылок на запись. */
+function dgParseLinks(raw){
+  return String(raw||'').split('\n').map(function(s){
+    var p = s.split('|');
+    var url = (p[1]||'').trim();
+    if(!url) return null;
+    return {label:(p[0]||'').trim() || 'открыть', url:url};
+  }).filter(Boolean);
+}
+
+async function dgSaveEvent(){
+  var payload = {
+    type_code: document.getElementById('dg-f-type').value,
+    happened_at: document.getElementById('dg-f-date').value + 'T12:00:00',
+    title: document.getElementById('dg-f-title').value,
+    text: document.getElementById('dg-f-text').value,
+    links: dgParseLinks(document.getElementById('dg-f-links').value),
+    image_url: '',
+    weight: Number(document.getElementById('dg-f-weight').value || 0),
+    visible: true,
+    meta: {}
+  };
+  try{
+    var url = API+'/admin/digest/events'+(dgEditingId ? '/'+dgEditingId : '')+'?x_admin_token='+ADMIN_TOKEN;
+    var r = await fetch(url, {method: dgEditingId ? 'PUT' : 'POST',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    if(!r.ok) throw new Error('сервер ответил '+r.status);
+    dgCancelEvent();
+    dgLoadFeed();
+  }catch(e){ alert('Не сохранилось: '+e.message); }
+}
+
+async function dgToggleEvent(id){
+  var e = null;
+  for(var i=0;i<dgEvents.length;i++) if(dgEvents[i].id === id) e = dgEvents[i];
+  if(!e) return;
+  /* ⚠️ Шлём ПОЛНУЮ запись, а не одно поле: ручка правки принимает объект
+     целиком, и частичное тело обнулило бы остальное значениями по умолчанию. */
+  var payload = {type_code:e.type, happened_at:e.date, title:e.title, text:e.text,
+                 links:e.links||[], image_url:e.image_url||'', weight:e.weight,
+                 visible: !e.visible, meta:e.meta||{}};
+  await fetch(API+'/admin/digest/events/'+id+'?x_admin_token='+ADMIN_TOKEN,
+    {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+  dgLoadFeed();
+}
+
+async function dgDeleteEvent(id){
+  if(!confirm('Убрать запись из ленты? Если она пришла от сборщика, следующий прогон вернёт её заново.')) return;
+  await fetch(API+'/admin/digest/events/'+id+'?x_admin_token='+ADMIN_TOKEN, {method:'DELETE'});
+  dgLoadFeed();
+}
+
+/* ── РОДЫ ЗАПИСЕЙ ────────────────────────────────────────────────────── */
+
+const DG_LAYOUTS = [['afisha','афиша'],['idea','полоса идеи'],['lesson','выжимка занятия'],
+                    ['qa','вопрос-ответ'],['list','перечень'],['schedule','расписание'],
+                    ['vrezka','врезка'],['column','колонка'],['toc','содержание']];
+
+async function dgLoadTypes(){
+  try{
+    dgTypes = await fetch(API+'/admin/digest/types?x_admin_token='+ADMIN_TOKEN).then(function(r){return r.json();});
+  }catch(e){ dgTypes = []; }
+  dgRenderTypes();
+  var f = document.getElementById('dg-filter');
+  f.innerHTML = '<option value="">Все роды</option>' + dgTypes.map(function(t){
+    return '<option value="'+escapeHtmlAdm(t.code)+'">'+escapeHtmlAdm(t.title||t.code)+'</option>';
+  }).join('');
+}
+
+function dgRenderTypes(){
+  var box = document.getElementById('dg-types');
+  if(!dgTypes.length){ box.innerHTML = '<div style="opacity:.6;font-size:13px">Роды не завелись — проверь, что бэкенд свежий.</div>'; return; }
+  box.innerHTML = dgTypes.map(function(t){
+    var layouts = DG_LAYOUTS.map(function(l){
+      return '<option value="'+l[0]+'"'+(t.layout===l[0]?' selected':'')+'>'+l[1]+'</option>';
+    }).join('');
+    return '<div class="pay-item" style="flex-wrap:wrap;gap:6px;align-items:center">'
+      + '<div style="flex:1;min-width:120px"><div class="pay-name">'+escapeHtmlAdm(t.title||t.code)+'</div>'
+      +   '<div style="font-size:11px;opacity:.55">'+escapeHtmlAdm(t.code)+(t.auto?' · сборщик':' · руками')+'</div></div>'
+      + '<input class="popup-input" style="margin:0;max-width:150px" value="'+escapeHtmlAdm(t.rubric)+'" placeholder="Рубрика" id="dgt-r-'+t.id+'">'
+      + '<select class="popup-input" style="margin:0;max-width:150px" id="dgt-l-'+t.id+'">'+layouts+'</select>'
+      + '<input class="popup-input" style="margin:0;max-width:64px" type="number" min="1" max="3" value="'+t.weight+'" title="Вес" id="dgt-w-'+t.id+'">'
+      + '<input class="popup-input" style="margin:0;max-width:64px" type="number" min="0" value="'+t.per_page+'" title="Записей на полосу, 0 — как на пульте" id="dgt-p-'+t.id+'">'
+      + '<button class="action-btn" style="flex-shrink:0" onclick="dgSaveType('+t.id+')">Сохранить</button>'
+      + '</div>';
+  }).join('');
+}
+
+async function dgSaveType(id){
+  var t = null;
+  for(var i=0;i<dgTypes.length;i++) if(dgTypes[i].id === id) t = dgTypes[i];
+  if(!t) return;
+  var payload = {code:t.code, title:t.title,
+    rubric: document.getElementById('dgt-r-'+id).value,
+    layout: document.getElementById('dgt-l-'+id).value,
+    weight: Number(document.getElementById('dgt-w-'+id).value || 2),
+    per_page: Number(document.getElementById('dgt-p-'+id).value || 0),
+    auto: t.auto, active: t.active, sort_order: t.sort_order};
+  try{
+    var r = await fetch(API+'/admin/digest/types/'+id+'?x_admin_token='+ADMIN_TOKEN,
+      {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+    if(!r.ok) throw new Error('сервер ответил '+r.status);
+    dgLoadTypes();
+  }catch(e){ alert('Не сохранилось: '+e.message); }
+}
+
+async function dgAddType(){
+  var код = prompt('Код нового рода латиницей (по нему сборщик его узнаёт, менять потом нельзя):');
+  if(!код) return;
+  var имя = prompt('Название рода для дашборда:') || код;
+  var рубрика = prompt('Рубрика — заголовок полосы, на которую он попадёт:') || имя;
+  try{
+    var r = await fetch(API+'/admin/digest/types?x_admin_token='+ADMIN_TOKEN, {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({code:код, title:имя, rubric:рубрика, layout:'list',
+                            weight:2, per_page:0, auto:false, active:true, sort_order:70})});
+    if(!r.ok) throw new Error('сервер ответил '+r.status);
+    dgLoadTypes();
+  }catch(e){ alert('Не завелось: '+e.message); }
+}
+
+/* ── СБОРКА ──────────────────────────────────────────────────────────── */
+
+async function dgPreview(){
+  var box = document.getElementById('dg-preview');
+  box.innerHTML = '<div class="loading">Собираю…</div>';
+  var q = ['days=' + (document.getElementById('dg-days').value || '35'),
+           'ideas=' + (document.getElementById('dg-s-ideas').value || 3),
+           'per_page=' + (document.getElementById('dg-s-perpage').value || 4),
+           'min_weight=' + (document.getElementById('dg-s-weight').value || 1),
+           'vyzhimki=' + (document.getElementById('dg-s-vyzhimki').value || 'page'),
+           'vrezki=' + document.getElementById('dg-s-vrezki').checked,
+           'dark=' + document.getElementById('dg-s-dark').checked,
+           'toc=' + document.getElementById('dg-s-toc').checked,
+           'x_admin_token=' + ADMIN_TOKEN];
+  var issue = document.getElementById('dg-s-issue').value;
+  if(issue) q.unshift('issue_id=' + issue);
+  try{
+    var d = await fetch(API+'/admin/digest/preview?'+q.join('&')).then(function(r){return r.json();});
+    dgRenderPreview(d);
+  }catch(e){ box.innerHTML = '<div style="opacity:.6">Не вышло: '+e+'</div>'; }
+}
+
+function dgRenderPreview(d){
+  var s = d.stats || {};
+  var шапка = '<div style="font-size:12px;opacity:.7;margin-bottom:8px">Полос: '+(s['полос']||0)
+    + ' · записей: '+(s['записей']||0)+' · идей: '+(s['идей']||0)+' · врезок: '+(s['врезок']||0)+'</div>';
+  var полосы = (d.pages||[]).map(function(p){
+    var что = p.title || p.rubric || '';
+    var состав = '';
+    if(p.items && p.items.length){
+      состав = p.items.map(function(it){ return (it.title || it.text || it.rubric || ''); })
+                      .filter(Boolean).slice(0,3).join(' · ');
+    } else if(p.text){ состав = String(p.text).slice(0,90); }
+    return '<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)">'
+      + '<b style="min-width:26px;opacity:.5;font-variant-numeric:tabular-nums">'+String(p.num).padStart(2,'0')+'</b>'
+      + '<div style="flex:1;min-width:0">'
+      +   '<div style="font-size:13px">'+escapeHtmlAdm(что)+(p.dark?' <span style="opacity:.5">· тёмная</span>':'')+'</div>'
+      +   (состав ? '<div style="font-size:11px;opacity:.6">'+escapeHtmlAdm(состав)+'</div>' : '')
+      + '</div>'
+      + '<span style="font-size:11px;opacity:.5;flex-shrink:0">'+escapeHtmlAdm(p.layout)+'</span>'
+      + '</div>';
+  }).join('');
+  document.getElementById('dg-preview').innerHTML = шапка + полосы;
+}
+
+/* ── ВЫПУСКИ ─────────────────────────────────────────────────────────── */
+
+async function dgLoadIssues(){
+  var box = document.getElementById('dg-issues');
+  try{
+    var rows = await fetch(API+'/admin/digest/issues?x_admin_token='+ADMIN_TOKEN).then(function(r){return r.json();});
+    var sel = document.getElementById('dg-s-issue');
+    sel.innerHTML = '<option value="">Без выпуска (просто период)</option>' + rows.map(function(r){
+      return '<option value="'+r.id+'">'+escapeHtmlAdm(r.title||r.slug)+'</option>';
+    }).join('');
+    if(!rows.length){ box.innerHTML = '<div style="opacity:.6;font-size:13px">Выпусков ещё нет. Заведи черновик — период возьмётся из пульта.</div>'; return; }
+    box.innerHTML = rows.map(function(r){
+      var опубликован = r.status === 'published';
+      return '<div class="pay-item" style="align-items:flex-start">'
+        + '<div style="flex:1;min-width:0">'
+        +   '<div class="pay-name">'+escapeHtmlAdm(r.title||r.slug)+'</div>'
+        +   '<div style="font-size:11px;opacity:.6">'+escapeHtmlAdm((r.from||'')+' — '+(r.to||''))
+        +     ' · '+(опубликован ? 'выпущен, полос '+r.pages : 'черновик')
+        +     (r.has_column ? ' · колонка есть' : ' · колонки нет') + '</div>'
+        + '</div>'
+        + '<button class="action-btn" style="flex-shrink:0" onclick="dgEditColumn('+r.id+')">Колонка</button>'
+        + '<button class="action-btn" style="flex-shrink:0" onclick="dgPublish('+r.id+','+(опубликован?'false':'true')+')">'+(опубликован?'Снять':'Выпустить')+'</button>'
+        + '<button class="action-btn" style="flex-shrink:0" onclick="dgOpenPdf('+r.id+')">PDF</button>'
+        + '</div>';
+    }).join('');
+  }catch(e){ box.innerHTML = '<div style="opacity:.6">Не удалось загрузить: '+e+'</div>'; }
+}
+
+async function dgCreateIssue(){
+  var месяц = prompt('Месяц выпуска в виде 2026-08:', new Date().toISOString().slice(0,7));
+  if(!месяц) return;
+  var дней = Number(document.getElementById('dg-days').value || 35);
+  var до = new Date();
+  var от = new Date(до.getTime() - дней*86400000);
+  try{
+    var r = await fetch(API+'/admin/digest/issues?x_admin_token='+ADMIN_TOKEN, {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({slug:месяц, month:месяц, title:'',
+        period_from: от.toISOString().slice(0,19), period_to: до.toISOString().slice(0,19),
+        column_title:'От ведущего', column_text:'', cover_url:'',
+        settings:{days:дней}})});
+    if(!r.ok) throw new Error('сервер ответил '+r.status);
+    dgLoadIssues();
+  }catch(e){ alert('Не завёлся: '+e.message); }
+}
+
+/* ⚠️ КОЛОНКА — ЕДИНСТВЕННОЕ, ЧЕГО МАШИНА НЕ СОБИРАЕТ. Из-за неё публикация
+   осмысленно ручная: состав готов сам, ждём только живой голос. */
+async function dgEditColumn(id){
+  var текст = prompt('Колонка ведущего — своими словами о прошедшем месяце.\nПустая строка делит абзацы.');
+  if(текст === null) return;
+  try{
+    var r = await fetch(API+'/admin/digest/issues/'+id+'?x_admin_token='+ADMIN_TOKEN, {method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({column_title:'От ведущего', column_text:текст, cover_url:'', settings:{}})});
+    if(!r.ok) throw new Error('сервер ответил '+r.status);
+    dgLoadIssues();
+  }catch(e){ alert('Не сохранилось: '+e.message); }
+}
+
+async function dgPublish(id, выпустить){
+  if(выпустить && !confirm('Выпустить номер? Состав заморозится снимком: список записей, порядок и сид врезок. Дальше лента может меняться — номер останется прежним.')) return;
+  var путь = выпустить ? 'publish' : 'unpublish';
+  try{
+    var d = await fetch(API+'/admin/digest/issues/'+id+'/'+путь+'?x_admin_token='+ADMIN_TOKEN,
+      {method:'POST'}).then(function(r){return r.json();});
+    if(выпустить) alert('Выпущено. Полос: '+(d.pages||0)+', записей в снимке: '+(d.events||0));
+    dgLoadIssues();
+  }catch(e){ alert('Не вышло: '+e.message); }
+}
+
+/* PDF рисуется браузером на сервере и занимает несколько секунд — открываем
+   отдельной вкладкой, чтобы окно дашборда не выглядело зависшим. */
+function dgOpenPdf(id){
+  window.open(API+'/admin/digest/issues/'+id+'/pdf?x_admin_token='+encodeURIComponent(ADMIN_TOKEN), '_blank');
+}
+
 </script>
 
 <!-- ═══ КОНСТРУКТОР ИГР ═══════════════════════════════════════════════════
@@ -15438,10 +15821,86 @@ async function placesResync(){
   </div>
 </div>
 
+
+<!-- ═══ ДАЙДЖЕСТ ══════════════════════════════════════════════════════════
+     Лента событий — единственный источник выпуска. Роды задают рубрику и
+     вёрстку, пульт собирает полосы, выпуск замораживает состав снимком.
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div class="popup-overlay popup-centered" id="digest-overlay" onclick="if(overlayShouldClose(event,this)) closeDigestPopup()">
+  <div class="popup" style="max-width:760px">
+    <button class="popup-close-x" onclick="closeDigestPopup()" title="Закрыть">✕</button>
+    <div class="popup-body" style="padding-top:20px">
+      <div class="popup-section-title" style="margin-top:0">Дайджест</div>
+
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="scroll-btn on" id="dg-tab-feed" onclick="dgTab('feed')">Лента</button>
+        <button class="scroll-btn" id="dg-tab-build" onclick="dgTab('build')">Сборка</button>
+        <button class="scroll-btn" id="dg-tab-issues" onclick="dgTab('issues')">Выпуски</button>
+        <button class="scroll-btn" id="dg-tab-types" onclick="dgTab('types')">Роды записей</button>
+        <select id="dg-days" onchange="dgLoadFeed()" style="max-width:130px">
+          <option value="35">35 дней</option>
+          <option value="60">60 дней</option>
+          <option value="90">90 дней</option>
+          <option value="180">полгода</option>
+        </select>
+      </div>
+
+      <div id="dg-pane-feed">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+          <button class="action-btn" onclick="dgCollect()">Собрать из клуба</button>
+          <button class="action-btn" onclick="dgNewEvent()">Своя запись</button>
+          <select id="dg-filter" onchange="dgRenderFeed()" style="max-width:180px"><option value="">Все роды</option></select>
+        </div>
+        <div id="dg-collect-out" style="font-size:12px;opacity:.7;margin-bottom:8px"></div>
+        <div id="dg-event-form" style="display:none;margin-bottom:12px"></div>
+        <div id="dg-feed"><div class="loading">Загрузка...</div></div>
+      </div>
+
+      <div id="dg-pane-build" style="display:none">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <label style="font-size:12px;opacity:.7">Идей на выпуск
+            <input id="dg-s-ideas" class="popup-input" type="number" min="0" max="8" value="3"></label>
+          <label style="font-size:12px;opacity:.7">Записей на полосу
+            <input id="dg-s-perpage" class="popup-input" type="number" min="1" max="8" value="4"></label>
+          <label style="font-size:12px;opacity:.7">Порог веса
+            <input id="dg-s-weight" class="popup-input" type="number" min="0" max="3" value="1"></label>
+          <label style="font-size:12px;opacity:.7">Выжимки занятий
+            <select id="dg-s-vyzhimki" class="popup-input">
+              <option value="page">полосой</option>
+              <option value="line">строкой</option>
+              <option value="no">не давать</option>
+            </select></label>
+        </div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:13px;margin-bottom:10px">
+          <label><input type="checkbox" id="dg-s-vrezki" checked> врезки</label>
+          <label><input type="checkbox" id="dg-s-dark" checked> тёмные полосы</label>
+          <label><input type="checkbox" id="dg-s-toc" checked> содержание</label>
+        </div>
+        <select id="dg-s-issue" class="popup-input"><option value="">Без выпуска (просто период)</option></select>
+        <button class="popup-save" onclick="dgPreview()">Показать полосы</button>
+        <div id="dg-preview" style="margin-top:12px"><div style="opacity:.6;font-size:13px">Нажми «Показать полосы» — соберу состав, ничего не сохраняя.</div></div>
+      </div>
+
+      <div id="dg-pane-issues" style="display:none">
+        <button class="action-btn" onclick="dgCreateIssue()" style="margin-bottom:10px">Завести черновик номера</button>
+        <div id="dg-issues"><div class="loading">Загрузка...</div></div>
+      </div>
+
+      <div id="dg-pane-types" style="display:none">
+        <div style="font-size:12px;opacity:.65;margin-bottom:8px">Рубрика — это способ сказать «этих на одну полосу». Роды с одинаковой рубрикой собираются вместе, даже если каждый дал по одной записи.</div>
+        <button class="action-btn" onclick="dgAddType()" style="margin-bottom:10px">Новый род</button>
+        <div id="dg-types"><div class="loading">Загрузка...</div></div>
+      </div>
+
+      <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closeDigestPopup()">Закрыть</button>
+    </div>
+  </div>
+</div>
+
 <div id="admin-zoom" onclick="closeAdminZoom()" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(12,10,21,.94);align-items:center;justify-content:center;padding:20px;cursor:zoom-out">
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v95</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v96</div>
 </body>
 </html>
