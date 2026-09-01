@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v100 -->
+<!-- FILE_VERSION: admin-v101 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2528,7 +2528,6 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 
 <div class="popup-overlay" id="popup-overlay" onclick="closePopup(event)">
   <div class="popup" id="popup">
-    <button class="popup-close-x" onclick="closePopup()" title="Закрыть">✕</button>
     <div class="popup-handle"></div>
     <div class="popup-header">
       <div class="popup-avatar" id="popup-avatar">?</div>
@@ -2958,6 +2957,26 @@ function dupeRow(r, keepId, group){
 
   // Действия — только у НЕглавной карточки: главная остаётся, вторая уезжает в неё
   let actions = '';
+  /* ⚠️ СИРОТЫ СЦЕПЛЯЮТСЯ РУКАМИ, В ДВА НАЖАТИЯ. Автоматика их не сгруппировала
+     сознательно: у них разные телефоны и почты, и признака родства НЕТ — только
+     ты знаешь, что это один человек. Поэтому: первым нажатием отмечаешь
+     главную, вторым — какую в неё присоединить. */
+  if(!group){
+    if(ORPHAN_KEEP === r.user_id){
+      actions = '<div style="display:flex;gap:8px;margin-top:8px;align-items:center">'
+        + '<span class="badge badge-act">главная — выбери вторую</span>'
+        + '<button class="action-btn" style="padding:4px 10px;font-size:11px" '
+        + 'onclick="event.stopPropagation();orphanPick(0)">Отменить</button></div>';
+    } else if(ORPHAN_KEEP){
+      actions = '<div style="display:flex;gap:8px;margin-top:8px">'
+        + '<button class="action-btn" style="padding:4px 10px;font-size:11px" '
+        + 'onclick="event.stopPropagation();mergeDupe(' + ORPHAN_KEEP + ',' + r.user_id + ',' + jsArg('manual') + ')">Присоединить к главной</button></div>';
+    } else {
+      actions = '<div style="display:flex;gap:8px;margin-top:8px">'
+        + '<button class="action-btn" style="padding:4px 10px;font-size:11px" '
+        + 'onclick="event.stopPropagation();orphanPick(' + r.user_id + ')">Сцепить эту</button></div>';
+    }
+  }
   if(group && !isKeep){
     actions = '<div style="display:flex;gap:8px;margin-top:8px">'
       + '<button class="action-btn" style="padding:4px 10px;font-size:11px" '
@@ -2980,6 +2999,7 @@ function dupeRow(r, keepId, group){
 // у главной нет. Исключение — если profile_id есть только у второй: тогда данные
 // подписки берутся оттуда, иначе в карточке остаётся мусор вроде "Ручная оплата".
 async function mergeDupe(keepId, dropId, weight){
+  ORPHAN_KEEP = 0;
   const keep = DUPES_INDEX[keepId] || {}, drop = DUPES_INDEX[dropId] || {};
   const gained = [];
   ['phone','profile_id','email','telegram_id','vk_id','salebot_client_id'].forEach(f => {
@@ -3018,11 +3038,30 @@ async function dropDupe(userId){
 
 let DUPES_INDEX = {};   // user_id → строка, нужен для предпросмотра склейки
 
+/* Кого выбрали главной при ручной сцепке. Ноль — никого. */
+let ORPHAN_KEEP = 0;
+let DUPES_LAST = null;
+
+function orphanPick(userId){
+  ORPHAN_KEEP = userId;
+  if(DUPES_LAST) renderDupes(DUPES_LAST);
+}
+
 async function loadDupes(){
   const el = document.getElementById('dupes-body');
   el.innerHTML = '<div class="loading">Загрузка...</div>';
   try{
     const d = await fetch(API+'/users/duplicates?x_admin_token='+ADMIN_TOKEN).then(r=>r.json());
+    DUPES_LAST = d;
+    renderDupes(d);
+  }catch(e){
+    el.innerHTML = '<div class="pay-meta">Не удалось загрузить: ' + e + '</div>';
+  }
+}
+
+function renderDupes(d){
+  const el = document.getElementById('dupes-body');
+  try{
     DUPES_INDEX = {};
     (d.groups||[]).forEach(g => g.rows.forEach(r => { DUPES_INDEX[r.user_id] = r; }));
     (d.orphans||[]).forEach(r => { DUPES_INDEX[r.user_id] = r; });
@@ -15976,6 +16015,6 @@ function dgOpenPdf(id){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v100</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v101</div>
 </body>
 </html>
