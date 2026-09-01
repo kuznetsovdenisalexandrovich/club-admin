@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v101 -->
+<!-- FILE_VERSION: admin-v102 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -15498,7 +15498,7 @@ function openDigestPopup(){
   document.getElementById('digest-overlay').classList.add('open');
   dgTab('feed');
   dgLoadTypes().then(dgLoadFeed);
-  dgLoadIssues();
+  dgLoadThemes().then(dgLoadIssues);
   dgLoadAccess();
 }
 function closeDigestPopup(){ document.getElementById('digest-overlay').classList.remove('open'); }
@@ -15790,6 +15790,9 @@ async function dgLoadIssues(){
   var box = document.getElementById('dg-issues');
   try{
     var rows = await fetch(API+'/admin/digest/issues?x_admin_token='+ADMIN_TOKEN).then(function(r){return r.json();});
+    /* Держим последний ответ: смена темы шлёт выпуск ЦЕЛИКОМ, и поля надо
+       откуда-то взять — иначе половинчатая посылка обнулит колонку и период */
+    DG_LAST_ISSUES = rows;
     var sel = document.getElementById('dg-s-issue');
     sel.innerHTML = '<option value="">Без выпуска (просто период)</option>' + rows.map(function(r){
       return '<option value="'+r.id+'">'+escapeHtmlAdm(r.title||r.slug)+'</option>';
@@ -15806,6 +15809,13 @@ async function dgLoadIssues(){
         + '</div>'
         + '<button class="action-btn" style="flex-shrink:0" onclick="dgEditColumn('+r.id+')">Колонка</button>'
         + '<button class="action-btn" style="flex-shrink:0" onclick="dgPublish('+r.id+','+(опубликован?'false':'true')+')">'+(опубликован?'Снять':'Выпустить')+'</button>'
+        /* ⚠️ ТЕМА МЕНЯЕТ ТОЛЬКО ВИД ПОЛОС, НЕ ИХ СОСТАВ. Поэтому её можно
+           переключать у готового номера: содержание не поедет. */
+        + '<select class="popup-input" style="margin:0;max-width:150px" onchange="dgSetTheme('+r.id+',this.value)">'
+        +   DG_THEMES.map(function(t){
+              return '<option value="'+t.key+'"'+((r.theme||'')===t.key?' selected':'')+'>'+t.title+'</option>';
+            }).join('')
+        + '</select>'
         + '<button class="action-btn" style="flex-shrink:0" onclick="dgOpenPdf('+r.id+')">PDF</button>'
         + '<button class="action-btn danger" style="flex-shrink:0" onclick="dgDeleteIssue('+r.id+')">Удл.</button>'
         + '</div>';
@@ -15890,6 +15900,34 @@ async function dgDeleteIssue(id){
     if(!r.ok) throw new Error('сервер ответил '+r.status);
     dgLoadIssues();
   }catch(e){ alert('Не вышло: '+e.message); }
+}
+
+/* Оформления, которые лежат на сервере. Читаются один раз при открытии
+   дайджеста: тем немного и меняются они выкладкой, а не в дашборде. */
+let DG_THEMES = [{ key: '', title: 'Оформление по умолчанию' }];
+let DG_LAST_ISSUES = [];
+
+async function dgLoadThemes(){
+  try{
+    const d = await fetch(API+'/admin/digest/themes?x_admin_token='+ADMIN_TOKEN).then(function(r){return r.json();});
+    if (d && d.themes && d.themes.length) DG_THEMES = d.themes;
+  }catch(e){}
+}
+
+async function dgSetTheme(id, key){
+  const r = (DG_LAST_ISSUES || []).find(function(x){ return x.id === id; }) || {};
+  try{
+    const resp = await fetch(API+'/admin/digest/issues/'+id+'?x_admin_token='+ADMIN_TOKEN, {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      /* ⚠️ ШЛЁМ ПОЛНЫЙ ОБЪЕКТ: ручка принимает выпуск целиком, и половинчатая
+         посылка обнулила бы колонку и период — та же ловушка, что с записями ленты */
+      body: JSON.stringify({ title: r.title||'', month: r.month||'',
+                             period_from: r.from||null, period_to: r.to||null,
+                             column_title: r.column_title||'', column_text: r.column_text||'',
+                             cover_url: r.cover_url||'', settings: r.settings||{}, theme: key })});
+    if(!resp.ok) throw new Error('сервер ответил '+resp.status);
+    dgLoadIssues();
+  }catch(e){ alert('Тема не сохранилась: '+e.message); }
 }
 
 function dgOpenPdf(id){
@@ -16015,6 +16053,6 @@ function dgOpenPdf(id){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v101</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v102</div>
 </body>
 </html>
