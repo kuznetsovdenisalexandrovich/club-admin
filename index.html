@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v102 -->
+<!-- FILE_VERSION: admin-v103 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -844,6 +844,16 @@ header{padding:calc(max(env(safe-area-inset-top),8px) + 24px) 2px 16px}
   box-shadow:0 13px 26px -15px rgba(235,91,24,.72),0 0 22px -14px rgba(255,124,47,.7),inset 0 1px 0 rgba(255,255,255,.4)!important;
 }
 .action-btn.danger{background:rgba(255,74,64,.08)!important;border-color:rgba(255,74,64,.18)!important}
+/* ⚠️ КНОПКА «КАМПАНИИ» КРАСНЕЕТ, ПОКА ИДЁТ ВСТРЕЧА (03.09.2026, просьба Denis'а).
+   Незавершённая встреча держит людей вне меню бота, и забыть про неё дорого.
+   Пульсация медленная — это напоминание, а не тревога */
+.tools-grid .action-btn--lav.live-now{
+  background:linear-gradient(135deg,#ff5a45,#d93a24)!important;
+  box-shadow:0 13px 26px -15px rgba(217,58,36,.8),0 0 22px -14px rgba(255,90,69,.75),inset 0 1px 0 rgba(255,255,255,.35)!important;
+  animation:campLive 2.4s ease-in-out infinite;
+}
+@keyframes campLive{0%,100%{filter:brightness(1)}50%{filter:brightness(1.16)}}
+@media (prefers-reduced-motion:reduce){.tools-grid .action-btn--lav.live-now{animation:none}}
 .action-btn.success{background:rgba(62,207,142,.09)!important;border-color:rgba(62,207,142,.18)!important}
 .tools-grid{gap:10px;padding:16px}
 .tools-grid .action-btn{min-height:46px;padding:12px 11px;line-height:1.35}
@@ -1196,7 +1206,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     <div class="section-head"><div class="section-title">Рассылки</div></div>
     <div class="card" id="broadcast-row">
       <div class="tools-grid">
-        <button class="action-btn action-btn--lav" onclick="openCampaignsPopup()">Кампании</button>
+        <button class="action-btn action-btn--lav" id="campaigns-btn" onclick="openCampaignsPopup()">Кампании</button>
         <button class="action-btn action-btn--lav" onclick="openNewsPopup()">Лента новостей</button>
         <button class="action-btn action-btn--lav" onclick="openStreamsPopup()">Потоки</button>
         <button class="action-btn action-btn--lav" onclick="openMagazinePopup()">Журнал</button>
@@ -1344,9 +1354,11 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     <button class="popup-close-x" onclick="closeCampaignsPopup()" title="Закрыть">✕</button>
     <div class="popup-handle"></div>
     <div class="popup-body" style="padding-top:0">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <!-- ⚠️ ЗДЕСЬ СТОЯЛ ВТОРОЙ КРЕСТИК (03.09.2026): свой, нарисованный в шапке,
+         поверх штатного .popup-close-x, который есть у всех окон дашборда.
+         Два крестика рядом — оставлен только общий -->
+    <div style="margin-bottom:14px">
       <div class="popup-section-title" style="margin-top:0;margin-bottom:0">Уведомления</div>
-      <button class="action-btn" style="width:34px;height:34px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeCampaignsPopup()"><svg width="14" height="14" viewBox="0 0 14 14" style="display:block"><path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <select id="camp-list" class="popup-input" style="margin-bottom:0" onchange="onCampListChange()"></select>
@@ -3595,7 +3607,22 @@ async function loadCampaigns(){
   try{
     const campaigns=await fetch(API+'/campaigns').then(r=>r.json());
     renderCampaigns(campaigns);
+    markLiveCampaigns(campaigns);
   }catch(e){ document.getElementById('campaigns-list').innerHTML='<div class="empty">Ошибка загрузки</div>'; }
+}
+
+/* Что считается «идёт»: встреча, которую не закрыли кнопкой «Встреча завершена»
+   (live_now), и лекционный поток, где начали эфир, но ссылку на практику ещё не
+   отправили. И то и другое означает, что люди сидят вне меню бота */
+function campaignIsLive(c){
+  return !!c.live_now || (c.flow === 'lecture' && c.status === 'live_started');
+}
+function markLiveCampaigns(campaigns){
+  const btn = document.getElementById('campaigns-btn');
+  if (!btn) return;
+  const live = (campaigns || []).filter(campaignIsLive).length;
+  btn.classList.toggle('live-now', live > 0);
+  btn.textContent = live > 0 ? 'Кампании · идёт встреча' : 'Кампании';
 }
 
 function renderCampaigns(campaigns){
@@ -16053,6 +16080,6 @@ function dgOpenPdf(id){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v102</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v103</div>
 </body>
 </html>
