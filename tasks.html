@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: tasks-v11 -->
+<!-- FILE_VERSION: tasks-v12 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -329,6 +329,37 @@ h1::before{
 .adder button:active{opacity:.8}
 
 .empty{padding:24px;text-align:center;color:var(--text-faint);font-size:13px}
+
+/* ══ КАЛЕНДАРЬ ЗАПУСКА (tasks-v12, 03.09.2026) ══════════════════════════
+   Не список, а дорога: полоса дней сверху, блоки дней ниже. День берётся из
+   группы задачи («Дни 1–3 · …», «День 5 · …») или из поля day. Дата старта
+   лежит отдельным документом tasks_calendar, чтобы не ломать патчи доски */
+.cal-head{padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.cal-head b{font-size:13px;font-weight:700}
+.cal-head small{display:block;font-size:11px;color:var(--text-faint);margin-top:2px}
+.cal-head input[type=date]{font:inherit;font-size:12px;padding:6px 10px;border-radius:10px;border:1px solid var(--border);
+  background:var(--stat-bg);color:var(--text);outline:none}
+.cal-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:0 12px 14px}
+.cal-day{
+  position:relative;aspect-ratio:1;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:var(--stat-bg);border:1px solid var(--border);cursor:pointer;font-weight:700;font-size:13px;overflow:hidden;
+  transition:transform .12s;
+}
+.cal-day:active{transform:scale(.95)}
+.cal-day small{font-size:9px;font-weight:600;color:var(--text-faint);letter-spacing:.04em;text-transform:uppercase;margin-top:1px}
+.cal-day i{position:absolute;left:0;right:0;bottom:0;height:4px;background:linear-gradient(90deg,var(--lav),var(--lav-deep));transform-origin:left;transform:scaleX(var(--p,0))}
+.cal-day.done{background:linear-gradient(135deg,var(--lav),var(--lav-deep));color:#fff;border-color:transparent;
+  box-shadow:0 6px 16px -4px rgba(155,140,242,0.45)}
+.cal-day.done small{color:rgba(255,255,255,.8)}
+.cal-day.done i{display:none}
+.cal-day.late{border-color:rgba(232,97,74,.6);color:var(--accent-deep)}
+.cal-day.today{outline:2px solid var(--lav-deep);outline-offset:2px}
+.cal-day.free{opacity:.4;cursor:default}
+.cal-day.wknd small{color:var(--accent-deep);opacity:.8}
+.cal-block-x{font-size:11px;color:var(--text-faint);font-weight:600;margin-left:8px;text-transform:none;letter-spacing:0}
+.cal-block.late .group-t{color:var(--accent-deep)}
+.cal-block.today .group-t::before{content:'●';color:var(--lav-deep);margin-right:6px}
+
 .foot{text-align:center;font-size:11px;color:var(--text-faint);margin-top:20px}
 .linky{
   border:1px solid var(--border);cursor:pointer;font-family:var(--body);
@@ -459,7 +490,7 @@ h1::before{
   <div class="adder"><select id="new-group"></select></div>
 
   <div class="foot"><button class="linky" id="show-done" onclick="toggleDone()">Показать сделанное</button>
-    <div style="margin-top:11px">доска задач · <span id="build">tasks-v11</span></div></div>
+    <div style="margin-top:11px">доска задач · <span id="build">tasks-v12</span></div></div>
 </div>
 
 <script>
@@ -524,6 +555,7 @@ function sectionItems(sec){
   return out;
 }
 function allItems(sec){
+  if (sec === CAL_SEC) return calItems();
   /* ⚠️ В РАЗДЕЛЕ ЛЕКЦИЙ ДВА РОДА СТРОК. Из базы приходит то, что уже записано;
      свои строки — это ПЛАН на потоки, которых ещё нет. Сервер про них знать не
      может, а планировать наперёд надо. Плановые идут ПОСЛЕ настоящих внутри
@@ -535,8 +567,29 @@ function allItems(sec){
   real.forEach(function(r){ seen[r.id] = true; });
   return real.concat(own.filter(function(i){ return !seen[i.id]; }));
 }
+const CAL_SEC = 'cal';
+const CAL_DOC = 'tasks_calendar';
+let CAL = { start: '' };
+
+/* День задачи: явное поле day («5» или «1-3») сильнее группы; в группе ищем
+   «Дни 1–3» / «День 5». Ничего не нашли — задача не календарная */
+function itemDays(it){
+  if (!it) return null;
+  const src = String(it.day || '');
+  let m = src.match(/^\s*(\d+)\s*(?:[–\-—]\s*(\d+))?\s*$/);
+  if (!m) m = String(it.g || '').match(/Д(?:ни|ень|ня)\s*(\d+)\s*(?:[–\-—]\s*(\d+))?/i);
+  if (!m) return null;
+  const a = parseInt(m[1], 10), b = m[2] ? parseInt(m[2], 10) : a;
+  if (!a || b < a) return null;
+  return [a, b];
+}
+function calItems(){ return ITEMS.filter(function(i){ return !!itemDays(i); }); }
+/* «Параллельно» — задачи без дня, которые идут рядом с календарём, а не после */
+function calSideItems(){ return ITEMS.filter(function(i){ return !itemDays(i) && /параллельно/i.test(i.g || ''); }); }
+
 function tabs(){
   const t = SECTIONS.slice();
+  if (calItems().length) t.unshift({ key:CAL_SEC, title:'Календарь' });
   if (LECTURES.length) t.push({ key:LEC_SEC, title:'Лекции' });
   return t;
 }
@@ -559,6 +612,133 @@ function findItem(id){
   return null;
 }
 
+/* ── Календарь ────────────────────────────────────────────────────────── */
+const RU_WD = ['вс','пн','вт','ср','чт','пт','сб'];
+const RU_MON = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+function calStart(){
+  const v = CAL.start && /^\d{4}-\d{2}-\d{2}$/.test(CAL.start) ? CAL.start : '';
+  if (v) return new Date(v + 'T12:00:00');
+  const d = new Date(); d.setHours(12,0,0,0); return d;
+}
+function calDate(n){ const d = calStart(); d.setDate(d.getDate() + n - 1); return d; }
+function calFmt(d){ return d.getDate() + ' ' + RU_MON[d.getMonth()]; }
+function calTodayN(){
+  const s = calStart(), t = new Date(); t.setHours(12,0,0,0);
+  return Math.floor((t - s) / 86400000) + 1;
+}
+function calRangeItems(a, b){
+  return calItems().filter(function(i){ const d = itemDays(i); return d[0] === a && d[1] === b; });
+}
+function calDayItems(n){
+  return calItems().filter(function(i){ const d = itemDays(i); return n >= d[0] && n <= d[1]; });
+}
+function renderCalendar(){
+  const items = calItems();
+  const total = items.reduce(function(m, i){ return Math.max(m, itemDays(i)[1]); }, 0);
+  const todayN = calTodayN();
+  const start = calStart();
+  const finish = calDate(total);
+  let status;
+  if (todayN < 1) status = 'старт через ' + (1 - todayN) + ' дн.';
+  else if (todayN > total) status = 'план прошёл, день ' + todayN;
+  else status = 'сегодня день ' + todayN + ' из ' + total;
+  const done = doneCount(items);
+
+  let h = '<div class="list" style="margin-bottom:14px"><div class="cal-head">'
+    + '<div><b>' + calFmt(start) + ' → ' + calFmt(finish) + '</b><small>' + status + ' · закрыто ' + done + ' из ' + items.length + '</small></div>'
+    + '<input type="date" value="' + esc(CAL.start || '') + '" onchange="calSetStart(this.value)" title="дата старта">'
+    + '</div><div class="cal-strip">';
+
+  for (let n = 1; n <= total; n++){
+    const d = calDate(n), list = calDayItems(n);
+    const dn = doneCount(list);
+    const cls = ['cal-day'];
+    if (!list.length) cls.push('free');
+    else if (dn === list.length) cls.push('done');
+    else if (n < todayN) cls.push('late');
+    if (n === todayN) cls.push('today');
+    if (d.getDay() === 0 || d.getDay() === 6) cls.push('wknd');
+    h += '<div class="' + cls.join(' ') + '" style="--p:' + (list.length ? (dn / list.length).toFixed(2) : 0) + '"'
+       + (list.length ? ' onclick="calJump(' + n + ')"' : '') + '>'
+       + n + '<small>' + RU_WD[d.getDay()] + ' ' + d.getDate() + '</small><i></i></div>';
+  }
+  h += '</div></div>';
+
+  /* Блоки — по диапазонам, в порядке первого дня */
+  const ranges = [];
+  items.forEach(function(i){
+    const d = itemDays(i);
+    if (!ranges.some(function(r){ return r[0] === d[0] && r[1] === d[1]; })) ranges.push(d);
+  });
+  ranges.sort(function(x, y){ return x[0] - y[0] || x[1] - y[1]; });
+
+  ranges.forEach(function(r){
+    const list = calRangeItems(r[0], r[1]);
+    const dn = doneCount(list);
+    const isToday = todayN >= r[0] && todayN <= r[1];
+    const isLate = r[1] < todayN && dn < list.length;
+    const title = (r[0] === r[1] ? 'День ' + r[0] : 'Дни ' + r[0] + '–' + r[1])
+      + '<span class="cal-block-x">' + (r[0] === r[1] ? calFmt(calDate(r[0])) : calFmt(calDate(r[0])) + ' – ' + calFmt(calDate(r[1]))) + '</span>';
+    h += '<div class="group cal-block' + (isToday ? ' today' : '') + (isLate ? ' late' : '') + '" id="cal-day-' + r[0] + '">'
+       + '<div class="group-head"><div class="group-t">' + title + '</div>'
+       + '<div class="group-n">' + dn + ' из ' + list.length + '</div></div><div class="list">';
+    list.forEach(function(it){ h += taskRow(it, true); });
+    h += '</div></div>';
+  });
+
+  const side = calSideItems();
+  if (side.length){
+    h += '<div class="group"><div class="group-head"><div class="group-t">Параллельно, без дня</div>'
+       + '<div class="group-n">' + doneCount(side) + ' из ' + side.length + '</div></div><div class="list">';
+    side.forEach(function(it){ h += taskRow(it, true); });
+    h += '</div></div>';
+  }
+  document.getElementById('body').innerHTML = h;
+}
+/* Одна строка задачи, общая для календаря и разделов. withSec — подписать раздел,
+   в календаре задачи из разных разделов лежат вперемешку */
+function taskRow(it, withSec){
+  const sec = withSec ? (SECTIONS.filter(function(s){ return s.key === it.sec; })[0] || {}).title : '';
+  return '<div class="task' + (it.done ? ' done' : '') + '" onclick="toggle(\'' + esc(it.id) + '\')">'
+    + '<div class="box">✓</div><div style="min-width:0"><div class="task-t">'
+    + (it.tag === 'hot' ? '<span class="tag hot">срочное</span>' : '')
+    + (it.tag === 'me'  ? '<span class="tag me">за мной</span>'  : '')
+    + (it.tag === 'plan' ? '<span class="tag plan">план</span>'  : '')
+    + (sec ? '<span class="tag">' + esc(sec) + '</span>' : '')
+    + esc(it.t) + '</div>'
+    + (it.n ? '<span class="task-n">' + esc(it.n) + '</span>' : '')
+    + '</div>'
+    + (it.lecture ? ''
+       : '<button class="del" onclick="event.stopPropagation();dropTask(\'' + esc(it.id) + '\')">✕</button>')
+    + '</div>';
+}
+function calJump(n){
+  /* к блоку, в который входит день */
+  const items = calItems();
+  let best = null;
+  items.forEach(function(i){ const d = itemDays(i); if (n >= d[0] && n <= d[1] && (best === null || d[0] < best)) best = d[0]; });
+  const el = best !== null ? document.getElementById('cal-day-' + best) : null;
+  if (el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+/* Дата старта — отдельный маленький документ; пишем целиком, он ничей больше */
+async function calSetStart(v){
+  CAL.start = v || '';
+  try {
+    await fetch(API + '/admin/doc/' + CAL_DOC + '?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ start: CAL.start })
+    });
+  } catch(e){}
+  render();
+}
+async function loadCalendar(){
+  try {
+    const r = await fetch(API + '/admin/doc/' + CAL_DOC + '?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    if (!r.ok) return;
+    const d = await r.json();
+    CAL.start = (d.data && d.data.start) || '';
+  } catch(e){}
+}
+
 function render(){
   document.getElementById('tabs').innerHTML = tabs().map(function(s){
     const list = allItems(s.key);
@@ -566,6 +746,7 @@ function render(){
       + esc(s.title) + '<i>' + doneCount(list) + '/' + list.length + '</i></button>';
   }).join('');
 
+  if (cur === CAL_SEC){ renderCalendar(); } else {
   const groups = sectionItems(cur);
   let h = '';
   groups.forEach(function(g){
@@ -594,6 +775,7 @@ function render(){
       + '</div></div>';
   }
   document.getElementById('body').innerHTML = h;
+  }
 
   /* ⚠️ ЛИЧНОЕ В ОБЩИЙ СЧЁТЧИК НЕ ИДЁТ. Кольцо считает путь к запуску клуба;
      подмешать туда таргет ВК и бытовые дела — значит сделать число «закрыто N
@@ -601,6 +783,8 @@ function render(){
   let all = 0, dn = 0;
   tabs().forEach(function(s){
     if (s.key === SELF_SEC) return;
+    /* Календарь — витрина тех же задач из разделов, в кольцо второй раз не считаем */
+    if (s.key === CAL_SEC) return;
     const list = allItems(s.key);
     all += list.length; dn += doneCount(list);
   });
@@ -964,7 +1148,8 @@ function addTask(){
     g = (prompt('Название новой группы:') || '').trim();
     if (!g) return;
   }
-  const it = { id:'x' + Date.now().toString(36), sec:cur, g:g, t:text, done:'' };
+  /* Своя задача с вкладки календаря — это задача разработки с днём из группы */
+  const it = { id:'x' + Date.now().toString(36), sec:(cur === CAL_SEC ? 'dev' : cur), g:g, t:text, done:'' };
   // В разделе лекций своя строка — это план: метка отличает её от записанного
   if (cur === LEC_SEC) it.tag = 'plan';
   ITEMS.push(it);
@@ -1088,6 +1273,7 @@ async function loadAll(){
       : FALLBACK_SECTIONS.slice();
     if (!SECTIONS.some(function(s){ return s.key === cur; }) && SECTIONS.length) cur = SECTIONS[0].key;
     await loadLectures();
+    await loadCalendar();
     setSaved(d.updated_at ? 'последняя правка: ' + new Date(d.updated_at).toLocaleString('ru-RU',
       {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '');
     /* Цели грузим отдельным запросом и НЕ роняем доску, если он не удался:
