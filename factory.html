@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<!-- FILE_VERSION: factory_page-v1 -->
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Контент-завод</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   ОФОРМЛЕНИЕ СНЯТО С МАКЕТА (04.09.2026) и переведено в переменные.
+   В макете цвета лежали инлайном в каждом теге, здесь — один список
+   на тему. Внешняя рамка «окно в окне» убрана: страница и есть окно,
+   а цветные блики остались фоном.
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  --page:#211f1d;
+  --win:linear-gradient(160deg,rgba(243,236,227,.94),rgba(233,223,210,.90));
+  --card:linear-gradient(180deg,rgba(255,255,255,.78),rgba(255,255,255,.5));
+  --panel:linear-gradient(165deg,rgba(248,242,234,.9),rgba(238,229,216,.86));
+  --col:rgba(224,212,196,.44);
+  --sunk:rgba(236,228,216,.82);
+  --input:rgba(255,255,255,.9);
+  --input-bd:rgba(255,255,255,.95);
+  --card-bd:rgba(255,255,255,.85);
+  --chip:rgba(255,255,255,.62);
+  --hair:rgba(255,255,255,.5);
+  --ink:#211d16; --ink2:#3a3428; --muted:#9c9284;
+  --btn:#17150f; --btn-fg:#fff;
+  --accent:#5a4bc4; --accent-soft:rgba(126,110,226,.14);
+  --ok:#3f7a5e; --ok-soft:rgba(74,135,104,.14);
+  --warn:#a8493a; --warn-soft:rgba(180,82,63,.14); --warn-bd:rgba(180,82,63,.45);
+  --bar:linear-gradient(180deg,#7e6ee2,rgba(126,110,226,.4));
+  --bar-low:rgba(160,148,132,.4);
+  --prog:linear-gradient(90deg,#7e6ee2,#70c4d6);
+  --track:rgba(180,166,148,.32);
+  --mark:linear-gradient(140deg,#ffd479,#ff8f6b);
+  --sh-card:0 6px 16px -8px rgba(94,74,52,.45);
+  --sh-soft:0 2px 10px rgba(120,98,70,.10);
+  --sh-btn:0 10px 26px -8px rgba(23,21,15,.72);
+  --sh-panel:0 40px 80px -24px rgba(70,52,30,.55);
+  --sh-glow:0 2px 10px -2px rgba(126,110,226,.5);
+  --sh-tag:none;
+  --nav-bg:rgba(255,255,255,.72); --nav-bd:rgba(255,255,255,.85);
+  --nav-sh:0 6px 16px -8px rgba(94,74,52,.5);
+  --panel-bd:rgba(255,255,255,.72);
+  --glow-warm:radial-gradient(closest-side,rgba(255,222,178,.42),rgba(255,222,178,0) 70%);
+  --glow-cool:radial-gradient(closest-side,rgba(214,205,255,.20),rgba(214,205,255,0) 70%);
+  --leak-cyan:radial-gradient(closest-side,rgba(112,196,214,.42),rgba(112,196,214,0) 72%);
+  --leak-violet:radial-gradient(closest-side,rgba(126,110,226,.34),rgba(126,110,226,0) 74%);
+  --leak-warm:radial-gradient(closest-side,rgba(255,236,206,.66),rgba(255,236,206,0) 72%);
+  --safe-top:0px;
+}
+html[data-theme="dark"]{
+  --page:#020204;
+  --win:linear-gradient(160deg,rgba(13,14,22,.94),rgba(5,5,9,.96));
+  --card:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02));
+  --panel:linear-gradient(165deg,rgba(18,19,30,.9),rgba(7,8,13,.93));
+  --col:rgba(148,160,255,.03);
+  --sunk:rgba(255,255,255,.04);
+  --input:rgba(255,255,255,.07);
+  --input-bd:rgba(174,166,255,.34);
+  --card-bd:rgba(255,255,255,.12);
+  --chip:rgba(255,255,255,.075);
+  --hair:rgba(255,255,255,.09);
+  --ink:#eef0ff; --ink2:#c8cdea; --muted:#7c83a6;
+  --btn:linear-gradient(135deg,#7c6bff,#3fc8e4); --btn-fg:#08080f;
+  --accent:#b3a8ff; --accent-soft:rgba(124,107,255,.2);
+  --ok:#6fe3ac; --ok-soft:rgba(111,227,172,.16);
+  --warn:#ff9b85; --warn-soft:rgba(255,155,133,.16); --warn-bd:rgba(255,155,133,.5);
+  --bar:linear-gradient(180deg,#8f80ff,rgba(63,200,228,.35));
+  --bar-low:rgba(255,255,255,.12);
+  --prog:linear-gradient(90deg,#7c6bff,#3fc8e4);
+  --track:rgba(255,255,255,.09);
+  --mark:linear-gradient(140deg,#7c6bff,#3fc8e4);
+  --sh-card:0 10px 26px -14px rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.07);
+  --sh-soft:0 2px 12px rgba(0,0,0,.5);
+  --sh-btn:0 14px 34px -8px rgba(124,107,255,.85),0 0 22px -4px rgba(63,200,228,.6);
+  --sh-panel:0 50px 90px -28px rgba(0,0,0,.9),0 0 60px -18px rgba(124,107,255,.45);
+  --sh-glow:0 0 18px -2px rgba(124,107,255,.85),0 0 44px -6px rgba(63,200,228,.55);
+  --sh-tag:0 0 14px -6px rgba(124,107,255,.9),inset 0 0 0 1px rgba(174,166,255,.16);
+  --nav-bg:rgba(124,107,255,.16); --nav-bd:rgba(174,166,255,.3);
+  --nav-sh:0 0 24px -8px rgba(124,107,255,.7),inset 0 0 0 1px rgba(174,166,255,.14);
+  --panel-bd:rgba(174,166,255,.26);
+  --glow-warm:radial-gradient(closest-side,rgba(124,107,255,.34),rgba(124,107,255,0) 70%);
+  --glow-cool:radial-gradient(closest-side,rgba(63,200,228,.26),rgba(63,200,228,0) 70%);
+  --leak-cyan:radial-gradient(closest-side,rgba(63,200,228,.55),rgba(63,200,228,0) 72%);
+  --leak-violet:radial-gradient(closest-side,rgba(124,107,255,.6),rgba(124,107,255,0) 74%);
+  --leak-warm:radial-gradient(closest-side,rgba(255,120,190,.3),rgba(255,120,190,0) 72%);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--page);color:var(--ink);
+  font-family:'Onest','Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+button{border:0;background:none;cursor:pointer;touch-action:manipulation}
+h1,h2,h3{margin:0;font-weight:650;letter-spacing:-.01em}
+
+/* блики фона — неподвижные, под содержимым, касаний не ловят */
+.leak{position:fixed;pointer-events:none;z-index:0}
+#leak1{left:-18%;bottom:-34%;width:88%;height:96%;background:var(--glow-warm);filter:blur(30px)}
+#leak2{right:-14%;top:-26%;width:74%;height:82%;background:var(--glow-cool);filter:blur(34px)}
+#leak3{left:30%;top:-30%;width:64%;height:104%;background:var(--leak-cyan);filter:blur(52px)}
+#leak4{left:2%;top:-26%;width:54%;height:88%;background:var(--leak-violet);filter:blur(58px)}
+#leak5{right:-12%;bottom:-32%;width:58%;height:82%;background:var(--leak-warm);filter:blur(48px)}
+
+.shell{position:relative;z-index:1;display:grid;grid-template-columns:248px 1fr;min-height:100vh;background:var(--win)}
+.rail{padding:22px 18px;display:flex;flex-direction:column;gap:18px;border-right:1px solid var(--hair)}
+.main{display:flex;flex-direction:column;min-width:0}
+
+.brand{display:flex;align-items:center;gap:11px;padding:0 4px}
+.brand .mark{width:34px;height:34px;border-radius:50%;flex:none;background:var(--chip);box-shadow:var(--sh-soft);display:grid;place-items:center}
+.brand .mark i{width:12px;height:12px;border-radius:4px;background:var(--mark);transform:rotate(14deg);display:block}
+.brand b{display:block;font-size:15.5px;font-weight:660}
+.brand span{font-size:12px;color:var(--muted)}
+
+.nav{display:flex;flex-direction:column;gap:5px}
+.nav button{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;border-radius:13px;border:1px solid transparent;color:var(--muted);font-weight:500;font-size:13.5px;text-align:left}
+.nav button.on{color:var(--ink);font-weight:600;background:var(--nav-bg);border-color:var(--nav-bd);box-shadow:var(--nav-sh)}
+.nav .n{font-size:12px;font-variant-numeric:tabular-nums}
+.nav button.on .n{color:var(--accent)}
+
+.norm{background:var(--card);border:1px solid var(--card-bd);border-radius:18px;box-shadow:var(--sh-card);padding:16px}
+.norm h3{font-size:13px;color:var(--muted);font-weight:560;margin-bottom:10px}
+.norm .big{font-size:30px;font-weight:680;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
+.norm .big small{font-size:14px;color:var(--muted);font-weight:520;margin-left:5px}
+.track{height:9px;border-radius:6px;background:var(--track);margin-top:12px;overflow:hidden}
+.track i{display:block;height:100%;border-radius:6px;background:var(--prog)}
+.railnote{font-size:12px;color:var(--muted);line-height:1.5;padding:0 4px}
+.railnote b{color:var(--warn);font-weight:620}
+
+.top{display:flex;align-items:center;gap:12px;padding:16px 22px;border-bottom:1px solid var(--hair);flex-wrap:wrap}
+.top h1{font-size:20px}
+.top .sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+.spacer{flex:1}
+.search{flex:1;min-width:180px;max-width:420px;padding:11px 16px;border-radius:14px;border:1px solid var(--card-bd);background:var(--chip);outline:none}
+.search::placeholder{color:var(--muted)}
+.chip{padding:9px 15px;border-radius:13px;border:1px solid var(--card-bd);background:var(--chip);font-size:13px;font-weight:540;display:inline-flex;align-items:center;gap:8px}
+.chip b{font-size:11.5px;padding:1px 7px;border-radius:7px;background:var(--accent-soft);color:var(--accent)}
+.iconbtn{width:38px;height:38px;border-radius:13px;border:1px solid var(--card-bd);background:var(--chip);display:grid;place-items:center;font-size:15px}
+.primary{padding:11px 18px;border-radius:13px;font-weight:600;font-size:13.5px;color:var(--btn-fg);background:var(--btn);box-shadow:var(--sh-btn)}
+.ghost{padding:9px 14px;border-radius:12px;border:1px solid var(--card-bd);background:var(--chip);font-size:13px;font-weight:540}
+
+.pane{display:none;padding:20px 22px 40px}
+.pane.on{display:block}
+
+/* доска */
+.board{display:grid;grid-template-columns:repeat(4,minmax(220px,1fr));gap:14px;align-items:start}
+.col{background:var(--col);border-radius:20px;padding:12px 11px 15px;min-height:180px}
+.col.over{outline:1.5px dashed var(--accent);outline-offset:-4px}
+.colhead{display:flex;align-items:center;justify-content:space-between;padding:2px 6px 10px}
+.colhead b{font-size:13.5px;font-weight:620}
+.colhead span{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.card{background:var(--card);border:1px solid var(--card-bd);border-radius:15px;box-shadow:var(--sh-card);padding:12px 13px;margin-bottom:9px;cursor:grab}
+.card:last-child{margin-bottom:0}
+.card.dragging{opacity:.45}
+.card.flag{border-color:var(--warn-bd)}
+.card .t{font-size:13.5px;font-weight:580;line-height:1.35}
+.card .src{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.4}
+.row{display:flex;align-items:center;gap:6px;margin-top:9px;flex-wrap:wrap}
+.tag{font-size:11px;padding:3px 9px;border-radius:8px;background:var(--chip);border:1px solid var(--card-bd);color:var(--muted);font-weight:540;box-shadow:var(--sh-tag)}
+.tag.pl{color:var(--accent);background:var(--accent-soft)}
+.tag.auto{color:var(--ok);background:var(--ok-soft)}
+.tag.no-mark{color:var(--warn);background:var(--warn-soft)}
+
+/* списки */
+.rows{display:flex;flex-direction:column;gap:9px;max-width:1000px}
+.row-item{background:var(--card);border:1px solid var(--card-bd);border-radius:16px;box-shadow:var(--sh-card);padding:13px 15px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.row-item .grow{flex:1;min-width:160px}
+.row-item .t{font-weight:580;font-size:14px}
+.row-item .m{font-size:12px;color:var(--muted);margin-top:4px}
+.pill{font-size:11.5px;padding:5px 11px;border-radius:9px;background:var(--chip);border:1px solid var(--card-bd);color:var(--muted);white-space:nowrap}
+.pill.warn{color:var(--warn);background:var(--warn-soft)}
+.pill.ok{color:var(--ok);background:var(--ok-soft)}
+.mini{font-size:12.5px;padding:8px 13px;border-radius:11px;border:1px solid var(--card-bd);background:var(--chip);font-weight:540;white-space:nowrap}
+
+.ideas{columns:3;column-gap:14px;max-width:1200px}
+.idea{break-inside:avoid;background:var(--card);border:1px solid var(--card-bd);border-radius:17px;box-shadow:var(--sh-card);padding:14px 15px;margin-bottom:14px}
+.idea .k{font-size:11px;color:var(--accent);font-weight:600;margin-bottom:7px}
+.idea p{margin:0;font-size:13.5px;line-height:1.5}
+.idea.done p{color:var(--muted)}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;max-width:1100px}
+.stat{background:var(--card);border:1px solid var(--card-bd);border-radius:18px;box-shadow:var(--sh-card);padding:17px}
+.stat b{display:block;font-size:31px;font-weight:680;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat span{font-size:12.5px;color:var(--muted)}
+.stat.alert b{color:var(--warn)}
+.chart{margin-top:16px;background:var(--card);border:1px solid var(--card-bd);border-radius:18px;box-shadow:var(--sh-card);padding:18px;max-width:1100px}
+.chart h3{font-size:14px}
+.chart .sub{font-size:12px;color:var(--muted);margin:4px 0 16px}
+.bars{display:flex;align-items:flex-end;gap:5px;height:140px}
+.bars i{flex:1;border-radius:6px 6px 3px 3px;background:var(--bar);min-height:3px;display:block}
+.bars i.low{background:var(--bar-low)}
+.days{display:flex;gap:5px;margin-top:7px}
+.days span{flex:1;text-align:center;font-size:10px;color:var(--muted);overflow:hidden}
+
+.empty{padding:36px 6px;color:var(--muted);font-size:13.5px;max-width:460px}
+
+/* окна */
+.veil{position:fixed;inset:0;z-index:40;background:rgba(20,16,10,.42);backdrop-filter:blur(3px);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
+.veil.on{display:flex}
+.win{width:100%;max-width:520px;border-radius:24px;border:1px solid var(--panel-bd);background:var(--panel);box-shadow:var(--sh-panel);padding:22px}
+.win.wide{max-width:760px}
+.win h2{font-size:18px;margin-bottom:4px}
+.win .lead{font-size:12.5px;color:var(--muted);margin-bottom:16px}
+.field{margin-bottom:13px}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+.field input,.field select,.field textarea{width:100%;padding:11px 13px;border-radius:12px;border:1px solid var(--input-bd);background:var(--input);outline:none}
+.field textarea{min-height:90px;resize:vertical}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.wbtns{display:flex;gap:9px;margin-top:18px;flex-wrap:wrap}
+.wbtns .spacer{flex:1;min-width:0}
+.danger{color:var(--warn)}
+.note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:10px}
+.copy{width:100%;margin-top:8px;padding:12px 13px;border-radius:12px;border:1px solid var(--input-bd);background:var(--input);font-size:12.5px;word-break:break-all;text-align:left;cursor:copy}
+.plist{display:flex;flex-direction:column;gap:8px}
+.pchk{display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:12px;border:1px solid var(--card-bd);background:var(--chip);cursor:pointer}
+.rule-row{display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:13px;border:1px solid var(--card-bd);background:var(--chip);margin-bottom:8px;flex-wrap:wrap}
+.rule-row .grow{flex:1;min-width:140px;font-size:13px}
+
+/* пин */
+.gate{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:var(--page)}
+.gate .box{width:280px;background:var(--win);border:1px solid var(--card-bd);border-radius:22px;box-shadow:var(--sh-panel);padding:24px;text-align:center}
+.gate h2{font-size:17px;margin-bottom:14px}
+.gate input{width:100%;padding:12px;border-radius:12px;border:1px solid var(--input-bd);background:var(--input);text-align:center;letter-spacing:.3em;outline:none}
+.gate .err{font-size:12px;color:var(--warn);margin-top:9px;min-height:16px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:70;padding:11px 18px;border-radius:13px;background:var(--btn);color:var(--btn-fg);font-size:13px;box-shadow:var(--sh-btn);display:none}
+.toast.on{display:block}
+.hide{display:none!important}
+
+.mnav{display:none}
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .rail{display:none}
+  .top{padding:calc(12px + var(--safe-top)) 14px 10px;position:sticky;top:0;z-index:5;background:var(--win)}
+  .mnav{display:flex;gap:7px;padding:0 14px 10px;overflow:auto;position:sticky;top:60px;z-index:4;background:var(--win)}
+  .pane{padding:12px 14px 40px}
+  .board{grid-template-columns:1fr}
+  .ideas{columns:1}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .two{grid-template-columns:1fr}
+  .hide-mob{display:none}
+  .win{padding:18px;border-radius:20px}
+}
+.mnav button{padding:8px 14px;border-radius:11px;border:1px solid var(--card-bd);background:var(--chip);font-size:13px;white-space:nowrap;color:var(--muted)}
+.mnav button.on{color:var(--accent);font-weight:600;border-color:var(--nav-bd);background:var(--nav-bg)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="leak" id="leak1"></div>
+<div class="leak" id="leak2"></div>
+<div class="leak" id="leak3"></div>
+<div class="leak" id="leak4"></div>
+<div class="leak" id="leak5"></div>
+
+<div class="gate" id="gate">
+  <div class="box">
+    <h2>Контент-завод</h2>
+    <input id="pin" type="password" inputmode="numeric" placeholder="пин" autocomplete="off">
+    <div class="err" id="pinerr"></div>
+  </div>
+</div>
+
+<div class="shell hide" id="shell">
+  <aside class="rail">
+    <div class="brand">
+      <div class="mark"><i></i></div>
+      <div><b>Контент-завод</b><span>наружу, на площадки</span></div>
+    </div>
+    <nav class="nav" id="nav">
+      <button class="on" data-p="queue">Очередь<span class="n" id="n-queue"></span></button>
+      <button data-p="raw">Сырьё<span class="n" id="n-raw"></span></button>
+      <button data-p="ideas">Замыслы<span class="n" id="n-ideas"></span></button>
+      <button data-p="stats">Числа<span class="n"></span></button>
+    </nav>
+    <div class="norm">
+      <h3>Сегодня выложено</h3>
+      <div class="big"><span id="today">0</span><small>из <span id="normv">5</span></small></div>
+      <div class="track"><i id="normbar" style="width:0%"></i></div>
+    </div>
+    <div class="railnote" id="railnote"></div>
+  </aside>
+
+  <div class="main">
+    <header class="top">
+      <div>
+        <h1 id="ttl">Очередь</h1>
+        <div class="sub" id="sub">загружаю…</div>
+      </div>
+      <input class="search hide-mob" id="q" placeholder="Поиск по единицам и занятиям">
+      <div class="spacer hide-mob"></div>
+      <button class="chip" id="fbtn">Фильтры<b id="fcount">0</b></button>
+      <button class="iconbtn" id="theme" aria-label="Тема">☾</button>
+      <button class="primary" id="newbtn">Новая единица</button>
+    </header>
+
+    <div class="mnav" id="mnav">
+      <button class="on" data-p="queue">Очередь</button>
+      <button data-p="raw">Сырьё</button>
+      <button data-p="ideas">Замыслы</button>
+      <button data-p="stats">Числа</button>
+    </div>
+
+    <section class="pane on" id="p-queue"><div class="board" id="board"></div></section>
+    <section class="pane" id="p-raw"><div class="rows" id="rawrows"></div></section>
+    <section class="pane" id="p-ideas">
+      <div class="row" style="margin:0 0 14px">
+        <button class="ghost" id="newidea">Записать замысел</button>
+      </div>
+      <div class="ideas" id="ideas"></div>
+    </section>
+    <section class="pane" id="p-stats"><div id="statsbox"></div></section>
+  </div>
+</div>
+
+<div class="veil" id="veil"><div class="win" id="win"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  КОНТЕНТ-ЗАВОД — экран на ручках app/factory.py
+//  Вход по тому же пину, что дашборд и доска задач. ⚠️ Ключ живёт в
+//  sessionStorage, а он у каждой вкладки свой: пин здесь вводится
+//  отдельно от дашборда, это не поломка.
+// ═══════════════════════════════════════════════════════════════════
+var API = 'https://api.youselllikeagod-magazine.ru';
+var KEY = '';
+var S = {pieces:[],ideas:[],rules:[],raw:[],dict:{formats:[],platforms:[],statuses:[],idea_kinds:[]}};
+var STATS = null;
+var PANE = 'queue';
+var FILTERS = {platform:'',fmt:'',mark:''};
+
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function toast(t){ var el=$('toast'); el.textContent=t; el.classList.add('on'); setTimeout(function(){ el.classList.remove('on'); },2200); }
+
+function api(path, opts){
+  opts = opts || {};
+  var sep = path.indexOf('?') >= 0 ? '&' : '?';
+  return fetch(API + path + sep + 'x_admin_token=' + encodeURIComponent(KEY), {
+    method: opts.method || 'GET',
+    headers: opts.body ? {'Content-Type':'application/json'} : undefined,
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  }).then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(d){
+      if (!r.ok) throw new Error((d && d.detail) || ('сервер ответил ' + r.status));
+      return d;
+    });
+  });
+}
+
+/* ── вход ───────────────────────────────────────────────────────── */
+$('pin').addEventListener('keydown', function(e){
+  if (e.key !== 'Enter') return;
+  var pin = $('pin').value.trim();
+  if (!pin) return;
+  $('pinerr').textContent = '';
+  fetch(API + '/admin/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({pin:pin})})
+    .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, d:d}; }); })
+    .then(function(res){
+      if (!res.ok) throw new Error((res.d && res.d.detail) || 'не пускает');
+      KEY = res.d.token || res.d.key || pin;
+      try { sessionStorage.setItem('factory_key', KEY); } catch(e){}
+      $('gate').classList.add('hide');
+      $('shell').classList.remove('hide');
+      load();
+    })
+    .catch(function(e){ $('pinerr').textContent = e.message; });
+});
+try {
+  var saved = sessionStorage.getItem('factory_key');
+  if (saved) { KEY = saved; $('gate').classList.add('hide'); $('shell').classList.remove('hide'); }
+} catch(e){}
+
+/* ── загрузка ───────────────────────────────────────────────────── */
+function load(){
+  return api('/factory/state').then(function(d){
+    S = d;
+    renderAll();
+    return api('/factory/stats?days=30');
+  }).then(function(s){
+    STATS = s;
+    renderNorm();
+    if (PANE === 'stats') renderStats();
+  }).catch(function(e){
+    $('sub').textContent = 'не открылось: ' + e.message;
+  });
+}
+
+function label(list, key){
+  for (var i=0;i<list.length;i++) if (list[i].key === key) return list[i].label;
+  return key || '';
+}
+
+/* ── вкладки ────────────────────────────────────────────────────── */
+function go(p){
+  PANE = p;
+  var panes = document.querySelectorAll('.pane');
+  for (var i=0;i<panes.length;i++) panes[i].classList.toggle('on', panes[i].id === 'p-' + p);
+  var btns = document.querySelectorAll('#nav button, #mnav button');
+  for (var j=0;j<btns.length;j++) btns[j].classList.toggle('on', btns[j].dataset.p === p);
+  if (p === 'stats') renderStats();
+  head();
+}
+(function(){
+  var btns = document.querySelectorAll('#nav button, #mnav button');
+  for (var i=0;i<btns.length;i++) (function(b){ b.addEventListener('click', function(){ go(b.dataset.p); }); })(btns[i]);
+})();
+
+$('theme').addEventListener('click', function(){
+  var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+  $('theme').textContent = dark ? '☾' : '☀';
+});
+$('q').addEventListener('input', function(){ renderBoard(); renderRaw(); });
+
+/* ── шапка и левая колонка ──────────────────────────────────────── */
+function head(){
+  var live = S.pieces.filter(function(p){ return p.status !== 'dropped'; });
+  var queue = live.filter(function(p){ return p.status !== 'published'; });
+  var nomark = live.filter(function(p){ return p.no_mark; });
+  var openIdeas = S.ideas.filter(function(i){ return i.status === 'open'; });
+  var unworked = S.raw.filter(function(r){ return !r.pieces; });
+
+  $('n-queue').textContent = queue.length;
+  $('n-raw').textContent = S.raw.length;
+  $('n-ideas').textContent = openIdeas.length;
+
+  var T = {
+    queue: ['Очередь', queue.length + ' в работе · ' + nomark.length + ' без метки'],
+    raw:   ['Сырьё', S.raw.length + ' занятий · ' + unworked.length + ' без единиц'],
+    ideas: ['Замыслы', openIdeas.length + ' в копилке'],
+    stats: ['Числа', 'За 30 дней, по дням']
+  };
+  $('ttl').textContent = T[PANE][0];
+  $('sub').textContent = T[PANE][1];
+  $('railnote').innerHTML = unworked.length
+    ? '<b>' + unworked.length + '</b> занятий ещё не разобраны заводом — из них не сделано ни одной единицы.'
+    : 'Все занятия разобраны заводом.';
+}
+
+function renderNorm(){
+  if (!STATS) return;
+  $('today').textContent = STATS.today;
+  $('normv').textContent = STATS.norm;
+  var pct = STATS.norm ? Math.min(100, Math.round(STATS.today * 100 / STATS.norm)) : 0;
+  $('normbar').style.width = pct + '%';
+}
+
+function renderAll(){ head(); renderBoard(); renderRaw(); renderIdeas(); }
+
+/* ── очередь ────────────────────────────────────────────────────── */
+function matches(p){
+  var q = $('q').value.trim().toLowerCase();
+  if (q && (p.title || '').toLowerCase().indexOf(q) < 0 && (p.lecture_slug || '').toLowerCase().indexOf(q) < 0) return false;
+  if (FILTERS.platform && p.platform !== FILTERS.platform) return false;
+  if (FILTERS.fmt && p.fmt !== FILTERS.fmt) return false;
+  if (FILTERS.mark === 'no' && !p.no_mark) return false;
+  return true;
+}
+
+function cardHtml(p){
+  var src = p.lecture_slug
+    ? 'Занятие «' + esc(p.lecture_slug) + '»' + (p.timecode ? ' · ' + esc(p.timecode) : '')
+    : (p.idea_id ? 'Из замысла' : 'Без привязки к занятию');
+  if (p.status === 'published') {
+    src = esc(p.platform_label) + (p.published_at ? ' · выложено ' + esc(p.published_at) : '');
+  }
+  var tags = '<span class="tag pl">' + esc(p.fmt_label) + '</span>';
+  if (p.status !== 'published') tags += '<span class="tag">' + esc(p.platform_label) + '</span>';
+  if (p.auto) tags += '<span class="tag auto">заведено само</span>';
+  if (p.no_mark) tags += '<span class="tag no-mark">без метки</span>';
+  else if (p.source_code) tags += '<span class="tag">метка ' + esc(p.source_code) + '</span>';
+  return '<div class="card' + (p.no_mark ? ' flag' : '') + '" draggable="true" data-id="' + p.id + '">' +
+         '<div class="t">' + esc(p.title || 'без названия') + '</div>' +
+         '<div class="src">' + src + '</div>' +
+         '<div class="row">' + tags + '</div></div>';
+}
+
+function renderBoard(){
+  var cols = (S.dict.statuses || []).filter(function(s){ return s.key !== 'dropped'; });
+  var html = '';
+  for (var i=0;i<cols.length;i++){
+    var st = cols[i];
+    var list = S.pieces.filter(function(p){ return p.status === st.key && matches(p); });
+    html += '<div class="col" data-col="' + st.key + '">' +
+            '<div class="colhead"><b>' + esc(st.label) + '</b><span>' + list.length + '</span></div>' +
+            (list.length ? list.map(cardHtml).join('') : '') +
+            '</div>';
+  }
+  $('board').innerHTML = html || '<div class="empty">Очередь пуста. Заведи правила производства и прогони их по библиотеке — заготовки появятся сами.</div>';
+  wireBoard();
+  head();
+}
+
+var held = null;
+function wireBoard(){
+  var cards = document.querySelectorAll('#board .card');
+  for (var i=0;i<cards.length;i++) (function(c){
+    c.addEventListener('dragstart', function(){ held = c; c.classList.add('dragging'); });
+    c.addEventListener('dragend', function(){ c.classList.remove('dragging'); held = null; });
+    c.addEventListener('click', function(){ openPiece(Number(c.dataset.id)); });
+  })(cards[i]);
+  var cols = document.querySelectorAll('#board [data-col]');
+  for (var j=0;j<cols.length;j++) (function(col){
+    col.addEventListener('dragover', function(e){ e.preventDefault(); col.classList.add('over'); });
+    col.addEventListener('dragleave', function(){ col.classList.remove('over'); });
+    col.addEventListener('drop', function(e){
+      e.preventDefault(); col.classList.remove('over');
+      if (!held) return;
+      var id = Number(held.dataset.id), st = col.dataset.col;
+      // ⚠️ В «опубликовано» перетащить МОЖНО, но метку это не заводит —
+      // единица честно светится как брак, пока не пройдёт публикацию
+      api('/factory/piece/' + id + '/status', {method:'POST', body:{status:st}})
+        .then(function(r){ replace(r.piece); renderBoard(); if (r.piece.no_mark) toast('Выложено без метки — открой карточку и опубликуй'); })
+        .catch(function(e){ toast(e.message); });
+    });
+  })(cols[j]);
+}
+
+function replace(p){
+  for (var i=0;i<S.pieces.length;i++) if (S.pieces[i].id === p.id) { S.pieces[i] = p; return; }
+  S.pieces.unshift(p);
+}
+
+/* ── сырьё ──────────────────────────────────────────────────────── */
+function renderRaw(){
+  var q = $('q').value.trim().toLowerCase();
+  var rows = S.raw.filter(function(r){
+    return !q || (r.title || '').toLowerCase().indexOf(q) >= 0 || (r.slug || '').toLowerCase().indexOf(q) >= 0;
+  });
+  if (!rows.length) { $('rawrows').innerHTML = '<div class="empty">Занятий не нашлось.</div>'; return; }
+  $('rawrows').innerHTML = rows.map(function(r){
+    var meta = [];
+    if (r.stream_title) meta.push('Поток «' + esc(r.stream_title) + '»');
+    if (r.duration_minutes) meta.push(r.duration_minutes + ' мин');
+    meta.push(r.insights ? (r.insights + ' мыслей, ' + r.insights_main + ' главных') : 'мыслей нет');
+    if (!r.timecodes) meta.push('таймкодов нет');
+    if (!r.has_transcript) meta.push('транскрипта нет');
+    var pill = r.pieces
+      ? '<span class="pill ok">' + r.pieces + ' ед.</span>'
+      : '<span class="pill warn">не разобрано</span>';
+    return '<div class="row-item"><div class="grow"><div class="t">' + esc(r.title || r.slug) + '</div>' +
+           '<div class="m">' + meta.join(' · ') + '</div></div>' + pill +
+           '<button class="mini" data-new="' + esc(r.slug) + '">Завести единицу</button></div>';
+  }).join('');
+  var btns = $('rawrows').querySelectorAll('[data-new]');
+  for (var i=0;i<btns.length;i++) (function(b){
+    b.addEventListener('click', function(){ openPiece(null, b.dataset.new); });
+  })(btns[i]);
+}
+
+/* ── замыслы ────────────────────────────────────────────────────── */
+function renderIdeas(){
+  if (!S.ideas.length) { $('ideas').innerHTML = '<div class="empty">Пока пусто. Сюда идут гипотезы, идеи съёмок и «повторить текст занятия» — всё, что ещё не работа, но уже намерение.</div>'; return; }
+  $('ideas').innerHTML = S.ideas.map(function(i){
+    var st = i.status === 'open' ? 'копится' : (i.status === 'taken' ? 'взято в работу' : 'отброшено');
+    return '<div class="idea' + (i.status === 'dropped' ? ' done' : '') + '" data-idea="' + i.id + '">' +
+           '<div class="k">' + esc(i.kind_label) + '</div><p>' + esc(i.body) + '</p>' +
+           '<div class="row"><span class="tag">' + st + '</span>' +
+           (i.lecture_slug ? '<span class="tag">' + esc(i.lecture_slug) + '</span>' : '') + '</div></div>';
+  }).join('');
+  var cards = $('ideas').querySelectorAll('[data-idea]');
+  for (var i=0;i<cards.length;i++) (function(c){
+    c.addEventListener('click', function(){ openIdea(Number(c.dataset.idea)); });
+  })(cards[i]);
+}
+
+/* ── числа ──────────────────────────────────────────────────────── */
+function renderStats(){
+  if (!STATS) { $('statsbox').innerHTML = '<div class="empty">Считаю…</div>'; return; }
+  var max = 1;
+  for (var i=0;i<STATS.series.length;i++) if (STATS.series[i].count > max) max = STATS.series[i].count;
+  var bars = STATS.series.map(function(d){
+    return '<i class="' + (d.low ? 'low' : '') + '" style="height:' + Math.round(d.count * 100 / max) + '%"></i>';
+  }).join('');
+  var days = STATS.series.map(function(d){ return '<span>' + d.date.slice(8) + '</span>'; }).join('');
+  var srcRows = (STATS.sources || []).slice(0, 12).map(function(s){
+    return '<div class="row-item"><div class="grow"><div class="t">' + esc(s.title || s.code) + '</div>' +
+           '<div class="m">метка ' + esc(s.code) + '</div></div>' +
+           '<span class="pill">' + s.came + ' пришло</span><span class="pill ok">' + s.paid + ' оплат</span></div>';
+  }).join('');
+
+  $('statsbox').innerHTML =
+    '<div class="stats">' +
+      '<div class="stat"><b>' + STATS.published_period + '</b><span>выложено за 30 дней</span></div>' +
+      '<div class="stat"><b>' + STATS.in_queue + '</b><span>в очереди</span></div>' +
+      '<div class="stat' + (STATS.no_mark ? ' alert' : '') + '"><b>' + STATS.no_mark + '</b><span>выложено без метки</span></div>' +
+      '<div class="stat' + (STATS.lectures_unworked ? ' alert' : '') + '"><b>' + STATS.lectures_unworked + '</b><span>занятий без единиц</span></div>' +
+    '</div>' +
+    '<div class="chart"><h3>Выложено по дням</h3>' +
+      '<div class="sub">Серым — дни ниже нормы в ' + STATS.norm + ' единиц</div>' +
+      '<div class="bars">' + bars + '</div><div class="days">' + days + '</div></div>' +
+    (srcRows ? '<div class="chart"><h3>Отдача по меткам завода</h3>' +
+      '<div class="sub">Переходы по диплинкам в системе пока не считаются — здесь то, что можно посчитать без вранья</div>' +
+      '<div class="rows">' + srcRows + '</div></div>' : '') +
+    '<div class="chart"><h3>Правила производства</h3>' +
+      '<div class="sub">Появилось занятие — заготовки по правилам возникают в очереди сами</div>' +
+      '<div id="rules"></div>' +
+      '<div class="wbtns"><button class="ghost" id="addrule">Новое правило</button>' +
+      '<button class="primary" id="gen">Прогнать по библиотеке</button></div></div>';
+
+  renderRules();
+  $('addrule').addEventListener('click', function(){ openRule(); });
+  $('gen').addEventListener('click', generate);
+}
+
+function renderRules(){
+  var box = $('rules');
+  if (!box) return;
+  if (!S.rules.length) { box.innerHTML = '<div class="empty">Правил нет. Пока их нет, очередь наполняется только руками.</div>'; return; }
+  box.innerHTML = S.rules.map(function(r){
+    return '<div class="rule-row"><div class="grow">' + esc(r.title_tpl) + '</div>' +
+           '<span class="tag pl">' + esc(label(S.dict.formats, r.fmt)) + '</span>' +
+           '<span class="tag">' + esc(label(S.dict.platforms, r.platform)) + '</span>' +
+           '<span class="tag">' + (r.stream_key ? 'поток ' + esc(r.stream_key) : 'все занятия') + '</span>' +
+           '<button class="mini" data-rule="' + r.id + '">Править</button>' +
+           '<button class="mini danger" data-rmrule="' + r.id + '">Убрать</button></div>';
+  }).join('');
+  var ed = box.querySelectorAll('[data-rule]');
+  for (var i=0;i<ed.length;i++) (function(b){ b.addEventListener('click', function(){ openRule(Number(b.dataset.rule)); }); })(ed[i]);
+  var rm = box.querySelectorAll('[data-rmrule]');
+  for (var j=0;j<rm.length;j++) (function(b){
+    b.addEventListener('click', function(){
+      api('/factory/rule/' + b.dataset.rmrule, {method:'DELETE'}).then(function(){
+        S.rules = S.rules.filter(function(r){ return r.id !== Number(b.dataset.rmrule); });
+        renderRules();
+      }).catch(function(e){ toast(e.message); });
+    });
+  })(rm[j]);
+}
+
+// ⚠️ Прогон СНАЧАЛА СУХОЙ: показывает, сколько карточек придёт, и только
+// потом заводит. Двести штук, свалившихся в очередь без предупреждения,
+// — это не помощь
+function generate(){
+  api('/factory/generate', {method:'POST', body:{dry_run:true, only_unworked:true}})
+    .then(function(d){
+      if (!d.planned) { toast(d.note || 'Новых заготовок не набралось'); return; }
+      openWin('<h2>Прогон правил</h2><div class="lead">Придёт ' + d.planned + ' заготовок в статусе «Идея»</div>' +
+        '<div class="rows">' + d.items.slice(0,6).map(function(it){
+          return '<div class="row-item"><div class="grow"><div class="t">' + esc(it.title) + '</div>' +
+                 '<div class="m">' + esc(it.lecture_slug) + '</div></div></div>';
+        }).join('') + '</div>' +
+        (d.planned > 6 ? '<div class="note">…и ещё ' + (d.planned - 6) + '</div>' : '') +
+        '<div class="note">Отброшенное раньше не вернётся: отказ помнится навсегда.</div>' +
+        '<div class="wbtns"><button class="ghost" data-x="close">Отмена</button><div class="spacer"></div>' +
+        '<button class="primary" data-x="gen-go">Завести ' + d.planned + '</button></div>');
+    })
+    .catch(function(e){ toast(e.message); });
+}
+
+/* ── окна ───────────────────────────────────────────────────────── */
+function openWin(html){
+  $('win').innerHTML = html;
+  $('veil').classList.add('on');
+  var btns = $('win').querySelectorAll('[data-x]');
+  for (var i=0;i<btns.length;i++) (function(b){ b.addEventListener('click', function(){ act(b.dataset.x); }); })(btns[i]);
+}
+function closeWin(){ $('veil').classList.remove('on'); $('win').innerHTML = ''; }
+$('veil').addEventListener('click', function(e){ if (e.target === $('veil')) closeWin(); });
+
+function opts(list, sel){
+  return list.map(function(o){
+    return '<option value="' + esc(o.key) + '"' + (o.key === sel ? ' selected' : '') + '>' + esc(o.label) + '</option>';
+  }).join('');
+}
+function pieceById(id){
+  for (var i=0;i<S.pieces.length;i++) if (S.pieces[i].id === id) return S.pieces[i];
+  return null;
+}
+
+var EDIT = null;
+
+function openPiece(id, slug){
+  var p = id ? pieceById(id) : null;
+  EDIT = p;
+  var title = p ? 'Единица' : 'Новая единица';
+  openWin('<h2>' + title + '</h2>' +
+    (p ? '<div class="lead">' + esc(p.fmt_label) + ' · ' + esc(p.platform_label) + (p.source_code ? ' · метка ' + esc(p.source_code) : '') + '</div>' : '<div class="lead">Одна публикация на одной площадке</div>') +
+    '<div class="field"><label>Название</label><input id="f-title" value="' + esc(p ? p.title : '') + '"></div>' +
+    '<div class="two">' +
+      '<div class="field"><label>Формат</label><select id="f-fmt">' + opts(S.dict.formats, p ? p.fmt : 'video_short') + '</select></div>' +
+      '<div class="field"><label>Площадка</label><select id="f-pl">' + opts(S.dict.platforms, p ? p.platform : 'tg') + '</select></div>' +
+    '</div>' +
+    '<div class="two">' +
+      '<div class="field"><label>Ключ занятия</label><input id="f-slug" value="' + esc(p ? p.lecture_slug : (slug || '')) + '"></div>' +
+      '<div class="field"><label>Таймкод</label><input id="f-tc" value="' + esc(p ? p.timecode : '') + '" placeholder="14:20"></div>' +
+    '</div>' +
+    '<div class="field"><label>Сценарий или заметка</label><textarea id="f-note">' + esc(p ? p.note : '') + '</textarea></div>' +
+    '<div class="wbtns">' +
+      (p ? '<button class="ghost danger" data-x="drop">Отбросить</button>' : '') +
+      (p ? '<button class="ghost" data-x="spread">По площадкам</button>' : '') +
+      '<div class="spacer"></div>' +
+      (p && p.status !== 'published' ? '<button class="ghost" data-x="publish">Опубликовать</button>' : '') +
+      (p && p.no_mark ? '<button class="ghost" data-x="publish">Завести метку</button>' : '') +
+      '<button class="primary" data-x="save">Сохранить</button>' +
+    '</div>');
+}
+
+function openPublish(){
+  var p = EDIT;
+  if (!p) return;
+  var today = new Date().toISOString().slice(0,10);
+  openWin('<h2>Публикация</h2>' +
+    '<div class="lead">Отметить выложенным и завести метку атрибуции одним движением</div>' +
+    '<div class="field"><label>Ссылка на публикацию</label><input id="f-url" value="' + esc(p.url) + '" placeholder="https://"></div>' +
+    '<div class="two">' +
+      '<div class="field"><label>Метка (пусто — соберу сам)</label><input id="f-code" value="' + esc(p.source_code) + '"></div>' +
+      '<div class="field"><label>Дата</label><input id="f-date" value="' + (p.published_at || today) + '"></div>' +
+    '</div>' +
+    '<div class="note">Метка едет в диплинк, поэтому в ней только латиница, цифры, дефис и подчёркивание. Существующий код чужой единицей не перезаписывается.</div>' +
+    '<div class="wbtns"><button class="ghost" data-x="back">Назад</button><div class="spacer"></div>' +
+    '<button class="primary" data-x="pub-go">Опубликовать</button></div>');
+}
+
+function openSpread(){
+  var p = EDIT;
+  if (!p) return;
+  var list = S.dict.platforms.filter(function(pl){ return pl.key !== p.platform; });
+  openWin('<h2>Разложить по площадкам</h2>' +
+    '<div class="lead">Одна работа — несколько единиц, у каждой своя метка</div>' +
+    '<div class="plist">' + list.map(function(pl){
+      return '<label class="pchk"><input type="checkbox" value="' + esc(pl.key) + '"> ' + esc(pl.label) + '</label>';
+    }).join('') + '</div>' +
+    '<div class="wbtns"><button class="ghost" data-x="back">Назад</button><div class="spacer"></div>' +
+    '<button class="primary" data-x="spread-go">Создать</button></div>');
+}
+
+function openIdea(id){
+  var it = null;
+  for (var i=0;i<S.ideas.length;i++) if (S.ideas[i].id === id) it = S.ideas[i];
+  EDIT = it;
+  openWin('<h2>' + (it ? 'Замысел' : 'Новый замысел') + '</h2>' +
+    '<div class="lead">Гипотеза, идея съёмки, «повторить текст занятия»</div>' +
+    '<div class="field"><label>Вид</label><select id="i-kind">' + opts(S.dict.idea_kinds, it ? it.kind : 'hypothesis') + '</select></div>' +
+    '<div class="field"><label>Своими словами</label><textarea id="i-body">' + esc(it ? it.body : '') + '</textarea></div>' +
+    '<div class="field"><label>Ключ занятия, если есть</label><input id="i-slug" value="' + esc(it ? it.lecture_slug : '') + '"></div>' +
+    '<div class="wbtns">' +
+      (it ? '<button class="ghost danger" data-x="idea-drop">Отбросить</button>' : '') +
+      '<div class="spacer"></div>' +
+      (it ? '<button class="ghost" data-x="idea-take">Взять в работу</button>' : '') +
+      '<button class="primary" data-x="idea-save">Сохранить</button>' +
+    '</div>');
+}
+
+function openRule(id){
+  var r = null;
+  for (var i=0;i<S.rules.length;i++) if (S.rules[i].id === id) r = S.rules[i];
+  EDIT = r;
+  openWin('<h2>' + (r ? 'Правило' : 'Новое правило') + '</h2>' +
+    '<div class="lead">«На каждое занятие — рилс в Телеграм»</div>' +
+    '<div class="field"><label>Заголовок заготовки</label><input id="r-tpl" value="' + esc(r ? r.title_tpl : '{title}') + '"><div class="note">{title} подставит название занятия</div></div>' +
+    '<div class="two">' +
+      '<div class="field"><label>Формат</label><select id="r-fmt">' + opts(S.dict.formats, r ? r.fmt : 'video_short') + '</select></div>' +
+      '<div class="field"><label>Площадка</label><select id="r-pl">' + opts(S.dict.platforms, r ? r.platform : 'tg') + '</select></div>' +
+    '</div>' +
+    '<div class="field"><label>Только поток (пусто — все занятия)</label><input id="r-stream" value="' + esc(r ? r.stream_key : '') + '"></div>' +
+    '<div class="wbtns"><button class="ghost" data-x="close">Отмена</button><div class="spacer"></div>' +
+    '<button class="primary" data-x="rule-save">Сохранить</button></div>');
+}
+
+function openFilters(){
+  openWin('<h2>Отбор</h2><div class="lead">Пусто — значит все</div>' +
+    '<div class="two">' +
+      '<div class="field"><label>Площадка</label><select id="x-pl"><option value="">Все</option>' + opts(S.dict.platforms, FILTERS.platform) + '</select></div>' +
+      '<div class="field"><label>Формат</label><select id="x-fmt"><option value="">Все</option>' + opts(S.dict.formats, FILTERS.fmt) + '</select></div>' +
+    '</div>' +
+    '<div class="field"><label>Состояние</label><select id="x-mark">' +
+      '<option value="">Любое</option><option value="no"' + (FILTERS.mark === 'no' ? ' selected' : '') + '>Ждут метку</option>' +
+    '</select></div>' +
+    '<div class="wbtns"><button class="ghost" data-x="filters-clear">Сбросить</button><div class="spacer"></div>' +
+    '<button class="primary" data-x="filters-go">Применить</button></div>');
+}
+
+/* ── действия окон ──────────────────────────────────────────────── */
+function act(what){
+  if (what === 'close') { closeWin(); return; }
+  if (what === 'back') { openPiece(EDIT ? EDIT.id : null); return; }
+
+  if (what === 'save') {
+    var body = {
+      id: EDIT ? EDIT.id : null,
+      title: $('f-title').value,
+      note: $('f-note').value,
+      fmt: $('f-fmt').value,
+      platform: $('f-pl').value,
+      status: EDIT ? EDIT.status : 'idea',
+      lecture_slug: $('f-slug').value.trim(),
+      timecode: $('f-tc').value.trim()
+    };
+    api('/factory/piece', {method:'POST', body:body})
+      .then(function(r){ replace(r.piece); closeWin(); renderBoard(); toast('Сохранено'); })
+      .catch(function(e){ toast(e.message); });
+    return;
+  }
+  if (what === 'publish') { openPublish(); return; }
+  if (what === 'pub-go') {
+    api('/factory/piece/' + EDIT.id + '/publish', {method:'POST', body:{
+      url: $('f-url').value.trim(), code: $('f-code').value.trim(), published_at: $('f-date').value.trim()
+    }}).then(function(r){
+      replace(r.piece); renderBoard();
+      openWin('<h2>Выложено</h2><div class="lead">Метка ' + esc(r.piece.source_code) + ' заведена в источниках</div>' +
+        '<button class="copy" data-x="copy" data-link="' + esc(r.deeplink) + '">' + esc(r.deeplink) + '</button>' +
+        '<div class="note">Нажми, чтобы скопировать.</div>' +
+        '<div class="wbtns"><div class="spacer"></div><button class="primary" data-x="close">Готово</button></div>');
+    }).catch(function(e){ toast(e.message); });
+    return;
+  }
+  if (what === 'copy') {
+    var link = $('win').querySelector('[data-link]').dataset.link;
+    if (navigator.clipboard) navigator.clipboard.writeText(link);
+    toast('Ссылка скопирована');
+    return;
+  }
+  if (what === 'spread') { openSpread(); return; }
+  if (what === 'spread-go') {
+    var picked = [];
+    var boxes = $('win').querySelectorAll('input[type=checkbox]');
+    for (var i=0;i<boxes.length;i++) if (boxes[i].checked) picked.push(boxes[i].value);
+    if (!picked.length) { toast('Ни одной площадки не выбрано'); return; }
+    api('/factory/piece/' + EDIT.id + '/spread', {method:'POST', body:{platforms:picked}})
+      .then(function(r){
+        for (var j=0;j<r.created.length;j++) S.pieces.unshift(r.created[j]);
+        closeWin(); renderBoard();
+        toast(r.created.length ? ('Создано: ' + r.created.length) : 'Такие единицы уже есть');
+      }).catch(function(e){ toast(e.message); });
+    return;
+  }
+  if (what === 'drop') {
+    api('/factory/piece/' + EDIT.id, {method:'DELETE'})
+      .then(function(r){ replace(r.piece); closeWin(); renderBoard(); toast('Отброшено'); })
+      .catch(function(e){ toast(e.message); });
+    return;
+  }
+
+  if (what === 'idea-save') {
+    api('/factory/idea', {method:'POST', body:{
+      id: EDIT ? EDIT.id : null, kind: $('i-kind').value, body: $('i-body').value,
+      lecture_slug: $('i-slug').value.trim(), status: EDIT ? EDIT.status : 'open'
+    }}).then(function(r){
+      var found = false;
+      for (var i=0;i<S.ideas.length;i++) if (S.ideas[i].id === r.idea.id) { S.ideas[i] = r.idea; found = true; }
+      if (!found) S.ideas.unshift(r.idea);
+      closeWin(); renderIdeas(); head();
+    }).catch(function(e){ toast(e.message); });
+    return;
+  }
+  if (what === 'idea-take') {
+    api('/factory/idea/' + EDIT.id + '/take', {method:'POST', body:{title:'', fmt:'', platform:'tg'}})
+      .then(function(r){
+        S.pieces.unshift(r.piece);
+        for (var i=0;i<S.ideas.length;i++) if (S.ideas[i].id === r.idea.id) S.ideas[i] = r.idea;
+        closeWin(); renderIdeas(); renderBoard(); toast('Единица заведена в очереди');
+      }).catch(function(e){ toast(e.message); });
+    return;
+  }
+  if (what === 'idea-drop') {
+    api('/factory/idea/' + EDIT.id, {method:'DELETE'})
+      .then(function(r){
+        for (var i=0;i<S.ideas.length;i++) if (S.ideas[i].id === r.idea.id) S.ideas[i] = r.idea;
+        closeWin(); renderIdeas(); head();
+      }).catch(function(e){ toast(e.message); });
+    return;
+  }
+
+  if (what === 'rule-save') {
+    api('/factory/rule', {method:'POST', body:{
+      id: EDIT ? EDIT.id : null, title_tpl: $('r-tpl').value, fmt: $('r-fmt').value,
+      platform: $('r-pl').value, stream_key: $('r-stream').value.trim(), active: true
+    }}).then(function(r){
+      var found = false;
+      for (var i=0;i<S.rules.length;i++) if (S.rules[i].id === r.rule.id) { S.rules[i] = r.rule; found = true; }
+      if (!found) S.rules.push(r.rule);
+      closeWin(); renderRules();
+    }).catch(function(e){ toast(e.message); });
+    return;
+  }
+  if (what === 'gen-go') {
+    api('/factory/generate', {method:'POST', body:{dry_run:false, only_unworked:true}})
+      .then(function(d){ closeWin(); toast('Заведено: ' + d.created); return load(); })
+      .catch(function(e){ toast(e.message); });
+    return;
+  }
+
+  if (what === 'filters-go') {
+    FILTERS = {platform:$('x-pl').value, fmt:$('x-fmt').value, mark:$('x-mark').value};
+    applyFilterCount(); closeWin(); renderBoard();
+    return;
+  }
+  if (what === 'filters-clear') {
+    FILTERS = {platform:'', fmt:'', mark:''};
+    applyFilterCount(); closeWin(); renderBoard();
+    return;
+  }
+}
+
+// ⚠️ Счётчик считает ВЫБРАННОЕ, а не «панель открыта»: в макете он врал
+function applyFilterCount(){
+  var n = 0;
+  if (FILTERS.platform) n++;
+  if (FILTERS.fmt) n++;
+  if (FILTERS.mark) n++;
+  $('fcount').textContent = n;
+}
+
+$('fbtn').addEventListener('click', openFilters);
+$('newbtn').addEventListener('click', function(){ openPiece(null); });
+$('newidea').addEventListener('click', function(){ openIdea(null); });
+
+if (KEY) load();
+</script>
+</body>
+</html>
