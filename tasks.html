@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: tasks-v13 -->
+<!-- FILE_VERSION: tasks-v14 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -416,6 +416,35 @@ h1::before{
   .pin-pad{grid-template-columns:repeat(3,64px);gap:12px}
   .pin-btn{width:64px;height:64px}
 }
+
+/* ОКНО РАЗГОВОРА С ПАРТНЁРОМ. Тот же разговор, что в боте: реплики общие,
+   память общая. Открыл доску, спросил — вечером в Telegram он это помнит */
+.bp-fab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));
+  width:54px;height:54px;border-radius:50%;border:none;z-index:60;
+  background:linear-gradient(135deg,var(--lav),var(--lav-deep));color:#fff;
+  font-family:var(--body);font-weight:700;font-size:15px;
+  box-shadow:0 10px 24px -8px rgba(155,140,242,.7)}
+.bp-fab:active{transform:scale(.94)}
+.bp-wrap{position:fixed;inset:0;z-index:70;display:none;flex-direction:column;
+  background:var(--bg);padding-top:env(safe-area-inset-top)}
+.bp-wrap.open{display:flex}
+.bp-head{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;border-bottom:1px solid var(--surface2)}
+.bp-title{font-weight:700;font-size:15px}
+.bp-close{background:none;border:none;color:var(--text-dim);font-size:22px;padding:4px 8px}
+.bp-log{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.bp-msg{max-width:84%;padding:10px 13px;border-radius:16px;font-size:14px;line-height:1.45;
+  white-space:pre-wrap;word-wrap:break-word}
+.bp-msg.me{align-self:flex-end;background:linear-gradient(135deg,var(--lav),var(--lav-deep));color:#fff}
+.bp-msg.him{align-self:flex-start;background:var(--stat-bg)}
+[data-theme="light"] .bp-msg.him{background:var(--bg);box-shadow:var(--sh-r)}
+.bp-msg.wait{opacity:.6;font-style:italic}
+.bp-bar{display:flex;gap:8px;padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+  border-top:1px solid var(--surface2)}
+.bp-input{flex:1;padding:12px 14px;border-radius:14px;border:1px solid var(--surface2);
+  background:var(--stat-bg);color:var(--text);font-family:var(--body);font-size:15px}
+.bp-send{padding:0 18px;border-radius:14px;border:none;font-weight:600;
+  background:linear-gradient(135deg,var(--lav),var(--lav-deep));color:#fff}
 </style>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
@@ -427,6 +456,20 @@ h1::before{
 <!-- ⚠️ ЭКРАН ДЛЯ СЛУЧАЙНОГО ЧЕЛОВЕКА. Бот публичный, кнопку приложения
      увидит любой, кто на него наткнётся. Вместо отказа отдаём фильм —
      решение Denis'а 05.09.2026: превратить утечку в верх воронки -->
+<button class="bp-fab" id="bp-fab" onclick="bpOpen()" title="Спросить партнёра">БП</button>
+<div class="bp-wrap" id="bp-wrap">
+  <div class="bp-head">
+    <div class="bp-title">Партнёр</div>
+    <button class="bp-close" onclick="bpClose()">&times;</button>
+  </div>
+  <div class="bp-log" id="bp-log"></div>
+  <div class="bp-bar">
+    <input class="bp-input" id="bp-input" placeholder="Спросить или поручить"
+           onkeydown="if(event.key==='Enter')bpSend()">
+    <button class="bp-send" onclick="bpSend()">→</button>
+  </div>
+</div>
+
 <div class="pin-screen hidden" id="stray-screen">
   <div class="pin-logo">БП</div>
   <div class="pin-title" style="text-align:center;padding:0 32px;line-height:1.5">
@@ -1412,6 +1455,61 @@ async function bootGate(){
        доска покажет Denis'у чужой экран при первом же обрыве связи */
     showPin();
   }
+}
+/* РАЗГОВОР С ПАРТНЁРОМ ИЗ ДОСКИ.
+   ⚠️ Ответ может идти долго: партнёр иногда лезет в код и в интернет, а это
+   минуты. Поэтому предел ждём большой, а в окне держим строку «думает» —
+   пустое окно люди принимают за поломку и жмут ещё раз. */
+let bpBusy = false;
+function bpAdd(text, кто){
+  const log = document.getElementById('bp-log');
+  const d = document.createElement('div');
+  d.className = 'bp-msg ' + кто;
+  d.textContent = text;
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+  return d;
+}
+async function bpOpen(){
+  document.getElementById('bp-wrap').classList.add('open');
+  const log = document.getElementById('bp-log');
+  if (log.children.length) return;
+  try {
+    const r = await fetch(API + '/partner/chat/history?limit=20&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    const data = await r.json();
+    (data.реплики || []).forEach(function(t){
+      bpAdd(t.text, t.role === 'user' ? 'me' : 'him');
+    });
+    if (!log.children.length) bpAdd('Спроси что-нибудь или поручи дело.', 'him');
+  } catch(e) { bpAdd('История не загрузилась.', 'him'); }
+}
+function bpClose(){ document.getElementById('bp-wrap').classList.remove('open'); }
+async function bpSend(){
+  if (bpBusy) return;
+  const input = document.getElementById('bp-input');
+  const текст = (input.value || '').trim();
+  if (!текст) return;
+  input.value = '';
+  bpAdd(текст, 'me');
+  bpBusy = true;
+  const ждём = bpAdd('думает…', 'him wait');
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(function(){ ctrl.abort(); }, 300000);
+    const r = await fetch(API + '/partner/chat?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ text: текст }), signal: ctrl.signal
+    });
+    clearTimeout(t);
+    const data = await r.json().catch(function(){ return {}; });
+    ждём.remove();
+    bpAdd(data.text || data.detail || 'Пусто в ответ.', 'him');
+    /* Мог завести задачу или закрыть — обновим доску, чтобы это было видно */
+    if (typeof loadAll === 'function') loadAll();
+  } catch(e) {
+    ждём.remove();
+    bpAdd(e.name === 'AbortError' ? 'Ответ не пришёл за пять минут.' : 'Связь оборвалась.', 'him');
+  } finally { bpBusy = false; }
 }
 bootGate();
 </script>
