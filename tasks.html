@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: tasks-v12 -->
+<!-- FILE_VERSION: tasks-v13 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -417,11 +417,28 @@ h1::before{
   .pin-btn{width:64px;height:64px}
 }
 </style>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
 
 
 <div class="rays" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+
+<!-- ⚠️ ЭКРАН ДЛЯ СЛУЧАЙНОГО ЧЕЛОВЕКА. Бот публичный, кнопку приложения
+     увидит любой, кто на него наткнётся. Вместо отказа отдаём фильм —
+     решение Denis'а 05.09.2026: превратить утечку в верх воронки -->
+<div class="pin-screen hidden" id="stray-screen">
+  <div class="pin-logo">БП</div>
+  <div class="pin-title" style="text-align:center;padding:0 32px;line-height:1.5">
+    Здесь ничего интересного.<br>А вот это стоит посмотреть.
+  </div>
+  <a class="linky" id="stray-link" href="https://t.me/youselllikeagod_bot/app?startapp=film"
+     style="margin-top:6px;padding:13px 26px;border-radius:99px;font-weight:600;
+            background:linear-gradient(135deg,var(--lav),var(--lav-deep));color:#fff;
+            text-decoration:none;box-shadow:0 8px 20px -6px rgba(155,140,242,0.6)">
+    Смотреть фильм
+  </a>
+</div>
 
 <div class="pin-screen" id="pin-screen">
   <div class="rays" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
@@ -1347,12 +1364,56 @@ document.addEventListener('keydown', function(e){
   else if (e.key === 'Backspace') pinKey('del');
   else if (e.key === 'Escape') pinKey('clear');
 });
-(function(){
+/* ВХОД: ДВА ПУТИ.
+   В Telegram — подписанные данные запуска: сервер проверяет подпись токеном
+   бота, подделать нельзя, пин не нужен. В обычном браузере подписи нет,
+   там остаётся пин, как было.
+   ⚠️ SDK ГРУЗИТСЯ С telegram.org, А ОН ИЗ РОССИИ ОТВЕЧАЕТ НЕ ВСЕГДА. Ровно
+   на этом обожглись 15.08: приложение считало человека неузнанным и просило
+   номер ВНУТРИ Telegram. Поэтому ждём SDK с пределом и при молчании тихо
+   уходим на пин, а не показываем пустой экран. */
+function showStray(url){
+  if (url) document.getElementById('stray-link').href = url;
+  document.getElementById('pin-screen').classList.add('hidden');
+  document.getElementById('stray-screen').classList.remove('hidden');
+}
+function showPin(){
+  document.getElementById('pin-screen').classList.remove('hidden');
+}
+async function bootGate(){
   if (ADMIN_TOKEN){
     document.getElementById('pin-screen').classList.add('hidden');
     loadAll();
+    return;
   }
-})();
+  const tg = window.Telegram && window.Telegram.WebApp;
+  if (!tg || !tg.initData){ showPin(); return; }
+  try { tg.ready(); tg.expand(); } catch(e) {}
+  try { if (tg.setHeaderColor) tg.setHeaderColor('secondary_bg_color'); } catch(e) {}
+  document.getElementById('pin-screen').classList.add('hidden');
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(function(){ ctrl.abort(); }, 12000);
+    const r = await fetch(API + '/partner/gate', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ init_data: tg.initData }), signal: ctrl.signal
+    });
+    clearTimeout(t);
+    const data = await r.json().catch(function(){ return {}; });
+    if (data.ok && data.token){
+      ADMIN_TOKEN = data.token;
+      try { sessionStorage.setItem(ADMIN_TOKEN_KEY, data.token); } catch(e) {}
+      loadAll();
+    } else {
+      showStray(data.film);
+    }
+  } catch(e) {
+    /* Сеть подвела — это не «чужой». Отдаём пин, а не фильм: иначе своя же
+       доска покажет Denis'у чужой экран при первом же обрыве связи */
+    showPin();
+  }
+}
+bootGate();
 </script>
 </body>
 </html>
