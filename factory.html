@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: factory_page-v3 -->
+<!-- FILE_VERSION: factory_page-v4 -->
 <html lang="ru">
 <head>
 <meta charset="utf-8">
@@ -187,6 +187,7 @@ h1,h2,h3{margin:0}
 .tag.pl{background:var(--accentSoft);color:var(--accent);box-shadow:var(--shTag)}
 .tag.auto{background:var(--okSoft);color:var(--ok)}
 .tag.no-mark{background:var(--warnSoft);color:var(--warn)}
+.tag.warnish{background:var(--accentSoft);color:var(--accent)}
 .rows{display:flex;flex-direction:column;gap:10px;padding:0 24px 28px;max-width:900px}
 .row-item{display:flex;align-items:center;gap:16px;padding:15px 18px;border-radius:18px;background:var(--cardBg);border:1px solid var(--cardBd);box-shadow:var(--shCard);flex-wrap:wrap}
 .row-item .grow{flex:1;min-width:160px}
@@ -203,7 +204,7 @@ h1,h2,h3{margin:0}
 .idea p{margin:8px 0 0;font:400 13.5px/1.5 Onest;color:var(--ink);text-wrap:pretty}
 .idea.done{background:var(--mutedCardBg);border-color:var(--chipBg);box-shadow:none}
 .idea.done .k,.idea.done p{color:var(--muted)}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
 .stat{padding:18px;border-radius:20px;background:var(--cardBg);border:1px solid var(--cardBd)}
 .stat b{display:block;font:700 32px/1.1 Onest;color:var(--ink);letter-spacing:-.02em}
 .stat span{font:400 12.5px/1.3 Onest;color:var(--muted)}
@@ -508,6 +509,7 @@ function cardHtml(p){
   var tags = '<span class="tag pl">' + esc(p.fmt_label) + '</span>';
   if (p.status !== 'published') tags += '<span class="tag">' + esc(p.platform_label) + '</span>';
   if (p.auto) tags += '<span class="tag auto">заведено само</span>';
+  if (p.pending_post) tags += '<span class="tag warnish">забрал, не выложил</span>';
   if (p.no_mark) tags += '<span class="tag no-mark">без метки</span>';
   else if (p.source_code) tags += '<span class="tag">метка ' + esc(p.source_code) + '</span>';
   return '<div class="card' + (p.no_mark ? ' flag' : '') + '" draggable="true" data-id="' + p.id + '">' +
@@ -629,6 +631,7 @@ function renderStats(){
       '<div class="stat"><b>' + STATS.published_period + '</b><span>выложено за 30 дней</span></div>' +
       '<div class="stat"><b>' + STATS.in_queue + '</b><span>в очереди</span></div>' +
       '<div class="stat' + (STATS.no_mark ? ' alert' : '') + '"><b>' + STATS.no_mark + '</b><span>выложено без метки</span></div>' +
+      '<div class="stat"><b>' + (STATS.pending_post || 0) + '</b><span>забрал, не выложил</span></div>' +
       '<div class="stat' + (STATS.lectures_unworked ? ' alert' : '') + '"><b>' + STATS.lectures_unworked + '</b><span>занятий без единиц</span></div>' +
     '</div>' +
     '<div class="chart"><h3>Выложено по дням</h3>' +
@@ -758,6 +761,16 @@ function openPiece(id, slug){
     '<div class="field"><label>Сценарий или заметка</label><textarea id="f-note">' + esc(p ? p.note : '') + '</textarea></div>' +
     (p ? '<div class="wbtns"><button class="mini" data-x="draft">Написать черновик</button>' +
          '<span class="note" style="margin:0">по занятию и сути, тем же ключом, что игры</span></div>' : '') +
+    (p && p.status !== 'published' ?
+      '<div class="field"><label>Выкладка руками</label>' +
+      '<div class="wbtns" style="margin-top:0">' +
+        '<button class="mini" data-x="taken">' + (p.taken ? 'Забрал ✓' : 'Забрал файл') + '</button>' +
+        '<button class="mini" data-x="publish">Выложил</button>' +
+      '</div>' +
+      // ⚠️ На айфоне видео не «скачивается» кнопкой: Safari откроет его
+      // плеером, сохранять надо через «Поделиться». Честная подпись лучше
+      // кнопки, которая делает не то
+      '<div class="note">На телефоне файл открывается плеером — сохранить через «Поделиться». Ссылку при публикации можно не заполнять.</div></div>' : '') +
     '<div class="wbtns">' +
       (p ? '<button class="ghost danger" data-x="drop">Отбросить</button>' : '') +
       (p ? '<button class="ghost" data-x="spread">По площадкам</button>' : '') +
@@ -774,7 +787,7 @@ function openPublish(){
   var today = new Date().toISOString().slice(0,10);
   openWin('<h2>Публикация</h2>' +
     '<div class="lead">Отметить выложенным и завести метку атрибуции одним движением</div>' +
-    '<div class="field"><label>Ссылка на публикацию</label><input id="f-url" value="' + esc(p.url) + '" placeholder="https://"></div>' +
+    '<div class="field"><label>Ссылка на публикацию — можно не заполнять</label><input id="f-url" value="' + esc(p.url) + '" placeholder="появится позже"></div>' +
     '<div class="two">' +
       '<div class="field"><label>Метка (пусто — соберу сам)</label><input id="f-code" value="' + esc(p.source_code) + '"></div>' +
       '<div class="field"><label>Дата</label><input id="f-date" value="' + (p.published_at || today) + '"></div>' +
@@ -880,6 +893,13 @@ function act(what){
         return api('/factory/piece/' + EDIT.id + '/draft', {method:'POST', body:{save:true}}); })
       .then(function(r){ replace(r.piece); EDIT = r.piece; openPiece(EDIT.id); renderBoard(); toast('Черновик готов'); })
       .catch(function(e){ toast(e.message); if (btn) { btn.textContent = 'Написать черновик'; btn.disabled = false; } });
+    return;
+  }
+  if (what === 'taken') {
+    api('/factory/piece/' + EDIT.id + '/taken', {method:'POST', body:{taken: !EDIT.taken}})
+      .then(function(r){ replace(r.piece); EDIT = r.piece; openPiece(EDIT.id); renderBoard();
+        toast(r.piece.taken ? 'Отмечено: файл на телефоне' : 'Отметка снята'); })
+      .catch(function(e){ toast(e.message); });
     return;
   }
   if (what === 'publish') { openPublish(); return; }
