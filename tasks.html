@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: tasks-v14 -->
+<!-- FILE_VERSION: tasks-v15 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -891,8 +891,14 @@ function render(){
    способ бросить отмечать вообще. У таких целей плюсика нет вовсе.
 
    ⚠️ ЦЕЛИ НЕ ВХОДЯТ В КОЛЬЦО ПРОГРЕССА. Кольцо про весь путь, цели про сегодня. */
-const GOAL_NAMES = { sends:'Рассылки', clients:'Клиенты', posts:'Посты', arch:'Задачи по архитектуре' };
-const GOAL_ORDER = ['sends','clients','posts','arch'];
+/* ⚠️ ПОРЯДОК = ВОРОНКА СВЕРХУ ВНИЗ: рассылки → лиды → клиенты. Так видно,
+   на каком шаге теряется, а не просто четыре числа в столбик.
+   ⚠️ «Клиенты» — только НОВЫЕ платящие. Продления идут отдельной строкой и
+   БЕЗ нормы: это не цель, а признак здоровья базы (05.09.2026) */
+const GOAL_NAMES = { sends:'Рассылки', leads:'Лиды', clients:'Клиенты новые',
+                     posts:'Посты', arch:'Задачи по архитектуре',
+                     renewals:'Продления' };
+const GOAL_ORDER = ['sends','leads','clients','posts','arch','renewals'];
 let GOALS = null;
 
 async function loadGoals(){
@@ -1009,8 +1015,10 @@ function renderGoals(){
   (GOALS['история'] || []).forEach(function(row){ поДням[row['день']] = row; });
   const история = chartDays(14).map(function(d){
     const row = поДням[d] || {};
-    return { 'день': d, sends: row.sends || 0, clients: row.clients || 0,
-             posts: row.posts || 0, arch: row.arch || 0, 'пусто': !поДням[d] };
+    return { 'день': d, sends: row.sends || 0, leads: row.leads || 0,
+             clients: row.clients || 0, posts: row.posts || 0,
+             arch: row.arch || 0, renewals: row.renewals || 0,
+             'пусто': !поДням[d] };
   });
   if (история.length){
     h += '<div class="goals-week">' + история.map(function(row){
@@ -1131,12 +1139,16 @@ function renderCharts(){
     const ист = {};
     (GOALS['история'] || []).forEach(function(row){ ист[row['день']] = row; });
     const нормы = GOALS['нормы'] || {};
-    const серии = GOAL_ORDER.map(function(k){
+    /* ⚠️ БЕЗ НОРМЫ В ЭТОТ ГРАФИК НЕ БЕРЁМ. Высота здесь — доля дневной нормы,
+       а у продлений нормы нет и не будет: с подставной единицей их столбик
+       улетал бы в потолок каждый день и забивал остальные серии */
+    const серии = GOAL_ORDER.filter(function(k){ return Number(нормы[k] || 0) > 0; })
+      .map(function(k){
       const data = {};
       дни.forEach(function(d){ data[d] = Number((ист[d] || {})[k] || 0); });
       /* мера — дневная норма: столбик показывает, насколько цель закрыта,
          а не сколько это в штуках */
-      return { name:GOAL_NAMES[k], data:data, norm:Number(нормы[k] || 0) || 1 };
+      return { name:GOAL_NAMES[k], data:data, norm:Number(нормы[k] || 0) };
     });
     h += chartHtml('Мои задачи по дням', 'высота — доля дневной нормы', дни, серии);
   }
