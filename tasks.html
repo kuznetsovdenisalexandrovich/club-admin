@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: tasks-v15 -->
+<!-- FILE_VERSION: tasks-v16 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1495,6 +1495,32 @@ async function bpOpen(){
     if (!log.children.length) bpAdd('Спроси что-нибудь или поручи дело.', 'him');
   } catch(e) { bpAdd('История не загрузилась.', 'him'); }
 }
+function bpConfirm(){
+  const log = document.getElementById('bp-log');
+  const box = document.createElement('div');
+  box.className = 'bp-msg him';
+  box.style.display = 'flex'; box.style.gap = '8px';
+  const да = document.createElement('button');
+  да.className = 'bp-send'; да.textContent = 'Да, выполнить';
+  const нет = document.createElement('button');
+  нет.className = 'bp-send'; нет.style.background = 'var(--surface2)';
+  нет.style.color = 'var(--text)'; нет.textContent = 'Нет';
+  да.onclick = function(){ box.remove(); bpRun('деньги_да'); };
+  нет.onclick = function(){ box.remove(); bpRun('деньги_нет'); };
+  box.appendChild(да); box.appendChild(нет);
+  log.appendChild(box); log.scrollTop = log.scrollHeight;
+}
+async function bpRun(команда){
+  try {
+    const r = await fetch(API + '/partner/chat?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ text: команда })
+    });
+    const data = await r.json();
+    bpAdd(data.text || 'Готово.', 'him');
+    if (typeof loadAll === 'function') loadAll();
+  } catch(e) { bpAdd('Связь оборвалась.', 'him'); }
+}
 function bpClose(){ document.getElementById('bp-wrap').classList.remove('open'); }
 async function bpSend(){
   if (bpBusy) return;
@@ -1516,6 +1542,9 @@ async function bpSend(){
     const data = await r.json().catch(function(){ return {}; });
     ждём.remove();
     bpAdd(data.text || data.detail || 'Пусто в ответ.', 'him');
+    /* Деньги партнёр сам не выдаёт — просит подтверждения. Те же две кнопки,
+       что в боте, только здесь их рисуем прямо в окне */
+    if (data['подтвердить']) bpConfirm();
     /* Мог завести задачу или закрыть — обновим доску, чтобы это было видно */
     if (typeof loadAll === 'function') loadAll();
   } catch(e) {
