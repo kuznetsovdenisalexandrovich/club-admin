@@ -1,277 +1,316 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: factory_page-v1 -->
+<!-- FILE_VERSION: factory_page-v3 -->
 <html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Контент-завод</title>
+<link rel="icon" type="image/png" sizes="32x32" href="icons/factory-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/factory-16.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/factory-192.png">
+<link rel="shortcut icon" href="icons/factory.ico">
+<!-- ⚠️ apple-touch на подложке: iOS не умеет прозрачность и подставит чёрное -->
+<link rel="apple-touch-icon" sizes="180x180" href="icons/factory-apple-180.png">
+<meta name="apple-mobile-web-app-title" content="Завод">
+<meta name="theme-color" content="#211f1d">
 <style>
 /* ═══════════════════════════════════════════════════════════════════
-   ОФОРМЛЕНИЕ СНЯТО С МАКЕТА (04.09.2026) и переведено в переменные.
-   В макете цвета лежали инлайном в каждом теге, здесь — один список
-   на тему. Внешняя рамка «окно в окне» убрана: страница и есть окно,
-   а цветные блики остались фоном.
+   ОФОРМЛЕНИЕ СНЯТО С МАКЕТА `Контент-завод (без React)` ЗАМЕРАМИ.
+   Отступы, радиусы, кегли, слои теней и размытий взяты из отрисованного
+   макета браузером, а не подобраны на глаз. Имена переменных оставлены
+   как в макете — чтобы следующая присылка ложилась без перевода.
    ═══════════════════════════════════════════════════════════════════ */
 :root{
-  --page:#211f1d;
-  --win:linear-gradient(160deg,rgba(243,236,227,.94),rgba(233,223,210,.90));
-  --card:linear-gradient(180deg,rgba(255,255,255,.78),rgba(255,255,255,.5));
-  --panel:linear-gradient(165deg,rgba(248,242,234,.9),rgba(238,229,216,.86));
-  --col:rgba(224,212,196,.44);
-  --sunk:rgba(236,228,216,.82);
-  --input:rgba(255,255,255,.9);
-  --input-bd:rgba(255,255,255,.95);
-  --card-bd:rgba(255,255,255,.85);
-  --chip:rgba(255,255,255,.62);
-  --hair:rgba(255,255,255,.5);
-  --ink:#211d16; --ink2:#3a3428; --muted:#9c9284;
-  --btn:#17150f; --btn-fg:#fff;
-  --accent:#5a4bc4; --accent-soft:rgba(126,110,226,.14);
-  --ok:#3f7a5e; --ok-soft:rgba(74,135,104,.14);
-  --warn:#a8493a; --warn-soft:rgba(180,82,63,.14); --warn-bd:rgba(180,82,63,.45);
-  --bar:linear-gradient(180deg,#7e6ee2,rgba(126,110,226,.4));
-  --bar-low:rgba(160,148,132,.4);
-  --prog:linear-gradient(90deg,#7e6ee2,#70c4d6);
-  --track:rgba(180,166,148,.32);
-  --mark:linear-gradient(140deg,#ffd479,#ff8f6b);
-  --sh-card:0 6px 16px -8px rgba(94,74,52,.45);
-  --sh-soft:0 2px 10px rgba(120,98,70,.10);
-  --sh-btn:0 10px 26px -8px rgba(23,21,15,.72);
-  --sh-panel:0 40px 80px -24px rgba(70,52,30,.55);
-  --sh-glow:0 2px 10px -2px rgba(126,110,226,.5);
-  --sh-tag:none;
-  --nav-bg:rgba(255,255,255,.72); --nav-bd:rgba(255,255,255,.85);
-  --nav-sh:0 6px 16px -8px rgba(94,74,52,.5);
-  --panel-bd:rgba(255,255,255,.72);
-  --glow-warm:radial-gradient(closest-side,rgba(255,222,178,.42),rgba(255,222,178,0) 70%);
-  --glow-cool:radial-gradient(closest-side,rgba(214,205,255,.20),rgba(214,205,255,0) 70%);
-  --leak-cyan:radial-gradient(closest-side,rgba(112,196,214,.42),rgba(112,196,214,0) 72%);
-  --leak-violet:radial-gradient(closest-side,rgba(126,110,226,.34),rgba(126,110,226,0) 74%);
-  --leak-warm:radial-gradient(closest-side,rgba(255,236,206,.66),rgba(255,236,206,0) 72%);
+  --pageBg:#211f1d;
+  --shaft:linear-gradient(118deg,rgba(255,232,199,0) 26%,rgba(255,229,190,.62) 38%,rgba(255,240,214,.30) 48%,rgba(255,229,190,0) 58%);
+  --glowWarm:radial-gradient(closest-side,rgba(255,222,178,.42),rgba(255,222,178,0) 70%);
+  --glowCool:radial-gradient(closest-side,rgba(214,205,255,.20),rgba(214,205,255,0) 70%);
+  --leakCyan:radial-gradient(closest-side,rgba(112,196,214,.42),rgba(112,196,214,0) 72%);
+  --leakViolet:radial-gradient(closest-side,rgba(126,110,226,.34),rgba(126,110,226,0) 74%);
+  --leakWarm:radial-gradient(closest-side,rgba(255,236,206,.66),rgba(255,236,206,0) 72%);
+  --panelLeakA:radial-gradient(closest-side,rgba(126,110,226,.62),rgba(126,110,226,0) 72%);
+  --panelLeakB:radial-gradient(closest-side,rgba(112,196,214,.5),rgba(112,196,214,0) 74%);
+  --winBg:linear-gradient(160deg,rgba(243,236,227,.94),rgba(233,223,210,.90));
+  --cardBg:linear-gradient(180deg,rgba(255,255,255,.78),rgba(255,255,255,.5));
+  --panelBg:linear-gradient(180deg,rgba(255,255,255,.7),rgba(255,255,255,.44));
+  --mutedCardBg:rgba(232,224,212,.6);
+  --colBg:rgba(224,212,196,.44);
+  --sunkBg:rgba(236,228,216,.82);
+  --inputBg:rgba(255,255,255,.9);
+  --inputBd:rgba(255,255,255,.95);
+  --cardBd:rgba(255,255,255,.85);
+  --chipBg:rgba(255,255,255,.62);
+  --hairline:rgba(255,255,255,.5);
+  --ink:#211d16;--ink2:#3a3428;--muted:#9c9284;
+  --btnBg:#17150f;--btnHover:#2c281d;--btnFg:#fff;
+  --accent:#5a4bc4;--accentSoft:rgba(126,110,226,.14);
+  --ok:#3f7a5e;--okSoft:rgba(74,135,104,.14);
+  --warn:#a8493a;--warnSoft:rgba(180,82,63,.14);--warnBd:rgba(180,82,63,.45);
+  --barBg:linear-gradient(180deg,#7e6ee2,rgba(126,110,226,.4));
+  --barLow:rgba(160,148,132,.4);
+  --progBg:linear-gradient(90deg,#7e6ee2,#70c4d6);
+  --trackBg:rgba(180,166,148,.32);
+  --markBg:linear-gradient(140deg,#ffd479,#ff8f6b);
+  --shCard:0 6px 16px -8px rgba(94,74,52,.45);
+  --shSoft:0 2px 10px rgba(120,98,70,.10);
+  --shBtn:0 10px 26px -8px rgba(23,21,15,.72);
+  --shPanel:0 40px 80px -24px rgba(70,52,30,.55);
+  --shWin:0 50px 110px -30px rgba(0,0,0,.62),0 0 0 1px rgba(0,0,0,.18);
+  --navOnBg:rgba(255,255,255,.72);--navOnBd:rgba(255,255,255,.85);
+  --navOnSh:0 6px 16px -8px rgba(94,74,52,.5);
+  --shGlow:0 2px 10px -2px rgba(126,110,226,.5);
+  --shBar:0 4px 10px -4px rgba(126,110,226,.45);
+  --shTag:none;
+  --panelBlur:linear-gradient(165deg,rgba(248,242,234,.9),rgba(238,229,216,.86));
+  --panelBd:rgba(255,255,255,.72);
   --safe-top:0px;
 }
 html[data-theme="dark"]{
-  --page:#020204;
-  --win:linear-gradient(160deg,rgba(13,14,22,.94),rgba(5,5,9,.96));
-  --card:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02));
-  --panel:linear-gradient(165deg,rgba(18,19,30,.9),rgba(7,8,13,.93));
-  --col:rgba(148,160,255,.03);
-  --sunk:rgba(255,255,255,.04);
-  --input:rgba(255,255,255,.07);
-  --input-bd:rgba(174,166,255,.34);
-  --card-bd:rgba(255,255,255,.12);
-  --chip:rgba(255,255,255,.075);
-  --hair:rgba(255,255,255,.09);
-  --ink:#eef0ff; --ink2:#c8cdea; --muted:#7c83a6;
-  --btn:linear-gradient(135deg,#7c6bff,#3fc8e4); --btn-fg:#08080f;
-  --accent:#b3a8ff; --accent-soft:rgba(124,107,255,.2);
-  --ok:#6fe3ac; --ok-soft:rgba(111,227,172,.16);
-  --warn:#ff9b85; --warn-soft:rgba(255,155,133,.16); --warn-bd:rgba(255,155,133,.5);
-  --bar:linear-gradient(180deg,#8f80ff,rgba(63,200,228,.35));
-  --bar-low:rgba(255,255,255,.12);
-  --prog:linear-gradient(90deg,#7c6bff,#3fc8e4);
-  --track:rgba(255,255,255,.09);
-  --mark:linear-gradient(140deg,#7c6bff,#3fc8e4);
-  --sh-card:0 10px 26px -14px rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.07);
-  --sh-soft:0 2px 12px rgba(0,0,0,.5);
-  --sh-btn:0 14px 34px -8px rgba(124,107,255,.85),0 0 22px -4px rgba(63,200,228,.6);
-  --sh-panel:0 50px 90px -28px rgba(0,0,0,.9),0 0 60px -18px rgba(124,107,255,.45);
-  --sh-glow:0 0 18px -2px rgba(124,107,255,.85),0 0 44px -6px rgba(63,200,228,.55);
-  --sh-tag:0 0 14px -6px rgba(124,107,255,.9),inset 0 0 0 1px rgba(174,166,255,.16);
-  --nav-bg:rgba(124,107,255,.16); --nav-bd:rgba(174,166,255,.3);
-  --nav-sh:0 0 24px -8px rgba(124,107,255,.7),inset 0 0 0 1px rgba(174,166,255,.14);
-  --panel-bd:rgba(174,166,255,.26);
-  --glow-warm:radial-gradient(closest-side,rgba(124,107,255,.34),rgba(124,107,255,0) 70%);
-  --glow-cool:radial-gradient(closest-side,rgba(63,200,228,.26),rgba(63,200,228,0) 70%);
-  --leak-cyan:radial-gradient(closest-side,rgba(63,200,228,.55),rgba(63,200,228,0) 72%);
-  --leak-violet:radial-gradient(closest-side,rgba(124,107,255,.6),rgba(124,107,255,0) 74%);
-  --leak-warm:radial-gradient(closest-side,rgba(255,120,190,.3),rgba(255,120,190,0) 72%);
+  --pageBg:#020204;
+  --shaft:linear-gradient(118deg,rgba(140,120,255,0) 24%,rgba(150,130,255,.16) 38%,rgba(120,225,240,.13) 49%,rgba(140,120,255,0) 60%);
+  --glowWarm:radial-gradient(closest-side,rgba(124,107,255,.34),rgba(124,107,255,0) 70%);
+  --glowCool:radial-gradient(closest-side,rgba(63,200,228,.26),rgba(63,200,228,0) 70%);
+  --leakCyan:radial-gradient(closest-side,rgba(63,200,228,.55),rgba(63,200,228,0) 72%);
+  --leakViolet:radial-gradient(closest-side,rgba(124,107,255,.6),rgba(124,107,255,0) 74%);
+  --leakWarm:radial-gradient(closest-side,rgba(255,120,190,.3),rgba(255,120,190,0) 72%);
+  --panelLeakA:radial-gradient(closest-side,rgba(140,120,255,.8),rgba(140,120,255,0) 72%);
+  --panelLeakB:radial-gradient(closest-side,rgba(63,220,228,.62),rgba(63,220,228,0) 74%);
+  --winBg:linear-gradient(160deg,rgba(13,14,22,.94),rgba(5,5,9,.96));
+  --cardBg:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02));
+  --panelBg:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.015));
+  --mutedCardBg:rgba(255,255,255,.02);
+  --colBg:rgba(148,160,255,.03);
+  --sunkBg:rgba(255,255,255,.04);
+  --inputBg:rgba(255,255,255,.07);
+  --inputBd:rgba(174,166,255,.34);
+  --cardBd:rgba(255,255,255,.12);
+  --chipBg:rgba(255,255,255,.075);
+  --hairline:rgba(255,255,255,.09);
+  --ink:#eef0ff;--ink2:#c8cdea;--muted:#7c83a6;
+  --btnBg:linear-gradient(135deg,#7c6bff,#3fc8e4);--btnHover:linear-gradient(135deg,#8f80ff,#59d7f0);--btnFg:#08080f;
+  --accent:#b3a8ff;--accentSoft:rgba(124,107,255,.2);
+  --ok:#6fe3ac;--okSoft:rgba(111,227,172,.16);
+  --warn:#ff9b85;--warnSoft:rgba(255,155,133,.16);--warnBd:rgba(255,155,133,.5);
+  --barBg:linear-gradient(180deg,#8f80ff,rgba(63,200,228,.35));
+  --barLow:rgba(255,255,255,.12);
+  --progBg:linear-gradient(90deg,#7c6bff,#3fc8e4);
+  --trackBg:rgba(255,255,255,.09);
+  --markBg:linear-gradient(140deg,#7c6bff,#3fc8e4);
+  --shCard:0 10px 26px -14px rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.07);
+  --shSoft:0 2px 12px rgba(0,0,0,.5);
+  --shBtn:0 14px 34px -8px rgba(124,107,255,.85),0 0 22px -4px rgba(63,200,228,.6);
+  --shPanel:0 50px 90px -28px rgba(0,0,0,.9),0 0 60px -18px rgba(124,107,255,.45);
+  --shWin:0 60px 130px -34px rgba(0,0,0,.95),0 0 0 1px rgba(148,160,255,.12);
+  --navOnBg:rgba(124,107,255,.16);--navOnBd:rgba(174,166,255,.3);
+  --navOnSh:0 0 24px -8px rgba(124,107,255,.7),inset 0 0 0 1px rgba(174,166,255,.14);
+  --shGlow:0 0 18px -2px rgba(124,107,255,.85),0 0 44px -6px rgba(63,200,228,.55);
+  --shBar:0 0 16px -3px rgba(124,107,255,.75);
+  --shTag:0 0 14px -6px rgba(124,107,255,.9),inset 0 0 0 1px rgba(174,166,255,.16);
+  --panelBlur:linear-gradient(165deg,rgba(18,19,30,.9),rgba(7,8,13,.93));
+  --panelBd:rgba(174,166,255,.26);
 }
 *{box-sizing:border-box}
-html,body{height:100%}
-body{
-  margin:0;background:var(--page);color:var(--ink);
-  font-family:'Onest','Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
-  font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased;
-}
-button,input,select,textarea{font:inherit;color:inherit}
+body{margin:0;background:var(--pageBg);font-family:Onest,'Inter',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;color:var(--ink)}
+button,input,select,textarea{font-family:inherit}
 button{border:0;background:none;cursor:pointer;touch-action:manipulation}
-h1,h2,h3{margin:0;font-weight:650;letter-spacing:-.01em}
+h1,h2,h3{margin:0}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:rgba(120,105,88,.35);border-radius:9px}
+::-webkit-scrollbar-track{background:transparent}
 
-/* блики фона — неподвижные, под содержимым, касаний не ловят */
-.leak{position:fixed;pointer-events:none;z-index:0}
-#leak1{left:-18%;bottom:-34%;width:88%;height:96%;background:var(--glow-warm);filter:blur(30px)}
-#leak2{right:-14%;top:-26%;width:74%;height:82%;background:var(--glow-cool);filter:blur(34px)}
-#leak3{left:30%;top:-30%;width:64%;height:104%;background:var(--leak-cyan);filter:blur(52px)}
-#leak4{left:2%;top:-26%;width:54%;height:88%;background:var(--leak-violet);filter:blur(58px)}
-#leak5{right:-12%;bottom:-32%;width:58%;height:82%;background:var(--leak-warm);filter:blur(48px)}
+/* ── подложка страницы и само окно ───────────────────────────────── */
+.page{position:relative;min-height:100vh;padding:34px;background:var(--pageBg);overflow-x:auto}
+.shaft{position:absolute;inset:0;pointer-events:none;background:var(--shaft)}
+.leak{position:absolute;pointer-events:none}
+#leak1{left:-18%;bottom:-34%;width:88%;height:96%;background:var(--glowWarm);filter:blur(30px)}
+#leak2{right:-14%;top:-26%;width:74%;height:82%;background:var(--glowCool);filter:blur(34px)}
+#leak3{left:38%;bottom:-46%;width:52%;height:70%;background:var(--glowCool);filter:blur(50px);transform:rotate(18deg) scaleX(1.5)}
+#leak4{left:-6%;top:-14%;width:38%;height:44%;background:var(--glowWarm);filter:blur(44px);transform:scaleY(.6)}
+#leak5{left:30%;top:-38%;width:64%;height:104%;background:var(--leakCyan);filter:blur(52px)}
+#leak6{left:2%;top:-32%;width:54%;height:88%;background:var(--leakViolet);filter:blur(58px)}
+#leak7{right:-12%;bottom:-32%;width:58%;height:82%;background:var(--leakWarm);filter:blur(48px)}
+.frame{position:relative;min-width:1240px;border-radius:30px;overflow:hidden;border:1px solid var(--hairline);background:var(--winBg);box-shadow:var(--shWin)}
+.grid{position:relative;display:grid;grid-template-columns:236px 1fr;min-height:840px}
+.main{position:relative;min-width:0}
 
-.shell{position:relative;z-index:1;display:grid;grid-template-columns:248px 1fr;min-height:100vh;background:var(--win)}
-.rail{padding:22px 18px;display:flex;flex-direction:column;gap:18px;border-right:1px solid var(--hair)}
-.main{display:flex;flex-direction:column;min-width:0}
-
-.brand{display:flex;align-items:center;gap:11px;padding:0 4px}
-.brand .mark{width:34px;height:34px;border-radius:50%;flex:none;background:var(--chip);box-shadow:var(--sh-soft);display:grid;place-items:center}
-.brand .mark i{width:12px;height:12px;border-radius:4px;background:var(--mark);transform:rotate(14deg);display:block}
-.brand b{display:block;font-size:15.5px;font-weight:660}
-.brand span{font-size:12px;color:var(--muted)}
-
-.nav{display:flex;flex-direction:column;gap:5px}
-.nav button{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;border-radius:13px;border:1px solid transparent;color:var(--muted);font-weight:500;font-size:13.5px;text-align:left}
-.nav button.on{color:var(--ink);font-weight:600;background:var(--nav-bg);border-color:var(--nav-bd);box-shadow:var(--nav-sh)}
-.nav .n{font-size:12px;font-variant-numeric:tabular-nums}
-.nav button.on .n{color:var(--accent)}
-
-.norm{background:var(--card);border:1px solid var(--card-bd);border-radius:18px;box-shadow:var(--sh-card);padding:16px}
-.norm h3{font-size:13px;color:var(--muted);font-weight:560;margin-bottom:10px}
-.norm .big{font-size:30px;font-weight:680;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
-.norm .big small{font-size:14px;color:var(--muted);font-weight:520;margin-left:5px}
-.track{height:9px;border-radius:6px;background:var(--track);margin-top:12px;overflow:hidden}
-.track i{display:block;height:100%;border-radius:6px;background:var(--prog)}
-.railnote{font-size:12px;color:var(--muted);line-height:1.5;padding:0 4px}
-.railnote b{color:var(--warn);font-weight:620}
-
-.top{display:flex;align-items:center;gap:12px;padding:16px 22px;border-bottom:1px solid var(--hair);flex-wrap:wrap}
-.top h1{font-size:20px}
-.top .sub{font-size:12.5px;color:var(--muted);margin-top:2px}
-.spacer{flex:1}
-.search{flex:1;min-width:180px;max-width:420px;padding:11px 16px;border-radius:14px;border:1px solid var(--card-bd);background:var(--chip);outline:none}
+/* ── шапка ───────────────────────────────────────────────────────── */
+.top{position:relative;display:flex;align-items:center;gap:18px;padding:16px 22px;border-bottom:1px solid var(--hairline)}
+.brand{display:flex;align-items:center;gap:11px}
+.brand .mark{width:34px;height:34px;border-radius:50%;background:var(--btnBg);display:grid;place-items:center;box-shadow:var(--shSoft);flex:none}
+.brand .mark i{width:12px;height:12px;border-radius:4px;background:var(--markBg);transform:rotate(14deg);display:block}
+.brand b{font:700 16px/1 Onest;color:var(--ink);letter-spacing:-.01em}
+.brand span{display:none}
+.search{flex:1;max-width:460px;padding:11px 16px;border-radius:14px;background:var(--chipBg);border:1px solid var(--cardBd);box-shadow:var(--shSoft);font:400 13.5px/1 Onest;color:var(--ink);outline:none}
 .search::placeholder{color:var(--muted)}
-.chip{padding:9px 15px;border-radius:13px;border:1px solid var(--card-bd);background:var(--chip);font-size:13px;font-weight:540;display:inline-flex;align-items:center;gap:8px}
-.chip b{font-size:11.5px;padding:1px 7px;border-radius:7px;background:var(--accent-soft);color:var(--accent)}
-.iconbtn{width:38px;height:38px;border-radius:13px;border:1px solid var(--card-bd);background:var(--chip);display:grid;place-items:center;font-size:15px}
-.primary{padding:11px 18px;border-radius:13px;font-weight:600;font-size:13.5px;color:var(--btn-fg);background:var(--btn);box-shadow:var(--sh-btn)}
-.ghost{padding:9px 14px;border-radius:12px;border:1px solid var(--card-bd);background:var(--chip);font-size:13px;font-weight:540}
+.spacer{flex:1}
+.chip{display:flex;align-items:center;gap:9px;padding:10px 16px;border:1px solid var(--cardBd);border-radius:13px;background:var(--chipBg);font:600 13px/1 Onest;color:var(--ink2)}
+.chip b{font:600 11px/1 Onest;color:var(--btnFg);background:var(--btnBg);padding:4px 7px;border-radius:6px;box-shadow:var(--shGlow)}
+.iconbtn{width:38px;height:38px;border:1px solid var(--cardBd);border-radius:13px;background:var(--chipBg);color:var(--ink2);font:600 14px/1 Onest;flex:none}
+.primary{padding:10px 18px;border-radius:13px;background:var(--btnBg);color:var(--btnFg);font:600 13px/1 Onest;box-shadow:var(--shBtn)}
+.ghost{padding:9px 15px;border:1px solid var(--inputBg);border-radius:12px;background:var(--cardBd);font:600 12.5px/1 Onest;color:var(--ink2)}
 
-.pane{display:none;padding:20px 22px 40px}
+/* ── рельс ───────────────────────────────────────────────────────── */
+.rail{padding:20px 16px;border-right:1px solid var(--hairline);display:flex;flex-direction:column;gap:20px}
+.nav{display:flex;flex-direction:column;gap:4px}
+.nav button{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;border:1px solid transparent;border-radius:13px;background:transparent;font:500 13.5px/1 Onest;color:var(--muted);text-align:left}
+.nav button.on{border-color:var(--navOnBd);background:var(--navOnBg);box-shadow:var(--navOnSh);font-weight:600;color:var(--ink)}
+.nav .n{font:500 12px/1 Onest;opacity:.6}
+.norm{padding:16px;border-radius:20px;background:var(--panelBg);border:1px solid var(--cardBd);box-shadow:var(--shCard)}
+.norm h3{font:500 12px/1 Onest;color:var(--muted)}
+.norm .big{margin-top:11px;font:700 32px/1 Onest;color:var(--ink);letter-spacing:-.02em}
+.norm .big small{font:500 14px/1 Onest;color:var(--muted);margin-left:6px}
+.track{margin-top:12px;height:8px;border-radius:6px;background:var(--trackBg);overflow:hidden}
+.track i{display:block;height:100%;border-radius:6px;background:var(--progBg);box-shadow:var(--shGlow)}
+.railnote{font:400 12px/1.5 Onest;color:var(--muted);padding:0 4px}
+.railnote b{color:var(--warn);font-weight:600}
+
+/* ── полотно ─────────────────────────────────────────────────────── */
+.pane{display:none}
 .pane.on{display:block}
-
-/* доска */
-.board{display:grid;grid-template-columns:repeat(4,minmax(220px,1fr));gap:14px;align-items:start}
-.col{background:var(--col);border-radius:20px;padding:12px 11px 15px;min-height:180px}
+.head{display:flex;align-items:flex-end;gap:14px;padding:20px 24px 16px}
+.head h1{font:700 22px/1.2 Onest;color:var(--ink);letter-spacing:-.02em}
+.head .sub{margin-top:4px;font:400 13px/1 Onest;color:var(--muted)}
+.board{display:grid;grid-template-columns:repeat(4,minmax(216px,1fr));gap:14px;align-items:start;padding:0 24px 28px}
+.col{background:var(--colBg);border:1px solid var(--hairline);border-radius:22px;padding:12px 12px 14px}
 .col.over{outline:1.5px dashed var(--accent);outline-offset:-4px}
-.colhead{display:flex;align-items:center;justify-content:space-between;padding:2px 6px 10px}
-.colhead b{font-size:13.5px;font-weight:620}
-.colhead span{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
-.card{background:var(--card);border:1px solid var(--card-bd);border-radius:15px;box-shadow:var(--sh-card);padding:12px 13px;margin-bottom:9px;cursor:grab}
+.colhead{display:flex;justify-content:space-between;padding:2px 6px 11px;font:600 13px/1 Onest;color:var(--ink2)}
+.colhead span{color:var(--muted);font-weight:500}
+.card{background:var(--cardBg);border:1px solid var(--cardBd);border-radius:16px;padding:13px 14px;margin-bottom:9px;box-shadow:var(--shCard);cursor:grab}
 .card:last-child{margin-bottom:0}
 .card.dragging{opacity:.45}
-.card.flag{border-color:var(--warn-bd)}
-.card .t{font-size:13.5px;font-weight:580;line-height:1.35}
-.card .src{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.4}
-.row{display:flex;align-items:center;gap:6px;margin-top:9px;flex-wrap:wrap}
-.tag{font-size:11px;padding:3px 9px;border-radius:8px;background:var(--chip);border:1px solid var(--card-bd);color:var(--muted);font-weight:540;box-shadow:var(--sh-tag)}
-.tag.pl{color:var(--accent);background:var(--accent-soft)}
-.tag.auto{color:var(--ok);background:var(--ok-soft)}
-.tag.no-mark{color:var(--warn);background:var(--warn-soft)}
-
-/* списки */
-.rows{display:flex;flex-direction:column;gap:9px;max-width:1000px}
-.row-item{background:var(--card);border:1px solid var(--card-bd);border-radius:16px;box-shadow:var(--sh-card);padding:13px 15px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.card.flag{border-color:var(--warnBd)}
+.card .t{font:600 13.5px/1.35 Onest;color:var(--ink);text-wrap:pretty}
+.card .ins{margin-top:7px;font:500 12px/1.4 Onest;color:var(--ink2);border-left:2px solid var(--accentSoft);padding-left:9px}
+.card .src{margin-top:7px;font:400 11.5px/1.4 Onest;color:var(--muted)}
+.row{display:flex;gap:6px;margin-top:11px;flex-wrap:wrap}
+.tag{font:500 11px/1 Onest;padding:5px 9px;border-radius:8px;background:var(--chipBg);color:var(--muted)}
+.tag.pl{background:var(--accentSoft);color:var(--accent);box-shadow:var(--shTag)}
+.tag.auto{background:var(--okSoft);color:var(--ok)}
+.tag.no-mark{background:var(--warnSoft);color:var(--warn)}
+.rows{display:flex;flex-direction:column;gap:10px;padding:0 24px 28px;max-width:900px}
+.row-item{display:flex;align-items:center;gap:16px;padding:15px 18px;border-radius:18px;background:var(--cardBg);border:1px solid var(--cardBd);box-shadow:var(--shCard);flex-wrap:wrap}
 .row-item .grow{flex:1;min-width:160px}
-.row-item .t{font-weight:580;font-size:14px}
-.row-item .m{font-size:12px;color:var(--muted);margin-top:4px}
-.pill{font-size:11.5px;padding:5px 11px;border-radius:9px;background:var(--chip);border:1px solid var(--card-bd);color:var(--muted);white-space:nowrap}
-.pill.warn{color:var(--warn);background:var(--warn-soft)}
-.pill.ok{color:var(--ok);background:var(--ok-soft)}
-.mini{font-size:12.5px;padding:8px 13px;border-radius:11px;border:1px solid var(--card-bd);background:var(--chip);font-weight:540;white-space:nowrap}
-
-.ideas{columns:3;column-gap:14px;max-width:1200px}
-.idea{break-inside:avoid;background:var(--card);border:1px solid var(--card-bd);border-radius:17px;box-shadow:var(--sh-card);padding:14px 15px;margin-bottom:14px}
-.idea .k{font-size:11px;color:var(--accent);font-weight:600;margin-bottom:7px}
-.idea p{margin:0;font-size:13.5px;line-height:1.5}
-.idea.done p{color:var(--muted)}
-
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;max-width:1100px}
-.stat{background:var(--card);border:1px solid var(--card-bd);border-radius:18px;box-shadow:var(--sh-card);padding:17px}
-.stat b{display:block;font-size:31px;font-weight:680;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
-.stat span{font-size:12.5px;color:var(--muted)}
+.row-item .t{font:600 14px/1 Onest;color:var(--ink)}
+.row-item .m{margin-top:5px;font:400 12px/1.35 Onest;color:var(--muted)}
+.pill{font:500 11.5px/1 Onest;padding:6px 11px;border-radius:9px;background:var(--chipBg);color:var(--muted);white-space:nowrap}
+.pill.ok{background:var(--okSoft);color:var(--ok)}
+.pill.warn{background:var(--warnSoft);color:var(--warn)}
+.mini{padding:9px 15px;border:1px solid var(--inputBg);border-radius:12px;background:var(--cardBd);font:600 12.5px/1 Onest;color:var(--ink2);white-space:nowrap}
+.mini.danger{color:var(--warn)}
+.ideas{display:grid;grid-template-columns:repeat(3,minmax(240px,1fr));gap:14px;align-items:start;padding:0 24px 28px;max-width:1100px}
+.idea{padding:16px 17px;border-radius:18px;background:var(--cardBg);border:1px solid var(--cardBd);box-shadow:var(--shCard);cursor:pointer}
+.idea .k{font:600 11px/1 Onest;color:var(--accent);letter-spacing:.02em}
+.idea p{margin:8px 0 0;font:400 13.5px/1.5 Onest;color:var(--ink);text-wrap:pretty}
+.idea.done{background:var(--mutedCardBg);border-color:var(--chipBg);box-shadow:none}
+.idea.done .k,.idea.done p{color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.stat{padding:18px;border-radius:20px;background:var(--cardBg);border:1px solid var(--cardBd)}
+.stat b{display:block;font:700 32px/1.1 Onest;color:var(--ink);letter-spacing:-.02em}
+.stat span{font:400 12.5px/1.3 Onest;color:var(--muted)}
+.stat.alert{border-color:var(--warnBd)}
 .stat.alert b{color:var(--warn)}
-.chart{margin-top:16px;background:var(--card);border:1px solid var(--card-bd);border-radius:18px;box-shadow:var(--sh-card);padding:18px;max-width:1100px}
-.chart h3{font-size:14px}
-.chart .sub{font-size:12px;color:var(--muted);margin:4px 0 16px}
-.bars{display:flex;align-items:flex-end;gap:5px;height:140px}
-.bars i{flex:1;border-radius:6px 6px 3px 3px;background:var(--bar);min-height:3px;display:block}
-.bars i.low{background:var(--bar-low)}
-.days{display:flex;gap:5px;margin-top:7px}
-.days span{flex:1;text-align:center;font-size:10px;color:var(--muted);overflow:hidden}
+.chart{margin-top:16px;padding:20px;border-radius:22px;background:var(--panelBg);border:1px solid var(--cardBd)}
+.chart h3{font:600 15px/1 Onest;color:var(--ink)}
+.chart .sub{margin-top:6px;font:400 12.5px/1.4 Onest;color:var(--muted)}
+.chart .rows{padding:0;max-width:none;margin-top:14px}
+.bars{display:flex;align-items:flex-end;gap:7px;height:150px;margin-top:18px}
+.bars i{flex:1;border-radius:7px;background:var(--barBg);box-shadow:var(--shBar);display:block;min-height:4px}
+.bars i.low{background:var(--barLow);box-shadow:none}
+.days{display:flex;gap:7px;margin-top:8px}
+.days span{flex:1;text-align:center;font:400 10.5px/1 Onest;color:var(--muted);overflow:hidden}
+.empty{padding:24px 6px;font:400 13px/1.5 Onest;color:var(--muted);max-width:460px}
+#p-stats,#p-ideas{padding:0 24px 28px}
+#p-ideas .ideas,#p-stats .stats{padding:0}
+#p-ideas .row{padding:0;margin:0 0 14px}
 
-.empty{padding:36px 6px;color:var(--muted);font-size:13.5px;max-width:460px}
-
-/* окна */
-.veil{position:fixed;inset:0;z-index:40;background:rgba(20,16,10,.42);backdrop-filter:blur(3px);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
+/* ── окна: тот же материал, что панель отбора в макете ───────────── */
+.veil{position:fixed;inset:0;z-index:40;background:rgba(20,16,10,.42);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
 .veil.on{display:flex}
-.win{width:100%;max-width:520px;border-radius:24px;border:1px solid var(--panel-bd);background:var(--panel);box-shadow:var(--sh-panel);padding:22px}
-.win.wide{max-width:760px}
-.win h2{font-size:18px;margin-bottom:4px}
-.win .lead{font-size:12.5px;color:var(--muted);margin-bottom:16px}
-.field{margin-bottom:13px}
-.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
-.field input,.field select,.field textarea{width:100%;padding:11px 13px;border-radius:12px;border:1px solid var(--input-bd);background:var(--input);outline:none}
-.field textarea{min-height:90px;resize:vertical}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:11px}
-.wbtns{display:flex;gap:9px;margin-top:18px;flex-wrap:wrap}
-.wbtns .spacer{flex:1;min-width:0}
+.win{width:100%;max-width:520px;border-radius:26px;border:1px solid var(--panelBd);background:var(--panelBlur);backdrop-filter:blur(18px);box-shadow:var(--shPanel);padding:22px 22px 24px}
+.win h2{font:700 20px/1 Onest;color:var(--ink);letter-spacing:-.02em}
+.win .lead{margin-top:8px;font:400 13px/1.5 Onest;color:var(--muted)}
+.field{margin-top:18px}
+.field label{display:block;font:600 13.5px/1 Onest;color:var(--ink);margin-bottom:10px}
+.field input,.field select,.field textarea{width:100%;padding:13px 16px;border-radius:14px;background:var(--inputBg);border:1px solid var(--inputBd);box-shadow:var(--shCard);font:500 13.5px/1.3 Onest;color:var(--ink2);outline:none}
+.field textarea{min-height:96px;resize:vertical}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.wbtns{display:flex;gap:9px;margin-top:22px;flex-wrap:wrap;align-items:center}
+.note{margin-top:10px;font:400 12px/1.5 Onest;color:var(--muted)}
 .danger{color:var(--warn)}
-.note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:10px}
-.copy{width:100%;margin-top:8px;padding:12px 13px;border-radius:12px;border:1px solid var(--input-bd);background:var(--input);font-size:12.5px;word-break:break-all;text-align:left;cursor:copy}
-.plist{display:flex;flex-direction:column;gap:8px}
-.pchk{display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:12px;border:1px solid var(--card-bd);background:var(--chip);cursor:pointer}
-.rule-row{display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:13px;border:1px solid var(--card-bd);background:var(--chip);margin-bottom:8px;flex-wrap:wrap}
-.rule-row .grow{flex:1;min-width:140px;font-size:13px}
+.copy{width:100%;margin-top:12px;padding:13px 16px;border-radius:14px;background:var(--inputBg);border:1px solid var(--inputBd);font:500 12.5px/1.4 Onest;color:var(--ink2);word-break:break-all;text-align:left;cursor:copy}
+.plist{display:flex;flex-direction:column;gap:9px;margin-top:14px}
+.pchk{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:14px;background:var(--sunkBg);border:1px solid var(--cardBd);font:500 13.5px/1 Onest;color:var(--ink2);cursor:pointer}
+.rule-row{display:flex;align-items:center;gap:9px;padding:12px 14px;border-radius:14px;background:var(--sunkBg);border:1px solid var(--cardBd);margin-top:9px;flex-wrap:wrap}
+.rule-row .grow{flex:1;min-width:150px;font:500 13px/1.3 Onest;color:var(--ink2)}
 
-/* пин */
-.gate{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:var(--page)}
-.gate .box{width:280px;background:var(--win);border:1px solid var(--card-bd);border-radius:22px;box-shadow:var(--sh-panel);padding:24px;text-align:center}
-.gate h2{font-size:17px;margin-bottom:14px}
-.gate input{width:100%;padding:12px;border-radius:12px;border:1px solid var(--input-bd);background:var(--input);text-align:center;letter-spacing:.3em;outline:none}
-.gate .err{font-size:12px;color:var(--warn);margin-top:9px;min-height:16px}
-.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:70;padding:11px 18px;border-radius:13px;background:var(--btn);color:var(--btn-fg);font-size:13px;box-shadow:var(--sh-btn);display:none}
+/* ── пин и уведомление ───────────────────────────────────────────── */
+.gate{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:var(--pageBg)}
+.gate .box{width:300px;padding:24px;border-radius:26px;border:1px solid var(--panelBd);background:var(--panelBlur);box-shadow:var(--shPanel);text-align:center}
+.gate h2{font:700 20px/1 Onest;color:var(--ink);margin-bottom:16px}
+.gate input{width:100%;padding:13px;border-radius:14px;background:var(--inputBg);border:1px solid var(--inputBd);text-align:center;letter-spacing:.3em;font:500 15px/1 Onest;color:var(--ink);outline:none}
+.gate .err{margin-top:10px;font:400 12px/1.4 Onest;color:var(--warn);min-height:16px}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:70;padding:13px 20px;border-radius:14px;background:var(--btnBg);color:var(--btnFg);font:600 13px/1 Onest;box-shadow:var(--shBtn);display:none}
 .toast.on{display:block}
 .hide{display:none!important}
-
 .mnav{display:none}
+
 @media (max-width:900px){
-  .shell{grid-template-columns:1fr}
+  .page{padding:0}
+  .frame{min-width:0;border-radius:0;border:0;box-shadow:none;min-height:100vh}
+  .grid{grid-template-columns:1fr;min-height:0}
   .rail{display:none}
-  .top{padding:calc(12px + var(--safe-top)) 14px 10px;position:sticky;top:0;z-index:5;background:var(--win)}
-  .mnav{display:flex;gap:7px;padding:0 14px 10px;overflow:auto;position:sticky;top:60px;z-index:4;background:var(--win)}
-  .pane{padding:12px 14px 40px}
+  .top{padding:calc(12px + var(--safe-top)) 14px 12px;gap:10px;flex-wrap:wrap;position:sticky;top:0;z-index:5;background:var(--winBg)}
+  .mnav{display:flex;gap:7px;padding:10px 14px 0;overflow:auto}
+  .mnav button{padding:9px 15px;border-radius:12px;border:1px solid var(--cardBd);background:var(--chipBg);font:500 13px/1 Onest;color:var(--muted);white-space:nowrap}
+  .mnav button.on{border-color:var(--navOnBd);background:var(--navOnBg);box-shadow:var(--navOnSh);color:var(--ink);font-weight:600}
+  .head{padding:16px 14px 12px}
+  .board,.rows,.ideas,#p-stats,#p-ideas{padding-left:14px;padding-right:14px}
   .board{grid-template-columns:1fr}
-  .ideas{columns:1}
+  .ideas{grid-template-columns:1fr}
   .stats{grid-template-columns:repeat(2,1fr)}
   .two{grid-template-columns:1fr}
   .hide-mob{display:none}
-  .win{padding:18px;border-radius:20px}
+  .win{padding:20px;border-radius:22px}
+  .veil{padding:16px}
 }
-.mnav button{padding:8px 14px;border-radius:11px;border:1px solid var(--card-bd);background:var(--chip);font-size:13px;white-space:nowrap;color:var(--muted)}
-.mnav button.on{color:var(--accent);font-weight:600;border-color:var(--nav-bd);background:var(--nav-bg)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
 
-<div class="leak" id="leak1"></div>
-<div class="leak" id="leak2"></div>
-<div class="leak" id="leak3"></div>
-<div class="leak" id="leak4"></div>
-<div class="leak" id="leak5"></div>
+<div class="page">
+  <div class="shaft"></div>
+  <div class="leak" id="leak1"></div>
+  <div class="leak" id="leak2"></div>
+  <div class="leak" id="leak3"></div>
+  <div class="leak" id="leak4"></div>
 
-<div class="gate" id="gate">
-  <div class="box">
-    <h2>Контент-завод</h2>
-    <input id="pin" type="password" inputmode="numeric" placeholder="пин" autocomplete="off">
-    <div class="err" id="pinerr"></div>
-  </div>
-</div>
+  <div class="frame hide" id="shell">
+    <div class="leak" id="leak5"></div>
+    <div class="leak" id="leak6"></div>
+    <div class="leak" id="leak7"></div>
 
-<div class="shell hide" id="shell">
-  <aside class="rail">
-    <div class="brand">
-      <div class="mark"><i></i></div>
-      <div><b>Контент-завод</b><span>наружу, на площадки</span></div>
+    <header class="top">
+      <div class="brand">
+        <div class="mark"><i></i></div>
+        <b>Контент-завод</b>
+      </div>
+      <input class="search hide-mob" id="q" placeholder="Поиск по единицам и занятиям">
+      <div class="spacer hide-mob"></div>
+      <button class="chip" id="fbtn">Фильтры<b id="fcount">0</b></button>
+      <button class="iconbtn" id="theme" aria-label="Тема">☾</button>
+      <button class="primary" id="newbtn">Новая единица</button>
+    </header>
+    <div class="mnav" id="mnav">
+      <button class="on" data-p="queue">Очередь</button>
+      <button data-p="raw">Сырьё</button>
+      <button data-p="ideas">Замыслы</button>
+      <button data-p="stats">Числа</button>
     </div>
-    <nav class="nav" id="nav">
+
+    <div class="grid">
+      <aside class="rail">
+      <nav class="nav" id="nav">
       <button class="on" data-p="queue">Очередь<span class="n" id="n-queue"></span></button>
       <button data-p="raw">Сырьё<span class="n" id="n-raw"></span></button>
       <button data-p="ideas">Замыслы<span class="n" id="n-ideas"></span></button>
@@ -284,28 +323,11 @@ h1,h2,h3{margin:0;font-weight:650;letter-spacing:-.01em}
     </div>
     <div class="railnote" id="railnote"></div>
   </aside>
-
-  <div class="main">
-    <header class="top">
-      <div>
-        <h1 id="ttl">Очередь</h1>
-        <div class="sub" id="sub">загружаю…</div>
-      </div>
-      <input class="search hide-mob" id="q" placeholder="Поиск по единицам и занятиям">
-      <div class="spacer hide-mob"></div>
-      <button class="chip" id="fbtn">Фильтры<b id="fcount">0</b></button>
-      <button class="iconbtn" id="theme" aria-label="Тема">☾</button>
-      <button class="primary" id="newbtn">Новая единица</button>
-    </header>
-
-    <div class="mnav" id="mnav">
-      <button class="on" data-p="queue">Очередь</button>
-      <button data-p="raw">Сырьё</button>
-      <button data-p="ideas">Замыслы</button>
-      <button data-p="stats">Числа</button>
-    </div>
-
-    <section class="pane on" id="p-queue"><div class="board" id="board"></div></section>
+      <div class="main">
+        <div class="head">
+          <div><h1 id="ttl">Очередь</h1><div class="sub" id="sub">загружаю…</div></div>
+        </div>
+        <section class="pane on" id="p-queue"><div class="board" id="board"></div></section>
     <section class="pane" id="p-raw"><div class="rows" id="rawrows"></div></section>
     <section class="pane" id="p-ideas">
       <div class="row" style="margin:0 0 14px">
@@ -314,6 +336,19 @@ h1,h2,h3{margin:0;font-weight:650;letter-spacing:-.01em}
       <div class="ideas" id="ideas"></div>
     </section>
     <section class="pane" id="p-stats"><div id="statsbox"></div></section>
+  </div>
+</div>
+
+</div>
+    </div>
+  </div>
+</div>
+
+<div class="gate" id="gate">
+  <div class="box">
+    <h2>Контент-завод</h2>
+    <input id="pin" type="password" inputmode="numeric" placeholder="пин" autocomplete="off">
+    <div class="err" id="pinerr"></div>
   </div>
 </div>
 
@@ -477,6 +512,9 @@ function cardHtml(p){
   else if (p.source_code) tags += '<span class="tag">метка ' + esc(p.source_code) + '</span>';
   return '<div class="card' + (p.no_mark ? ' flag' : '') + '" draggable="true" data-id="' + p.id + '">' +
          '<div class="t">' + esc(p.title || 'без названия') + '</div>' +
+         // Суть — прямо на карточке: главный вопрос к очереди «о чём это и
+         // откуда», а не «как называется»
+         (p.insight ? '<div class="ins">' + esc(p.insight) + '</div>' : '') +
          '<div class="src">' + src + '</div>' +
          '<div class="row">' + tags + '</div></div>';
 }
@@ -582,6 +620,7 @@ function renderStats(){
   var srcRows = (STATS.sources || []).slice(0, 12).map(function(s){
     return '<div class="row-item"><div class="grow"><div class="t">' + esc(s.title || s.code) + '</div>' +
            '<div class="m">метка ' + esc(s.code) + '</div></div>' +
+           '<span class="pill">' + touchLabel(s.touches) + '</span>' +
            '<span class="pill">' + s.came + ' пришло</span><span class="pill ok">' + s.paid + ' оплат</span></div>';
   }).join('');
 
@@ -595,8 +634,11 @@ function renderStats(){
     '<div class="chart"><h3>Выложено по дням</h3>' +
       '<div class="sub">Серым — дни ниже нормы в ' + STATS.norm + ' единиц</div>' +
       '<div class="bars">' + bars + '</div><div class="days">' + days + '</div></div>' +
+    cutBlock('Что работает по формату', STATS.by_format) +
+    cutBlock('Что работает по площадке', STATS.by_platform) +
     (srcRows ? '<div class="chart"><h3>Отдача по меткам завода</h3>' +
-      '<div class="sub">Переходы по диплинкам в системе пока не считаются — здесь то, что можно посчитать без вранья</div>' +
+      '<div class="sub">' + (STATS.touches_measured ? 'Переходы, приходы и оплаты по каждой метке'
+        : 'Переходы пока не измеряются — нужен вызов счётчика в общем main.py') + '</div>' +
       '<div class="rows">' + srcRows + '</div></div>' : '') +
     '<div class="chart"><h3>Правила производства</h3>' +
       '<div class="sub">Появилось занятие — заготовки по правилам возникают в очереди сами</div>' +
@@ -607,6 +649,27 @@ function renderStats(){
   renderRules();
   $('addrule').addEventListener('click', function(){ openRule(); });
   $('gen').addEventListener('click', generate);
+}
+
+// ⚠️ «Нет данных» и «ноль переходов» — РАЗНЫЕ ВЕЩИ. Пока счётчик не подключён,
+// ноль на экране означал бы «никто не переходил», и правила правились бы по
+// выдуманному числу
+function touchLabel(n){
+  return STATS && STATS.touches_measured ? (n + ' переходов') : 'переходы не считаются';
+}
+
+function cutBlock(title, rows){
+  if (!rows || !rows.length) return '';
+  var body = rows.map(function(r){
+    return '<div class="row-item"><div class="grow"><div class="t">' + esc(r.label || r.key || 'без вида') + '</div>' +
+           '<div class="m">' + r.pieces + ' выложено</div></div>' +
+           '<span class="pill">' + touchLabel(r.touches) + '</span>' +
+           '<span class="pill">' + r.came + ' пришло</span>' +
+           '<span class="pill' + (r.paid ? ' ok' : '') + '">' + r.paid + ' оплат</span></div>';
+  }).join('');
+  return '<div class="chart"><h3>' + title + '</h3>' +
+         '<div class="sub">Отсюда правятся правила производства — по факту, а не по ощущению</div>' +
+         '<div class="rows">' + body + '</div></div>';
 }
 
 function renderRules(){
@@ -691,7 +754,10 @@ function openPiece(id, slug){
       '<div class="field"><label>Ключ занятия</label><input id="f-slug" value="' + esc(p ? p.lecture_slug : (slug || '')) + '"></div>' +
       '<div class="field"><label>Таймкод</label><input id="f-tc" value="' + esc(p ? p.timecode : '') + '" placeholder="14:20"></div>' +
     '</div>' +
+    '<div class="field"><label>Суть — о чём это</label><input id="f-ins" value="' + esc(p ? p.insight : '') + '" placeholder="одной строкой"></div>' +
     '<div class="field"><label>Сценарий или заметка</label><textarea id="f-note">' + esc(p ? p.note : '') + '</textarea></div>' +
+    (p ? '<div class="wbtns"><button class="mini" data-x="draft">Написать черновик</button>' +
+         '<span class="note" style="margin:0">по занятию и сути, тем же ключом, что игры</span></div>' : '') +
     '<div class="wbtns">' +
       (p ? '<button class="ghost danger" data-x="drop">Отбросить</button>' : '') +
       (p ? '<button class="ghost" data-x="spread">По площадкам</button>' : '') +
@@ -791,11 +857,29 @@ function act(what){
       platform: $('f-pl').value,
       status: EDIT ? EDIT.status : 'idea',
       lecture_slug: $('f-slug').value.trim(),
-      timecode: $('f-tc').value.trim()
+      timecode: $('f-tc').value.trim(),
+      insight: $('f-ins').value.trim()
     };
     api('/factory/piece', {method:'POST', body:body})
       .then(function(r){ replace(r.piece); closeWin(); renderBoard(); toast('Сохранено'); })
       .catch(function(e){ toast(e.message); });
+    return;
+  }
+  if (what === 'draft') {
+    // ⚠️ Сначала СОХРАНЯЕМ правки, потом просим черновик: иначе он напишется
+    // по старой сути, а свежая, только что набранная, потеряется
+    var btn = $('win').querySelector('[data-x="draft"]');
+    if (btn) { btn.textContent = 'Пишу…'; btn.disabled = true; }
+    api('/factory/piece', {method:'POST', body:{
+      id: EDIT.id, title: $('f-title').value, note: $('f-note').value,
+      fmt: $('f-fmt').value, platform: $('f-pl').value, status: EDIT.status,
+      lecture_slug: $('f-slug').value.trim(), timecode: $('f-tc').value.trim(),
+      insight: $('f-ins').value.trim()
+    }})
+      .then(function(r){ replace(r.piece); EDIT = r.piece;
+        return api('/factory/piece/' + EDIT.id + '/draft', {method:'POST', body:{save:true}}); })
+      .then(function(r){ replace(r.piece); EDIT = r.piece; openPiece(EDIT.id); renderBoard(); toast('Черновик готов'); })
+      .catch(function(e){ toast(e.message); if (btn) { btn.textContent = 'Написать черновик'; btn.disabled = false; } });
     return;
   }
   if (what === 'publish') { openPublish(); return; }
