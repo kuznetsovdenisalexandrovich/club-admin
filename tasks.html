@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: tasks-v17 -->
+<!-- FILE_VERSION: tasks-v19 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -785,8 +785,11 @@ function renderGoals(){
   const цели = goalItems();
   if (!цели.length){
     document.getElementById('body').innerHTML =
-      '<div class="group"><div class="goal-empty">Целей пока нет. Скажи партнёру: '
-      + '«заведи цель — запустить рекламу в ВК к пятнице».</div></div>';
+      '<div class="goal" style="text-align:center;padding:28px 20px">'
+      + '<div style="font-weight:700;font-size:16px;margin-bottom:8px">Стратегических целей нет</div>'
+      + '<div style="font-size:13px;color:var(--text-dim);line-height:1.5">'
+      + 'Заведи их через партнёра — кнопка «БП» внизу справа.<br>'
+      + 'Например: «заведи цель — запустить рекламу в ВК к пятнице».</div></div>';
     return;
   }
   const сегодня = new Date().toISOString().slice(0,10);
@@ -1054,7 +1057,7 @@ function renderGoals(){
   const сег = GOALS['сегодня'] || {};
   const само = GOALS['считается_само'] || [];
 
-  let h = '<div class="goals-head"><div class="goals-t">Цели на сегодня</div>'
+  let h = '<div class="goals-head"><div class="goals-t">Нормы дня</div>'
         + '<button class="linky goals-d" onclick="goalNorms()">Изменить нормы</button></div>';
 
   GOAL_ORDER.forEach(function(k){
@@ -1237,7 +1240,19 @@ function heroTitle(p){
   return 'Готово. Всё.';
 }
 
-function switchTab(k){ cur = k; render(); window.scrollTo({top:0, behavior:'smooth'}); }
+/* ⚠️ ПЕРЕКЛЮЧЕНИЕ ВКЛАДКИ ПОДТЯГИВАЕТ К РЯДУ ВКЛАДОК, А НЕ В САМЫЙ ВЕРХ.
+   Раньше прыгало на top:0 — и человек утыкался в блок норм, а содержимое
+   вкладки оставалось за экраном. Выглядело как «нажал и ничего нет»,
+   особенно на «Стратегии», где карточек мало. */
+function switchTab(k){
+  cur = k;
+  render();
+  const ряд = document.getElementById('tabs');
+  if (!ряд) return;
+  /* Небольшой отступ сверху, чтобы вкладки не липли к краю экрана */
+  const верх = ряд.getBoundingClientRect().top + window.pageYOffset - 8;
+  window.scrollTo({ top: Math.max(0, верх), behavior:'smooth' });
+}
 function toggleDone(){ showDone = !showDone; render(); }
 
 /* Закрыл задачу — цель «задачи по архитектуре» должна тронуться сразу, а не
