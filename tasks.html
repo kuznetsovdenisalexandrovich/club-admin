@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: tasks-v19 -->
+<!-- FILE_VERSION: tasks-v21 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -567,7 +567,7 @@ h1::before{
   <div class="adder"><select id="new-group"></select></div>
 
   <div class="foot"><button class="linky" id="show-done" onclick="toggleDone()">Показать сделанное</button>
-    <div style="margin-top:11px">доска задач · <span id="build">tasks-v12</span></div></div>
+    <div style="margin-top:11px">доска задач · <span id="build">…</span></div></div>
 </div>
 
 <script>
@@ -779,9 +779,14 @@ function renderCalendar(){
 }
 /* Одна строка задачи, общая для календаря и разделов. withSec — подписать раздел,
    в календаре задачи из разных разделов лежат вперемешку */
-/* Экран целей: карточка с полосой, клик разворачивает шаги */
+/* Экран стратегических целей: карточка с полосой, клик разворачивает шаги.
+   ⚠️⚠️ ИМЯ — renderStrategy, НЕ renderGoals. В файле уже была renderGoals
+   (рисует блок норм дня), и моя одноимённая функция молча ПЕРЕКРЫВАЛАСЬ ею:
+   клик по «Стратегии» рисовал нормы, а тело страницы оставалось от прошлой
+   вкладки. Час искали «почему не показывает». Перед добавлением функции в
+   чужой файл — грепнуть имя. */
 function goalItems(){ return ITEMS.filter(function(i){ return i.goal; }); }
-function renderGoals(){
+function renderStrategy(){
   const цели = goalItems();
   if (!цели.length){
     document.getElementById('body').innerHTML =
@@ -822,7 +827,7 @@ function shagiHtml(шаги){
 let open_goals = {};
 function toggleGoal(id){
   open_goals[id] = !open_goals[id];
-  renderGoals();
+  renderStrategy();
 }
 function taskRow(it, withSec){
   const sec = withSec ? (SECTIONS.filter(function(s){ return s.key === it.sec; })[0] || {}).title : '';
@@ -879,7 +884,7 @@ function render(){
       + esc(s.title) + '<i>' + doneCount(list) + '/' + list.length + '</i></button>';
   }).join('');
 
-  if (cur === GOAL_SEC){ renderGoals(); }
+  if (cur === GOAL_SEC){ renderStrategy(); }
   else if (cur === CAL_SEC){ renderCalendar(); } else {
   const groups = sectionItems(cur);
   let h = '';
@@ -1638,6 +1643,16 @@ async function bpSend(){
     bpAdd(e.name === 'AbortError' ? 'Ответ не пришёл за пять минут.' : 'Связь оборвалась.', 'him');
   } finally { bpBusy = false; }
 }
+/* ⚠️⚠️ ВЕРСИЯ ВНИЗУ ЧИТАЕТСЯ ИЗ ШАПКИ ФАЙЛА, А НЕ ПИШЕТСЯ РУКАМИ ВТОРОЙ РАЗ.
+   06.09: подпись показывала tasks-v12 на всех версиях подряд, потому что была
+   литералом, — и по ней я решил, что выкладка не доходит, хотя доходила.
+   Тот же класс, что метка сборки у бэкенда: ОДИН источник истины. */
+(function(){
+  const el = document.getElementById('build');
+  if (!el) return;
+  const m = document.documentElement.innerHTML.match(/FILE_VERSION:\s*(tasks-v\d+)/);
+  el.textContent = m ? m[1] : 'версия не найдена';
+})();
 bootGate();
 </script>
 </body>
