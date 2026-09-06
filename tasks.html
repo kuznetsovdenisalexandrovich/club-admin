@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: tasks-v16 -->
+<!-- FILE_VERSION: tasks-v17 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -445,6 +445,23 @@ h1::before{
   background:var(--stat-bg);color:var(--text);font-family:var(--body);font-size:15px}
 .bp-send{padding:0 18px;border-radius:14px;border:none;font-weight:600;
   background:linear-gradient(135deg,var(--lav),var(--lav-deep));color:#fff}
+
+/* СТРАТЕГИЧЕСКИЕ ЦЕЛИ. Цель — это элемент доски с признаком goal; шаги
+   ссылаются на неё полем parent. Отдельного хранилища нет намеренно */
+.goal{background:var(--stat-bg);border-radius:18px;padding:14px 16px;margin-bottom:10px}
+[data-theme="light"] .goal{background:var(--bg);box-shadow:var(--sh-r)}
+.goal-head{display:flex;align-items:baseline;gap:10px;cursor:pointer}
+.goal-t{font-weight:700;font-size:15px;flex:1;min-width:0}
+.goal-n{font-size:12px;color:var(--text-dim);white-space:nowrap}
+.goal-why{font-size:12px;color:var(--text-dim);margin-top:3px}
+.goal-bar{height:8px;border-radius:99px;background:var(--surface2);margin-top:10px;overflow:hidden}
+.goal-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--lav),var(--lav-deep));
+  transition:width .35s ease}
+.goal-due{font-size:12px;margin-top:6px;color:var(--text-dim)}
+.goal-due.late{color:#d8674f;font-weight:600}
+.goal-sub{margin-top:10px;display:none}
+.goal.open .goal-sub{display:block}
+.goal-empty{font-size:12px;color:var(--text-dim);padding:6px 0}
 </style>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
@@ -582,6 +599,8 @@ const FALLBACK_SECTIONS = [
      только в запасном списке, на случай пустого документа */
   { key:'self', title:'Личное'       }
 ];
+/* ⚠️ Псевдо-раздел: на сервере его нет, он собирается из элементов с goal */
+const GOAL_SEC = 'goals';
 let SECTIONS = FALLBACK_SECTIONS.slice();
 let ITEMS = [];
 /* ⚠️ РАЗДЕЛ ЛЕКЦИЙ НЕ ХРАНИТСЯ НА ДОСКЕ — он считается сервером из самой базы
@@ -614,13 +633,15 @@ function sectionItems(sec){
   });
   return out;
 }
+/* ⚠️ ЦЕЛИ ИЗ ОБЫЧНЫХ СПИСКОВ УБИРАЕМ: они живут в тех же items, и без фильтра
+   каждая цель дублировалась бы строкой в своём разделе */
 function allItems(sec){
   if (sec === CAL_SEC) return calItems();
   /* ⚠️ В РАЗДЕЛЕ ЛЕКЦИЙ ДВА РОДА СТРОК. Из базы приходит то, что уже записано;
      свои строки — это ПЛАН на потоки, которых ещё нет. Сервер про них знать не
      может, а планировать наперёд надо. Плановые идут ПОСЛЕ настоящих внутри
      своей группы, чтобы записанное было видно первым */
-  const own = ITEMS.filter(function(i){ return i.sec === sec; });
+  const own = ITEMS.filter(function(i){ return i.sec === sec && !i.goal; });
   if (sec !== LEC_SEC) return own;
   const real = lectureRows();
   const seen = {};
@@ -649,6 +670,7 @@ function calSideItems(){ return ITEMS.filter(function(i){ return !itemDays(i) &&
 
 function tabs(){
   const t = SECTIONS.slice();
+  t.unshift({ key:GOAL_SEC, title:'Стратегия' });
   if (calItems().length) t.unshift({ key:CAL_SEC, title:'Календарь' });
   if (LECTURES.length) t.push({ key:LEC_SEC, title:'Лекции' });
   return t;
@@ -757,6 +779,48 @@ function renderCalendar(){
 }
 /* Одна строка задачи, общая для календаря и разделов. withSec — подписать раздел,
    в календаре задачи из разных разделов лежат вперемешку */
+/* Экран целей: карточка с полосой, клик разворачивает шаги */
+function goalItems(){ return ITEMS.filter(function(i){ return i.goal; }); }
+function renderGoals(){
+  const цели = goalItems();
+  if (!цели.length){
+    document.getElementById('body').innerHTML =
+      '<div class="group"><div class="goal-empty">Целей пока нет. Скажи партнёру: '
+      + '«заведи цель — запустить рекламу в ВК к пятнице».</div></div>';
+    return;
+  }
+  const сегодня = new Date().toISOString().slice(0,10);
+  let h = '';
+  цели.forEach(function(ц){
+    const шаги = ITEMS.filter(function(i){ return i.parent === ц.id; });
+    const закрыто = шаги.filter(function(i){ return i.done; }).length;
+    /* ⚠️ Прогресс СЧИТАЕТСЯ по закрытым шагам, а не хранится: ручная полоса
+       врёт через неделю, и её перестают читать */
+    const доля = шаги.length ? Math.round(100 * закрыто / шаги.length) : 0;
+    const поздно = ц.due && ц.due < сегодня && закрыто < шаги.length;
+    h += '<div class="goal' + (open_goals[ц.id] ? ' open' : '') + '" id="goal-' + esc(ц.id) + '">'
+      + '<div class="goal-head" onclick="toggleGoal(\'' + esc(ц.id) + '\')">'
+      + '<div class="goal-t">' + esc(ц.t) + '</div>'
+      + '<div class="goal-n">' + закрыто + ' из ' + шаги.length + '</div></div>'
+      + (ц.n ? '<div class="goal-why">' + esc(ц.n) + '</div>' : '')
+      + '<div class="goal-bar"><div class="goal-fill" style="width:' + доля + '%"></div></div>'
+      + (ц.due ? '<div class="goal-due' + (поздно ? ' late' : '') + '">срок ' + esc(ц.due)
+                 + (поздно ? ' — просрочено' : '') + '</div>' : '')
+      + '<div class="goal-sub">'
+      + (шаги.length ? shagiHtml(шаги)
+         : '<div class="goal-empty">Шагов нет. Цель без шагов — лозунг: попроси партнёра разложить её.</div>')
+      + '</div></div>';
+  });
+  document.getElementById('body').innerHTML = h;
+}
+function shagiHtml(шаги){
+  return '<div class="list">' + шаги.map(function(i){ return taskRow(i, true); }).join('') + '</div>';
+}
+let open_goals = {};
+function toggleGoal(id){
+  open_goals[id] = !open_goals[id];
+  renderGoals();
+}
 function taskRow(it, withSec){
   const sec = withSec ? (SECTIONS.filter(function(s){ return s.key === it.sec; })[0] || {}).title : '';
   return '<div class="task' + (it.done ? ' done' : '') + '" onclick="toggle(\'' + esc(it.id) + '\')">'
@@ -801,12 +865,19 @@ async function loadCalendar(){
 
 function render(){
   document.getElementById('tabs').innerHTML = tabs().map(function(s){
-    const list = allItems(s.key);
+    /* У «Стратегии» свой счёт: сколько целей доведено до конца */
+    const list = s.key === GOAL_SEC
+      ? goalItems().map(function(ц){
+          const шаги = ITEMS.filter(function(i){ return i.parent === ц.id; });
+          return { done: шаги.length && шаги.every(function(i){ return i.done; }) ? '1' : '' };
+        })
+      : allItems(s.key);
     return '<button class="tab' + (s.key===cur ? ' on' : '') + '" onclick="switchTab(\'' + s.key + '\')">'
       + esc(s.title) + '<i>' + doneCount(list) + '/' + list.length + '</i></button>';
   }).join('');
 
-  if (cur === CAL_SEC){ renderCalendar(); } else {
+  if (cur === GOAL_SEC){ renderGoals(); }
+  else if (cur === CAL_SEC){ renderCalendar(); } else {
   const groups = sectionItems(cur);
   let h = '';
   groups.forEach(function(g){
