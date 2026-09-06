@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: tasks-v21 -->
+<!-- FILE_VERSION: tasks-v22 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -460,6 +460,9 @@ h1::before{
 .goal-due{font-size:12px;margin-top:6px;color:var(--text-dim)}
 .goal-due.late{color:#d8674f;font-weight:600}
 .goal-sub{margin-top:10px;display:none}
+.sub-goal{margin:8px 0 0 14px;padding-left:12px;border-left:2px solid var(--surface2)}
+.sub-goal .goal-t{font-size:14px}
+.sub-bar{height:6px;border-radius:99px;background:var(--surface2);margin-top:7px;overflow:hidden}
 .goal.open .goal-sub{display:block}
 .goal-empty{font-size:12px;color:var(--text-dim);padding:6px 0}
 </style>
@@ -787,8 +790,11 @@ function renderCalendar(){
    чужой файл — грепнуть имя. */
 function goalItems(){ return ITEMS.filter(function(i){ return i.goal; }); }
 function renderStrategy(){
-  const цели = goalItems();
-  if (!цели.length){
+  const цели = goalItems().filter(function(ц){
+    /* Верхний уровень — цели, которые ни во что не вложены */
+    return !ц.parent || !ITEMS.some(function(i){ return i.id === ц.parent; });
+  });
+  if (!goalItems().length){
     document.getElementById('body').innerHTML =
       '<div class="goal" style="text-align:center;padding:28px 20px">'
       + '<div style="font-weight:700;font-size:16px;margin-bottom:8px">Стратегических целей нет</div>'
@@ -797,33 +803,50 @@ function renderStrategy(){
       + 'Например: «заведи цель — запустить рекламу в ВК к пятнице».</div></div>';
     return;
   }
+  document.getElementById('body').innerHTML =
+    цели.map(function(ц){ return goalCard(ц, 0); }).join('');
+}
+
+/* ⚠️ ПОТОМКИ СЧИТАЮТСЯ НА ЛЮБУЮ ГЛУБИНУ. У крупной цели прямых детей может
+   быть три подцели, а работы под ними — тридцать шагов; прогресс по прямым
+   детям показывал бы «0 из 3» и не двигался неделями */
+function descendants(id, глубина){
+  глубина = глубина || 0;
+  if (глубина > 6) return [];
+  const прямые = ITEMS.filter(function(i){ return i.parent === id; });
+  let все = прямые.slice();
+  прямые.forEach(function(п){ все = все.concat(descendants(п.id, глубина + 1)); });
+  return все;
+}
+
+function goalCard(ц, уровень){
+  const все = descendants(ц.id);
+  const листья = все.filter(function(i){ return !i.goal; });
+  const закрыто = листья.filter(function(i){ return i.done; }).length;
+  const доля = листья.length ? Math.round(100 * закрыто / листья.length) : 0;
   const сегодня = new Date().toISOString().slice(0,10);
-  let h = '';
-  цели.forEach(function(ц){
-    const шаги = ITEMS.filter(function(i){ return i.parent === ц.id; });
-    const закрыто = шаги.filter(function(i){ return i.done; }).length;
-    /* ⚠️ Прогресс СЧИТАЕТСЯ по закрытым шагам, а не хранится: ручная полоса
-       врёт через неделю, и её перестают читать */
-    const доля = шаги.length ? Math.round(100 * закрыто / шаги.length) : 0;
-    const поздно = ц.due && ц.due < сегодня && закрыто < шаги.length;
-    h += '<div class="goal' + (open_goals[ц.id] ? ' open' : '') + '" id="goal-' + esc(ц.id) + '">'
-      + '<div class="goal-head" onclick="toggleGoal(\'' + esc(ц.id) + '\')">'
-      + '<div class="goal-t">' + esc(ц.t) + '</div>'
-      + '<div class="goal-n">' + закрыто + ' из ' + шаги.length + '</div></div>'
-      + (ц.n ? '<div class="goal-why">' + esc(ц.n) + '</div>' : '')
-      + '<div class="goal-bar"><div class="goal-fill" style="width:' + доля + '%"></div></div>'
-      + (ц.due ? '<div class="goal-due' + (поздно ? ' late' : '') + '">срок ' + esc(ц.due)
-                 + (поздно ? ' — просрочено' : '') + '</div>' : '')
-      + '<div class="goal-sub">'
-      + (шаги.length ? shagiHtml(шаги)
-         : '<div class="goal-empty">Шагов нет. Цель без шагов — лозунг: попроси партнёра разложить её.</div>')
-      + '</div></div>';
-  });
-  document.getElementById('body').innerHTML = h;
+  const поздно = ц.due && ц.due < сегодня && закрыто < листья.length;
+  const дети = ITEMS.filter(function(i){ return i.parent === ц.id; });
+  const подцели = дети.filter(function(i){ return i.goal; });
+  const шаги = дети.filter(function(i){ return !i.goal; });
+
+  return '<div class="' + (уровень ? 'sub-goal' : 'goal') + (open_goals[ц.id] ? ' open' : '') + '">'
+    + '<div class="goal-head" onclick="toggleGoal(\'' + esc(ц.id) + '\')">'
+    + '<div class="goal-t">' + esc(ц.t) + '</div>'
+    + '<div class="goal-n">' + закрыто + ' из ' + листья.length + '</div></div>'
+    + (ц.n ? '<div class="goal-why">' + esc(ц.n) + '</div>' : '')
+    + '<div class="' + (уровень ? 'sub-bar' : 'goal-bar') + '">'
+    + '<div class="goal-fill" style="width:' + доля + '%"></div></div>'
+    + (ц.due ? '<div class="goal-due' + (поздно ? ' late' : '') + '">срок ' + esc(ц.due)
+               + (поздно ? ' — просрочено' : '') + '</div>' : '')
+    + '<div class="goal-sub">'
+    + подцели.map(function(п){ return goalCard(п, уровень + 1); }).join('')
+    + (шаги.length ? '<div class="list">' + шаги.map(function(i){ return taskRow(i, false); }).join('') + '</div>' : '')
+    + (!дети.length ? '<div class="goal-empty">Шагов нет. Цель без шагов — лозунг: '
+                      + 'попроси партнёра разложить её.</div>' : '')
+    + '</div></div>';
 }
-function shagiHtml(шаги){
-  return '<div class="list">' + шаги.map(function(i){ return taskRow(i, true); }).join('') + '</div>';
-}
+
 let open_goals = {};
 function toggleGoal(id){
   open_goals[id] = !open_goals[id];
