@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: tasks-v25 -->
+<!-- FILE_VERSION: tasks-v26 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -828,11 +828,35 @@ function descendants(id, глубина){
 
 /* ⚠️ ПЕРЕЦЕПИТЬ МЫШКОЙ, А НЕ КОДАМИ. Denis смотрит на доску и видит названия;
    заставлять его сверять pw04 и st02 значит заставлять работать вслепую */
-function detachGoal(id){
-  ITEMS.forEach(function(i){ if (i.id === id) delete i.parent; });
-  save();
-  render();
+/* ⚠️ ПЕРЕВЕШИВАНИЕ ИДЁТ НА СЕРВЕР ОТДЕЛЬНОЙ РУЧКОЙ. Обычный save() шлёт
+   только add/remove/done/undone — смены родителя в нём нет, и правка жила
+   до первой перезагрузки. Здесь ждём ответа сервера и только потом
+   перерисовываем: иначе экран покажет то, чего на сервере не случилось */
+async function setParent(id, parent){
+  try {
+    const r = await fetch(API + '/partner/attach?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ id: id, parent: parent || '' })
+    });
+    if (!r.ok){
+      const данные = await r.json().catch(function(){ return {}; });
+      setSaved('не перевесилось: ' + (данные.detail || r.status));
+      return false;
+    }
+    ITEMS.forEach(function(i){
+      if (i.id !== id) return;
+      if (parent) i.parent = parent; else delete i.parent;
+    });
+    setSaved('перевешено');
+    render();
+    return true;
+  } catch(e){
+    setSaved('не перевесилось: связь оборвалась');
+    return false;
+  }
 }
+
+function detachGoal(id){ setParent(id, ''); }
 
 function toGoal(id){
   const цели = goalItems();
@@ -844,12 +868,7 @@ function toGoal(id){
   if (ответ === null) return;
   const n = parseInt(ответ, 10);
   if (isNaN(n) || n < 0 || n > цели.length) return;
-  ITEMS.forEach(function(i){
-    if (i.id !== id) return;
-    if (n === 0) delete i.parent; else i.parent = цели[n - 1].id;
-  });
-  save();
-  render();
+  setParent(id, n === 0 ? '' : цели[n - 1].id);
 }
 
 function goalCard(ц, уровень){
