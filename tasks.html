@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: tasks-v24 -->
+<!-- FILE_VERSION: tasks-v25 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -828,6 +828,12 @@ function descendants(id, глубина){
 
 /* ⚠️ ПЕРЕЦЕПИТЬ МЫШКОЙ, А НЕ КОДАМИ. Denis смотрит на доску и видит названия;
    заставлять его сверять pw04 и st02 значит заставлять работать вслепую */
+function detachGoal(id){
+  ITEMS.forEach(function(i){ if (i.id === id) delete i.parent; });
+  save();
+  render();
+}
+
 function toGoal(id){
   const цели = goalItems();
   if (!цели.length){ alert('Целей нет — сначала заведи хотя бы одну.'); return; }
@@ -860,6 +866,10 @@ function goalCard(ц, уровень){
   return '<div class="' + (уровень ? 'st-child' : 'st-card') + (open_goals[ц.id] ? ' open' : '') + '">'
     + '<div class="st-head" onclick="toggleGoal(\'' + esc(ц.id) + '\')">'
     + '<div class="st-t"><span class="code">' + esc(ц.id) + '</span>' + esc(ц.t) + '</div>'
+    /* ⚠️ Вложить цель можно было, а вынести — нет. Всякий раз, добавляя связь,
+       добавляй способ её разорвать */
+    + (уровень ? '<button class="st-to" onclick="event.stopPropagation();detachGoal(\''
+                 + esc(ц.id) + '\')">вынести</button>' : '')
     + '<div class="st-n">' + закрыто + ' из ' + листья.length + '</div></div>'
     + (ц.n ? '<div class="st-why">' + esc(ц.n) + '</div>' : '')
     + '<div class="' + (уровень ? 'st-bar st-bar-sm' : 'st-bar') + '">'
