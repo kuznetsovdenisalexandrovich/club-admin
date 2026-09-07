@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: tasks-v22 -->
+<!-- FILE_VERSION: tasks-v23 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -460,6 +460,13 @@ h1::before{
 .goal-due{font-size:12px;margin-top:6px;color:var(--text-dim)}
 .goal-due.late{color:#d8674f;font-weight:600}
 .goal-sub{margin-top:10px;display:none}
+/* Код элемента — мелко и серо. Нужен, чтобы можно было сказать партнёру
+   «подцепи pw04 к st02», не гадая, где что */
+.code{font-size:10px;color:var(--text-dim);opacity:.75;margin-right:6px;
+  font-variant-numeric:tabular-nums}
+.to-goal{background:none;border:none;color:var(--text-dim);font-size:11px;
+  padding:4px 6px;white-space:nowrap}
+.to-goal:active{opacity:.6}
 .sub-goal{margin:8px 0 0 14px;padding-left:12px;border-left:2px solid var(--surface2)}
 .sub-goal .goal-t{font-size:14px}
 .sub-bar{height:6px;border-radius:99px;background:var(--surface2);margin-top:7px;overflow:hidden}
@@ -819,6 +826,26 @@ function descendants(id, глубина){
   return все;
 }
 
+/* ⚠️ ПЕРЕЦЕПИТЬ МЫШКОЙ, А НЕ КОДАМИ. Denis смотрит на доску и видит названия;
+   заставлять его сверять pw04 и st02 значит заставлять работать вслепую */
+function toGoal(id){
+  const цели = goalItems();
+  if (!цели.length){ alert('Целей нет — сначала заведи хотя бы одну.'); return; }
+  const это = ITEMS.filter(function(i){ return i.id === id; })[0];
+  const список = цели.map(function(ц, n){ return (n + 1) + '. ' + ц.t; }).join('\n');
+  const ответ = prompt('«' + (это ? это.t : id) + '» — в какую цель?\n\n' + список
+                       + '\n\n0 — отцепить совсем', '1');
+  if (ответ === null) return;
+  const n = parseInt(ответ, 10);
+  if (isNaN(n) || n < 0 || n > цели.length) return;
+  ITEMS.forEach(function(i){
+    if (i.id !== id) return;
+    if (n === 0) delete i.parent; else i.parent = цели[n - 1].id;
+  });
+  save();
+  render();
+}
+
 function goalCard(ц, уровень){
   const все = descendants(ц.id);
   const листья = все.filter(function(i){ return !i.goal; });
@@ -832,7 +859,7 @@ function goalCard(ц, уровень){
 
   return '<div class="' + (уровень ? 'sub-goal' : 'goal') + (open_goals[ц.id] ? ' open' : '') + '">'
     + '<div class="goal-head" onclick="toggleGoal(\'' + esc(ц.id) + '\')">'
-    + '<div class="goal-t">' + esc(ц.t) + '</div>'
+    + '<div class="goal-t"><span class="code">' + esc(ц.id) + '</span>' + esc(ц.t) + '</div>'
     + '<div class="goal-n">' + закрыто + ' из ' + листья.length + '</div></div>'
     + (ц.n ? '<div class="goal-why">' + esc(ц.n) + '</div>' : '')
     + '<div class="' + (уровень ? 'sub-bar' : 'goal-bar') + '">'
@@ -860,11 +887,13 @@ function taskRow(it, withSec){
     + (it.tag === 'me'  ? '<span class="tag me">за мной</span>'  : '')
     + (it.tag === 'plan' ? '<span class="tag plan">план</span>'  : '')
     + (sec ? '<span class="tag">' + esc(sec) + '</span>' : '')
+    + '<span class="code">' + esc(it.id) + '</span>'
     + esc(it.t) + '</div>'
     + (it.n ? '<span class="task-n">' + esc(it.n) + '</span>' : '')
     + '</div>'
     + (it.lecture ? ''
-       : '<button class="del" onclick="event.stopPropagation();dropTask(\'' + esc(it.id) + '\')">✕</button>')
+       : '<button class="to-goal" onclick="event.stopPropagation();toGoal(\'' + esc(it.id) + '\')">в цель</button>'
+         + '<button class="del" onclick="event.stopPropagation();dropTask(\'' + esc(it.id) + '\')">✕</button>')
     + '</div>';
 }
 function calJump(n){
