@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: tasks-v23 -->
+<!-- FILE_VERSION: tasks-v24 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -448,30 +448,30 @@ h1::before{
 
 /* СТРАТЕГИЧЕСКИЕ ЦЕЛИ. Цель — это элемент доски с признаком goal; шаги
    ссылаются на неё полем parent. Отдельного хранилища нет намеренно */
-.goal{background:var(--stat-bg);border-radius:18px;padding:14px 16px;margin-bottom:10px}
-[data-theme="light"] .goal{background:var(--bg);box-shadow:var(--sh-r)}
-.goal-head{display:flex;align-items:baseline;gap:10px;cursor:pointer}
-.goal-t{font-weight:700;font-size:15px;flex:1;min-width:0}
-.goal-n{font-size:12px;color:var(--text-dim);white-space:nowrap}
-.goal-why{font-size:12px;color:var(--text-dim);margin-top:3px}
-.goal-bar{height:8px;border-radius:99px;background:var(--surface2);margin-top:10px;overflow:hidden}
-.goal-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--lav),var(--lav-deep));
+.st-card{background:var(--stat-bg);border-radius:18px;padding:14px 16px;margin-bottom:10px}
+[data-theme="light"] .st-card{background:var(--bg);box-shadow:var(--sh-r)}
+.st-head{display:flex;align-items:baseline;gap:10px;cursor:pointer}
+.st-t{font-weight:700;font-size:15px;flex:1;min-width:0}
+.st-n{font-size:12px;color:var(--text-dim);white-space:nowrap}
+.st-why{font-size:12px;color:var(--text-dim);margin-top:3px}
+.st-bar{height:8px;border-radius:99px;background:var(--surface2);margin-top:10px;overflow:hidden}
+.st-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--lav),var(--lav-deep));
   transition:width .35s ease}
-.goal-due{font-size:12px;margin-top:6px;color:var(--text-dim)}
-.goal-due.late{color:#d8674f;font-weight:600}
-.goal-sub{margin-top:10px;display:none}
+.st-due{font-size:12px;margin-top:6px;color:var(--text-dim)}
+.st-due.late{color:#d8674f;font-weight:600}
+.st-sub{margin-top:10px;display:none}
 /* Код элемента — мелко и серо. Нужен, чтобы можно было сказать партнёру
    «подцепи pw04 к st02», не гадая, где что */
 .code{font-size:10px;color:var(--text-dim);opacity:.75;margin-right:6px;
   font-variant-numeric:tabular-nums}
-.to-goal{background:none;border:none;color:var(--text-dim);font-size:11px;
+.st-to{background:none;border:none;color:var(--text-dim);font-size:11px;
   padding:4px 6px;white-space:nowrap}
-.to-goal:active{opacity:.6}
-.sub-goal{margin:8px 0 0 14px;padding-left:12px;border-left:2px solid var(--surface2)}
-.sub-goal .goal-t{font-size:14px}
-.sub-bar{height:6px;border-radius:99px;background:var(--surface2);margin-top:7px;overflow:hidden}
-.goal.open .goal-sub{display:block}
-.goal-empty{font-size:12px;color:var(--text-dim);padding:6px 0}
+.st-to:active{opacity:.6}
+.st-child{margin:8px 0 0 14px;padding-left:12px;border-left:2px solid var(--surface2)}
+.st-child .st-t{font-size:14px}
+.st-bar-sm{height:6px;border-radius:99px;background:var(--surface2);margin-top:7px;overflow:hidden}
+.st-card.open > .st-sub, .st-child.open > .st-sub{display:block}
+.st-empty{font-size:12px;color:var(--text-dim);padding:6px 0}
 </style>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
@@ -803,7 +803,7 @@ function renderStrategy(){
   });
   if (!goalItems().length){
     document.getElementById('body').innerHTML =
-      '<div class="goal" style="text-align:center;padding:28px 20px">'
+      '<div class="st-card" style="text-align:center;padding:28px 20px">'
       + '<div style="font-weight:700;font-size:16px;margin-bottom:8px">Стратегических целей нет</div>'
       + '<div style="font-size:13px;color:var(--text-dim);line-height:1.5">'
       + 'Заведи их через партнёра — кнопка «БП» внизу справа.<br>'
@@ -857,19 +857,19 @@ function goalCard(ц, уровень){
   const подцели = дети.filter(function(i){ return i.goal; });
   const шаги = дети.filter(function(i){ return !i.goal; });
 
-  return '<div class="' + (уровень ? 'sub-goal' : 'goal') + (open_goals[ц.id] ? ' open' : '') + '">'
-    + '<div class="goal-head" onclick="toggleGoal(\'' + esc(ц.id) + '\')">'
-    + '<div class="goal-t"><span class="code">' + esc(ц.id) + '</span>' + esc(ц.t) + '</div>'
-    + '<div class="goal-n">' + закрыто + ' из ' + листья.length + '</div></div>'
-    + (ц.n ? '<div class="goal-why">' + esc(ц.n) + '</div>' : '')
-    + '<div class="' + (уровень ? 'sub-bar' : 'goal-bar') + '">'
-    + '<div class="goal-fill" style="width:' + доля + '%"></div></div>'
-    + (ц.due ? '<div class="goal-due' + (поздно ? ' late' : '') + '">срок ' + esc(ц.due)
+  return '<div class="' + (уровень ? 'st-child' : 'st-card') + (open_goals[ц.id] ? ' open' : '') + '">'
+    + '<div class="st-head" onclick="toggleGoal(\'' + esc(ц.id) + '\')">'
+    + '<div class="st-t"><span class="code">' + esc(ц.id) + '</span>' + esc(ц.t) + '</div>'
+    + '<div class="st-n">' + закрыто + ' из ' + листья.length + '</div></div>'
+    + (ц.n ? '<div class="st-why">' + esc(ц.n) + '</div>' : '')
+    + '<div class="' + (уровень ? 'st-bar st-bar-sm' : 'st-bar') + '">'
+    + '<div class="st-fill" style="width:' + доля + '%"></div></div>'
+    + (ц.due ? '<div class="st-due' + (поздно ? ' late' : '') + '">срок ' + esc(ц.due)
                + (поздно ? ' — просрочено' : '') + '</div>' : '')
-    + '<div class="goal-sub">'
+    + '<div class="st-sub">'
     + подцели.map(function(п){ return goalCard(п, уровень + 1); }).join('')
     + (шаги.length ? '<div class="list">' + шаги.map(function(i){ return taskRow(i, false); }).join('') + '</div>' : '')
-    + (!дети.length ? '<div class="goal-empty">Шагов нет. Цель без шагов — лозунг: '
+    + (!дети.length ? '<div class="st-empty">Шагов нет. Цель без шагов — лозунг: '
                       + 'попроси партнёра разложить её.</div>' : '')
     + '</div></div>';
 }
@@ -892,7 +892,7 @@ function taskRow(it, withSec){
     + (it.n ? '<span class="task-n">' + esc(it.n) + '</span>' : '')
     + '</div>'
     + (it.lecture ? ''
-       : '<button class="to-goal" onclick="event.stopPropagation();toGoal(\'' + esc(it.id) + '\')">в цель</button>'
+       : '<button class="st-to" onclick="event.stopPropagation();toGoal(\'' + esc(it.id) + '\')">в цель</button>'
          + '<button class="del" onclick="event.stopPropagation();dropTask(\'' + esc(it.id) + '\')">✕</button>')
     + '</div>';
 }
