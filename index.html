@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v104 -->
+<!-- FILE_VERSION: admin-v105 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1169,6 +1169,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <div class="tools-group-t">Цифры</div>
         <div class="tools-grid">
           <button class="action-btn" onclick="openMetrics()">Метрики по дням</button>
+          <button class="action-btn" onclick="openRetentionPopup()">Воронка и удержание</button>
           <button class="action-btn" onclick="openRegistrationReport()">Статистика</button>
           <button class="action-btn" onclick="openLectureStats()">Статистика лекций</button>
           <button class="action-btn" onclick="openBalances()">Деньги на сервисах</button>
@@ -2793,6 +2794,75 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <div style="font-size:12px;opacity:.7;line-height:1.5" id="metrics-raw">—</div>
       <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)"
               onclick="rollupLeads()">Свернуть сырые лиды в дневные итоги</button>
+    </div>
+  </div>
+</div>
+
+<div class="popup-overlay" id="retention-overlay" onclick="if(overlayShouldClose(event,this)) closeRetentionPopup()">
+  <div class="popup" style="max-width:600px">
+    <button class="popup-close-x" onclick="closeRetentionPopup()" title="Закрыть">✕</button>
+    <div class="popup-handle"></div>
+    <div class="popup-body">
+      <div class="popup-section-title" style="margin-top:0">Воронка и удержание</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="scroll-btn rtab on" data-tab="cohorts" onclick="setRetTab('cohorts')">Когорты</button>
+        <button class="scroll-btn rtab" data-tab="events" onclick="setRetTab('events')">События</button>
+        <button class="scroll-btn rtab" data-tab="onboard" onclick="setRetTab('onboard')">Первые сутки</button>
+        <button class="scroll-btn rtab" data-tab="diag" onclick="setRetTab('diag')">Служебное</button>
+      </div>
+
+      <div id="ret-tab-cohorts">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+          <select id="ret-months" onchange="loadRetention()" style="max-width:160px">
+            <option value="3">3 месяца</option>
+            <option value="6" selected>полгода</option>
+            <option value="12">год</option>
+            <option value="24">два года</option>
+          </select>
+          <span class="pay-meta">по месяцу первого платежа</span>
+        </div>
+        <div id="ret-body"><div class="loading">Загрузка...</div></div>
+      </div>
+
+      <div id="ret-tab-events" style="display:none">
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <button class="scroll-btn ret-ev-days" data-v="7" onclick="setRetEventsDays(7)">7 дней</button>
+          <button class="scroll-btn ret-ev-days on" data-v="30" onclick="setRetEventsDays(30)">30 дней</button>
+          <button class="scroll-btn ret-ev-days" data-v="90" onclick="setRetEventsDays(90)">90 дней</button>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:10px">
+          <button class="scroll-btn ret-ev-aud on" data-v="guests" onclick="setRetEventsAudience('guests')">Гости</button>
+          <button class="scroll-btn ret-ev-aud" data-v="members" onclick="setRetEventsAudience('members')">Участники</button>
+          <button class="scroll-btn ret-ev-aud" data-v="all" onclick="setRetEventsAudience('all')">Все</button>
+        </div>
+        <div class="pay-meta" style="margin-bottom:8px">Сколько ЛЮДЕЙ сделали каждое действие за период. Дата справа — с какого числа событие вообще пишется: у молодых событий цифры маленькие не потому, что шаг плохой.</div>
+        <div id="ret-events-body"><div class="loading">Загрузка...</div></div>
+      </div>
+
+      <div id="ret-tab-onboard" style="display:none">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+          <select id="ret-onboard-days" onchange="loadOnboardStats()" style="max-width:160px">
+            <option value="7">7 дней</option>
+            <option value="30" selected>30 дней</option>
+            <option value="90">90 дней</option>
+          </select>
+          <span class="pay-meta">знакомство с приложением</span>
+        </div>
+        <div id="ret-onboard-body"><div class="loading">Загрузка...</div></div>
+      </div>
+
+      <div id="ret-tab-diag" style="display:none">
+        <div class="pay-meta" style="margin-bottom:8px">Ручки, у которых до этого не было окна. Каждая кнопка — один вопрос серверу.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
+          <button class="action-btn" onclick="retDiag('live')">История эфиров</button>
+          <button class="action-btn" onclick="retDiag('ctmap')">Площадки в пушах</button>
+          <button class="action-btn" onclick="retDiag('mixups')">ВК-путаницы</button>
+          <button class="action-btn" onclick="retDiag('invite')">Бот в канале и чате</button>
+          <button class="action-btn" onclick="retDiag('soften-dry')">Сигилы: посмотреть</button>
+          <button class="action-btn" onclick="retDiag('soften')">Сигилы: притушить</button>
+        </div>
+        <div id="ret-diag-body" class="pay-meta">—</div>
+      </div>
     </div>
   </div>
 </div>
@@ -4772,6 +4842,268 @@ async function rollupLeads(){
     {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'}).then(r=>r.json());
   alert('Свёрнуто дней: '+(d['свёрнуто_дней']||0)+', убрано строк: '+(d['удалено_строк']||0));
   loadMetrics();
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ВОРОНКА И УДЕРЖАНИЕ (admin-v105, 10.09.2026)
+
+   Один экран на ручки, которые с 28.08 жили без окна: /admin/retention
+   (когорты, LTV, отток «решил сам / не прошло списание»), /admin/events/summary
+   (люди по каждому событию — единственное место, где видно home_block_hidden),
+   /admin/onboard/stats (знакомство с приложением). Вкладка «Служебное» —
+   диагностика без экрана: история эфиров, площадки в пушах, ВК-путаницы,
+   проверка бота в канале, приглушение сигилов.
+
+   ⚠️ НЕ ДУБЛИРУЕТ «ВОРОНКУ ЛИДОВ»: та считает ЛЕСТНИЦУ с отвалами по ступеням
+   уведомлений; здесь — плоский список событий и когорты по платежам.
+   ═══════════════════════════════════════════════════════════════════════ */
+let retTab = 'cohorts', retEventsDays = 30, retEventsAudience = 'guests';
+
+function retUrl(path){
+  return API + path + (path.indexOf('?') >= 0 ? '&' : '?') + 'x_admin_token=' + ADMIN_TOKEN;
+}
+async function retGet(path){
+  const r = await fetch(retUrl(path));
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
+  return d;
+}
+async function retPost(path, body){
+  const r = await fetch(retUrl(path), {method:'POST', headers:{'Content-Type':'application/json'},
+                                        body: JSON.stringify(body || {})});
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
+  return d;
+}
+function retFail(box, e){
+  box.innerHTML = '<div style="opacity:.6">Не получилось: ' + escapeHtmlAdm(e && e.message || String(e)) + '</div>';
+}
+
+function openRetentionPopup(){
+  document.getElementById('retention-overlay').classList.add('open');
+  setRetTab(retTab);
+}
+function closeRetentionPopup(){
+  document.getElementById('retention-overlay').classList.remove('open');
+}
+/* Вкладка грузится при каждом переключении: данных мало, а свежесть важнее
+   кэша — экран открывают, чтобы посмотреть «как сейчас» */
+function setRetTab(tab){
+  retTab = tab;
+  document.querySelectorAll('.rtab').forEach(function(b){ b.classList.toggle('on', b.dataset.tab === tab); });
+  ['cohorts','events','onboard','diag'].forEach(function(k){
+    const el = document.getElementById('ret-tab-' + k);
+    if (el) el.style.display = (k === tab) ? '' : 'none';
+  });
+  if (tab === 'cohorts') loadRetention();
+  if (tab === 'events')  loadEventsSummary();
+  if (tab === 'onboard') loadOnboardStats();
+}
+function setRetEventsDays(d){
+  retEventsDays = d;
+  document.querySelectorAll('.ret-ev-days').forEach(function(b){ b.classList.toggle('on', String(b.dataset.v) === String(d)); });
+  loadEventsSummary();
+}
+function setRetEventsAudience(a){
+  retEventsAudience = a;
+  document.querySelectorAll('.ret-ev-aud').forEach(function(b){ b.classList.toggle('on', b.dataset.v === a); });
+  loadEventsSummary();
+}
+function retKpi(label, val, sub, wide){
+  return '<div class="kpi' + (wide ? ' kpi-wide' : '') + '"><div class="kpi-label">' + escapeHtmlAdm(label) + '</div>'
+    + '<div class="kpi-val">' + escapeHtmlAdm(String(val)) + '</div>'
+    + (sub ? '<div class="kpi-sub">' + escapeHtmlAdm(sub) + '</div>' : '') + '</div>';
+}
+function retMonthLabel(ym){
+  const m = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+  const i = parseInt(String(ym).slice(5,7), 10) - 1;
+  return (m[i] || ym) + ' ' + String(ym).slice(2,4);
+}
+function retWhen(iso){
+  if (!iso) return '';
+  try { return new Date(iso).toLocaleDateString('ru-RU', {day:'numeric', month:'short'}); } catch(e){ return ''; }
+}
+
+/* ── Когорты ─────────────────────────────────────────────────────────── */
+async function loadRetention(){
+  const box = document.getElementById('ret-body');
+  box.innerHTML = '<div class="loading">Загрузка...</div>';
+  try{
+    const months = document.getElementById('ret-months').value || '6';
+    const d = await retGet('/admin/retention?months=' + months);
+    const ch = d.churn || {};
+    let h = '<div class="kpi-grid">'
+      + retKpi('Платящих', d.payers || 0, (d.payments || 0) + ' платежей за ' + (d.days || 0) + ' дн.')
+      + retKpi('Платежей на человека', d.avg_payments || 0, 'в среднем')
+      + retKpi('LTV средний', (d.ltv_avg || 0) + ' ₽', 'медиана ' + (d.ltv_median || 0) + ' ₽')
+      + retKpi('Висят с неудачным списанием', d.failing_now || 0, 'ещё участники — их можно вернуть починкой')
+      + '</div>';
+
+    /* ⚠️ Отток — главное на экране: «решил сам» и «не прошло списание» лечатся
+       разными людьми. Первое — продукт и цена, второе — Продамус и напоминания */
+    h += '<div class="section-title" style="margin:6px 0 6px;font-size:13px">Ушедшие из тех, кто платил: ' + (ch.total || 0) + '</div>';
+    const churnRows = [
+      ['Решил сам', ch.by_decision, 'просил остановить, платёж не падал'],
+      ['Не прошло списание', ch.by_failed_payment, 'не просил, карта не прошла'],
+      ['И то и другое', ch.both, 'сначала не прошло, потом попросил'],
+      ['Без следа', ch.unknown, 'сняли руками или Salebot — сервер не видел'],
+    ];
+    h += churnRows.map(function(r){
+      const n = r[1] || 0, pct = ch.total ? Math.round(n * 100 / ch.total) : 0;
+      return '<div class="pay-item"><div style="flex:1;min-width:0"><div class="pay-name">' + r[0] + '</div>'
+        + '<div class="pay-meta">' + r[2] + '</div></div>'
+        + '<div class="pay-name" style="flex-shrink:0">' + n + ' · ' + pct + '%</div></div>';
+    }).join('');
+
+    /* Матрица когорт: строка — месяц первого платежа, клетка — доля дошедших
+       до N-го платежа. Цвет — та же доля: глазу быстрее числа */
+    const cohorts = d.cohorts || [];
+    const maxStep = Math.max(1, ...cohorts.map(function(c){ return (c.steps || []).length; }));
+    h += '<div class="section-title" style="margin:16px 0 6px;font-size:13px">Дожили до N-го платежа</div>';
+    if (!cohorts.length){
+      h += '<div class="pay-meta">Пока пусто.</div>';
+    } else {
+      let t = '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:11px;white-space:nowrap">';
+      t += '<tr><th style="text-align:left;padding:4px 6px;opacity:.6;font-weight:600">Когорта</th><th style="padding:4px 6px;opacity:.6;font-weight:600">Чел.</th>';
+      for (let n = 1; n <= maxStep; n++) t += '<th style="padding:4px 6px;opacity:.6;font-weight:600">' + n + '</th>';
+      t += '</tr>';
+      cohorts.forEach(function(c){
+        const by = {};
+        (c.steps || []).forEach(function(s){ by[s.n] = s; });
+        t += '<tr><td style="padding:4px 6px;font-weight:600">' + escapeHtmlAdm(retMonthLabel(c.month)) + '</td>'
+          + '<td style="padding:4px 6px;text-align:center">' + (c.size || 0) + '</td>';
+        for (let n = 1; n <= maxStep; n++){
+          const s = by[n];
+          if (!s){ t += '<td style="padding:4px 6px;text-align:center;opacity:.25">·</td>'; continue; }
+          const a = (0.12 + s.pct / 100 * 0.55).toFixed(2);
+          t += '<td title="' + s.people + ' чел." style="padding:4px 6px;text-align:center;border-radius:6px;background:rgba(124,108,240,' + a + ')">'
+            + s.pct + '%</td>';
+        }
+        t += '</tr>';
+      });
+      t += '</table></div>';
+      h += t;
+      h += '<div class="pay-meta" style="margin-top:6px">Столбец 1 — все, кто заплатил хоть раз (100%). Платежи, а не месяцы календаря: списание с задержкой не сдвигает человека в другую клетку.</div>';
+    }
+
+    const life = d.lifetime || [];
+    if (life.length){
+      h += '<div class="section-title" style="margin:16px 0 6px;font-size:13px">Сколько платежей живёт человек</div>';
+      h += life.map(function(r){
+        return '<div class="pay-item"><div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(String(r.payments)) + (r.payments === '1' ? ' платёж' : ' платежей') + '</div></div>'
+          + '<div class="pay-name" style="flex-shrink:0">' + r.people + ' чел. · ' + r.pct + '%</div></div>';
+      }).join('');
+    }
+    box.innerHTML = h;
+  }catch(e){ retFail(box, e); }
+}
+
+/* ── События ─────────────────────────────────────────────────────────── */
+async function loadEventsSummary(){
+  const box = document.getElementById('ret-events-body');
+  box.innerHTML = '<div class="loading">Загрузка...</div>';
+  try{
+    const d = await retGet('/admin/events/summary?days=' + retEventsDays + '&audience=' + retEventsAudience);
+    const steps = d.steps || [];
+    if (!steps.length){ box.innerHTML = '<div class="pay-meta">За период событий нет.</div>'; return; }
+    const max = Math.max(1, ...steps.map(function(s){ return s.people || 0; }));
+    box.innerHTML = steps.map(function(s){
+      const w = Math.max(2, Math.round((s.people || 0) / max * 100));
+      return '<div class="pay-item" style="flex-direction:column;align-items:stretch;gap:4px">'
+        + '<div style="display:flex;justify-content:space-between;gap:10px">'
+        + '<div class="pay-name" style="flex:1;min-width:0">' + escapeHtmlAdm(s.label || s.event) + '</div>'
+        + '<div class="pay-name" style="flex-shrink:0">' + (s.people || 0) + ' чел.</div></div>'
+        + '<div style="display:flex;align-items:center;gap:8px">'
+        + '<div style="flex:1;height:5px;border-radius:3px;background:var(--line)"><div style="width:' + w + '%;height:5px;border-radius:3px;background:var(--lav-deep,#7c6cf0)"></div></div>'
+        + '<div class="pay-meta" style="flex-shrink:0;font-size:10px">' + escapeHtmlAdm(s.event) + (s.since ? ' · с ' + retWhen(s.since) : '') + '</div>'
+        + '</div></div>';
+    }).join('');
+  }catch(e){ retFail(box, e); }
+}
+
+/* ── Первые сутки ────────────────────────────────────────────────────── */
+async function loadOnboardStats(){
+  const box = document.getElementById('ret-onboard-body');
+  box.innerHTML = '<div class="loading">Загрузка...</div>';
+  try{
+    const days = document.getElementById('ret-onboard-days').value || '30';
+    const d = await retGet('/admin/onboard/stats?days=' + days);
+    let h = '<div class="kpi-grid">'
+      + retKpi('Начали знакомство', d.started || 0, 'за ' + (d.days || days) + ' дн.')
+      + retKpi('Прошли до конца', d.finished || 0, 'пропустили: ' + (d.self_serve || 0))
+      + '</div>';
+    const steps = d.steps || [];
+    if (!steps.length){
+      h += '<div class="pay-meta">Шагов за период нет.</div>';
+    } else {
+      h += '<div class="pay-meta" style="margin-bottom:6px">Показан → попробовал → сделал. Люди, не события.</div>';
+      h += steps.map(function(s){
+        return '<div class="pay-item"><div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(s.step) + '</div>'
+          + '<div class="pay-meta">показан ' + (s.shown || 0) + ' · попробовал ' + (s.tried || 0) + ' · пропустил ' + (s.skipped || 0) + '</div></div>'
+          + '<div class="pay-name" style="flex-shrink:0">сделал ' + (s.done || 0) + '</div></div>';
+      }).join('');
+    }
+    box.innerHTML = h;
+  }catch(e){ retFail(box, e); }
+}
+
+/* ── Служебное ───────────────────────────────────────────────────────── */
+/* Любой ответ сервера — читаемыми строками, без JSON-скобок. Вложенность
+   даётся отступом; списки словарей — как строки таблицы */
+function retRenderAny(v, depth){
+  depth = depth || 0;
+  const pad = 'padding-left:' + (depth * 12) + 'px';
+  if (v === null || v === undefined) return '<div style="' + pad + ';opacity:.5">—</div>';
+  if (Array.isArray(v)){
+    if (!v.length) return '<div style="' + pad + ';opacity:.5">пусто</div>';
+    return v.map(function(x, i){
+      if (x && typeof x === 'object' && !Array.isArray(x)){
+        return '<div style="' + pad + ';margin:6px 0 2px;font-weight:600">' + (i + 1) + '.</div>' + retRenderAny(x, depth + 1);
+      }
+      return '<div style="' + pad + '">· ' + escapeHtmlAdm(String(x)) + '</div>';
+    }).join('');
+  }
+  if (typeof v === 'object'){
+    return Object.keys(v).map(function(k){
+      const x = v[k];
+      if (x && typeof x === 'object'){
+        return '<div style="' + pad + ';margin-top:4px;font-weight:600">' + escapeHtmlAdm(k) + '</div>' + retRenderAny(x, depth + 1);
+      }
+      const val = (x === true) ? 'да' : (x === false) ? 'нет' : (x === null || x === undefined || x === '') ? '—' : String(x);
+      return '<div style="' + pad + ';display:flex;gap:8px"><span style="opacity:.6;flex-shrink:0">' + escapeHtmlAdm(k) + '</span><span style="word-break:break-word">' + escapeHtmlAdm(val) + '</span></div>';
+    }).join('');
+  }
+  return '<div style="' + pad + '">' + escapeHtmlAdm(String(v)) + '</div>';
+}
+async function retDiag(kind){
+  const box = document.getElementById('ret-diag-body');
+  box.innerHTML = '<div class="loading">Спрашиваю...</div>';
+  try{
+    let d, head = '';
+    if (kind === 'live'){
+      d = await retGet('/admin/live/sessions?limit=20');
+      head = d.verdict || '';
+      const rows = (d.sessions || []).map(function(s){
+        const vk = (s.vk || []).map(function(b){ return b.label + (b.video_id ? ' #' + b.video_id : ''); }).join(', ');
+        return '<div class="pay-item"><div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(s.title || 'Эфир') + '</div>'
+          + '<div class="pay-meta">' + escapeHtmlAdm(s.started_at || '') + ' → ' + escapeHtmlAdm(s.finished_at || '')
+          + ' · ВК: ' + (s.vk_count || 0) + (vk ? ' (' + escapeHtmlAdm(vk) + ')' : '') + ' · точек: ' + (s.restream_count || 0)
+          + (s.announced_at ? ' · анонс ' + escapeHtmlAdm(s.announced_at) : '')
+          + (s.last_error ? '<br><span style="color:#c0392b">' + escapeHtmlAdm(s.last_error) + '</span>' : '') + '</div></div></div>';
+      }).join('') || '<div class="pay-meta">Эфиров не было.</div>';
+      box.innerHTML = (head ? '<div class="pay-meta" style="margin-bottom:8px">' + escapeHtmlAdm(head) + '</div>' : '') + rows;
+      return;
+    }
+    if (kind === 'ctmap')  d = await retGet('/admin/client-type-map');
+    if (kind === 'mixups') d = await retGet('/admin/vk-mixups');
+    if (kind === 'invite') d = await retGet('/admin/telegram/invite-check');
+    if (kind === 'soften-dry') d = await retPost('/cards/admin/soften-sigils', {dry_run: true});
+    if (kind === 'soften'){
+      if (!confirm('Притушить сигилы по-настоящему? Файлы в хранилище перезапишутся с прозрачностью 0.22. Сначала стоит нажать «посмотреть».')) { box.textContent = '—'; return; }
+      d = await retPost('/cards/admin/soften-sigils', {dry_run: false});
+    }
+    box.innerHTML = retRenderAny(d);
+  }catch(e){ retFail(box, e); }
 }
 
 /* Ключ корзины: день, понедельник его недели или месяц. Неделю считаем от
@@ -16141,6 +16473,6 @@ function dgOpenPdf(id){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v104</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v105</div>
 </body>
 </html>
