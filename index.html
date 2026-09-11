@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v106 -->
+<!-- FILE_VERSION: admin-v107 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1170,6 +1170,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <div class="tools-grid">
           <button class="action-btn" onclick="openMetrics()">Метрики по дням</button>
           <button class="action-btn" onclick="openRetentionPopup()">Воронка и удержание</button>
+          <button class="action-btn" onclick="openStoriesPopup()">Сториз</button>
           <button class="action-btn" onclick="openRegistrationReport()">Статистика</button>
           <button class="action-btn" onclick="openLectureStats()">Статистика лекций</button>
           <button class="action-btn" onclick="openBalances()">Деньги на сервисах</button>
@@ -2795,6 +2796,20 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <div style="font-size:12px;opacity:.7;line-height:1.5" id="metrics-raw">—</div>
       <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)"
               onclick="rollupLeads()">Свернуть сырые лиды в дневные итоги</button>
+    </div>
+  </div>
+</div>
+
+<div class="popup-overlay" id="stories-overlay" onclick="if(overlayShouldClose(event,this)) closeStoriesPopup()">
+  <div class="popup" style="max-width:600px">
+    <button class="popup-close-x" onclick="closeStoriesPopup()" title="Закрыть">✕</button>
+    <div class="popup-handle"></div>
+    <div class="popup-body">
+      <div class="popup-section-title" style="margin-top:0">Сториз</div>
+      <div class="pay-meta" style="margin-bottom:10px">Кружки на главной, в этом же порядке. Постоянные — про фичи; анонсы и куски занятий уходят сами по сроку. Видео вертикальное 9:16, до 40 секунд, субтитры вшиты, звук у людей по кнопке.</div>
+      <div id="stories-list"><div class="loading">Загрузка...</div></div>
+      <button class="action-btn" style="width:100%;margin-top:8px" onclick="storyNew()">+ Новая сториз</button>
+      <div id="story-editor" style="display:none;margin-top:14px"></div>
     </div>
   </div>
 </div>
@@ -4843,6 +4858,177 @@ async function rollupLeads(){
     {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'}).then(r=>r.json());
   alert('Свёрнуто дней: '+(d['свёрнуто_дней']||0)+', убрано строк: '+(d['удалено_строк']||0));
   loadMetrics();
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   СТОРИЗ (admin-v107, 12.09.2026) — редакция ленты коротких видео на главной.
+   [stated] Denis: отдельная механика в дашборде, не в заводе — постоянные
+   ролики про фичи «проще держать под рукой, чтобы менять, если что».
+   Видео и обложка льются в хранилище напрямую по подписанной ссылке
+   (/admin/audio-upload-url с kind=video / story_cover) — так же, как аудио
+   занятий в анализаторе. Порядок кружков = порядок в списке.
+   ═══════════════════════════════════════════════════════════════════════ */
+let storiesAll = [], storyEditId = null;
+const STORY_KIND_LABELS = { feature:'Про фичу', announce:'Анонс', clip:'Кусок занятия' };
+const STORY_AUD_LABELS  = { all:'всем', member:'участникам', guest:'гостям' };
+/* Куда может вести кнопка — ключи диплинков аппа. `lecture:<slug>` вводится руками */
+const STORY_TARGETS = [
+  ['', '— без кнопки —'], ['library','Что посмотреть'], ['plan','Личный план'], ['games','Игры'],
+  ['live','Эфир / встреча'], ['schedule','Расписание'], ['cards','Карточки'], ['magazine','Журнал'],
+  ['digest','Дайджест'], ['points','Баллы'], ['rewards','Награды'], ['invite','Пригласить друга'],
+  ['film','Фильм'], ['pay','Оплата'], ['guide','Справка'], ['profile','Профиль'],
+];
+
+function openStoriesPopup(){
+  document.getElementById('stories-overlay').classList.add('open');
+  document.getElementById('story-editor').style.display = 'none';
+  loadStories();
+}
+function closeStoriesPopup(){ document.getElementById('stories-overlay').classList.remove('open'); }
+
+async function loadStories(){
+  const box = document.getElementById('stories-list');
+  try{
+    storiesAll = await retGet('/admin/stories');
+    if (!storiesAll.length){ box.innerHTML = '<div class="pay-meta">Пока ни одной. Первую стоит снять про то, с чего начать.</div>'; return; }
+    box.innerHTML = storiesAll.map(function(s, i){
+      const dead = s.expires_at && new Date(s.expires_at) < new Date();
+      const pct = s.views ? Math.round(s.dones * 100 / s.views) : 0;
+      return '<div class="pay-item" style="gap:10px;opacity:' + (s.active && !dead ? 1 : .5) + '">'
+        + '<div style="width:44px;height:44px;border-radius:50%;flex-shrink:0;background:' + (s.cover_url ? 'url(' + escapeHtmlAdm(s.cover_url) + ') center/cover' : 'var(--lav-dim)') + ';border:2px solid var(--lav-deep)"></div>'
+        + '<div style="flex:1;min-width:0"><div class="pay-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtmlAdm(s.title || 'Без названия') + '</div>'
+        + '<div class="pay-meta">' + (STORY_KIND_LABELS[s.kind] || s.kind) + ' · ' + (STORY_AUD_LABELS[s.audience] || s.audience)
+          + (s.expires_at ? ' · до ' + s.expires_at.slice(0,10) + (dead ? ' (истёк)' : '') : ' · постоянная')
+          + (s.active ? '' : ' · выключена')
+          + ' · показов ' + s.views + ', досмотров ' + s.dones + (s.views ? ' (' + pct + '%)' : '') + '</div></div>'
+        + '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">'
+          + '<button class="scroll-btn" style="padding:3px 8px" onclick="storyMove(' + i + ',-1)">↑</button>'
+          + '<button class="scroll-btn" style="padding:3px 8px" onclick="storyMove(' + i + ',1)">↓</button>'
+        + '</div>'
+        + '<button class="scroll-btn" style="flex-shrink:0" onclick="storyEdit(' + s.id + ')">Править</button>'
+        + '</div>';
+    }).join('');
+  }catch(e){ retFail(box, e); }
+}
+async function storyMove(i, d){
+  const j = i + d;
+  if (j < 0 || j >= storiesAll.length) return;
+  const ids = storiesAll.map(function(s){ return s.id; });
+  const tmp = ids[i]; ids[i] = ids[j]; ids[j] = tmp;
+  try { await retPost('/admin/stories/reorder', {ids: ids}); loadStories(); } catch(e){ alert('Не получилось: ' + e.message); }
+}
+function storyNew(){ storyEditId = null; storyDrawEditor({kind:'feature', audience:'all', active:true, title:'', video_url:'', cover_url:'', cta_label:'', cta_target:'', expires_at:'', duration_s:0}); }
+function storyEdit(id){
+  const s = storiesAll.find(function(x){ return x.id === id; });
+  if (!s) return;
+  storyEditId = id; storyDrawEditor(s);
+}
+function storyDrawEditor(s){
+  const box = document.getElementById('story-editor');
+  const fld = function(label, id, val, type){
+    return '<div class="f" style="display:flex;flex-direction:column;gap:3px;margin-bottom:8px"><label style="font-size:11px;color:var(--text-faint)">' + label + '</label>'
+      + '<input type="' + (type || 'text') + '" id="' + id + '" value="' + escapeHtmlAdm(val == null ? '' : String(val)) + '" style="padding:8px 10px;border-radius:9px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px"></div>';
+  };
+  const sel = function(label, id, val, opts){
+    return '<div class="f" style="display:flex;flex-direction:column;gap:3px;margin-bottom:8px"><label style="font-size:11px;color:var(--text-faint)">' + label + '</label>'
+      + '<select id="' + id + '" style="padding:8px 10px;border-radius:9px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">'
+      + opts.map(function(o){ return '<option value="' + o[0] + '"' + (o[0] === (val || '') ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('')
+      + '</select></div>';
+  };
+  box.style.display = '';
+  box.innerHTML = '<div class="popup-section-title" style="margin-top:0">' + (storyEditId ? 'Правка сториз' : 'Новая сториз') + '</div>'
+    + sel('Вид', 'st-kind', s.kind, Object.keys(STORY_KIND_LABELS).map(function(k){ return [k, STORY_KIND_LABELS[k]]; }))
+    + fld('Заголовок (видно под кружком)', 'st-title', s.title)
+    + '<div class="f" style="margin-bottom:8px"><label style="font-size:11px;color:var(--text-faint)">Видео</label>'
+      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+      + '<input type="file" id="st-video-file" accept="video/mp4,video/quicktime,video/webm" style="font-size:12px">'
+      + '<span class="pay-meta" id="st-video-state">' + (s.video_url ? 'загружено · ' + (s.duration_s ? s.duration_s + ' с' : '') : 'не загружено') + '</span></div>'
+      + '<input type="hidden" id="st-video-url" value="' + escapeHtmlAdm(s.video_url || '') + '">'
+      + '<input type="hidden" id="st-duration" value="' + (s.duration_s || 0) + '"></div>'
+    + '<div class="f" style="margin-bottom:8px"><label style="font-size:11px;color:var(--text-faint)">Обложка кружка (необязательно, квадрат)</label>'
+      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+      + '<input type="file" id="st-cover-file" accept="image/jpeg,image/png,image/webp" style="font-size:12px">'
+      + '<span class="pay-meta" id="st-cover-state">' + (s.cover_url ? 'есть' : 'нет — кружок будет цветным') + '</span></div>'
+      + '<input type="hidden" id="st-cover-url" value="' + escapeHtmlAdm(s.cover_url || '') + '"></div>'
+    + '<div style="display:flex;gap:8px"><div style="flex:1">' + fld('Кнопка (подпись)', 'st-cta', s.cta_label) + '</div>'
+      + '<div style="flex:1">' + sel('Куда ведёт', 'st-target', (STORY_TARGETS.some(function(t){ return t[0] === (s.cta_target || ''); }) ? (s.cta_target || '') : '__custom'), STORY_TARGETS.concat([['__custom','занятие: lecture:<slug>']])) + '</div></div>'
+    + '<div id="st-target-custom-wrap" style="display:' + (STORY_TARGETS.some(function(t){ return t[0] === (s.cta_target || ''); }) ? 'none' : '') + '">' + fld('Свой адрес (например lecture:sales_p1_l2_intro)', 'st-target-custom', s.cta_target) + '</div>'
+    + '<div style="display:flex;gap:8px"><div style="flex:1">' + sel('Кому', 'st-aud', s.audience, Object.keys(STORY_AUD_LABELS).map(function(k){ return [k, STORY_AUD_LABELS[k]]; })) + '</div>'
+      + '<div style="flex:1">' + fld('Срок (пусто — постоянная)', 'st-exp', s.expires_at ? s.expires_at.slice(0,10) : '', 'date') + '</div></div>'
+    + '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:10px"><input type="checkbox" id="st-active" ' + (s.active ? 'checked' : '') + '> Показывать</label>'
+    + '<div style="display:flex;gap:8px">'
+      + '<button class="popup-save" style="flex:1" onclick="storySave()">Сохранить</button>'
+      + (storyEditId ? '<button class="scroll-btn" onclick="storyDelete()">Удалить</button>' : '')
+      + '<button class="scroll-btn" onclick="document.getElementById(\'story-editor\').style.display=\'none\'">Отмена</button>'
+    + '</div>';
+  document.getElementById('st-target').onchange = function(){
+    document.getElementById('st-target-custom-wrap').style.display = (this.value === '__custom') ? '' : 'none';
+  };
+  document.getElementById('st-video-file').onchange = function(){ storyUpload(this.files[0], 'video'); };
+  document.getElementById('st-cover-file').onchange = function(){ storyUpload(this.files[0], 'story_cover'); };
+  box.scrollIntoView({behavior:'smooth', block:'start'});
+}
+/* Заливка напрямую в хранилище: сервер выдаёт подписанный адрес, браузер шлёт
+   PUT ровно с тем Content-Type, что вернул сервер, иначе подпись не сойдётся */
+async function storyUpload(file, kind){
+  if (!file) return;
+  const state = document.getElementById(kind === 'video' ? 'st-video-state' : 'st-cover-state');
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  state.textContent = 'заливаю…';
+  try{
+    const meta = await retPost('/admin/audio-upload-url', { slug: 'story-' + Date.now().toString(36), kind: kind, ext: ext });
+    const put = await fetch(meta.upload_url, { method:'PUT', headers:{ 'Content-Type': meta.content_type }, body: file });
+    if (!put.ok) throw new Error('хранилище ответило ' + put.status);
+    if (kind === 'video'){
+      document.getElementById('st-video-url').value = meta.public_url;
+      /* Длительность читаем из самого файла — в базе она нужна для полосок */
+      try {
+        const v = document.createElement('video'); v.preload = 'metadata';
+        v.onloadedmetadata = function(){
+          const d = Math.round(v.duration || 0);
+          document.getElementById('st-duration').value = d;
+          state.textContent = 'загружено · ' + d + ' с' + (d > 45 ? ' — длинновато, лучше до 40' : '');
+          URL.revokeObjectURL(v.src);
+        };
+        v.src = URL.createObjectURL(file);
+      } catch(e){ state.textContent = 'загружено'; }
+    } else {
+      document.getElementById('st-cover-url').value = meta.public_url;
+      state.textContent = 'есть';
+    }
+  }catch(e){ state.textContent = 'не залилось: ' + (e.message || e); }
+}
+async function storySave(){
+  const targetSel = document.getElementById('st-target').value;
+  const payload = {
+    id: storyEditId,
+    kind: document.getElementById('st-kind').value,
+    title: document.getElementById('st-title').value.trim(),
+    video_url: document.getElementById('st-video-url').value.trim(),
+    cover_url: document.getElementById('st-cover-url').value.trim(),
+    cta_label: document.getElementById('st-cta').value.trim(),
+    cta_target: targetSel === '__custom' ? document.getElementById('st-target-custom').value.trim() : targetSel,
+    audience: document.getElementById('st-aud').value,
+    active: document.getElementById('st-active').checked,
+    duration_s: parseInt(document.getElementById('st-duration').value, 10) || 0,
+    expires_at: document.getElementById('st-exp').value || '',
+  };
+  if (!payload.video_url){ alert('Сначала залей видео'); return; }
+  if (payload.cta_label && !payload.cta_target){ alert('У кнопки нет адреса'); return; }
+  try{
+    await retPost('/admin/stories', payload);
+    document.getElementById('story-editor').style.display = 'none';
+    loadStories();
+  }catch(e){ alert('Не сохранилось: ' + e.message); }
+}
+async function storyDelete(){
+  if (!storyEditId || !confirm('Удалить сториз? Просмотры тоже сотрутся.')) return;
+  try{
+    const r = await fetch(retUrl('/admin/stories/' + storyEditId), {method:'DELETE'});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    document.getElementById('story-editor').style.display = 'none';
+    loadStories();
+  }catch(e){ alert('Не удалилось: ' + e.message); }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -16533,6 +16719,6 @@ function dgOpenPdf(id){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v106</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v107</div>
 </body>
 </html>
