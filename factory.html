@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: factory_page-v4 -->
+<!-- FILE_VERSION: factory_page-v5 -->
 <html lang="ru">
 <head>
 <meta charset="utf-8">
@@ -201,6 +201,7 @@ h1,h2,h3{margin:0}
 .ideas{display:grid;grid-template-columns:repeat(3,minmax(240px,1fr));gap:14px;align-items:start;padding:0 24px 28px;max-width:1100px}
 .idea{padding:16px 17px;border-radius:18px;background:var(--cardBg);border:1px solid var(--cardBd);box-shadow:var(--shCard);cursor:pointer}
 .idea .k{font:600 11px/1 Onest;color:var(--accent);letter-spacing:.02em}
+.idea .ins{margin-top:9px;padding-left:10px;border-left:2px solid var(--accentSoft);font:500 12.5px/1.45 Onest;color:var(--ink2)}
 .idea p{margin:8px 0 0;font:400 13.5px/1.5 Onest;color:var(--ink);text-wrap:pretty}
 .idea.done{background:var(--mutedCardBg);border-color:var(--chipBg);box-shadow:none}
 .idea.done .k,.idea.done p{color:var(--muted)}
@@ -305,7 +306,7 @@ h1,h2,h3{margin:0}
     <div class="mnav" id="mnav">
       <button class="on" data-p="queue">Очередь</button>
       <button data-p="raw">Сырьё</button>
-      <button data-p="ideas">Замыслы</button>
+      <button data-p="ideas">Идеи</button>
       <button data-p="stats">Числа</button>
     </div>
 
@@ -314,7 +315,7 @@ h1,h2,h3{margin:0}
       <nav class="nav" id="nav">
       <button class="on" data-p="queue">Очередь<span class="n" id="n-queue"></span></button>
       <button data-p="raw">Сырьё<span class="n" id="n-raw"></span></button>
-      <button data-p="ideas">Замыслы<span class="n" id="n-ideas"></span></button>
+      <button data-p="ideas">Идеи<span class="n" id="n-ideas"></span></button>
       <button data-p="stats">Числа<span class="n"></span></button>
     </nav>
     <div class="norm">
@@ -332,7 +333,16 @@ h1,h2,h3{margin:0}
     <section class="pane" id="p-raw"><div class="rows" id="rawrows"></div></section>
     <section class="pane" id="p-ideas">
       <div class="row" style="margin:0 0 14px">
-        <button class="ghost" id="newidea">Записать замысел</button>
+        <button class="ghost" id="newidea">Записать идею</button>
+        <button class="ghost" id="importideas">Втянуть из источников</button>
+        <div class="spacer"></div>
+        <select id="isrc" class="mini"><option value="">Все источники</option></select>
+        <select id="iroute" class="mini">
+          <option value="">Любой маршрут</option>
+          <option value="clip">Вырезка из записи</option>
+          <option value="answered">Ответ есть</option>
+          <option value="shoot">Идея для съёмки</option>
+        </select>
       </div>
       <div class="ideas" id="ideas"></div>
     </section>
@@ -469,7 +479,7 @@ function head(){
   var T = {
     queue: ['Очередь', queue.length + ' в работе · ' + nomark.length + ' без метки'],
     raw:   ['Сырьё', S.raw.length + ' занятий · ' + unworked.length + ' без единиц'],
-    ideas: ['Замыслы', openIdeas.length + ' в копилке'],
+    ideas: ['Идеи', openIdeas.length + ' в копилке'],
     stats: ['Числа', 'За 30 дней, по дням']
   };
   $('ttl').textContent = T[PANE][0];
@@ -596,12 +606,29 @@ function renderRaw(){
 
 /* ── замыслы ────────────────────────────────────────────────────── */
 function renderIdeas(){
-  if (!S.ideas.length) { $('ideas').innerHTML = '<div class="empty">Пока пусто. Сюда идут гипотезы, идеи съёмок и «повторить текст занятия» — всё, что ещё не работа, но уже намерение.</div>'; return; }
-  $('ideas').innerHTML = S.ideas.map(function(i){
-    var st = i.status === 'open' ? 'копится' : (i.status === 'taken' ? 'взято в работу' : 'отброшено');
+  var sel = $('isrc');
+  if (sel && sel.options.length < 2) {
+    (S.dict.idea_sources || []).forEach(function(o){
+      var op = document.createElement('option'); op.value = o.key; op.textContent = o.label; sel.appendChild(op);
+    });
+  }
+  var src = sel ? sel.value : '';
+  var route = $('iroute') ? $('iroute').value : '';
+  var list = S.ideas.filter(function(i){
+    if (src && i.source !== src) return false;
+    if (route && i.route !== route) return false;
+    return true;
+  });
+  if (!list.length) { $('ideas').innerHTML = '<div class="empty">Пусто. Сюда стекаются мысли занятий, вопросы участников и твои заметки — нажми «Втянуть из источников».</div>'; return; }
+  $('ideas').innerHTML = list.map(function(i){
+    var st = i.status === 'open' ? 'копится' : (i.status === 'taken' ? 'в работе' : 'отброшено');
+    var rc = i.route === 'clip' ? 'auto' : (i.route === 'answered' ? 'pl' : '');
     return '<div class="idea' + (i.status === 'dropped' ? ' done' : '') + '" data-idea="' + i.id + '">' +
-           '<div class="k">' + esc(i.kind_label) + '</div><p>' + esc(i.body) + '</p>' +
-           '<div class="row"><span class="tag">' + st + '</span>' +
+           '<div class="k">' + esc(i.source_label || i.kind_label) + '</div><p>' + esc(i.body) + '</p>' +
+           (i.answer ? '<div class="ins">' + esc(i.answer) + '</div>' : '') +
+           '<div class="row"><span class="tag ' + rc + '">' + esc(i.label) + '</span>' +
+           '<span class="tag">' + st + '</span>' +
+           (i.timecode ? '<span class="tag">' + esc(i.timecode) + '</span>' : '') +
            (i.lecture_slug ? '<span class="tag">' + esc(i.lecture_slug) + '</span>' : '') + '</div></div>';
   }).join('');
   var cards = $('ideas').querySelectorAll('[data-idea]');
@@ -643,6 +670,10 @@ function renderStats(){
       '<div class="sub">' + (STATS.touches_measured ? 'Переходы, приходы и оплаты по каждой метке'
         : 'Переходы пока не измеряются — нужен вызов счётчика в общем main.py') + '</div>' +
       '<div class="rows">' + srcRows + '</div></div>' : '') +
+    '<div class="chart"><h3>Темы карточек</h3>' +
+      '<div class="sub">Тема меняет вид карусели, но не состав экранов — поэтому старое пересобирается в новой теме</div>' +
+      '<div id="themes"></div>' +
+      '<div class="wbtns"><button class="ghost" id="addtheme">Новая тема</button></div></div>' +
     '<div class="chart"><h3>Правила производства</h3>' +
       '<div class="sub">Появилось занятие — заготовки по правилам возникают в очереди сами</div>' +
       '<div id="rules"></div>' +
@@ -650,6 +681,8 @@ function renderStats(){
       '<button class="primary" id="gen">Прогнать по библиотеке</button></div></div>';
 
   renderRules();
+  renderThemes();
+  $('addtheme').addEventListener('click', function(){ openTheme(null); });
   $('addrule').addEventListener('click', function(){ openRule(); });
   $('gen').addEventListener('click', generate);
 }
@@ -673,6 +706,51 @@ function cutBlock(title, rows){
   return '<div class="chart"><h3>' + title + '</h3>' +
          '<div class="sub">Отсюда правятся правила производства — по факту, а не по ощущению</div>' +
          '<div class="rows">' + body + '</div></div>';
+}
+
+var THEMES = [];
+
+function renderThemes(){
+  var box = $('themes');
+  if (!box) return;
+  api('/factory/themes').then(function(d){
+    THEMES = d.themes || [];
+    if (!THEMES.length) { box.innerHTML = '<div class="empty">Тем нет. Своя тема — это один блок CSS: правишь и сразу собираешь, без выкладки.</div>'; return; }
+    box.innerHTML = THEMES.map(function(t){
+      return '<div class="rule-row"><div class="grow">' + esc(t.title || t.key) + '</div>' +
+             '<span class="tag">' + esc(t.key) + '</span>' +
+             // ⚠️ Тему-папку из интерфейса не поправить: она в репозитории,
+             // и кнопка правки означала бы обещание, которого не сдержим
+             '<span class="tag ' + (t.own ? 'pl' : '') + '">' + (t.own ? 'своя' : 'из репозитория') + '</span>' +
+             (t.own ? '<button class="mini" data-theme="' + esc(t.key) + '">Править</button>' +
+                      '<button class="mini danger" data-rmtheme="' + esc(t.key) + '">Убрать</button>' : '') +
+             '</div>';
+    }).join('');
+    var ed = box.querySelectorAll('[data-theme]');
+    for (var i=0;i<ed.length;i++) (function(b){ b.addEventListener('click', function(){ openTheme(b.dataset.theme); }); })(ed[i]);
+    var rm = box.querySelectorAll('[data-rmtheme]');
+    for (var j=0;j<rm.length;j++) (function(b){
+      b.addEventListener('click', function(){
+        api('/factory/theme/' + encodeURIComponent(b.dataset.rmtheme), {method:'DELETE'})
+          .then(renderThemes).catch(function(e){ toast(e.message); });
+      });
+    })(rm[j]);
+  }).catch(function(e){ box.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+}
+
+function openTheme(key){
+  var t = null;
+  for (var i=0;i<THEMES.length;i++) if (THEMES[i].key === key) t = THEMES[i];
+  EDIT = t;
+  openWin('<h2>' + (t ? 'Тема' : 'Новая тема') + '</h2>' +
+    '<div class="lead">Экраны 1080×1350. Классы: .screen, .first, .last, .body p, .foot</div>' +
+    '<div class="two">' +
+      '<div class="field"><label>Ключ</label><input id="t-key" value="' + esc(t ? t.key : '') + '" placeholder="noir"' + (t ? ' disabled' : '') + '></div>' +
+      '<div class="field"><label>Название</label><input id="t-title" value="' + esc(t ? t.title : '') + '"></div>' +
+    '</div>' +
+    '<div class="field"><label>Стили</label><textarea id="t-css" style="min-height:220px;font-family:ui-monospace,monospace;font-size:12px">' + esc(t ? t.css : '.screen{\n  background:#111;\n  color:#eee;\n  padding:96px 88px 88px;\n}\n.body p{ font-size:58px; line-height:1.24; font-weight:600 }\n.first .body p{ font-size:78px }\n.foot{ padding:0 88px 68px; font-size:26px; opacity:.6 }') + '</textarea></div>' +
+    '<div class="wbtns"><button class="ghost" data-x="close">Отмена</button><div class="spacer"></div>' +
+    '<button class="primary" data-x="theme-save">Сохранить</button></div>');
 }
 
 function renderRules(){
@@ -814,15 +892,23 @@ function openIdea(id){
   var it = null;
   for (var i=0;i<S.ideas.length;i++) if (S.ideas[i].id === id) it = S.ideas[i];
   EDIT = it;
-  openWin('<h2>' + (it ? 'Замысел' : 'Новый замысел') + '</h2>' +
-    '<div class="lead">Гипотеза, идея съёмки, «повторить текст занятия»</div>' +
-    '<div class="field"><label>Вид</label><select id="i-kind">' + opts(S.dict.idea_kinds, it ? it.kind : 'hypothesis') + '</select></div>' +
-    '<div class="field"><label>Своими словами</label><textarea id="i-body">' + esc(it ? it.body : '') + '</textarea></div>' +
-    '<div class="field"><label>Ключ занятия, если есть</label><input id="i-slug" value="' + esc(it ? it.lecture_slug : '') + '"></div>' +
+  openWin('<h2>' + (it ? 'Идея' : 'Новая идея') + '</h2>' +
+    '<div class="lead">' + (it ? esc(it.source_label) + ' · ' + esc(it.label) : 'Гипотеза, вопрос, идея съёмки') + '</div>' +
+    '<div class="two">' +
+      '<div class="field"><label>Вид</label><select id="i-kind">' + opts(S.dict.idea_kinds, it ? it.kind : 'hypothesis') + '</select></div>' +
+      '<div class="field"><label>Источник</label><select id="i-src">' + opts(S.dict.idea_sources || [], it ? it.source : 'own') + '</select></div>' +
+    '</div>' +
+    '<div class="field"><label>Вопрос или мысль</label><textarea id="i-body">' + esc(it ? it.body : '') + '</textarea></div>' +
+    '<div class="field"><label>Ответ, если он есть</label><textarea id="i-answer">' + esc(it ? it.answer : '') + '</textarea></div>' +
+    '<div class="two">' +
+      '<div class="field"><label>Ключ занятия</label><input id="i-slug" value="' + esc(it ? it.lecture_slug : '') + '"></div>' +
+      '<div class="field"><label>Таймкод</label><input id="i-tc" value="' + esc(it ? it.timecode : '') + '" placeholder="14:20"></div>' +
+    '</div>' +
+    (it ? '<div class="note">Отсюда выйдет: ' + (it.makes || []).map(function(f){ return label(S.dict.formats, f); }).join(', ') + '</div>' : '') +
     '<div class="wbtns">' +
       (it ? '<button class="ghost danger" data-x="idea-drop">Отбросить</button>' : '') +
       '<div class="spacer"></div>' +
-      (it ? '<button class="ghost" data-x="idea-take">Взять в работу</button>' : '') +
+      (it ? '<button class="ghost" data-x="idea-make">Развернуть в единицы</button>' : '') +
       '<button class="primary" data-x="idea-save">Сохранить</button>' +
     '</div>');
 }
@@ -945,6 +1031,9 @@ function act(what){
   if (what === 'idea-save') {
     api('/factory/idea', {method:'POST', body:{
       id: EDIT ? EDIT.id : null, kind: $('i-kind').value, body: $('i-body').value,
+      answer: $('i-answer') ? $('i-answer').value : '',
+      source: $('i-src') ? $('i-src').value : 'own',
+      timecode: $('i-tc') ? $('i-tc').value.trim() : '',
       lecture_slug: $('i-slug').value.trim(), status: EDIT ? EDIT.status : 'open'
     }}).then(function(r){
       var found = false;
@@ -952,6 +1041,16 @@ function act(what){
       if (!found) S.ideas.unshift(r.idea);
       closeWin(); renderIdeas(); head();
     }).catch(function(e){ toast(e.message); });
+    return;
+  }
+  if (what === 'idea-make') {
+    api('/factory/idea/' + EDIT.id + '/make', {method:'POST', body:{platform:'tg'}})
+      .then(function(r){
+        for (var i=0;i<r.created.length;i++) S.pieces.unshift(r.created[i]);
+        for (var j=0;j<S.ideas.length;j++) if (S.ideas[j].id === r.idea.id) S.ideas[j] = r.idea;
+        closeWin(); renderIdeas(); renderBoard();
+        toast(r.created.length ? ('В очереди: ' + r.created.length) : 'Уже развёрнута');
+      }).catch(function(e){ toast(e.message); });
     return;
   }
   if (what === 'idea-take') {
@@ -972,6 +1071,13 @@ function act(what){
     return;
   }
 
+  if (what === 'theme-save') {
+    api('/factory/theme', {method:'POST', body:{
+      key: EDIT ? EDIT.key : $('t-key').value, title: $('t-title').value, css: $('t-css').value
+    }}).then(function(){ closeWin(); renderThemes(); toast('Тема сохранена'); })
+      .catch(function(e){ toast(e.message); });
+    return;
+  }
   if (what === 'rule-save') {
     api('/factory/rule', {method:'POST', body:{
       id: EDIT ? EDIT.id : null, title_tpl: $('r-tpl').value, fmt: $('r-fmt').value,
@@ -982,6 +1088,12 @@ function act(what){
       if (!found) S.rules.push(r.rule);
       closeWin(); renderRules();
     }).catch(function(e){ toast(e.message); });
+    return;
+  }
+  if (what === 'import-go') {
+    api('/factory/ideas/import', {method:'POST', body:{dry_run:false}})
+      .then(function(d){ closeWin(); toast('Втянуто: ' + d.created); return load(); })
+      .catch(function(e){ toast(e.message); });
     return;
   }
   if (what === 'gen-go') {
@@ -1015,6 +1127,28 @@ function applyFilterCount(){
 $('fbtn').addEventListener('click', openFilters);
 $('newbtn').addEventListener('click', function(){ openPiece(null); });
 $('newidea').addEventListener('click', function(){ openIdea(null); });
+$('isrc').addEventListener('change', renderIdeas);
+$('iroute').addEventListener('change', renderIdeas);
+
+/* Сначала показываем, сколько придёт и откуда, потом втягиваем — как у правил
+   производства: триста идей, свалившихся без предупреждения, не помощь */
+$('importideas').addEventListener('click', function(){
+  api('/factory/ideas/import', {method:'POST', body:{dry_run:true}})
+    .then(function(d){
+      if (!d.planned) { toast('Новых идей не набралось'); return; }
+      var by = Object.keys(d.by_source || {}).map(function(k){
+        return label(S.dict.idea_sources || [], k) + ': ' + d.by_source[k];
+      }).join(' · ');
+      openWin('<h2>Втянуть идеи</h2><div class="lead">Придёт ' + d.planned + ' — ' + esc(by) + '</div>' +
+        '<div class="rows">' + d.items.slice(0,6).map(function(it){
+          return '<div class="row-item"><div class="grow"><div class="t">' + esc(it.body.slice(0,90)) + '</div>' +
+                 '<div class="m">' + esc(it.lecture_slug || label(S.dict.idea_sources || [], it.source)) + '</div></div></div>';
+        }).join('') + '</div>' +
+        '<div class="note">Отброшенное раньше не вернётся.</div>' +
+        '<div class="wbtns"><button class="ghost" data-x="close">Отмена</button><div class="spacer"></div>' +
+        '<button class="primary" data-x="import-go">Втянуть ' + d.planned + '</button></div>');
+    }).catch(function(e){ toast(e.message); });
+});
 
 if (KEY) load();
 </script>
