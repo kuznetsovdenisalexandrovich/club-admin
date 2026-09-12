@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: tasks-v31 -->
+<!-- FILE_VERSION: tasks-v32 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -476,7 +476,19 @@ h1::before{
 .map-node{cursor:pointer}
 .map-t{font-family:var(--body);font-size:11px;fill:var(--text)}
 .map-t.small{font-size:10px;fill:var(--text-dim)}
-.map-link{stroke:var(--surface2);stroke-width:1.5;fill:none}
+/* ⚠️ СВЯЗИ БЫЛИ НЕВИДИМЫ: цвет var(--surface2) на светлой доске почти не
+   отличался от фона. Берём акцент с прозрачностью — видно и не рябит */
+.map-link{stroke:var(--lav);stroke-opacity:.55;stroke-width:2;fill:none}
+.tl-grid{stroke:var(--surface2);stroke-width:1}
+.tl-today{stroke:#d8674f;stroke-width:2;stroke-dasharray:4 3}
+.tl-bar{rx:6}
+.tl-bar.goal{fill:var(--lav);fill-opacity:.85}
+.tl-bar.task{fill:var(--lav);fill-opacity:.45}
+.tl-bar.done{fill:var(--text-dim);fill-opacity:.35}
+.tl-bar.late{fill:#d8674f;fill-opacity:.7}
+.tl-lab{font-family:var(--body);font-size:10px;fill:var(--text)}
+.tl-cap{font-family:var(--body);font-size:10px;fill:var(--text-dim)}
+.tl-none{font-size:12px;color:var(--text-dim);padding:10px 2px}
 .map-box{fill:var(--stat-bg);stroke:var(--surface2);stroke-width:1}
 .map-box.now{fill:var(--lav);stroke:var(--lav-deep)}
 .map-box.goal{fill:var(--bg);stroke:var(--surface2)}
@@ -855,68 +867,85 @@ function roadmapHtml(){
       }).join('');
 }
 
-/* ⚠️ РИСУЕМ SVG РУКАМИ, БЕЗ БИБЛИОТЕК: доска — один файл без сборки, тянуть
-   ради карты внешний скрипт нельзя. Раскладка простая: три колонки слева
-   направо, высота узла зависит от числа детей */
+/* ⚠️ РОАДМАП — ЭТО ХРОНОЛОГИЯ, А НЕ ГРУППИРОВКА. Denis 12.09: «это должна
+   быть хронологическая цепочка задач: когда и что решаем». Поэтому здесь
+   шкала времени: строки — цели, полосы — задачи по своим датам, красная
+   черта — сегодня. Что без дат, в хронологию не попадает и честно об этом
+   говорится: планировать можно только то, у чего есть срок.
+   Рисуем SVG руками: доска — один файл без сборки, тянуть библиотеку нельзя. */
 function mindmapHtml(){
-  const phases = ITEMS.filter(function(i){ return i.phase; });
-  const roots = phases.length ? phases : goalItems().filter(function(g){
-    return !g.parent || !ITEMS.some(function(i){ return i.id === g.parent; });
-  });
-  if (!roots.length) return '';
-  const order = { 'сейчас':0, 'следующий':1, 'потом':2, 'пройден':3 };
-  if (phases.length) roots.sort(function(a, b){
-    return (order[a['этап']] === undefined ? 2 : order[a['этап']])
-         - (order[b['этап']] === undefined ? 2 : order[b['этап']]);
-  });
-
-  const W1 = 150, W2 = 150, W3 = 160, H = 26, GAP = 6, PAD = 8;
-  let y = PAD, parts = [], maxY = 0;
-
-  function box(x, yy, w, text, cls, id){
-    const chars = Math.floor((w - 14) / 5.6);
-    const t = (text || '').length > chars ? (text || '').slice(0, chars - 1) + '…' : (text || '');
-    return '<g class="map-node" onclick="mapClick(\'' + esc(id) + '\')">'
-      + '<rect class="map-box ' + cls + '" x="' + x + '" y="' + yy + '" rx="8" width="' + w + '" height="' + H + '"/>'
-      + '<text class="map-t' + (cls.indexOf('now') > -1 ? ' on-now' : '') + '" x="' + (x + 8)
-      + '" y="' + (yy + 17) + '">' + esc(t) + '</text></g>';
+  const dated = ITEMS.filter(function(i){ return !i.phase && (i.start || i.due); });
+  if (!dated.length){
+    return '<div class="st-title">Роадмап</div>'
+      + '<div class="tl-none">Ни у одной задачи нет дат — хронологии нет. '
+      + 'Скажи партнёру «спланируй неделю» или поставь даты: «поставь pw08 с 15.09 до 16.09».</div>';
   }
-  function link(x1, y1, x2, y2){
-    const mx = (x1 + x2) / 2;
-    return '<path class="map-link" d="M' + x1 + ' ' + y1 + ' C' + mx + ' ' + y1 + ' '
-         + mx + ' ' + y2 + ' ' + x2 + ' ' + y2 + '"/>';
-  }
+  const day = 86400000;
+  const parse = function(d){ return d ? new Date(d + 'T00:00:00') : null; };
+  let min = null, max = null;
+  dated.forEach(function(i){
+    const s = parse(i.start) || parse(i.due), e = parse(i.due) || parse(i.start);
+    if (!min || s < min) min = s;
+    if (!max || e > max) max = e;
+  });
+  const today = new Date(new Date().toISOString().slice(0,10) + 'T00:00:00');
+  if (today < min) min = today;
+  if (today > max) max = today;
+  min = new Date(min.getTime() - 2 * day);
+  max = new Date(max.getTime() + 2 * day);
+  const days = Math.max(7, Math.round((max - min) / day));
+  const DW = days > 45 ? 7 : (days > 24 ? 11 : 18);   /* ширина дня */
+  const LEFT = 132, ROW = 22, TOP = 26;
+  const width = LEFT + days * DW + 12;
 
-  roots.forEach(function(p){
-    const goals = ITEMS.filter(function(i){ return i.parent === p.id && i.goal; });
-    const startY = y;
-    let inner = '';
-    if (!goals.length){ y += H + GAP; }
-    goals.forEach(function(g){
-      const steps = ITEMS.filter(function(i){ return i.parent === g.id && !i.goal && !i.done; }).slice(0, 4);
-      const gY = y;
-      let sInner = '';
-      if (!steps.length){ y += H + GAP; }
-      steps.forEach(function(st){
-        sInner += link(PAD + W1 + W2, gY + H / 2, PAD + W1 + W2 + 24, y + H / 2)
-               + box(PAD + W1 + W2 + 24, y, W3, st.t, '', st.id);
-        y += H + GAP;
-      });
-      const gCenter = steps.length ? (gY + (y - GAP - H - gY) / 2) : gY;
-      inner += link(PAD + W1, startY + H / 2, PAD + W1 + 24, gCenter + H / 2)
-             + box(PAD + W1 + 24, gCenter, W2 - 24, g.t, 'goal', g.id) + sInner;
-    });
-    const st = p['этап'] || '';
-    parts.push(box(PAD, startY, W1, p.t, (st === 'сейчас' ? 'now' : '') + (st === 'пройден' ? ' done' : ''), p.id) + inner);
-    maxY = Math.max(maxY, y);
-    y += GAP;
+  /* Строки: цель, под ней её датированные задачи */
+  const rows = [];
+  goalItems().forEach(function(g){
+    const kids = ITEMS.filter(function(i){ return i.parent === g.id && (i.start || i.due); });
+    if (!kids.length && !g.due) return;
+    rows.push({ el: g, kind: 'goal' });
+    kids.sort(function(a, b){ return (a.start || a.due || '').localeCompare(b.start || b.due || ''); });
+    kids.forEach(function(k){ rows.push({ el: k, kind: 'task' }); });
+  });
+  ITEMS.filter(function(i){
+    return !i.goal && !i.phase && (i.start || i.due)
+        && !ITEMS.some(function(g){ return g.id === i.parent && g.goal; });
+  }).forEach(function(i){ rows.push({ el: i, kind: 'task' }); });
+  if (!rows.length) return '';
+
+  const height = TOP + rows.length * ROW + 14;
+  const x = function(d){ return LEFT + Math.round((parse(d) - min) / day * DW); };
+  let g = '';
+
+  /* Сетка по неделям с подписями дат */
+  for (let t = new Date(min); t <= max; t = new Date(t.getTime() + 7 * day)){
+    const px = LEFT + Math.round((t - min) / day * DW);
+    g += '<line class="tl-grid" x1="' + px + '" y1="' + (TOP - 12) + '" x2="' + px + '" y2="' + (height - 8) + '"/>'
+      + '<text class="tl-cap" x="' + (px + 3) + '" y="' + (TOP - 16) + '">'
+      + t.getDate() + '.' + (t.getMonth() + 1) + '</text>';
+  }
+  const tx = LEFT + Math.round((today - min) / day * DW);
+  g += '<line class="tl-today" x1="' + tx + '" y1="' + (TOP - 12) + '" x2="' + tx + '" y2="' + (height - 8) + '"/>'
+    + '<text class="tl-cap" x="' + (tx + 3) + '" y="' + (height - 1) + '">сегодня</text>';
+
+  const todayStr = new Date().toISOString().slice(0,10);
+  rows.forEach(function(r, n){
+    const it = r.el, y = TOP + n * ROW;
+    const s = it.start || it.due, e = it.due || it.start;
+    const x1 = x(s), x2 = Math.max(x(e) + DW - 3, x1 + 8);
+    const late = it.due && it.due < todayStr && !it.done;
+    const cls = it.done ? 'done' : (late ? 'late' : (r.kind === 'goal' ? 'goal' : 'task'));
+    const name = (it.t || '').length > 20 ? (it.t || '').slice(0, 19) + '…' : (it.t || '');
+    g += '<text class="tl-lab" x="4" y="' + (y + 13) + '">'
+       + (r.kind === 'task' ? '  ' : '') + esc(name) + '</text>'
+       + '<g class="map-node" onclick="mapClick(\'' + esc(it.id) + '\')">'
+       + '<rect class="tl-bar ' + cls + '" x="' + x1 + '" y="' + (y + 4) + '" width="'
+       + (x2 - x1) + '" height="' + (ROW - 9) + '"/></g>';
   });
 
-  const width = PAD * 2 + W1 + 24 + W2 + 24 + W3;
-  const height = Math.max(maxY + PAD, 60);
-  return '<div class="st-title">Карта проекта</div>'
+  return '<div class="st-title">Роадмап — когда что решаем</div>'
     + '<div class="map-wrap"><svg width="' + width + '" height="' + height + '" '
-    + 'viewBox="0 0 ' + width + ' ' + height + '">' + parts.join('') + '</svg></div>';
+    + 'viewBox="0 0 ' + width + ' ' + height + '">' + g + '</svg></div>';
 }
 
 function mapClick(id){
