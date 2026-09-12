@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: tasks-v27 -->
+<!-- FILE_VERSION: tasks-v28 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -468,6 +468,9 @@ h1::before{
    «подцепи pw04 к st02», не гадая, где что */
 .code{font-size:10px;color:var(--text-dim);opacity:.75;margin-right:6px;
   font-variant-numeric:tabular-nums}
+.st-add{background:none;border:1px dashed var(--surface2);border-radius:10px;
+  color:var(--text-dim);font-size:12px;padding:7px 10px;margin-top:8px;width:100%}
+.st-add:active{opacity:.6}
 .st-to{background:none;border:none;color:var(--text-dim);font-size:11px;
   padding:4px 6px;white-space:nowrap}
 .st-to:active{opacity:.6}
@@ -865,6 +868,26 @@ async function setParent(id, parent){
 
 function detachGoal(id){ setParent(id, ''); }
 
+/* Завести шаг прямо в цели. Идёт на сервер ручкой партнёра: обычный save()
+   умеет добавлять задачу, но без привязки к цели */
+async function addStep(goalId){
+  const цель = ITEMS.filter(function(i){ return i.id === goalId; })[0];
+  const текст = prompt('Новый шаг в «' + (цель ? цель.t : goalId) + '»:', '');
+  if (!текст || !текст.trim()) return;
+  try {
+    const r = await fetch(API + '/partner/task?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ text: текст.trim(), parent: goalId })
+    });
+    const данные = await r.json().catch(function(){ return {}; });
+    if (!r.ok || !данные.ok){ setSaved('шаг не завёлся'); return; }
+    ITEMS.push({ id: данные.id, sec:'partner', g:'', t: текст.trim(), parent: goalId, done:'' });
+    open_goals[goalId] = true;
+    setSaved('шаг добавлен');
+    render();
+  } catch(e){ setSaved('шаг не завёлся: связь оборвалась'); }
+}
+
 function toGoal(id){
   const цели = goalItems();
   if (!цели.length){ alert('Целей нет — сначала заведи хотя бы одну.'); return; }
@@ -907,6 +930,10 @@ function goalCard(ц, уровень){
     + (шаги.length ? '<div class="list">' + шаги.map(function(i){ return taskRow(i, false); }).join('') + '</div>' : '')
     + (!дети.length ? '<div class="st-empty">Шагов нет. Цель без шагов — лозунг: '
                       + 'попроси партнёра разложить её.</div>' : '')
+    /* ⚠️ Шаг заводится СРАЗУ ВНУТРЬ цели: раньше приходилось завести задачу в
+       разделе, потом искать её и перевешивать — три действия вместо одного */
+    + '<button class="st-add" onclick="event.stopPropagation();addStep(\'' + esc(ц.id) + '\')">'
+    + '+ шаг в «' + esc((ц.t || '').slice(0, 22)) + '»</button>'
     + '</div></div>';
 }
 
