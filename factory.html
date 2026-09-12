@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: factory_page-v7 -->
+<!-- FILE_VERSION: factory_page-v8 -->
 <html lang="ru">
 <head>
 <meta charset="utf-8">
@@ -9,7 +9,6 @@
 <link rel="icon" type="image/png" sizes="16x16" href="icons/factory-16.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/factory-192.png">
 <link rel="shortcut icon" href="icons/factory.ico">
-<!-- ⚠️ apple-touch на подложке: iOS не умеет прозрачность и подставит чёрное -->
 <link rel="apple-touch-icon" sizes="180x180" href="icons/factory-apple-180.png">
 <meta name="apple-mobile-web-app-title" content="Завод">
 <meta name="theme-color" content="#211f1d">
@@ -279,84 +278,73 @@ h1,h2,h3{margin:0}
   .veil{padding:16px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ── этапы и подвкладки (v8) ───────────────────────────────────────── */
+.stages{display:flex;gap:6px;padding:12px 22px 0;overflow:auto}
+.stages button{padding:10px 16px;border-radius:13px 13px 0 0;border:1px solid transparent;border-bottom:0;
+  background:transparent;font:600 13.5px/1 Onest;color:var(--muted);white-space:nowrap}
+.stages button.on{color:var(--ink);background:var(--cardBg);border-color:var(--cardBd)}
+.stages .n{margin-left:8px;font-weight:500;opacity:.65}
+.subs{display:flex;gap:7px;padding:12px 22px 0;overflow:auto;border-top:1px solid var(--hairline)}
+.subs button{padding:8px 14px;border-radius:11px;border:1px solid var(--cardBd);background:var(--chipBg);
+  font:500 13px/1 Onest;color:var(--muted);white-space:nowrap}
+.subs button.on{border-color:var(--navOnBd);background:var(--navOnBg);box-shadow:var(--navOnSh);color:var(--ink);font-weight:600}
+.subs .n{margin-left:7px;opacity:.6}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;padding:0 22px 100px}
+.pcard{background:var(--cardBg);border:1px solid var(--cardBd);border-radius:16px;box-shadow:var(--shCard);padding:13px 14px}
+.pcard.picked{border-color:var(--accent)}
+.pcard.flag{border-color:var(--warnBd)}
+.pcard .top2{display:flex;gap:10px;align-items:flex-start}
+.pcard .t{flex:1;font:600 13.5px/1.35 Onest;cursor:pointer}
+.pcard .ins{margin-top:8px;padding-left:9px;border-left:2px solid var(--accentSoft);font:500 12px/1.4 Onest;color:var(--ink2)}
+.pcard .src{margin-top:7px;font:400 11.5px/1.4 Onest;color:var(--muted)}
+.acts{display:flex;gap:6px;margin-top:11px;flex-wrap:wrap}
+.acts button{padding:7px 11px;border-radius:10px;border:1px solid var(--cardBd);background:var(--chipBg);
+  font:600 11.5px/1 Onest;color:var(--ink2)}
+.acts button.go{background:var(--btnBg);color:var(--btnFg);border-color:transparent}
+.acts button.danger{color:var(--warn)}
+.bulk{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:30;display:none;
+  gap:8px;align-items:center;padding:11px 14px;border-radius:16px;border:1px solid var(--panelBd);
+  background:var(--panelBlur);backdrop-filter:blur(18px);box-shadow:var(--shPanel);flex-wrap:wrap;max-width:94vw}
+.bulk.on{display:flex}
+.bulk b{font:700 13px/1 Onest;padding-right:4px}
+.stub{padding:26px 22px;font:400 13.5px/1.6 Onest;color:var(--muted);max-width:560px}
+@media (max-width:900px){
+  .stages,.subs{padding-left:14px;padding-right:14px}
+  .cards{grid-template-columns:1fr;padding:0 14px 120px}
+}
 </style>
 </head>
 <body>
 
 <div class="page">
   <div class="shaft"></div>
-  <div class="leak" id="leak1"></div>
-  <div class="leak" id="leak2"></div>
-  <div class="leak" id="leak3"></div>
-  <div class="leak" id="leak4"></div>
+  <div class="leak" id="leak1"></div><div class="leak" id="leak2"></div>
+  <div class="leak" id="leak3"></div><div class="leak" id="leak4"></div>
 
   <div class="frame hide" id="shell">
-    <div class="leak" id="leak5"></div>
-    <div class="leak" id="leak6"></div>
-    <div class="leak" id="leak7"></div>
+    <div class="leak" id="leak5"></div><div class="leak" id="leak6"></div><div class="leak" id="leak7"></div>
 
     <header class="top">
-      <div class="brand">
-        <div class="mark"><i></i></div>
-        <b>Контент-завод</b>
-      </div>
+      <div class="brand"><div class="mark"><i></i></div><b>Контент-завод</b></div>
       <input class="search hide-mob" id="q" placeholder="Поиск по единицам и занятиям">
       <div class="spacer hide-mob"></div>
-      <button class="chip" id="fbtn">Фильтры<b id="fcount">0</b></button>
       <button class="iconbtn" id="theme" aria-label="Тема">☾</button>
       <button class="primary" id="newbtn">Новая единица</button>
     </header>
-    <div class="mnav" id="mnav">
-      <button class="on" data-p="queue">Очередь</button>
-      <button data-p="raw">Сырьё</button>
-      <button data-p="ideas">Идеи</button>
-      <button data-p="stats">Отчёт</button>
+
+    <nav class="stages" id="stages"></nav>
+    <nav class="subs" id="subs"></nav>
+
+    <div class="head">
+      <div><h1 id="ttl">Сырьё</h1><div class="sub" id="sub">загружаю…</div></div>
     </div>
 
-    <div class="grid">
-      <aside class="rail">
-      <nav class="nav" id="nav">
-      <button class="on" data-p="queue">Очередь<span class="n" id="n-queue"></span></button>
-      <button data-p="raw">Сырьё<span class="n" id="n-raw"></span></button>
-      <button data-p="ideas">Идеи<span class="n" id="n-ideas"></span></button>
-      <button data-p="stats">Отчёт<span class="n"></span></button>
-    </nav>
-    <div class="norm">
-      <h3>Сегодня выложено</h3>
-      <div class="big"><span id="today">0</span><small>из <span id="normv">5</span></small></div>
-      <div class="track"><i id="normbar" style="width:0%"></i></div>
-    </div>
-    <div class="railnote" id="railnote"></div>
-  </aside>
-      <div class="main">
-        <div class="head">
-          <div><h1 id="ttl">Очередь</h1><div class="sub" id="sub">загружаю…</div></div>
-        </div>
-        <section class="pane on" id="p-queue"><div class="board" id="board"></div></section>
-    <section class="pane" id="p-raw"><div class="rows" id="rawrows"></div></section>
-    <section class="pane" id="p-ideas">
-      <div class="row" style="margin:0 0 14px">
-        <button class="ghost" id="newidea">Записать идею</button>
-        <button class="ghost" id="importideas">Втянуть из источников</button>
-        <div class="spacer"></div>
-        <select id="isrc" class="mini"><option value="">Все источники</option></select>
-        <select id="iroute" class="mini">
-          <option value="">Любой маршрут</option>
-          <option value="clip">Вырезка из записи</option>
-          <option value="answered">Ответ есть</option>
-          <option value="shoot">Идея для съёмки</option>
-        </select>
-      </div>
-      <div class="ideas" id="ideas"></div>
-    </section>
-    <section class="pane" id="p-stats"><div id="statsbox"></div></section>
+    <div id="view"></div>
   </div>
 </div>
 
-</div>
-    </div>
-  </div>
-</div>
+<div class="bulk" id="bulk"></div>
 
 <div class="gate" id="gate">
   <div class="box">
@@ -373,20 +361,31 @@ h1,h2,h3{margin:0}
 <script>
 // ═══════════════════════════════════════════════════════════════════
 //  КОНТЕНТ-ЗАВОД — экран на ручках app/factory.py
-//  Вход по тому же пину, что дашборд и доска задач. ⚠️ Ключ живёт в
-//  sessionStorage, а он у каждой вкладки свой: пин здесь вводится
-//  отдельно от дашборда, это не поломка.
+//
+//  ⚠️ ЭТАПЫ — ВЕРХНИЙ УРОВЕНЬ, вкладки внутри них. [stated] Denis 12.09.2026:
+//  «этапы это вкладки над вкладками». Раньше всё висело в одном ряду, и
+//  «Сырьё» стояло рядом с «Числами», хотя это разные комнаты завода.
 // ═══════════════════════════════════════════════════════════════════
 var API = 'https://api.youselllikeagod-magazine.ru';
 var KEY = '';
-var S = {pieces:[],ideas:[],rules:[],raw:[],dict:{formats:[],platforms:[],statuses:[],idea_kinds:[]}};
-var STATS = null;
-var PANE = 'queue';
-var FILTERS = {platform:'',fmt:'',mark:''};
+var S = {pieces:[], ideas:[], rules:[], raw:[], dict:{}};
+var STATS = null, THEMES = [];
+var PICK = {};              // отмеченные галочками
+var EDIT = null;
+
+var MAP = {
+  raw:     {label:'Сырьё',     subs:[['lectures','Занятия'],['ideas','Идеи']]},
+  process: {label:'Обработка', subs:[['video_short','Видео'],['carousel','Карусели'],['text','Посты'],['shoot','Идеи для съёмки']]},
+  "export":{label:'Экспорт',   subs:[['ready','Готово к выдаче'],['settings','Настройки']]},
+  post:    {label:'Постинг',   subs:[['queue','Очередь'],['accounts','Площадки']]},
+  report:  {label:'Отчёт',     subs:[['numbers','Числа'],['rules','Правила']]}
+};
+var STAGE = 'raw', SUB = 'lectures';
 
 function $(id){ return document.getElementById(id); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 function toast(t){ var el=$('toast'); el.textContent=t; el.classList.add('on'); setTimeout(function(){ el.classList.remove('on'); },2200); }
+function label(list, key){ list=list||[]; for (var i=0;i<list.length;i++) if (list[i].key===key) return list[i].label; return key||''; }
 
 function api(path, opts){
   opts = opts || {};
@@ -403,188 +402,166 @@ function api(path, opts){
   });
 }
 
-/* ── вход ───────────────────────────────────────────────────────── */
-// ⚠️ НА ТЕЛЕФОНЕ ENTER'А МОЖЕТ НЕ БЫТЬ ВОВСЕ. Числовая клавиатура iOS показывает
-// «Готово», которое просто закрывает клавиатуру и никакого keydown не даёт.
-// Вход обязан быть кнопкой; Enter остаётся удобством для настольной работы
+/* ── вход ────────────────────────────────────────────────────────── */
 function tryLogin(){
   var pin = $('pin').value.trim();
   if (!pin) { $('pinerr').textContent = 'Введи пин'; return; }
-  $('pinerr').textContent = '';
-  $('pinbtn').disabled = true;
-  $('pinbtn').textContent = 'Проверяю…';
+  $('pinerr').textContent = ''; $('pinbtn').disabled = true; $('pinbtn').textContent = 'Проверяю…';
   fetch(API + '/admin/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({pin:pin})})
     .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, d:d}; }); })
     .then(function(res){
       if (!res.ok) throw new Error((res.d && res.d.detail) || 'не пускает');
       KEY = res.d.token || res.d.key || pin;
       try { sessionStorage.setItem('factory_key', KEY); } catch(e){}
-      $('gate').classList.add('hide');
-      $('shell').classList.remove('hide');
-      load();
+      $('gate').classList.add('hide'); $('shell').classList.remove('hide'); load();
     })
-    .catch(function(e){
-      $('pinerr').textContent = e.message;
-      $('pinbtn').disabled = false;
-      $('pinbtn').textContent = 'Войти';
-    });
+    .catch(function(e){ $('pinerr').textContent = e.message; $('pinbtn').disabled = false; $('pinbtn').textContent = 'Войти'; });
 }
-
 $('pinbtn').addEventListener('click', tryLogin);
 $('pin').addEventListener('keydown', function(e){ if (e.key === 'Enter') tryLogin(); });
-try {
-  var saved = sessionStorage.getItem('factory_key');
-  if (saved) { KEY = saved; $('gate').classList.add('hide'); $('shell').classList.remove('hide'); }
-} catch(e){}
+try { var saved = sessionStorage.getItem('factory_key');
+  if (saved) { KEY = saved; $('gate').classList.add('hide'); $('shell').classList.remove('hide'); } } catch(e){}
 
-/* ── загрузка ───────────────────────────────────────────────────── */
+/* ── загрузка ────────────────────────────────────────────────────── */
 function load(){
   return api('/factory/state').then(function(d){
-    S = d;
-    renderAll();
+    S = d; PICK = {}; nav(); render();
     return api('/factory/stats?days=30');
-  }).then(function(s){
-    STATS = s;
-    renderNorm();
-    if (PANE === 'stats') renderStats();
-  }).catch(function(e){
-    $('sub').textContent = 'не открылось: ' + e.message;
-  });
+  }).then(function(s){ STATS = s; if (STAGE === 'report') render(); })
+    .catch(function(e){ $('sub').textContent = 'не открылось: ' + e.message; });
 }
 
-function label(list, key){
-  for (var i=0;i<list.length;i++) if (list[i].key === key) return list[i].label;
-  return key || '';
+/* ── что где лежит ───────────────────────────────────────────────── */
+function live(){ return S.pieces.filter(function(p){ return p.status !== 'dropped'; }); }
+function atStage(st){ return live().filter(function(p){ return (p.stage || 'process') === st; }); }
+
+function bySub(list, sub){
+  // ⚠️ «Идеи для съёмки» — не формат, а короткое видео без записи и без
+  // ответа: снимать надо самому. Отдельная вкладка нужна именно потому, что
+  // работа с ними другая — их не экспортируешь, их снимают
+  if (sub === 'shoot') return list.filter(function(p){ return p.fmt === 'video_short' && !p.lecture_slug; });
+  if (sub === 'video_short') return list.filter(function(p){ return p.fmt === 'video_short' && p.lecture_slug; });
+  return list.filter(function(p){ return p.fmt === sub; });
 }
 
-/* ── вкладки ────────────────────────────────────────────────────── */
-function go(p){
-  PANE = p;
-  var panes = document.querySelectorAll('.pane');
-  for (var i=0;i<panes.length;i++) panes[i].classList.toggle('on', panes[i].id === 'p-' + p);
-  var btns = document.querySelectorAll('#nav button, #mnav button');
-  for (var j=0;j<btns.length;j++) btns[j].classList.toggle('on', btns[j].dataset.p === p);
-  if (p === 'stats') renderStats();
-  head();
+function subCount(stage, sub){
+  if (stage === 'raw') return sub === 'lectures' ? S.raw.length : S.ideas.filter(function(i){ return i.status === 'open'; }).length;
+  if (stage === 'process') return bySub(atStage('process'), sub).length;
+  if (stage === 'export') return sub === 'ready' ? atStage('export').length : 0;
+  if (stage === 'post') return sub === 'queue' ? atStage('post').length : 0;
+  return 0;
 }
-(function(){
-  var btns = document.querySelectorAll('#nav button, #mnav button');
-  for (var i=0;i<btns.length;i++) (function(b){ b.addEventListener('click', function(){ go(b.dataset.p); }); })(btns[i]);
-})();
-
-$('theme').addEventListener('click', function(){
-  var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-  document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
-  $('theme').textContent = dark ? '☾' : '☀';
-});
-$('q').addEventListener('input', function(){ renderBoard(); renderRaw(); });
-
-/* ── шапка и левая колонка ──────────────────────────────────────── */
-function head(){
-  var live = S.pieces.filter(function(p){ return p.status !== 'dropped'; });
-  var queue = live.filter(function(p){ return p.status !== 'published'; });
-  var nomark = live.filter(function(p){ return p.no_mark; });
-  var openIdeas = S.ideas.filter(function(i){ return i.status === 'open'; });
-  var unworked = S.raw.filter(function(r){ return !r.pieces; });
-
-  $('n-queue').textContent = queue.length;
-  $('n-raw').textContent = S.raw.length;
-  $('n-ideas').textContent = openIdeas.length;
-
-  var T = {
-    queue: ['Очередь', queue.length + ' в работе · ' + nomark.length + ' без метки'],
-    raw:   ['Сырьё', S.raw.length + ' занятий · ' + unworked.length + ' без единиц'],
-    ideas: ['Идеи', openIdeas.length + ' в копилке'],
-    stats: ['Отчёт', 'За 30 дней, по дням']
-  };
-  $('ttl').textContent = T[PANE][0];
-  $('sub').textContent = T[PANE][1];
-  $('railnote').innerHTML = unworked.length
-    ? '<b>' + unworked.length + '</b> занятий ещё не разобраны заводом — из них не сделано ни одной единицы.'
-    : 'Все занятия разобраны заводом.';
+function stageCount(st){
+  if (st === 'raw') return S.raw.filter(function(r){ return !r.pieces; }).length;
+  if (st === 'report') return 0;
+  return atStage(st === 'export' ? 'export' : st).length;
 }
 
-function renderNorm(){
-  if (!STATS) return;
-  $('today').textContent = STATS.today;
-  $('normv').textContent = STATS.norm;
-  var pct = STATS.norm ? Math.min(100, Math.round(STATS.today * 100 / STATS.norm)) : 0;
-  $('normbar').style.width = pct + '%';
+/* ── навигация ───────────────────────────────────────────────────── */
+function nav(){
+  $('stages').innerHTML = Object.keys(MAP).map(function(k){
+    var n = stageCount(k);
+    return '<button data-st="' + k + '" class="' + (k === STAGE ? 'on' : '') + '">' + esc(MAP[k].label) +
+           (n ? '<span class="n">' + n + '</span>' : '') + '</button>';
+  }).join('');
+  $('subs').innerHTML = MAP[STAGE].subs.map(function(s){
+    var n = subCount(STAGE, s[0]);
+    return '<button data-sub="' + s[0] + '" class="' + (s[0] === SUB ? 'on' : '') + '">' + esc(s[1]) +
+           (n ? '<span class="n">' + n + '</span>' : '') + '</button>';
+  }).join('');
+  var a = $('stages').querySelectorAll('[data-st]');
+  for (var i=0;i<a.length;i++) (function(b){ b.addEventListener('click', function(){
+    STAGE = b.dataset.st; SUB = MAP[STAGE].subs[0][0]; PICK = {}; nav(); render(); }); })(a[i]);
+  var c2 = $('subs').querySelectorAll('[data-sub]');
+  for (var j=0;j<c2.length;j++) (function(b){ b.addEventListener('click', function(){
+    SUB = b.dataset.sub; PICK = {}; nav(); render(); }); })(c2[j]);
+  $('ttl').textContent = MAP[STAGE].label;
 }
 
-function renderAll(){ head(); renderBoard(); renderRaw(); renderIdeas(); }
-
-/* ── очередь ────────────────────────────────────────────────────── */
-function matches(p){
-  var q = $('q').value.trim().toLowerCase();
-  if (q && (p.title || '').toLowerCase().indexOf(q) < 0 && (p.lecture_slug || '').toLowerCase().indexOf(q) < 0) return false;
-  if (FILTERS.platform && p.platform !== FILTERS.platform) return false;
-  if (FILTERS.fmt && p.fmt !== FILTERS.fmt) return false;
-  if (FILTERS.mark === 'no' && !p.no_mark) return false;
-  return true;
+/* ── карточка единицы ────────────────────────────────────────────── */
+function pcard(p){
+  var src = p.lecture_slug ? ('Занятие «' + esc(p.lecture_slug) + '»' + (p.timecode ? ' · ' + esc(p.timecode) : ''))
+                           : 'Без привязки к занятию';
+  var tags = '<span class="tag pl">' + esc(p.fmt_label) + '</span><span class="tag">' + esc(p.platform_label) + '</span>' +
+             (p.no_mark ? '<span class="tag no-mark">без метки</span>' : '') +
+             (p.pending_post ? '<span class="tag warnish">забрал, не выложил</span>' : '');
+  var вперёд = STAGE === 'process' ? 'Подходит' : (STAGE === 'export' ? 'В постинг' : 'Готово');
+  return '<div class="pcard' + (PICK[p.id] ? ' picked' : '') + (p.no_mark ? ' flag' : '') + '" data-card="' + p.id + '">' +
+    '<div class="top2"><input type="checkbox" data-pick="' + p.id + '"' + (PICK[p.id] ? ' checked' : '') + '>' +
+    '<div class="t" data-open="' + p.id + '">' + esc(p.title || 'без названия') + '</div></div>' +
+    (p.insight ? '<div class="ins">' + esc(p.insight) + '</div>' : '') +
+    '<div class="src">' + src + '</div>' +
+    '<div class="row">' + tags + '</div>' +
+    '<div class="acts">' +
+      '<button class="go" data-act="approve" data-id="' + p.id + '">' + вперёд + '</button>' +
+      '<button data-open="' + p.id + '">Править</button>' +
+      '<button data-act="type" data-id="' + p.id + '">Тип</button>' +
+      '<button data-act="duplicate" data-id="' + p.id + '">Дублировать</button>' +
+      '<button class="danger" data-act="drop" data-id="' + p.id + '">Удалить</button>' +
+    '</div></div>';
 }
 
-function cardHtml(p){
-  var src = p.lecture_slug
-    ? 'Занятие «' + esc(p.lecture_slug) + '»' + (p.timecode ? ' · ' + esc(p.timecode) : '')
-    : (p.idea_id ? 'Из замысла' : 'Без привязки к занятию');
-  if (p.status === 'published') {
-    src = esc(p.platform_label) + (p.published_at ? ' · выложено ' + esc(p.published_at) : '');
-  }
-  var tags = '<span class="tag pl">' + esc(p.fmt_label) + '</span>';
-  if (p.status !== 'published') tags += '<span class="tag">' + esc(p.platform_label) + '</span>';
-  if (p.auto) tags += '<span class="tag auto">заведено само</span>';
-  if (p.pending_post) tags += '<span class="tag warnish">забрал, не выложил</span>';
-  if (p.no_mark) tags += '<span class="tag no-mark">без метки</span>';
-  else if (p.source_code) tags += '<span class="tag">метка ' + esc(p.source_code) + '</span>';
-  return '<div class="card' + (p.no_mark ? ' flag' : '') + '" draggable="true" data-id="' + p.id + '">' +
-         '<div class="t">' + esc(p.title || 'без названия') + '</div>' +
-         // Суть — прямо на карточке: главный вопрос к очереди «о чём это и
-         // откуда», а не «как называется»
-         (p.insight ? '<div class="ins">' + esc(p.insight) + '</div>' : '') +
-         '<div class="src">' + src + '</div>' +
-         '<div class="row">' + tags + '</div></div>';
+function wireCards(){
+  var box = $('view');
+  var op = box.querySelectorAll('[data-open]');
+  for (var i=0;i<op.length;i++) (function(b){ b.addEventListener('click', function(e){
+    e.stopPropagation(); openPiece(Number(b.dataset.open)); }); })(op[i]);
+  var pk = box.querySelectorAll('[data-pick]');
+  for (var j=0;j<pk.length;j++) (function(b){ b.addEventListener('change', function(){
+    var id = Number(b.dataset.pick);
+    if (b.checked) PICK[id] = true; else delete PICK[id];
+    render();
+  }); })(pk[j]);
+  var ac = box.querySelectorAll('[data-act]');
+  for (var k=0;k<ac.length;k++) (function(b){ b.addEventListener('click', function(e){
+    e.stopPropagation(); doBulk(b.dataset.act, [Number(b.dataset.id)]); }); })(ac[k]);
 }
 
-function renderBoard(){
-  var cols = (S.dict.statuses || []).filter(function(s){ return s.key !== 'dropped'; });
-  var html = '';
-  for (var i=0;i<cols.length;i++){
-    var st = cols[i];
-    var list = S.pieces.filter(function(p){ return p.status === st.key && matches(p); });
-    html += '<div class="col" data-col="' + st.key + '">' +
-            '<div class="colhead"><b>' + esc(st.label) + '</b><span>' + list.length + '</span></div>' +
-            (list.length ? list.map(cardHtml).join('') : '') +
-            '</div>';
-  }
-  $('board').innerHTML = html || '<div class="empty">Очередь пуста. Заведи правила производства и прогони их по библиотеке — заготовки появятся сами.</div>';
-  wireBoard();
-  head();
+/* ── массовые действия ───────────────────────────────────────────── */
+function picked(){ return Object.keys(PICK).map(Number); }
+
+function doBulk(action, ids){
+  ids = ids || picked();
+  if (!ids.length) { toast('Ничего не отмечено'); return; }
+  if (action === 'type') { openType(ids); return; }
+  if (action === 'export') { doExport(ids); return; }
+  api('/factory/pieces/bulk', {method:'POST', body:{ids:ids, action:action}})
+    .then(function(r){
+      (r.pieces || []).forEach(replace);
+      (r.created || []).forEach(function(c){ S.pieces.unshift(c); });
+      PICK = {}; nav(); render();
+      toast(action === 'approve' ? 'Отправлено дальше' : (action === 'drop' ? 'Убрано' : 'Готово'));
+    }).catch(function(e){ toast(e.message); });
 }
 
-var held = null;
-function wireBoard(){
-  var cards = document.querySelectorAll('#board .card');
-  for (var i=0;i<cards.length;i++) (function(c){
-    c.addEventListener('dragstart', function(){ held = c; c.classList.add('dragging'); });
-    c.addEventListener('dragend', function(){ c.classList.remove('dragging'); held = null; });
-    c.addEventListener('click', function(){ openPiece(Number(c.dataset.id)); });
-  })(cards[i]);
-  var cols = document.querySelectorAll('#board [data-col]');
-  for (var j=0;j<cols.length;j++) (function(col){
-    col.addEventListener('dragover', function(e){ e.preventDefault(); col.classList.add('over'); });
-    col.addEventListener('dragleave', function(){ col.classList.remove('over'); });
-    col.addEventListener('drop', function(e){
-      e.preventDefault(); col.classList.remove('over');
-      if (!held) return;
-      var id = Number(held.dataset.id), st = col.dataset.col;
-      // ⚠️ В «опубликовано» перетащить МОЖНО, но метку это не заводит —
-      // единица честно светится как брак, пока не пройдёт публикацию
-      api('/factory/piece/' + id + '/status', {method:'POST', body:{status:st}})
-        .then(function(r){ replace(r.piece); renderBoard(); if (r.piece.no_mark) toast('Выложено без метки — открой карточку и опубликуй'); })
-        .catch(function(e){ toast(e.message); });
-    });
-  })(cols[j]);
+function openType(ids){
+  openWin('<h2>Сменить тип</h2><div class="lead">Единиц: ' + ids.length + '</div>' +
+    '<div class="field"><label>Новый тип</label><select id="ty">' +
+      (S.dict.formats || []).map(function(f){ return '<option value="' + f.key + '">' + esc(f.label) + '</option>'; }).join('') +
+    '</select></div>' +
+    '<div class="wbtns"><button class="ghost" data-x="close">Отмена</button><div class="spacer"></div>' +
+    '<button class="primary" data-x="type-go" data-ids="' + ids.join(',') + '">Сменить</button></div>');
+}
+
+function bulkBar(){
+  var n = picked().length;
+  var bar = $('bulk');
+  if (!n || STAGE === 'raw' || STAGE === 'report') { bar.classList.remove('on'); bar.innerHTML = ''; return; }
+  var вперёд = STAGE === 'process' ? 'Подходит' : (STAGE === 'export' ? 'В постинг' : 'Готово');
+  bar.innerHTML = '<b>' + n + '</b>' +
+    '<button class="primary" data-b="approve">' + вперёд + '</button>' +
+    (STAGE === 'export' ? '<button class="ghost" data-b="export">Экспорт</button>' : '') +
+    '<button class="ghost" data-b="type">Тип</button>' +
+    '<button class="ghost" data-b="duplicate">Дублировать</button>' +
+    '<button class="ghost" data-b="back">Назад</button>' +
+    '<button class="ghost danger" data-b="drop">Удалить</button>' +
+    '<button class="ghost" data-b="none">Снять</button>';
+  bar.classList.add('on');
+  var bs = bar.querySelectorAll('[data-b]');
+  for (var i=0;i<bs.length;i++) (function(b){ b.addEventListener('click', function(){
+    if (b.dataset.b === 'none') { PICK = {}; render(); return; }
+    doBulk(b.dataset.b);
+  }); })(bs[i]);
 }
 
 function replace(p){
@@ -592,112 +569,138 @@ function replace(p){
   S.pieces.unshift(p);
 }
 
-/* ── сырьё ──────────────────────────────────────────────────────── */
-function renderRaw(){
-  var q = $('q').value.trim().toLowerCase();
+/* ── отрисовка ───────────────────────────────────────────────────── */
+function render(){
+  var v = $('view');
+  var q = ($('q').value || '').trim().toLowerCase();
+  function hit(p){ return !q || (p.title||'').toLowerCase().indexOf(q) >= 0 || (p.lecture_slug||'').toLowerCase().indexOf(q) >= 0; }
+
+  if (STAGE === 'raw' && SUB === 'lectures') { renderRaw(q); }
+  else if (STAGE === 'raw') { renderIdeas(); }
+  else if (STAGE === 'process' || STAGE === 'export' || STAGE === 'post') {
+    if (STAGE === 'export' && SUB === 'settings') { renderSettings(); }
+    else if (STAGE === 'post' && SUB === 'accounts') {
+      v.innerHTML = '<div class="stub">Площадок пока нет. Здесь появятся аккаунты и расписание: сначала те, куда можно постить по API — Телеграм и ВК, — а Инстаграм и TikTok останутся ручными, там публикация с телефона даёт больше охвата.</div>';
+    } else {
+      var list = (STAGE === 'process' ? bySub(atStage('process'), SUB) : atStage(STAGE)).filter(hit);
+      v.innerHTML = list.length
+        ? '<div class="cards">' + list.map(pcard).join('') + '</div>'
+        : '<div class="stub">Пусто. ' + (STAGE === 'process'
+            ? 'Разбери занятие на вкладке «Сырьё» — заготовки появятся здесь сами.'
+            : 'Сюда попадает то, что ты отметил «Подходит».') + '</div>';
+      wireCards();
+    }
+  }
+  else { renderReport(); }
+
+  var n = STAGE === 'raw' ? subCount('raw', SUB) : (STAGE === 'report' ? 0 : atStage(STAGE).length);
+  $('sub').textContent = MAP[STAGE].subs.filter(function(s){ return s[0] === SUB; })[0][1] +
+    (n ? ' · ' + n : '');
+  bulkBar();
+}
+
+function renderRaw(q){
   var rows = S.raw.filter(function(r){
-    return !q || (r.title || '').toLowerCase().indexOf(q) >= 0 || (r.slug || '').toLowerCase().indexOf(q) >= 0;
+    return !q || (r.title||'').toLowerCase().indexOf(q) >= 0 || (r.slug||'').toLowerCase().indexOf(q) >= 0;
   });
-  if (!rows.length) { $('rawrows').innerHTML = '<div class="empty">Занятий не нашлось.</div>'; return; }
-  $('rawrows').innerHTML = rows.map(function(r){
+  if (!rows.length) { $('view').innerHTML = '<div class="stub">Занятий не нашлось.</div>'; return; }
+  $('view').innerHTML = '<div class="rows">' + rows.map(function(r){
     var meta = [];
     if (r.stream_title) meta.push('Поток «' + esc(r.stream_title) + '»');
     if (r.duration_minutes) meta.push(r.duration_minutes + ' мин');
     meta.push(r.insights ? (r.insights + ' мыслей, ' + r.insights_main + ' главных') : 'мыслей нет');
-    if (!r.timecodes) meta.push('таймкодов нет');
-    if (!r.has_transcript) meta.push('транскрипта нет');
-    var pill = r.pieces
-      ? '<span class="pill ok">' + r.pieces + ' ед.</span>'
-      : '<span class="pill warn">не разобрано</span>';
     return '<div class="row-item"><div class="grow"><div class="t">' + esc(r.title || r.slug) + '</div>' +
-           '<div class="m">' + meta.join(' · ') + '</div></div>' + pill +
-           '<button class="mini" data-proc="' + esc(r.slug) + '">Разобрать</button>' +
-           '<button class="mini" data-new="' + esc(r.slug) + '">Вручную</button></div>';
-  }).join('');
-  var btns = $('rawrows').querySelectorAll('[data-new]');
-  for (var i=0;i<btns.length;i++) (function(b){
-    b.addEventListener('click', function(){ openPiece(null, b.dataset.new); });
-  })(btns[i]);
-  var pr = $('rawrows').querySelectorAll('[data-proc]');
-  for (var k=0;k<pr.length;k++) (function(b){
-    b.addEventListener('click', function(){ processLecture(b.dataset.proc); });
-  })(pr[k]);
-}
-
-/* ── замыслы ────────────────────────────────────────────────────── */
-/* ⚠️ ОДНА КНОПКА НА ЗАНЯТИЕ — вместо «заведи идею, открой, разверни».
-   Сначала показываем, что придёт: разбор занятия рождает десяток заготовок, и
-   вываливать их без предупреждения — то же самое, что вываливать правила */
-function processLecture(slug){
-  api('/factory/lecture/' + encodeURIComponent(slug) + '/process', {method:'POST', body:{dry_run:true}})
-    .then(function(d){
-      if (!d.planned_pieces) { toast('Новых заготовок не набралось — занятие уже разобрано'); return; }
-      var по = Object.keys(d.by_format || {}).map(function(k){ return k + ': ' + d.by_format[k]; }).join(' · ');
-      openWin('<h2>Разобрать занятие</h2>' +
-        '<div class="lead">' + esc(d.lecture) + ' · мыслей ' + d.insights + '</div>' +
-        '<div class="note">Придёт ' + d.planned_ideas + ' идей и ' + d.planned_pieces + ' заготовок — ' + esc(по) + '</div>' +
-        '<div class="rows" style="margin-top:14px">' + d.items.slice(0,5).map(function(it){
-          return '<div class="row-item"><div class="grow"><div class="t">' + esc(it.body.slice(0,80)) + '</div>' +
-                 '<div class="m">' + esc(it.label) + (it.timecode ? ' · ' + esc(it.timecode) : '') + '</div></div></div>';
-        }).join('') + '</div>' +
-        (d.planned_ideas > 5 ? '<div class="note">…и ещё ' + (d.planned_ideas - 5) + '</div>' : '') +
-        '<div class="wbtns"><button class="ghost" data-x="close">Отмена</button><div class="spacer"></div>' +
-        '<button class="primary" data-x="proc-go" data-slug="' + esc(slug) + '">Разобрать</button></div>');
-    }).catch(function(e){ toast(e.message); });
+      '<div class="m">' + meta.join(' · ') + '</div></div>' +
+      (r.pieces ? '<span class="pill ok">' + r.pieces + ' ед.</span>' : '<span class="pill warn">не разобрано</span>') +
+      '<button class="mini" data-proc="' + esc(r.slug) + '">Разобрать</button>' +
+      '<button class="mini" data-new="' + esc(r.slug) + '">Вручную</button></div>';
+  }).join('') + '</div>';
+  var pr = $('view').querySelectorAll('[data-proc]');
+  for (var i=0;i<pr.length;i++) (function(b){ b.addEventListener('click', function(){ processLecture(b.dataset.proc); }); })(pr[i]);
+  var nw = $('view').querySelectorAll('[data-new]');
+  for (var j=0;j<nw.length;j++) (function(b){ b.addEventListener('click', function(){ openPiece(null, b.dataset.new); }); })(nw[j]);
 }
 
 function renderIdeas(){
-  var sel = $('isrc');
-  if (sel && sel.options.length < 2) {
-    (S.dict.idea_sources || []).forEach(function(o){
-      var op = document.createElement('option'); op.value = o.key; op.textContent = o.label; sel.appendChild(op);
-    });
-  }
-  var src = sel ? sel.value : '';
-  var route = $('iroute') ? $('iroute').value : '';
-  var list = S.ideas.filter(function(i){
-    if (src && i.source !== src) return false;
-    if (route && i.route !== route) return false;
-    return true;
-  });
-  if (!list.length) { $('ideas').innerHTML = '<div class="empty">Пусто. Сюда стекаются мысли занятий, вопросы участников и твои заметки — нажми «Втянуть из источников».</div>'; return; }
-  $('ideas').innerHTML = list.map(function(i){
-    var st = i.status === 'open' ? 'копится' : (i.status === 'taken' ? 'в работе' : 'отброшено');
+  var list = S.ideas;
+  if (!list.length) { $('view').innerHTML = '<div class="stub">Идей пока нет. Разбери занятие — мысли станут идеями.</div>'; return; }
+  $('view').innerHTML = '<div class="cards">' + list.map(function(i){
     var rc = i.route === 'clip' ? 'auto' : (i.route === 'answered' ? 'pl' : '');
-    return '<div class="idea' + (i.status === 'dropped' ? ' done' : '') + '" data-idea="' + i.id + '">' +
-           '<div class="k">' + esc(i.source_label || i.kind_label) + '</div><p>' + esc(i.body) + '</p>' +
-           (i.answer ? '<div class="ins">' + esc(i.answer) + '</div>' : '') +
-           '<div class="row"><span class="tag ' + rc + '">' + esc(i.label) + '</span>' +
-           '<span class="tag">' + st + '</span>' +
-           (i.timecode ? '<span class="tag">' + esc(i.timecode) + '</span>' : '') +
-           (i.lecture_slug ? '<span class="tag">' + esc(i.lecture_slug) + '</span>' : '') + '</div></div>';
-  }).join('');
-  var cards = $('ideas').querySelectorAll('[data-idea]');
-  for (var i=0;i<cards.length;i++) (function(c){
-    c.addEventListener('click', function(){ openIdea(Number(c.dataset.idea)); });
-  })(cards[i]);
+    return '<div class="pcard' + (i.status === 'dropped' ? ' done' : '') + '">' +
+      '<div class="top2"><div class="t" data-idea="' + i.id + '">' + esc(i.body) + '</div></div>' +
+      (i.answer ? '<div class="ins">' + esc(i.answer) + '</div>' : '') +
+      '<div class="src">' + esc(i.source_label) + (i.timecode ? ' · ' + esc(i.timecode) : '') + '</div>' +
+      '<div class="row"><span class="tag ' + rc + '">' + esc(i.label) + '</span></div></div>';
+  }).join('') + '</div>';
+  var op = $('view').querySelectorAll('[data-idea]');
+  for (var i=0;i<op.length;i++) (function(b){ b.addEventListener('click', function(){ openIdea(Number(b.dataset.idea)); }); })(op[i]);
 }
 
-/* ── числа ──────────────────────────────────────────────────────── */
-function renderStats(){
-  if (!STATS) { $('statsbox').innerHTML = '<div class="empty">Считаю…</div>'; return; }
+/* ── настройки экспорта ──────────────────────────────────────────── */
+function renderSettings(){
+  $('view').innerHTML =
+    '<div class="rows"><div class="chart"><h3>Темы карточек</h3>' +
+      '<div class="sub">Тема меняет вид карусели, но не состав экранов — поэтому старое пересобирается в новой теме</div>' +
+      '<div id="themes"></div>' +
+      '<div class="wbtns"><button class="ghost" id="addtheme">Новая тема</button></div></div>' +
+    '<div class="chart"><h3>Видео и субтитры</h3>' +
+      '<div class="sub">Рез клипов ещё не построен: занятие и таймкод у заготовок уже есть, самой нарезки нет. Настройки появятся вместе с ней</div>' +
+    '</div></div>';
+  renderThemes();
+  $('addtheme').addEventListener('click', function(){ openTheme(null); });
+}
+
+function renderThemes(){
+  var box = $('themes'); if (!box) return;
+  api('/factory/themes').then(function(d){
+    THEMES = d.themes || [];
+    if (!THEMES.length) { box.innerHTML = '<div class="stub">Тем нет. Своя тема — это один блок CSS: правишь и сразу собираешь, без выкладки.</div>'; return; }
+    box.innerHTML = THEMES.map(function(t){
+      return '<div class="rule-row"><div class="grow">' + esc(t.title || t.key) + '</div>' +
+        '<span class="tag">' + esc(t.key) + '</span>' +
+        '<span class="tag ' + (t.own ? 'pl' : '') + '">' + (t.own ? 'своя' : 'из репозитория') + '</span>' +
+        (t.own ? '<button class="mini" data-theme="' + esc(t.key) + '">Править</button>' +
+                 '<button class="mini danger" data-rmtheme="' + esc(t.key) + '">Убрать</button>' : '') + '</div>';
+    }).join('');
+    var ed = box.querySelectorAll('[data-theme]');
+    for (var i=0;i<ed.length;i++) (function(b){ b.addEventListener('click', function(){ openTheme(b.dataset.theme); }); })(ed[i]);
+    var rm = box.querySelectorAll('[data-rmtheme]');
+    for (var j=0;j<rm.length;j++) (function(b){ b.addEventListener('click', function(){
+      api('/factory/theme/' + encodeURIComponent(b.dataset.rmtheme), {method:'DELETE'})
+        .then(renderThemes).catch(function(e){ toast(e.message); });
+    }); })(rm[j]);
+  }).catch(function(e){ box.innerHTML = '<div class="stub">' + esc(e.message) + '</div>'; });
+}
+
+/* ── отчёт ───────────────────────────────────────────────────────── */
+function touchLabel(n){ return STATS && STATS.touches_measured ? (n + ' переходов') : 'переходы не считаются'; }
+
+function cutBlock(title, rows){
+  if (!rows || !rows.length) return '';
+  return '<div class="chart"><h3>' + title + '</h3>' +
+    '<div class="sub">Отсюда правятся правила производства — по факту, а не по ощущению</div>' +
+    '<div class="rows">' + rows.map(function(r){
+      return '<div class="row-item"><div class="grow"><div class="t">' + esc(r.label || r.key || 'без вида') + '</div>' +
+        '<div class="m">' + r.pieces + ' выложено</div></div>' +
+        '<span class="pill">' + touchLabel(r.touches) + '</span>' +
+        '<span class="pill">' + r.came + ' пришло</span>' +
+        '<span class="pill' + (r.paid ? ' ok' : '') + '">' + r.paid + ' оплат</span></div>';
+    }).join('') + '</div></div>';
+}
+
+function renderReport(){
+  if (SUB === 'rules') { renderRulesPane(); return; }
+  if (!STATS) { $('view').innerHTML = '<div class="stub">Считаю…</div>'; return; }
   var max = 1;
   for (var i=0;i<STATS.series.length;i++) if (STATS.series[i].count > max) max = STATS.series[i].count;
   var bars = STATS.series.map(function(d){
     return '<i class="' + (d.low ? 'low' : '') + '" style="height:' + Math.round(d.count * 100 / max) + '%"></i>';
   }).join('');
   var days = STATS.series.map(function(d){ return '<span>' + d.date.slice(8) + '</span>'; }).join('');
-  var srcRows = (STATS.sources || []).slice(0, 12).map(function(s){
-    return '<div class="row-item"><div class="grow"><div class="t">' + esc(s.title || s.code) + '</div>' +
-           '<div class="m">метка ' + esc(s.code) + '</div></div>' +
-           '<span class="pill">' + touchLabel(s.touches) + '</span>' +
-           '<span class="pill">' + s.came + ' пришло</span><span class="pill ok">' + s.paid + ' оплат</span></div>';
-  }).join('');
-
-  $('statsbox').innerHTML =
+  $('view').innerHTML = '<div class="rows">' +
     '<div class="stats">' +
       '<div class="stat"><b>' + STATS.published_period + '</b><span>выложено за 30 дней</span></div>' +
-      '<div class="stat"><b>' + STATS.in_queue + '</b><span>в очереди</span></div>' +
+      '<div class="stat"><b>' + STATS.in_queue + '</b><span>в работе</span></div>' +
       '<div class="stat' + (STATS.no_mark ? ' alert' : '') + '"><b>' + STATS.no_mark + '</b><span>выложено без метки</span></div>' +
       '<div class="stat"><b>' + (STATS.pending_post || 0) + '</b><span>забрал, не выложил</span></div>' +
       '<div class="stat' + (STATS.lectures_unworked ? ' alert' : '') + '"><b>' + STATS.lectures_unworked + '</b><span>занятий без единиц</span></div>' +
@@ -707,143 +710,100 @@ function renderStats(){
       '<div class="bars">' + bars + '</div><div class="days">' + days + '</div></div>' +
     cutBlock('Что работает по формату', STATS.by_format) +
     cutBlock('Что работает по площадке', STATS.by_platform) +
-    (srcRows ? '<div class="chart"><h3>Отдача по меткам завода</h3>' +
-      '<div class="sub">' + (STATS.touches_measured ? 'Переходы, приходы и оплаты по каждой метке'
-        : 'Переходы пока не измеряются — нужен вызов счётчика в общем main.py') + '</div>' +
-      '<div class="rows">' + srcRows + '</div></div>' : '') +
-    '<div class="chart"><h3>Темы карточек</h3>' +
-      '<div class="sub">Тема меняет вид карусели, но не состав экранов — поэтому старое пересобирается в новой теме</div>' +
-      '<div id="themes"></div>' +
-      '<div class="wbtns"><button class="ghost" id="addtheme">Новая тема</button></div></div>' +
-    '<div class="chart"><h3>Правила производства</h3>' +
-      '<div class="sub">Появилось занятие — заготовки по правилам возникают в очереди сами</div>' +
-      '<div id="rules"></div>' +
-      '<div class="wbtns"><button class="ghost" id="addrule">Новое правило</button>' +
-      '<button class="primary" id="gen">Прогнать по библиотеке</button></div></div>';
+  '</div>';
+}
 
+function renderRulesPane(){
+  $('view').innerHTML = '<div class="rows"><div class="chart"><h3>Правила производства</h3>' +
+    '<div class="sub">Появилось занятие — заготовки по правилам возникают в очереди сами</div>' +
+    '<div id="rules"></div>' +
+    '<div class="wbtns"><button class="ghost" id="addrule">Новое правило</button>' +
+    '<button class="primary" id="gen">Прогнать по библиотеке</button></div></div></div>';
   renderRules();
-  renderThemes();
-  $('addtheme').addEventListener('click', function(){ openTheme(null); });
   $('addrule').addEventListener('click', function(){ openRule(); });
   $('gen').addEventListener('click', generate);
 }
 
-// ⚠️ «Нет данных» и «ноль переходов» — РАЗНЫЕ ВЕЩИ. Пока счётчик не подключён,
-// ноль на экране означал бы «никто не переходил», и правила правились бы по
-// выдуманному числу
-function touchLabel(n){
-  return STATS && STATS.touches_measured ? (n + ' переходов') : 'переходы не считаются';
-}
-
-function cutBlock(title, rows){
-  if (!rows || !rows.length) return '';
-  var body = rows.map(function(r){
-    return '<div class="row-item"><div class="grow"><div class="t">' + esc(r.label || r.key || 'без вида') + '</div>' +
-           '<div class="m">' + r.pieces + ' выложено</div></div>' +
-           '<span class="pill">' + touchLabel(r.touches) + '</span>' +
-           '<span class="pill">' + r.came + ' пришло</span>' +
-           '<span class="pill' + (r.paid ? ' ok' : '') + '">' + r.paid + ' оплат</span></div>';
-  }).join('');
-  return '<div class="chart"><h3>' + title + '</h3>' +
-         '<div class="sub">Отсюда правятся правила производства — по факту, а не по ощущению</div>' +
-         '<div class="rows">' + body + '</div></div>';
-}
-
-var THEMES = [];
-
-function renderThemes(){
-  var box = $('themes');
-  if (!box) return;
-  api('/factory/themes').then(function(d){
-    THEMES = d.themes || [];
-    if (!THEMES.length) { box.innerHTML = '<div class="empty">Тем нет. Своя тема — это один блок CSS: правишь и сразу собираешь, без выкладки.</div>'; return; }
-    box.innerHTML = THEMES.map(function(t){
-      return '<div class="rule-row"><div class="grow">' + esc(t.title || t.key) + '</div>' +
-             '<span class="tag">' + esc(t.key) + '</span>' +
-             // ⚠️ Тему-папку из интерфейса не поправить: она в репозитории,
-             // и кнопка правки означала бы обещание, которого не сдержим
-             '<span class="tag ' + (t.own ? 'pl' : '') + '">' + (t.own ? 'своя' : 'из репозитория') + '</span>' +
-             (t.own ? '<button class="mini" data-theme="' + esc(t.key) + '">Править</button>' +
-                      '<button class="mini danger" data-rmtheme="' + esc(t.key) + '">Убрать</button>' : '') +
-             '</div>';
-    }).join('');
-    var ed = box.querySelectorAll('[data-theme]');
-    for (var i=0;i<ed.length;i++) (function(b){ b.addEventListener('click', function(){ openTheme(b.dataset.theme); }); })(ed[i]);
-    var rm = box.querySelectorAll('[data-rmtheme]');
-    for (var j=0;j<rm.length;j++) (function(b){
-      b.addEventListener('click', function(){
-        api('/factory/theme/' + encodeURIComponent(b.dataset.rmtheme), {method:'DELETE'})
-          .then(renderThemes).catch(function(e){ toast(e.message); });
-      });
-    })(rm[j]);
-  }).catch(function(e){ box.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
-}
-
-function openTheme(key){
-  var t = null;
-  for (var i=0;i<THEMES.length;i++) if (THEMES[i].key === key) t = THEMES[i];
-  EDIT = t;
-  openWin('<h2>' + (t ? 'Тема' : 'Новая тема') + '</h2>' +
-    '<div class="lead">Экраны 1080×1350. Классы: .screen, .first, .last, .body p, .foot</div>' +
-    '<div class="two">' +
-      '<div class="field"><label>Ключ</label><input id="t-key" value="' + esc(t ? t.key : '') + '" placeholder="noir"' + (t ? ' disabled' : '') + '></div>' +
-      '<div class="field"><label>Название</label><input id="t-title" value="' + esc(t ? t.title : '') + '"></div>' +
-    '</div>' +
-    '<div class="field"><label>Стили</label><textarea id="t-css" style="min-height:220px;font-family:ui-monospace,monospace;font-size:12px">' + esc(t ? t.css : '.screen{\n  background:#111;\n  color:#eee;\n  padding:96px 88px 88px;\n}\n.body p{ font-size:58px; line-height:1.24; font-weight:600 }\n.first .body p{ font-size:78px }\n.foot{ padding:0 88px 68px; font-size:26px; opacity:.6 }') + '</textarea></div>' +
-    '<div class="wbtns"><button class="ghost" data-x="close">Отмена</button><div class="spacer"></div>' +
-    '<button class="primary" data-x="theme-save">Сохранить</button></div>');
-}
-
 function renderRules(){
-  var box = $('rules');
-  if (!box) return;
-  if (!S.rules.length) { box.innerHTML = '<div class="empty">Правил нет. Пока их нет, очередь наполняется только руками.</div>'; return; }
+  var box = $('rules'); if (!box) return;
+  if (!S.rules.length) { box.innerHTML = '<div class="stub">Правил нет. Пока их нет, очередь наполняется разбором занятий и вручную.</div>'; return; }
   box.innerHTML = S.rules.map(function(r){
     return '<div class="rule-row"><div class="grow">' + esc(r.title_tpl) + '</div>' +
-           '<span class="tag pl">' + esc(label(S.dict.formats, r.fmt)) + '</span>' +
-           '<span class="tag">' + esc(label(S.dict.platforms, r.platform)) + '</span>' +
-           '<span class="tag">' + (r.stream_key ? 'поток ' + esc(r.stream_key) : 'все занятия') + '</span>' +
-           '<button class="mini" data-rule="' + r.id + '">Править</button>' +
-           '<button class="mini danger" data-rmrule="' + r.id + '">Убрать</button></div>';
+      '<span class="tag pl">' + esc(label(S.dict.formats, r.fmt)) + '</span>' +
+      '<span class="tag">' + esc(label(S.dict.platforms, r.platform)) + '</span>' +
+      '<span class="tag">' + (r.stream_key ? 'поток ' + esc(r.stream_key) : 'все занятия') + '</span>' +
+      '<button class="mini" data-rule="' + r.id + '">Править</button>' +
+      '<button class="mini danger" data-rmrule="' + r.id + '">Убрать</button></div>';
   }).join('');
   var ed = box.querySelectorAll('[data-rule]');
   for (var i=0;i<ed.length;i++) (function(b){ b.addEventListener('click', function(){ openRule(Number(b.dataset.rule)); }); })(ed[i]);
   var rm = box.querySelectorAll('[data-rmrule]');
-  for (var j=0;j<rm.length;j++) (function(b){
-    b.addEventListener('click', function(){
-      api('/factory/rule/' + b.dataset.rmrule, {method:'DELETE'}).then(function(){
-        S.rules = S.rules.filter(function(r){ return r.id !== Number(b.dataset.rmrule); });
-        renderRules();
-      }).catch(function(e){ toast(e.message); });
-    });
-  })(rm[j]);
+  for (var j=0;j<rm.length;j++) (function(b){ b.addEventListener('click', function(){
+    api('/factory/rule/' + b.dataset.rmrule, {method:'DELETE'}).then(function(){
+      S.rules = S.rules.filter(function(r){ return r.id !== Number(b.dataset.rmrule); }); renderRules();
+    }).catch(function(e){ toast(e.message); });
+  }); })(rm[j]);
 }
 
-// ⚠️ Прогон СНАЧАЛА СУХОЙ: показывает, сколько карточек придёт, и только
-// потом заводит. Двести штук, свалившихся в очередь без предупреждения,
-// — это не помощь
 function generate(){
   api('/factory/generate', {method:'POST', body:{dry_run:true, only_unworked:true}})
     .then(function(d){
       if (!d.planned) { toast(d.note || 'Новых заготовок не набралось'); return; }
-      openWin('<h2>Прогон правил</h2><div class="lead">Придёт ' + d.planned + ' заготовок в статусе «Идея»</div>' +
-        '<div class="rows">' + d.items.slice(0,6).map(function(it){
-          return '<div class="row-item"><div class="grow"><div class="t">' + esc(it.title) + '</div>' +
-                 '<div class="m">' + esc(it.lecture_slug) + '</div></div></div>';
-        }).join('') + '</div>' +
-        (d.planned > 6 ? '<div class="note">…и ещё ' + (d.planned - 6) + '</div>' : '') +
-        '<div class="note">Отброшенное раньше не вернётся: отказ помнится навсегда.</div>' +
+      openWin('<h2>Прогон правил</h2><div class="lead">Придёт ' + d.planned + ' заготовок</div>' +
+        '<div class="note">Отброшенное раньше не вернётся.</div>' +
         '<div class="wbtns"><button class="ghost" data-x="close">Отмена</button><div class="spacer"></div>' +
         '<button class="primary" data-x="gen-go">Завести ' + d.planned + '</button></div>');
-    })
-    .catch(function(e){ toast(e.message); });
+    }).catch(function(e){ toast(e.message); });
 }
 
-/* ── окна ───────────────────────────────────────────────────────── */
+function processLecture(slug){
+  api('/factory/lecture/' + encodeURIComponent(slug) + '/process', {method:'POST', body:{dry_run:true}})
+    .then(function(d){
+      if (!d.planned_pieces) { toast('Занятие уже разобрано'); return; }
+      var по = Object.keys(d.by_format || {}).map(function(k){ return k + ': ' + d.by_format[k]; }).join(' · ');
+      openWin('<h2>Разобрать занятие</h2><div class="lead">' + esc(d.lecture) + ' · мыслей ' + d.insights + '</div>' +
+        '<div class="note">Придёт ' + d.planned_ideas + ' идей и ' + d.planned_pieces + ' заготовок — ' + esc(по) + '</div>' +
+        '<div class="wbtns"><button class="ghost" data-x="close">Отмена</button><div class="spacer"></div>' +
+        '<button class="primary" data-x="proc-go" data-slug="' + esc(slug) + '">Разобрать</button></div>');
+    }).catch(function(e){ toast(e.message); });
+}
+
+/* ── экспорт ─────────────────────────────────────────────────────── */
+function doExport(ids){
+  // ⚠️ Экспорт зависит от типа, поэтому пачкой берём только однотипное:
+  // карусель рисуется картинками, пост отдаётся текстом, видео пока никак
+  var list = ids.map(function(id){ return pieceById(id); }).filter(Boolean);
+  var типы = {}; list.forEach(function(p){ типы[p.fmt] = true; });
+  if (Object.keys(типы).length > 1) { toast('Отметь единицы одного типа — экспорт у них разный'); return; }
+  var fmt = list[0].fmt;
+  if (fmt === 'carousel') { openCarousel(list[0]); return; }
+  if (fmt === 'text') {
+    openWin('<h2>Текст для публикации</h2><div class="lead">' + esc(list[0].title) + '</div>' +
+      '<div class="field"><textarea id="tx" style="min-height:280px">' + esc(list[0].note || list[0].insight) + '</textarea></div>' +
+      '<div class="wbtns"><button class="ghost" data-x="close">Закрыть</button><div class="spacer"></div>' +
+      '<button class="primary" data-x="copy-text">Скопировать</button></div>');
+    return;
+  }
+  toast('Экспорт видео ещё не построен — пока только карусели и тексты');
+}
+
+function openCarousel(p){
+  api('/factory/piece/' + p.id + '/carousel', {method:'POST', body:{preview:true}})
+    .then(function(d){
+      openWin('<h2>Собрать карусель</h2><div class="lead">' + d.count + ' экранов из заметки</div>' +
+        '<div class="field"><label>Тема</label><select id="th">' +
+          THEMES.map(function(t){ return '<option value="' + esc(t.key) + '">' + esc(t.title || t.key) + '</option>'; }).join('') +
+        '</select></div>' +
+        '<div class="rows">' + d.screens.slice(0,5).map(function(s,n){
+          return '<div class="row-item"><div class="grow"><div class="m">' + (n+1) + '</div><div class="t">' + esc(s.slice(0,90)) + '</div></div></div>';
+        }).join('') + '</div>' +
+        '<div class="wbtns"><button class="ghost" data-x="close">Отмена</button><div class="spacer"></div>' +
+        '<button class="primary" data-x="car-go" data-id="' + p.id + '">Собрать</button></div>');
+    }).catch(function(e){ toast(e.message); });
+}
+
+/* ── окна ────────────────────────────────────────────────────────── */
 function openWin(html){
-  // ⚠️ КРЕСТИК ОБЯЗАТЕЛЕН. Клик по подложке закрывает окно только мышью: на
-  // телефоне подложки почти не видно, а промах по ней попадает в само окно —
-  // выйти было нечем
   $('win').innerHTML = '<button class="wclose" data-x="close" aria-label="Закрыть">✕</button>' + html;
   $('veil').classList.add('on');
   var btns = $('win').querySelectorAll('[data-x]');
@@ -853,23 +813,17 @@ function closeWin(){ $('veil').classList.remove('on'); $('win').innerHTML = ''; 
 $('veil').addEventListener('click', function(e){ if (e.target === $('veil')) closeWin(); });
 
 function opts(list, sel){
-  return list.map(function(o){
+  return (list||[]).map(function(o){
     return '<option value="' + esc(o.key) + '"' + (o.key === sel ? ' selected' : '') + '>' + esc(o.label) + '</option>';
   }).join('');
 }
-function pieceById(id){
-  for (var i=0;i<S.pieces.length;i++) if (S.pieces[i].id === id) return S.pieces[i];
-  return null;
-}
-
-var EDIT = null;
+function pieceById(id){ for (var i=0;i<S.pieces.length;i++) if (S.pieces[i].id === id) return S.pieces[i]; return null; }
 
 function openPiece(id, slug){
   var p = id ? pieceById(id) : null;
   EDIT = p;
-  var title = p ? 'Единица' : 'Новая единица';
-  openWin('<h2>' + title + '</h2>' +
-    (p ? '<div class="lead">' + esc(p.fmt_label) + ' · ' + esc(p.platform_label) + (p.source_code ? ' · метка ' + esc(p.source_code) : '') + '</div>' : '<div class="lead">Одна публикация на одной площадке</div>') +
+  openWin('<h2>' + (p ? 'Единица' : 'Новая единица') + '</h2>' +
+    '<div class="lead">' + (p ? esc(p.fmt_label) + ' · ' + esc(p.platform_label) + ' · ' + esc(p.stage_label) : 'Одна публикация на одной площадке') + '</div>' +
     '<div class="field"><label>Название</label><input id="f-title" value="' + esc(p ? p.title : '') + '"></div>' +
     '<div class="two">' +
       '<div class="field"><label>Формат</label><select id="f-fmt">' + opts(S.dict.formats, p ? p.fmt : 'video_short') + '</select></div>' +
@@ -882,53 +836,35 @@ function openPiece(id, slug){
     '<div class="field"><label>Суть — о чём это</label><input id="f-ins" value="' + esc(p ? p.insight : '') + '" placeholder="одной строкой"></div>' +
     '<div class="field"><label>Сценарий или заметка</label><textarea id="f-note">' + esc(p ? p.note : '') + '</textarea></div>' +
     (p ? '<div class="wbtns"><button class="mini" data-x="draft">Написать черновик</button>' +
-         '<span class="note" style="margin:0">по занятию и сути, тем же ключом, что игры</span></div>' : '') +
+         '<button class="mini" data-x="spread">По площадкам</button></div>' : '') +
     (p && p.status !== 'published' ?
-      '<div class="field"><label>Выкладка руками</label>' +
-      '<div class="wbtns" style="margin-top:0">' +
+      '<div class="field"><label>Выкладка руками</label><div class="wbtns" style="margin-top:0">' +
         '<button class="mini" data-x="taken">' + (p.taken ? 'Забрал ✓' : 'Забрал файл') + '</button>' +
-        '<button class="mini" data-x="publish">Выложил</button>' +
-      '</div>' +
-      // ⚠️ На айфоне видео не «скачивается» кнопкой: Safari откроет его
-      // плеером, сохранять надо через «Поделиться». Честная подпись лучше
-      // кнопки, которая делает не то
-      '<div class="note">На телефоне файл открывается плеером — сохранить через «Поделиться». Ссылку при публикации можно не заполнять.</div></div>' : '') +
-    '<div class="wbtns">' +
-      (p ? '<button class="ghost danger" data-x="drop">Отбросить</button>' : '') +
-      (p ? '<button class="ghost" data-x="spread">По площадкам</button>' : '') +
-      '<div class="spacer"></div>' +
-      (p && p.status !== 'published' ? '<button class="ghost" data-x="publish">Опубликовать</button>' : '') +
-      (p && p.no_mark ? '<button class="ghost" data-x="publish">Завести метку</button>' : '') +
-      '<button class="primary" data-x="save">Сохранить</button>' +
-    '</div>');
+        '<button class="mini" data-x="publish">Выложил</button></div>' +
+      '<div class="note">На телефоне файл открывается плеером — сохранить через «Поделиться». Ссылку можно не заполнять.</div></div>' : '') +
+    '<div class="wbtns"><div class="spacer"></div><button class="primary" data-x="save">Сохранить</button></div>');
 }
 
 function openPublish(){
-  var p = EDIT;
-  if (!p) return;
+  var p = EDIT; if (!p) return;
   var today = new Date().toISOString().slice(0,10);
-  openWin('<h2>Публикация</h2>' +
-    '<div class="lead">Отметить выложенным и завести метку атрибуции одним движением</div>' +
-    '<div class="field"><label>Ссылка на публикацию — можно не заполнять</label><input id="f-url" value="' + esc(p.url) + '" placeholder="появится позже"></div>' +
+  openWin('<h2>Публикация</h2><div class="lead">Метка атрибуции заведётся сама</div>' +
+    '<div class="field"><label>Ссылка — можно не заполнять</label><input id="f-url" value="' + esc(p.url) + '" placeholder="появится позже"></div>' +
     '<div class="two">' +
       '<div class="field"><label>Метка (пусто — соберу сам)</label><input id="f-code" value="' + esc(p.source_code) + '"></div>' +
       '<div class="field"><label>Дата</label><input id="f-date" value="' + (p.published_at || today) + '"></div>' +
     '</div>' +
-    '<div class="note">Метка едет в диплинк, поэтому в ней только латиница, цифры, дефис и подчёркивание. Существующий код чужой единицей не перезаписывается.</div>' +
-    '<div class="wbtns"><button class="ghost" data-x="back">Назад</button><div class="spacer"></div>' +
+    '<div class="wbtns"><button class="ghost" data-x="close">Отмена</button><div class="spacer"></div>' +
     '<button class="primary" data-x="pub-go">Опубликовать</button></div>');
 }
 
 function openSpread(){
-  var p = EDIT;
-  if (!p) return;
-  var list = S.dict.platforms.filter(function(pl){ return pl.key !== p.platform; });
-  openWin('<h2>Разложить по площадкам</h2>' +
-    '<div class="lead">Одна работа — несколько единиц, у каждой своя метка</div>' +
-    '<div class="plist">' + list.map(function(pl){
+  var p = EDIT; if (!p) return;
+  openWin('<h2>Разложить по площадкам</h2><div class="lead">У каждой копии своя метка</div>' +
+    '<div class="plist">' + (S.dict.platforms || []).filter(function(pl){ return pl.key !== p.platform; }).map(function(pl){
       return '<label class="pchk"><input type="checkbox" value="' + esc(pl.key) + '"> ' + esc(pl.label) + '</label>';
     }).join('') + '</div>' +
-    '<div class="wbtns"><button class="ghost" data-x="back">Назад</button><div class="spacer"></div>' +
+    '<div class="wbtns"><button class="ghost" data-x="close">Отмена</button><div class="spacer"></div>' +
     '<button class="primary" data-x="spread-go">Создать</button></div>');
 }
 
@@ -940,7 +876,7 @@ function openIdea(id){
     '<div class="lead">' + (it ? esc(it.source_label) + ' · ' + esc(it.label) : 'Гипотеза, вопрос, идея съёмки') + '</div>' +
     '<div class="two">' +
       '<div class="field"><label>Вид</label><select id="i-kind">' + opts(S.dict.idea_kinds, it ? it.kind : 'hypothesis') + '</select></div>' +
-      '<div class="field"><label>Источник</label><select id="i-src">' + opts(S.dict.idea_sources || [], it ? it.source : 'own') + '</select></div>' +
+      '<div class="field"><label>Источник</label><select id="i-src">' + opts(S.dict.idea_sources, it ? it.source : 'own') + '</select></div>' +
     '</div>' +
     '<div class="field"><label>Вопрос или мысль</label><textarea id="i-body">' + esc(it ? it.body : '') + '</textarea></div>' +
     '<div class="field"><label>Ответ, если он есть</label><textarea id="i-answer">' + esc(it ? it.answer : '') + '</textarea></div>' +
@@ -949,87 +885,70 @@ function openIdea(id){
       '<div class="field"><label>Таймкод</label><input id="i-tc" value="' + esc(it ? it.timecode : '') + '" placeholder="14:20"></div>' +
     '</div>' +
     (it ? '<div class="note">Отсюда выйдет: ' + (it.makes || []).map(function(f){ return label(S.dict.formats, f); }).join(', ') + '</div>' : '') +
-    '<div class="wbtns">' +
-      (it ? '<button class="ghost danger" data-x="idea-drop">Отбросить</button>' : '') +
+    '<div class="wbtns">' + (it ? '<button class="ghost danger" data-x="idea-drop">Отбросить</button>' : '') +
       '<div class="spacer"></div>' +
       (it ? '<button class="ghost" data-x="idea-make">Развернуть в единицы</button>' : '') +
-      '<button class="primary" data-x="idea-save">Сохранить</button>' +
-    '</div>');
+      '<button class="primary" data-x="idea-save">Сохранить</button></div>');
 }
 
 function openRule(id){
   var r = null;
   for (var i=0;i<S.rules.length;i++) if (S.rules[i].id === id) r = S.rules[i];
   EDIT = r;
-  openWin('<h2>' + (r ? 'Правило' : 'Новое правило') + '</h2>' +
-    '<div class="lead">«На каждое занятие — рилс в Телеграм»</div>' +
+  openWin('<h2>' + (r ? 'Правило' : 'Новое правило') + '</h2><div class="lead">«На каждое занятие — рилс в Телеграм»</div>' +
     '<div class="field"><label>Заголовок заготовки</label><input id="r-tpl" value="' + esc(r ? r.title_tpl : '{title}') + '"><div class="note">{title} подставит название занятия</div></div>' +
     '<div class="two">' +
       '<div class="field"><label>Формат</label><select id="r-fmt">' + opts(S.dict.formats, r ? r.fmt : 'video_short') + '</select></div>' +
       '<div class="field"><label>Площадка</label><select id="r-pl">' + opts(S.dict.platforms, r ? r.platform : 'tg') + '</select></div>' +
     '</div>' +
-    '<div class="field"><label>Только поток (пусто — все занятия)</label><input id="r-stream" value="' + esc(r ? r.stream_key : '') + '"></div>' +
+    '<div class="field"><label>Только поток (пусто — все)</label><input id="r-stream" value="' + esc(r ? r.stream_key : '') + '"></div>' +
     '<div class="wbtns"><button class="ghost" data-x="close">Отмена</button><div class="spacer"></div>' +
     '<button class="primary" data-x="rule-save">Сохранить</button></div>');
 }
 
-function openFilters(){
-  openWin('<h2>Отбор</h2><div class="lead">Пусто — значит все</div>' +
+function openTheme(key){
+  var t = null;
+  for (var i=0;i<THEMES.length;i++) if (THEMES[i].key === key) t = THEMES[i];
+  EDIT = t;
+  openWin('<h2>' + (t ? 'Тема' : 'Новая тема') + '</h2>' +
+    '<div class="lead">Экраны 1080×1350. Классы: .screen, .first, .last, .body p, .foot</div>' +
     '<div class="two">' +
-      '<div class="field"><label>Площадка</label><select id="x-pl"><option value="">Все</option>' + opts(S.dict.platforms, FILTERS.platform) + '</select></div>' +
-      '<div class="field"><label>Формат</label><select id="x-fmt"><option value="">Все</option>' + opts(S.dict.formats, FILTERS.fmt) + '</select></div>' +
+      '<div class="field"><label>Ключ</label><input id="t-key" value="' + esc(t ? t.key : '') + '" placeholder="noir"' + (t ? ' disabled' : '') + '></div>' +
+      '<div class="field"><label>Название</label><input id="t-title" value="' + esc(t ? t.title : '') + '"></div>' +
     '</div>' +
-    '<div class="field"><label>Состояние</label><select id="x-mark">' +
-      '<option value="">Любое</option><option value="no"' + (FILTERS.mark === 'no' ? ' selected' : '') + '>Ждут метку</option>' +
-    '</select></div>' +
-    '<div class="wbtns"><button class="ghost" data-x="filters-clear">Сбросить</button><div class="spacer"></div>' +
-    '<button class="primary" data-x="filters-go">Применить</button></div>');
+    '<div class="field"><label>Стили</label><textarea id="t-css" style="min-height:220px;font-family:ui-monospace,monospace;font-size:12px">' +
+      esc(t ? t.css : '.screen{ background:#111; color:#eee; padding:96px 88px 88px }\n.body p{ font-size:58px; line-height:1.24; font-weight:600 }\n.first .body p{ font-size:78px }\n.foot{ padding:0 88px 68px; font-size:26px; opacity:.6 }') +
+    '</textarea></div>' +
+    '<div class="wbtns"><button class="ghost" data-x="close">Отмена</button><div class="spacer"></div>' +
+    '<button class="primary" data-x="theme-save">Сохранить</button></div>');
 }
 
-/* ── действия окон ──────────────────────────────────────────────── */
+/* ── действия окон ───────────────────────────────────────────────── */
 function act(what){
   if (what === 'close') { closeWin(); return; }
-  if (what === 'back') { openPiece(EDIT ? EDIT.id : null); return; }
 
   if (what === 'save') {
-    var body = {
-      id: EDIT ? EDIT.id : null,
-      title: $('f-title').value,
-      note: $('f-note').value,
-      fmt: $('f-fmt').value,
-      platform: $('f-pl').value,
-      status: EDIT ? EDIT.status : 'idea',
-      lecture_slug: $('f-slug').value.trim(),
-      timecode: $('f-tc').value.trim(),
+    api('/factory/piece', {method:'POST', body:{
+      id: EDIT ? EDIT.id : null, title: $('f-title').value, note: $('f-note').value,
+      fmt: $('f-fmt').value, platform: $('f-pl').value, status: EDIT ? EDIT.status : 'idea',
+      lecture_slug: $('f-slug').value.trim(), timecode: $('f-tc').value.trim(),
       insight: $('f-ins').value.trim()
-    };
-    api('/factory/piece', {method:'POST', body:body})
-      .then(function(r){ replace(r.piece); closeWin(); renderBoard(); toast('Сохранено'); })
+    }}).then(function(r){ replace(r.piece); closeWin(); nav(); render(); toast('Сохранено'); })
       .catch(function(e){ toast(e.message); });
     return;
   }
   if (what === 'draft') {
-    // ⚠️ Сначала СОХРАНЯЕМ правки, потом просим черновик: иначе он напишется
-    // по старой сути, а свежая, только что набранная, потеряется
     var btn = $('win').querySelector('[data-x="draft"]');
     if (btn) { btn.textContent = 'Пишу…'; btn.disabled = true; }
     api('/factory/piece', {method:'POST', body:{
-      id: EDIT.id, title: $('f-title').value, note: $('f-note').value,
-      fmt: $('f-fmt').value, platform: $('f-pl').value, status: EDIT.status,
-      lecture_slug: $('f-slug').value.trim(), timecode: $('f-tc').value.trim(),
-      insight: $('f-ins').value.trim()
+      id: EDIT.id, title: $('f-title').value, note: $('f-note').value, fmt: $('f-fmt').value,
+      platform: $('f-pl').value, status: EDIT.status, lecture_slug: $('f-slug').value.trim(),
+      timecode: $('f-tc').value.trim(), insight: $('f-ins').value.trim()
     }})
       .then(function(r){ replace(r.piece); EDIT = r.piece;
         return api('/factory/piece/' + EDIT.id + '/draft', {method:'POST', body:{save:true}}); })
-      .then(function(r){ replace(r.piece); EDIT = r.piece; openPiece(EDIT.id); renderBoard(); toast('Черновик готов'); })
+      .then(function(r){ replace(r.piece); EDIT = r.piece; openPiece(EDIT.id); render(); toast('Черновик готов'); })
       .catch(function(e){ toast(e.message); if (btn) { btn.textContent = 'Написать черновик'; btn.disabled = false; } });
-    return;
-  }
-  if (what === 'taken') {
-    api('/factory/piece/' + EDIT.id + '/taken', {method:'POST', body:{taken: !EDIT.taken}})
-      .then(function(r){ replace(r.piece); EDIT = r.piece; openPiece(EDIT.id); renderBoard();
-        toast(r.piece.taken ? 'Отмечено: файл на телефоне' : 'Отметка снята'); })
-      .catch(function(e){ toast(e.message); });
     return;
   }
   if (what === 'publish') { openPublish(); return; }
@@ -1037,8 +956,8 @@ function act(what){
     api('/factory/piece/' + EDIT.id + '/publish', {method:'POST', body:{
       url: $('f-url').value.trim(), code: $('f-code').value.trim(), published_at: $('f-date').value.trim()
     }}).then(function(r){
-      replace(r.piece); renderBoard();
-      openWin('<h2>Выложено</h2><div class="lead">Метка ' + esc(r.piece.source_code) + ' заведена в источниках</div>' +
+      replace(r.piece); nav(); render();
+      openWin('<h2>Выложено</h2><div class="lead">Метка ' + esc(r.piece.source_code) + ' заведена</div>' +
         '<button class="copy" data-x="copy" data-link="' + esc(r.deeplink) + '">' + esc(r.deeplink) + '</button>' +
         '<div class="note">Нажми, чтобы скопировать.</div>' +
         '<div class="wbtns"><div class="spacer"></div><button class="primary" data-x="close">Готово</button></div>');
@@ -1048,78 +967,76 @@ function act(what){
   if (what === 'copy') {
     var link = $('win').querySelector('[data-link]').dataset.link;
     if (navigator.clipboard) navigator.clipboard.writeText(link);
-    toast('Ссылка скопирована');
+    toast('Ссылка скопирована'); return;
+  }
+  if (what === 'copy-text') {
+    if (navigator.clipboard) navigator.clipboard.writeText($('tx').value);
+    toast('Текст скопирован'); return;
+  }
+  if (what === 'taken') {
+    api('/factory/piece/' + EDIT.id + '/taken', {method:'POST', body:{taken: !EDIT.taken}})
+      .then(function(r){ replace(r.piece); EDIT = r.piece; openPiece(EDIT.id); render();
+        toast(r.piece.taken ? 'Файл на телефоне' : 'Отметка снята'); })
+      .catch(function(e){ toast(e.message); });
     return;
   }
   if (what === 'spread') { openSpread(); return; }
   if (what === 'spread-go') {
-    var picked = [];
+    var picked2 = [];
     var boxes = $('win').querySelectorAll('input[type=checkbox]');
-    for (var i=0;i<boxes.length;i++) if (boxes[i].checked) picked.push(boxes[i].value);
-    if (!picked.length) { toast('Ни одной площадки не выбрано'); return; }
-    api('/factory/piece/' + EDIT.id + '/spread', {method:'POST', body:{platforms:picked}})
-      .then(function(r){
-        for (var j=0;j<r.created.length;j++) S.pieces.unshift(r.created[j]);
-        closeWin(); renderBoard();
-        toast(r.created.length ? ('Создано: ' + r.created.length) : 'Такие единицы уже есть');
-      }).catch(function(e){ toast(e.message); });
-    return;
-  }
-  if (what === 'drop') {
-    api('/factory/piece/' + EDIT.id, {method:'DELETE'})
-      .then(function(r){ replace(r.piece); closeWin(); renderBoard(); toast('Отброшено'); })
+    for (var i=0;i<boxes.length;i++) if (boxes[i].checked) picked2.push(boxes[i].value);
+    if (!picked2.length) { toast('Ни одной площадки не выбрано'); return; }
+    api('/factory/piece/' + EDIT.id + '/spread', {method:'POST', body:{platforms:picked2}})
+      .then(function(r){ (r.created||[]).forEach(function(c){ S.pieces.unshift(c); });
+        closeWin(); nav(); render(); toast(r.created.length ? ('Создано: ' + r.created.length) : 'Такие уже есть'); })
       .catch(function(e){ toast(e.message); });
     return;
   }
-
+  if (what === 'type-go') {
+    var ids = $('win').querySelector('[data-x="type-go"]').dataset.ids.split(',').map(Number);
+    api('/factory/pieces/bulk', {method:'POST', body:{ids:ids, action:'fmt', value:$('ty').value}})
+      .then(function(r){ (r.pieces||[]).forEach(replace); PICK = {}; closeWin(); nav(); render(); toast('Тип сменён'); })
+      .catch(function(e){ toast(e.message); });
+    return;
+  }
+  if (what === 'car-go') {
+    var id = Number($('win').querySelector('[data-x="car-go"]').dataset.id);
+    var th = $('th') ? $('th').value : '';
+    toast('Собираю картинки…');
+    api('/factory/piece/' + id + '/carousel', {method:'POST', body:{theme:th}})
+      .then(function(r){
+        replace(r.piece);
+        openWin('<h2>Карусель готова</h2><div class="lead">Экранов: ' + r.assets.length + '</div>' +
+          r.assets.map(function(u,n){ return '<button class="copy" data-x="none">' + (n+1) + ' · ' + esc(u) + '</button>'; }).join('') +
+          '<div class="wbtns"><div class="spacer"></div><button class="primary" data-x="close">Готово</button></div>');
+      }).catch(function(e){ toast(e.message); });
+    return;
+  }
   if (what === 'idea-save') {
     api('/factory/idea', {method:'POST', body:{
       id: EDIT ? EDIT.id : null, kind: $('i-kind').value, body: $('i-body').value,
-      answer: $('i-answer') ? $('i-answer').value : '',
-      source: $('i-src') ? $('i-src').value : 'own',
-      timecode: $('i-tc') ? $('i-tc').value.trim() : '',
+      answer: $('i-answer').value, source: $('i-src').value, timecode: $('i-tc').value.trim(),
       lecture_slug: $('i-slug').value.trim(), status: EDIT ? EDIT.status : 'open'
     }}).then(function(r){
       var found = false;
       for (var i=0;i<S.ideas.length;i++) if (S.ideas[i].id === r.idea.id) { S.ideas[i] = r.idea; found = true; }
       if (!found) S.ideas.unshift(r.idea);
-      closeWin(); renderIdeas(); head();
+      closeWin(); nav(); render();
     }).catch(function(e){ toast(e.message); });
     return;
   }
   if (what === 'idea-make') {
     api('/factory/idea/' + EDIT.id + '/make', {method:'POST', body:{platform:'tg'}})
-      .then(function(r){
-        for (var i=0;i<r.created.length;i++) S.pieces.unshift(r.created[i]);
+      .then(function(r){ (r.created||[]).forEach(function(c){ S.pieces.unshift(c); });
         for (var j=0;j<S.ideas.length;j++) if (S.ideas[j].id === r.idea.id) S.ideas[j] = r.idea;
-        closeWin(); renderIdeas(); renderBoard();
-        toast(r.created.length ? ('В очереди: ' + r.created.length) : 'Уже развёрнута');
-      }).catch(function(e){ toast(e.message); });
-    return;
-  }
-  if (what === 'idea-take') {
-    api('/factory/idea/' + EDIT.id + '/take', {method:'POST', body:{title:'', fmt:'', platform:'tg'}})
-      .then(function(r){
-        S.pieces.unshift(r.piece);
-        for (var i=0;i<S.ideas.length;i++) if (S.ideas[i].id === r.idea.id) S.ideas[i] = r.idea;
-        closeWin(); renderIdeas(); renderBoard(); toast('Единица заведена в очереди');
-      }).catch(function(e){ toast(e.message); });
+        closeWin(); nav(); render(); toast(r.created.length ? ('В обработке: ' + r.created.length) : 'Уже развёрнута'); })
+      .catch(function(e){ toast(e.message); });
     return;
   }
   if (what === 'idea-drop') {
     api('/factory/idea/' + EDIT.id, {method:'DELETE'})
-      .then(function(r){
-        for (var i=0;i<S.ideas.length;i++) if (S.ideas[i].id === r.idea.id) S.ideas[i] = r.idea;
-        closeWin(); renderIdeas(); head();
-      }).catch(function(e){ toast(e.message); });
-    return;
-  }
-
-  if (what === 'theme-save') {
-    api('/factory/theme', {method:'POST', body:{
-      key: EDIT ? EDIT.key : $('t-key').value, title: $('t-title').value, css: $('t-css').value
-    }}).then(function(){ closeWin(); renderThemes(); toast('Тема сохранена'); })
-      .catch(function(e){ toast(e.message); });
+      .then(function(r){ for (var i=0;i<S.ideas.length;i++) if (S.ideas[i].id === r.idea.id) S.ideas[i] = r.idea;
+        closeWin(); nav(); render(); }).catch(function(e){ toast(e.message); });
     return;
   }
   if (what === 'rule-save') {
@@ -1134,16 +1051,10 @@ function act(what){
     }).catch(function(e){ toast(e.message); });
     return;
   }
-  if (what === 'proc-go') {
-    var slug = $('win').querySelector('[data-x="proc-go"]').dataset.slug;
-    api('/factory/lecture/' + encodeURIComponent(slug) + '/process', {method:'POST', body:{dry_run:false}})
-      .then(function(d){ closeWin(); toast('Заготовок в очереди: ' + d.pieces); return load(); })
-      .catch(function(e){ toast(e.message); });
-    return;
-  }
-  if (what === 'import-go') {
-    api('/factory/ideas/import', {method:'POST', body:{dry_run:false}})
-      .then(function(d){ closeWin(); toast('Втянуто: ' + d.created); return load(); })
+  if (what === 'theme-save') {
+    api('/factory/theme', {method:'POST', body:{
+      key: EDIT ? EDIT.key : $('t-key').value, title: $('t-title').value, css: $('t-css').value
+    }}).then(function(){ closeWin(); renderThemes(); toast('Тема сохранена'); })
       .catch(function(e){ toast(e.message); });
     return;
   }
@@ -1153,55 +1064,25 @@ function act(what){
       .catch(function(e){ toast(e.message); });
     return;
   }
-
-  if (what === 'filters-go') {
-    FILTERS = {platform:$('x-pl').value, fmt:$('x-fmt').value, mark:$('x-mark').value};
-    applyFilterCount(); closeWin(); renderBoard();
-    return;
-  }
-  if (what === 'filters-clear') {
-    FILTERS = {platform:'', fmt:'', mark:''};
-    applyFilterCount(); closeWin(); renderBoard();
+  if (what === 'proc-go') {
+    var slug = $('win').querySelector('[data-x="proc-go"]').dataset.slug;
+    api('/factory/lecture/' + encodeURIComponent(slug) + '/process', {method:'POST', body:{dry_run:false}})
+      .then(function(d){ closeWin(); toast('Заготовок: ' + d.pieces); return load(); })
+      .catch(function(e){ toast(e.message); });
     return;
   }
 }
 
-// ⚠️ Счётчик считает ВЫБРАННОЕ, а не «панель открыта»: в макете он врал
-function applyFilterCount(){
-  var n = 0;
-  if (FILTERS.platform) n++;
-  if (FILTERS.fmt) n++;
-  if (FILTERS.mark) n++;
-  $('fcount').textContent = n;
-}
-
-$('fbtn').addEventListener('click', openFilters);
-$('newbtn').addEventListener('click', function(){ openPiece(null); });
-$('newidea').addEventListener('click', function(){ openIdea(null); });
-$('isrc').addEventListener('change', renderIdeas);
-$('iroute').addEventListener('change', renderIdeas);
-
-/* Сначала показываем, сколько придёт и откуда, потом втягиваем — как у правил
-   производства: триста идей, свалившихся без предупреждения, не помощь */
-$('importideas').addEventListener('click', function(){
-  api('/factory/ideas/import', {method:'POST', body:{dry_run:true}})
-    .then(function(d){
-      if (!d.planned) { toast('Новых идей не набралось'); return; }
-      var by = Object.keys(d.by_source || {}).map(function(k){
-        return label(S.dict.idea_sources || [], k) + ': ' + d.by_source[k];
-      }).join(' · ');
-      openWin('<h2>Втянуть идеи</h2><div class="lead">Придёт ' + d.planned + ' — ' + esc(by) + '</div>' +
-        '<div class="rows">' + d.items.slice(0,6).map(function(it){
-          return '<div class="row-item"><div class="grow"><div class="t">' + esc(it.body.slice(0,90)) + '</div>' +
-                 '<div class="m">' + esc(it.lecture_slug || label(S.dict.idea_sources || [], it.source)) + '</div></div></div>';
-        }).join('') + '</div>' +
-        '<div class="note">Отброшенное раньше не вернётся.</div>' +
-        '<div class="wbtns"><button class="ghost" data-x="close">Отмена</button><div class="spacer"></div>' +
-        '<button class="primary" data-x="import-go">Втянуть ' + d.planned + '</button></div>');
-    }).catch(function(e){ toast(e.message); });
+$('theme').addEventListener('click', function(){
+  var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+  $('theme').textContent = dark ? '☾' : '☀';
 });
+$('q').addEventListener('input', render);
+$('newbtn').addEventListener('click', function(){ openPiece(null); });
 
 if (KEY) load();
+
 </script>
 </body>
 </html>
