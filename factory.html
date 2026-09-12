@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: factory_page-v6 -->
+<!-- FILE_VERSION: factory_page-v7 -->
 <html lang="ru">
 <head>
 <meta charset="utf-8">
@@ -229,7 +229,10 @@ h1,h2,h3{margin:0}
 .veil{position:fixed;inset:0;z-index:40;background:rgba(20,16,10,.42);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
 .veil.on{display:flex}
 .win{width:100%;max-width:520px;border-radius:26px;border:1px solid var(--panelBd);background:var(--panelBlur);backdrop-filter:blur(18px);box-shadow:var(--shPanel);padding:22px 22px 24px}
-.win h2{font:700 20px/1 Onest;color:var(--ink);letter-spacing:-.02em}
+.win{position:relative}
+.wclose{position:absolute;right:14px;top:14px;width:38px;height:38px;border-radius:12px;
+  border:1px solid var(--cardBd);background:var(--chipBg);color:var(--ink2);font:600 15px/1 Onest;z-index:2}
+.win h2{padding-right:46px;font:700 20px/1 Onest;color:var(--ink);letter-spacing:-.02em}
 .win .lead{margin-top:8px;font:400 13px/1.5 Onest;color:var(--muted)}
 .field{margin-top:18px}
 .field label{display:block;font:600 13.5px/1 Onest;color:var(--ink);margin-bottom:10px}
@@ -307,7 +310,7 @@ h1,h2,h3{margin:0}
       <button class="on" data-p="queue">Очередь</button>
       <button data-p="raw">Сырьё</button>
       <button data-p="ideas">Идеи</button>
-      <button data-p="stats">Числа</button>
+      <button data-p="stats">Отчёт</button>
     </div>
 
     <div class="grid">
@@ -316,7 +319,7 @@ h1,h2,h3{margin:0}
       <button class="on" data-p="queue">Очередь<span class="n" id="n-queue"></span></button>
       <button data-p="raw">Сырьё<span class="n" id="n-raw"></span></button>
       <button data-p="ideas">Идеи<span class="n" id="n-ideas"></span></button>
-      <button data-p="stats">Числа<span class="n"></span></button>
+      <button data-p="stats">Отчёт<span class="n"></span></button>
     </nav>
     <div class="norm">
       <h3>Сегодня выложено</h3>
@@ -492,7 +495,7 @@ function head(){
     queue: ['Очередь', queue.length + ' в работе · ' + nomark.length + ' без метки'],
     raw:   ['Сырьё', S.raw.length + ' занятий · ' + unworked.length + ' без единиц'],
     ideas: ['Идеи', openIdeas.length + ' в копилке'],
-    stats: ['Числа', 'За 30 дней, по дням']
+    stats: ['Отчёт', 'За 30 дней, по дням']
   };
   $('ttl').textContent = T[PANE][0];
   $('sub').textContent = T[PANE][1];
@@ -608,15 +611,41 @@ function renderRaw(){
       : '<span class="pill warn">не разобрано</span>';
     return '<div class="row-item"><div class="grow"><div class="t">' + esc(r.title || r.slug) + '</div>' +
            '<div class="m">' + meta.join(' · ') + '</div></div>' + pill +
-           '<button class="mini" data-new="' + esc(r.slug) + '">Завести единицу</button></div>';
+           '<button class="mini" data-proc="' + esc(r.slug) + '">Разобрать</button>' +
+           '<button class="mini" data-new="' + esc(r.slug) + '">Вручную</button></div>';
   }).join('');
   var btns = $('rawrows').querySelectorAll('[data-new]');
   for (var i=0;i<btns.length;i++) (function(b){
     b.addEventListener('click', function(){ openPiece(null, b.dataset.new); });
   })(btns[i]);
+  var pr = $('rawrows').querySelectorAll('[data-proc]');
+  for (var k=0;k<pr.length;k++) (function(b){
+    b.addEventListener('click', function(){ processLecture(b.dataset.proc); });
+  })(pr[k]);
 }
 
 /* ── замыслы ────────────────────────────────────────────────────── */
+/* ⚠️ ОДНА КНОПКА НА ЗАНЯТИЕ — вместо «заведи идею, открой, разверни».
+   Сначала показываем, что придёт: разбор занятия рождает десяток заготовок, и
+   вываливать их без предупреждения — то же самое, что вываливать правила */
+function processLecture(slug){
+  api('/factory/lecture/' + encodeURIComponent(slug) + '/process', {method:'POST', body:{dry_run:true}})
+    .then(function(d){
+      if (!d.planned_pieces) { toast('Новых заготовок не набралось — занятие уже разобрано'); return; }
+      var по = Object.keys(d.by_format || {}).map(function(k){ return k + ': ' + d.by_format[k]; }).join(' · ');
+      openWin('<h2>Разобрать занятие</h2>' +
+        '<div class="lead">' + esc(d.lecture) + ' · мыслей ' + d.insights + '</div>' +
+        '<div class="note">Придёт ' + d.planned_ideas + ' идей и ' + d.planned_pieces + ' заготовок — ' + esc(по) + '</div>' +
+        '<div class="rows" style="margin-top:14px">' + d.items.slice(0,5).map(function(it){
+          return '<div class="row-item"><div class="grow"><div class="t">' + esc(it.body.slice(0,80)) + '</div>' +
+                 '<div class="m">' + esc(it.label) + (it.timecode ? ' · ' + esc(it.timecode) : '') + '</div></div></div>';
+        }).join('') + '</div>' +
+        (d.planned_ideas > 5 ? '<div class="note">…и ещё ' + (d.planned_ideas - 5) + '</div>' : '') +
+        '<div class="wbtns"><button class="ghost" data-x="close">Отмена</button><div class="spacer"></div>' +
+        '<button class="primary" data-x="proc-go" data-slug="' + esc(slug) + '">Разобрать</button></div>');
+    }).catch(function(e){ toast(e.message); });
+}
+
 function renderIdeas(){
   var sel = $('isrc');
   if (sel && sel.options.length < 2) {
@@ -812,7 +841,10 @@ function generate(){
 
 /* ── окна ───────────────────────────────────────────────────────── */
 function openWin(html){
-  $('win').innerHTML = html;
+  // ⚠️ КРЕСТИК ОБЯЗАТЕЛЕН. Клик по подложке закрывает окно только мышью: на
+  // телефоне подложки почти не видно, а промах по ней попадает в само окно —
+  // выйти было нечем
+  $('win').innerHTML = '<button class="wclose" data-x="close" aria-label="Закрыть">✕</button>' + html;
   $('veil').classList.add('on');
   var btns = $('win').querySelectorAll('[data-x]');
   for (var i=0;i<btns.length;i++) (function(b){ b.addEventListener('click', function(){ act(b.dataset.x); }); })(btns[i]);
@@ -1100,6 +1132,13 @@ function act(what){
       if (!found) S.rules.push(r.rule);
       closeWin(); renderRules();
     }).catch(function(e){ toast(e.message); });
+    return;
+  }
+  if (what === 'proc-go') {
+    var slug = $('win').querySelector('[data-x="proc-go"]').dataset.slug;
+    api('/factory/lecture/' + encodeURIComponent(slug) + '/process', {method:'POST', body:{dry_run:false}})
+      .then(function(d){ closeWin(); toast('Заготовок в очереди: ' + d.pieces); return load(); })
+      .catch(function(e){ toast(e.message); });
     return;
   }
   if (what === 'import-go') {
