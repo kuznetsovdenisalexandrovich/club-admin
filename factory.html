@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: factory_page-v5 -->
+<!-- FILE_VERSION: factory_page-v6 -->
 <html lang="ru">
 <head>
 <meta charset="utf-8">
@@ -358,7 +358,8 @@ h1,h2,h3{margin:0}
 <div class="gate" id="gate">
   <div class="box">
     <h2>Контент-завод</h2>
-    <input id="pin" type="password" inputmode="numeric" placeholder="пин" autocomplete="off">
+    <input id="pin" type="password" inputmode="numeric" enterkeyhint="go" placeholder="пин" autocomplete="off">
+    <button class="primary" id="pinbtn" style="width:100%;margin-top:12px">Войти</button>
     <div class="err" id="pinerr"></div>
   </div>
 </div>
@@ -400,11 +401,15 @@ function api(path, opts){
 }
 
 /* ── вход ───────────────────────────────────────────────────────── */
-$('pin').addEventListener('keydown', function(e){
-  if (e.key !== 'Enter') return;
+// ⚠️ НА ТЕЛЕФОНЕ ENTER'А МОЖЕТ НЕ БЫТЬ ВОВСЕ. Числовая клавиатура iOS показывает
+// «Готово», которое просто закрывает клавиатуру и никакого keydown не даёт.
+// Вход обязан быть кнопкой; Enter остаётся удобством для настольной работы
+function tryLogin(){
   var pin = $('pin').value.trim();
-  if (!pin) return;
+  if (!pin) { $('pinerr').textContent = 'Введи пин'; return; }
   $('pinerr').textContent = '';
+  $('pinbtn').disabled = true;
+  $('pinbtn').textContent = 'Проверяю…';
   fetch(API + '/admin/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({pin:pin})})
     .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, d:d}; }); })
     .then(function(res){
@@ -415,8 +420,15 @@ $('pin').addEventListener('keydown', function(e){
       $('shell').classList.remove('hide');
       load();
     })
-    .catch(function(e){ $('pinerr').textContent = e.message; });
-});
+    .catch(function(e){
+      $('pinerr').textContent = e.message;
+      $('pinbtn').disabled = false;
+      $('pinbtn').textContent = 'Войти';
+    });
+}
+
+$('pinbtn').addEventListener('click', tryLogin);
+$('pin').addEventListener('keydown', function(e){ if (e.key === 'Enter') tryLogin(); });
 try {
   var saved = sessionStorage.getItem('factory_key');
   if (saved) { KEY = saved; $('gate').classList.add('hide'); $('shell').classList.remove('hide'); }

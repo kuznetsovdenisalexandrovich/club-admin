@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: tasks-v29 -->
+<!-- FILE_VERSION: tasks-v30 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -468,6 +468,14 @@ h1::before{
    «подцепи pw04 к st02», не гадая, где что */
 .code{font-size:10px;color:var(--text-dim);opacity:.75;margin-right:6px;
   font-variant-numeric:tabular-nums}
+/* Роадмап: этапы над целями. Текущий выделен, пройденные приглушены */
+.ph{display:flex;align-items:baseline;gap:8px;padding:9px 12px;border-radius:12px;
+  margin-bottom:6px;background:var(--stat-bg);font-size:13px}
+[data-theme="light"] .ph{background:var(--bg);box-shadow:var(--sh-r)}
+.ph.now{background:linear-gradient(135deg,var(--lav),var(--lav-deep));color:#fff}
+.ph.done{opacity:.45}
+.ph-t{font-weight:600;flex:1;min-width:0}
+.ph-s{font-size:11px;opacity:.8;white-space:nowrap}
 .st-dates{font-size:11px;color:var(--text-dim);margin-left:6px;white-space:nowrap}
 .st-dates.late{color:#d8674f;font-weight:600}
 .st-tools{display:flex;gap:4px;margin-left:auto}
@@ -808,7 +816,41 @@ function renderCalendar(){
    клик по «Стратегии» рисовал нормы, а тело страницы оставалось от прошлой
    вкладки. Час искали «почему не показывает». Перед добавлением функции в
    чужой файл — грепнуть имя. */
-function goalItems(){ return ITEMS.filter(function(i){ return i.goal; }); }
+function goalItems(){ return ITEMS.filter(function(i){ return i.goal && !i.phase; }); }
+
+/* ⚠️ ЭТАПЫ — ЭТО ПРИОРИТЕТЫ, И ОНИ МЕНЯЮТСЯ. Клик по этапу делает его текущим:
+   партнёр читает «сейчас» как свой главный фокус, так что это не украшение,
+   а переключатель того, о чём он будет думать */
+function roadmapHtml(){
+  const phases = ITEMS.filter(function(i){ return i.phase; });
+  if (!phases.length) return '';
+  const order = { 'сейчас':0, 'следующий':1, 'потом':2, 'пройден':3 };
+  phases.sort(function(a, b){
+    return (order[a['этап']] === undefined ? 2 : order[a['этап']])
+         - (order[b['этап']] === undefined ? 2 : order[b['этап']]);
+  });
+  return '<div class="st-title">Роадмап</div>'
+    + phases.map(function(p){
+        const st = p['этап'] || 'потом';
+        const kids = ITEMS.filter(function(i){ return i.parent === p.id; }).length;
+        return '<div class="ph' + (st === 'сейчас' ? ' now' : '') + (st === 'пройден' ? ' done' : '') + '"'
+          + ' onclick="setPhase(\'' + esc(p.id) + '\')">'
+          + '<span class="code">' + esc(p.id) + '</span>'
+          + '<div class="ph-t">' + esc(p.t) + '</div>'
+          + '<div class="ph-s">' + esc(st) + (kids ? ' · целей ' + kids : '') + '</div></div>';
+      }).join('');
+}
+
+async function setPhase(id){
+  const p = ITEMS.filter(function(i){ return i.id === id; })[0];
+  if (!p) return;
+  const ans = prompt('Этап «' + p.t + '» — какой статус?\n\n1. сейчас\n2. следующий\n3. потом\n4. пройден', '1');
+  if (ans === null) return;
+  const st = { '1':'сейчас', '2':'следующий', '3':'потом', '4':'пройден' }[ans.trim()];
+  if (!st) return;
+  const r = await partnerPost('/partner/chat', { text: 'этап ' + id + ' ' + st });
+  if (r) { setSaved('этап обновлён'); await loadAll(); }
+}
 function renderStrategy(){
   /* Пишем в свой контейнер наверху страницы, а не в тело вкладки */
   const цели = goalItems().filter(function(ц){
@@ -825,7 +867,8 @@ function renderStrategy(){
     return;
   }
   document.getElementById('strategy').innerHTML =
-    '<div class="st-title">Стратегия</div>'
+    roadmapHtml()
+    + '<div class="st-title">Стратегия</div>'
     + цели.map(function(ц){ return goalCard(ц, 0); }).join('')
     + '<div class="st-hist">'
     + '<button onclick="shiftAll()">сдвинуть даты</button>'
