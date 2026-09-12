@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: tasks-v30 -->
+<!-- FILE_VERSION: tasks-v31 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -468,7 +468,21 @@ h1::before{
    «подцепи pw04 к st02», не гадая, где что */
 .code{font-size:10px;color:var(--text-dim);opacity:.75;margin-right:6px;
   font-variant-numeric:tabular-nums}
-/* Роадмап: этапы над целями. Текущий выделен, пройденные приглушены */
+/* КАРТА ПРОЕКТА — майндмэп: приоритеты → цели → шаги. Видно целиком, а не
+   списком; текущий приоритет подсвечен. Скроллится вбок на телефоне */
+.map-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:12px;
+  padding-bottom:6px}
+.map-wrap svg{display:block}
+.map-node{cursor:pointer}
+.map-t{font-family:var(--body);font-size:11px;fill:var(--text)}
+.map-t.small{font-size:10px;fill:var(--text-dim)}
+.map-link{stroke:var(--surface2);stroke-width:1.5;fill:none}
+.map-box{fill:var(--stat-bg);stroke:var(--surface2);stroke-width:1}
+.map-box.now{fill:var(--lav);stroke:var(--lav-deep)}
+.map-box.goal{fill:var(--bg);stroke:var(--surface2)}
+.map-box.done{opacity:.45}
+.map-t.on-now{fill:#fff}
+/* Приоритеты списком под картой */
 .ph{display:flex;align-items:baseline;gap:8px;padding:9px 12px;border-radius:12px;
   margin-bottom:6px;background:var(--stat-bg);font-size:13px}
 [data-theme="light"] .ph{background:var(--bg);box-shadow:var(--sh-r)}
@@ -841,6 +855,79 @@ function roadmapHtml(){
       }).join('');
 }
 
+/* ⚠️ РИСУЕМ SVG РУКАМИ, БЕЗ БИБЛИОТЕК: доска — один файл без сборки, тянуть
+   ради карты внешний скрипт нельзя. Раскладка простая: три колонки слева
+   направо, высота узла зависит от числа детей */
+function mindmapHtml(){
+  const phases = ITEMS.filter(function(i){ return i.phase; });
+  const roots = phases.length ? phases : goalItems().filter(function(g){
+    return !g.parent || !ITEMS.some(function(i){ return i.id === g.parent; });
+  });
+  if (!roots.length) return '';
+  const order = { 'сейчас':0, 'следующий':1, 'потом':2, 'пройден':3 };
+  if (phases.length) roots.sort(function(a, b){
+    return (order[a['этап']] === undefined ? 2 : order[a['этап']])
+         - (order[b['этап']] === undefined ? 2 : order[b['этап']]);
+  });
+
+  const W1 = 150, W2 = 150, W3 = 160, H = 26, GAP = 6, PAD = 8;
+  let y = PAD, parts = [], maxY = 0;
+
+  function box(x, yy, w, text, cls, id){
+    const chars = Math.floor((w - 14) / 5.6);
+    const t = (text || '').length > chars ? (text || '').slice(0, chars - 1) + '…' : (text || '');
+    return '<g class="map-node" onclick="mapClick(\'' + esc(id) + '\')">'
+      + '<rect class="map-box ' + cls + '" x="' + x + '" y="' + yy + '" rx="8" width="' + w + '" height="' + H + '"/>'
+      + '<text class="map-t' + (cls.indexOf('now') > -1 ? ' on-now' : '') + '" x="' + (x + 8)
+      + '" y="' + (yy + 17) + '">' + esc(t) + '</text></g>';
+  }
+  function link(x1, y1, x2, y2){
+    const mx = (x1 + x2) / 2;
+    return '<path class="map-link" d="M' + x1 + ' ' + y1 + ' C' + mx + ' ' + y1 + ' '
+         + mx + ' ' + y2 + ' ' + x2 + ' ' + y2 + '"/>';
+  }
+
+  roots.forEach(function(p){
+    const goals = ITEMS.filter(function(i){ return i.parent === p.id && i.goal; });
+    const startY = y;
+    let inner = '';
+    if (!goals.length){ y += H + GAP; }
+    goals.forEach(function(g){
+      const steps = ITEMS.filter(function(i){ return i.parent === g.id && !i.goal && !i.done; }).slice(0, 4);
+      const gY = y;
+      let sInner = '';
+      if (!steps.length){ y += H + GAP; }
+      steps.forEach(function(st){
+        sInner += link(PAD + W1 + W2, gY + H / 2, PAD + W1 + W2 + 24, y + H / 2)
+               + box(PAD + W1 + W2 + 24, y, W3, st.t, '', st.id);
+        y += H + GAP;
+      });
+      const gCenter = steps.length ? (gY + (y - GAP - H - gY) / 2) : gY;
+      inner += link(PAD + W1, startY + H / 2, PAD + W1 + 24, gCenter + H / 2)
+             + box(PAD + W1 + 24, gCenter, W2 - 24, g.t, 'goal', g.id) + sInner;
+    });
+    const st = p['этап'] || '';
+    parts.push(box(PAD, startY, W1, p.t, (st === 'сейчас' ? 'now' : '') + (st === 'пройден' ? ' done' : ''), p.id) + inner);
+    maxY = Math.max(maxY, y);
+    y += GAP;
+  });
+
+  const width = PAD * 2 + W1 + 24 + W2 + 24 + W3;
+  const height = Math.max(maxY + PAD, 60);
+  return '<div class="st-title">Карта проекта</div>'
+    + '<div class="map-wrap"><svg width="' + width + '" height="' + height + '" '
+    + 'viewBox="0 0 ' + width + ' ' + height + '">' + parts.join('') + '</svg></div>';
+}
+
+function mapClick(id){
+  const it = ITEMS.filter(function(i){ return i.id === id; })[0];
+  if (!it) return;
+  if (it.phase) { setPhase(id); return; }
+  if (it.goal) { open_goals[id] = true; render();
+                 const el = document.getElementById('strategy'); if (el) el.scrollIntoView({behavior:'smooth'}); return; }
+  editItem(id);
+}
+
 async function setPhase(id){
   const p = ITEMS.filter(function(i){ return i.id === id; })[0];
   if (!p) return;
@@ -867,7 +954,8 @@ function renderStrategy(){
     return;
   }
   document.getElementById('strategy').innerHTML =
-    roadmapHtml()
+    mindmapHtml()
+    + roadmapHtml()
     + '<div class="st-title">Стратегия</div>'
     + цели.map(function(ц){ return goalCard(ц, 0); }).join('')
     + '<div class="st-hist">'
