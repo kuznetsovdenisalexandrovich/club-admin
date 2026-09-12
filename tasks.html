@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: tasks-v28 -->
+<!-- FILE_VERSION: tasks-v29 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -468,6 +468,11 @@ h1::before{
    «подцепи pw04 к st02», не гадая, где что */
 .code{font-size:10px;color:var(--text-dim);opacity:.75;margin-right:6px;
   font-variant-numeric:tabular-nums}
+.st-dates{font-size:11px;color:var(--text-dim);margin-left:6px;white-space:nowrap}
+.st-dates.late{color:#d8674f;font-weight:600}
+.st-tools{display:flex;gap:4px;margin-left:auto}
+.st-hist{display:flex;justify-content:flex-end;gap:12px;margin:4px 2px 10px}
+.st-hist button{background:none;border:none;color:var(--text-dim);font-size:11px;padding:2px 4px}
 .st-add{background:none;border:1px dashed var(--surface2);border-radius:10px;
   color:var(--text-dim);font-size:12px;padding:7px 10px;margin-top:8px;width:100%}
 .st-add:active{opacity:.6}
@@ -821,7 +826,10 @@ function renderStrategy(){
   }
   document.getElementById('strategy').innerHTML =
     '<div class="st-title">Стратегия</div>'
-    + цели.map(function(ц){ return goalCard(ц, 0); }).join('');
+    + цели.map(function(ц){ return goalCard(ц, 0); }).join('')
+    + '<div class="st-hist">'
+    + '<button onclick="shiftAll()">сдвинуть даты</button>'
+    + '<button onclick="boardHistory()">история и откат</button></div>';
 }
 
 /* ⚠️ ПОТОМКИ СЧИТАЮТСЯ НА ЛЮБУЮ ГЛУБИНУ. У крупной цели прямых детей может
@@ -867,6 +875,85 @@ async function setParent(id, parent){
 }
 
 function detachGoal(id){ setParent(id, ''); }
+
+/* Даты у шага и срок у цели. Прошедший срок у открытого элемента — красным */
+function datesHtml(it){
+  if (!it.start && !it.due) return '';
+  const today = new Date().toISOString().slice(0,10);
+  const late = it.due && it.due < today && !it.done;
+  const t = (it.start ? it.start.slice(5).replace('-', '.') : '') + (it.start && it.due ? '–' : '')
+          + (it.due ? it.due.slice(5).replace('-', '.') : '');
+  return '<span class="st-dates' + (late ? ' late' : '') + '">' + esc(t) + '</span>';
+}
+
+/* ВСЕ ПРАВКИ ИДУТ НА СЕРВЕР через ручку партнёра и попадают в его журнал —
+   оттуда любую можно откатить. Обычный save() умеет только четыре операции
+   и журнала не ведёт */
+async function partnerPost(path, body){
+  const r = await fetch(API + path + (path.indexOf('?') > -1 ? '&' : '?')
+                        + 'x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body || {})
+  });
+  const data = await r.json().catch(function(){ return {}; });
+  if (!r.ok){ setSaved('не вышло: ' + (data.detail || r.status)); return null; }
+  return data;
+}
+
+async function editItem(id){
+  const it = ITEMS.filter(function(i){ return i.id === id; })[0];
+  if (!it) return;
+  const text = prompt('Текст:', it.t || '');
+  if (text === null) return;
+  const start = prompt('Дата начала (ГГГГ-ММ-ДД; пусто — не трогать; «-» снять):', it.start || '');
+  if (start === null) return;
+  const due = prompt(it.goal ? 'Срок цели (ГГГГ-ММ-ДД):' : 'Дата конца (ГГГГ-ММ-ДД):', it.due || '');
+  if (due === null) return;
+  let why = null;
+  if (it.goal){ why = prompt('Зачем (у цели):', it.n || ''); if (why === null) return; }
+  const body = { id: id, text: (text.trim() !== (it.t || '')) ? text.trim() : '',
+                 start: start.trim(), due: due.trim() };
+  if (why !== null && why !== (it.n || '')) body.why = why.trim() || '-';
+  const ok = await partnerPost('/partner/edit', body);
+  if (!ok) return;
+  if (body.text) it.t = body.text;
+  if (body.start === '-') delete it.start; else if (body.start) it.start = body.start;
+  if (body.due === '-') delete it.due; else if (body.due) it.due = body.due;
+  if (body.why !== undefined) it.n = body.why === '-' ? '' : body.why;
+  setSaved('сохранено'); render();
+}
+
+async function dropGoal(id){
+  const it = ITEMS.filter(function(i){ return i.id === id; })[0];
+  const kids = descendants(id).length;
+  if (!confirm('Удалить «' + (it ? it.t : id) + '»' + (kids ? ' и ' + kids + ' вложенных' : '') + '?')) return;
+  /* Удаляем через партнёра — попадёт в журнал, откатывается */
+  const first = await partnerPost('/partner/chat', { text: 'удали ' + id });
+  if (first && first['подтвердить']) await partnerPost('/partner/chat', { text: 'деньги_да' });
+  await loadAll();
+}
+
+async function boardHistory(){
+  const r = await fetch(API + '/partner/board/history?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+  const data = await r.json().catch(function(){ return {}; });
+  const snaps = data['снимки'] || [];
+  if (!snaps.length){ alert('Правок партнёром ещё не было.'); return; }
+  const list = snaps.slice(0, 12).map(function(l, n){ return (n + 1) + '. ' + l['когда'] + ' — до: ' + l['что']; }).join('\n');
+  const ans = prompt('К какому состоянию вернуть доску?\n\n' + list + '\n\nНомер:', '1');
+  if (ans === null) return;
+  const n = parseInt(ans, 10);
+  if (isNaN(n) || n < 1 || n > Math.min(12, snaps.length)) return;
+  const ok = await partnerPost('/partner/board/rollback?id=' + snaps[n - 1].id, {});
+  if (ok){ setSaved('откат сделан'); await loadAll(); }
+}
+
+async function shiftAll(){
+  const ans = prompt('На сколько дней сдвинуть все открытые даты? (отрицательное — назад)', '1');
+  if (ans === null) return;
+  const n = parseInt(ans, 10);
+  if (isNaN(n) || !n) return;
+  const ok = await partnerPost('/partner/board/shift?days=' + n, {});
+  if (ok){ setSaved(ok['текст'] || 'сдвинуто'); await loadAll(); }
+}
 
 /* Завести шаг прямо в цели. Идёт на сервер ручкой партнёра: обычный save()
    умеет добавлять задачу, но без привязки к цели */
@@ -917,13 +1004,18 @@ function goalCard(ц, уровень){
     + '<div class="st-t"><span class="code">' + esc(ц.id) + '</span>' + esc(ц.t) + '</div>'
     /* ⚠️ Вложить цель можно было, а вынести — нет. Всякий раз, добавляя связь,
        добавляй способ её разорвать */
+    + '<div class="st-tools">'
+    + '<button class="st-to" onclick="event.stopPropagation();editItem(\'' + esc(ц.id) + '\')">✎</button>'
     + (уровень ? '<button class="st-to" onclick="event.stopPropagation();detachGoal(\''
                  + esc(ц.id) + '\')">вынести</button>' : '')
+    + '<button class="st-to" onclick="event.stopPropagation();dropGoal(\'' + esc(ц.id) + '\')">✕</button>'
+    + '</div>'
     + '<div class="st-n">' + закрыто + ' из ' + листья.length + '</div></div>'
     + (ц.n ? '<div class="st-why">' + esc(ц.n) + '</div>' : '')
     + '<div class="' + (уровень ? 'st-bar st-bar-sm' : 'st-bar') + '">'
     + '<div class="st-fill" style="width:' + доля + '%"></div></div>'
-    + (ц.due ? '<div class="st-due' + (поздно ? ' late' : '') + '">срок ' + esc(ц.due)
+    + (ц.due || ц.start ? '<div class="st-due' + (поздно ? ' late' : '') + '">'
+               + (ц.start ? 'с ' + esc(ц.start) + ' ' : '') + (ц.due ? 'до ' + esc(ц.due) : '')
                + (поздно ? ' — просрочено' : '') + '</div>' : '')
     + '<div class="st-sub">'
     + подцели.map(function(п){ return goalCard(п, уровень + 1); }).join('')
@@ -951,11 +1043,13 @@ function taskRow(it, withSec){
     + (it.tag === 'plan' ? '<span class="tag plan">план</span>'  : '')
     + (sec ? '<span class="tag">' + esc(sec) + '</span>' : '')
     + '<span class="code">' + esc(it.id) + '</span>'
-    + esc(it.t) + '</div>'
+    + esc(it.t)
+    + datesHtml(it) + '</div>'
     + (it.n ? '<span class="task-n">' + esc(it.n) + '</span>' : '')
     + '</div>'
     + (it.lecture ? ''
-       : '<button class="st-to" onclick="event.stopPropagation();toGoal(\'' + esc(it.id) + '\')">в цель</button>'
+       : '<button class="st-to" onclick="event.stopPropagation();editItem(\'' + esc(it.id) + '\')">✎</button>'
+         + '<button class="st-to" onclick="event.stopPropagation();toGoal(\'' + esc(it.id) + '\')">в цель</button>'
          + '<button class="del" onclick="event.stopPropagation();dropTask(\'' + esc(it.id) + '\')">✕</button>')
     + '</div>';
 }
