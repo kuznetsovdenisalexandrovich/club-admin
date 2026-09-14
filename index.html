@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v107 -->
+<!-- FILE_VERSION: admin-v108 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -584,6 +584,9 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
 .id-copy:hover{border-bottom-style:solid}
 .id-copy.id-copied{color:var(--lav-deep);border-bottom-color:transparent;font-size:11px}
 .id-link{margin-left:8px;font-size:11px;color:var(--lav-deep);text-decoration:none;border-bottom:1px solid currentColor}
+
+/* Отметка «сохранено» у настройки — гаснет сама через полторы секунды */
+.set-ok{ font-size:11px; color:var(--accent); margin-left:6px; opacity:.85 }
 </style>
 
 <style id="bp-visual-redesign-2026">
@@ -2673,7 +2676,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 </div>
 
 <div class="popup-overlay" id="settings-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeSettingsPopup()">
-  <div class="popup" style="max-width:460px">
+  <div class="popup" style="max-width:560px">
     <button class="popup-close-x" onclick="closeSettingsPopup()" title="Закрыть">✕</button>
     <div class="popup-handle"></div>
     <div class="popup-body">
@@ -3410,11 +3413,67 @@ async function resolveReward(id){
 
 /* ── Глобальные настройки клуба ── */
 
-const SETTING_LABELS = {
-  show_requisites:          ['Показывать реквизиты ИП', 'Строка с ИП и ИНН в приложении и на экране входа'],
-  sms_login_enabled:        ['Вход по SMS-коду', 'Выключено — пускаем просто по номеру, пока SMS.RU не одобрил отправку'],
-  allow_direct_phone_login: ['Разрешить вход без кода', 'Страховка: если SMS отвалятся, включи — и все зайдут по номеру'],
+/* ══ НАСТРОЙКИ КЛУБА ═══════════════════════════════════════════════════════
+   ⚠️ ЭКРАН СТРОИТСЯ ПО ОТВЕТУ СЕРВЕРА, А НЕ ПО ЗАШИТОМУ СПИСКУ (14.09.2026).
+   Здесь жили три тумблера и три поля, а остальные полтора десятка настроек —
+   тексты сообщений бота, пороги воронки, детектор растерянности — правились
+   только через curl. Теперь берём `/admin/settings`: он отдаёт ВСЕ ключи с
+   текущими значениями, а подписи и вид поля берутся из реестра ниже.
+   ⚠️ КЛЮЧ, КОТОРОГО В РЕЕСТРЕ НЕТ, НЕ ПРОПАДАЕТ — он попадает в «Прочее»
+   полем ввода. Значит новая настройка, заведённая на сервере, появляется тут
+   сама, ещё до того как я допишу ей человеческую подпись.
+   Вид поля: bool — тумблер, num — число, text — строка, area — многострочный */
+const SETTINGS_META = {
+  nudge_later_label:        ['Подпись кнопки «напомнить позже»', 'Вторая кнопка в каждом дожиме', 'text'],
+  card_change_remind_text:  ['Смена карты: напоминание', 'Уходит через 2 часа, если оплата новой картой так и не прошла', 'area'],
+  card_change_revert_text:  ['Смена карты: возврат прежней', 'Уходит через 3 часа — карта не сменилась, списания пойдут по старой', 'area'],
+  cross_tg_remind_text:     ['Пошёл за доступом в Telegram и не дошёл', 'Уходит через 3 часа тому, кто начал подключать вторую площадку', 'area'],
+  cross_vk_remind_text:     ['Пошёл за доступом в ВК и не дошёл', 'То же самое для обратного направления', 'area'],
+  manual_renew_text:        ['Напоминание платившему переводом', 'У него нет подписки — срок вышел, автосписания не будет', 'area'],
+
+  nudge_max_per_day:        ['Потолок дожимов в сутки на человека', '0 — без предела; ритм задают сами цепочки, ночью не шлём никогда', 'num'],
+  film_postpone_limit:      ['После скольких переносов фильма перестаём уговаривать', 'На этом переносе вместо «досмотри» уходит письмо «фильм подождёт». 0 — не уводить никогда', 'num'],
+
+  film_lecture_slug:        ['Занятие с фильмом о клубе', 'Ключ занятия из библиотеки. Перезальёшь фильм под другим ключом — поправь здесь, иначе ссылка «фильм» тихо перестанет работать', 'text'],
+  film_duration_sec:        ['Длительность фильма, секунд', 'По ней считается глубина просмотра в процентах — от неё зависит, какое письмо уйдёт бросившему', 'num'],
+  funnel_bonus_window_min:  ['Окно бонусов после фильма, минут', '0 — окна нет вовсе: ни бара, ни попапа', 'num'],
+  funnel_bonus_window_back: ['Возвращать окно тому, кто не успел', '', 'bool'],
+  funnel_window_last_min:   ['Финальная фаза окна, минут', 'В эти последние минуты врезаются напоминания. 0 — отдельной фазы нет', 'num'],
+  guest_tour_enabled:       ['Показывать гостю тур по клубу', '', 'bool'],
+  guest_plan_playlist:      ['Плейлист бесплатного маршрута гостя', 'Ключ плейлиста, из которого собирается путь для неоплатившего', 'text'],
+
+  insights_unlock_level:    ['С какого уровня открыты «Главные идеи»', '', 'num'],
+  pdf_unlock_level:         ['С какого уровня доступна выжимка PDF', '', 'num'],
+  audio_preview_minutes:    ['Ознакомительная часть аудио, минут', 'Сколько слышит человек без подписки. 0 — не давать вовсе. ⚠️ по этому числу сервер РЕЖЕТ отдельный файл превью', 'num'],
+
+  digest_public:            ['Дайджест открыт всем', 'Выключено — выпуск видят только тестировщики из списка ниже', 'bool'],
+  digest_testers:           ['Тестировщики дайджеста', 'telegram_id через запятую', 'text'],
+
+  show_requisites:          ['Показывать реквизиты ИП', 'Строка с ИП и ИНН в приложении и на экране входа', 'bool'],
+  sms_login_enabled:        ['Вход по SMS-коду', 'Выключено — пускаем просто по номеру, пока SMS.RU не одобрил отправку', 'bool'],
+  allow_direct_phone_login: ['Разрешить вход без кода', 'Страховка: если SMS отвалятся, включи — и все зайдут по номеру', 'bool'],
+
+  funnel_confuse_enabled:   ['Ловить растерявшихся', 'Подряд открывает приложение или страницу оплаты — пишем себе в админский чат', 'bool'],
+  funnel_confuse_pay_n:     ['Заходов на оплату', '', 'num'],
+  funnel_confuse_pay_min:   ['…за столько минут', '', 'num'],
+  funnel_confuse_open_n:    ['Запусков приложения', 'Без продвижения между ними', 'num'],
+  funnel_confuse_open_min:  ['…за столько минут', '', 'num'],
+  funnel_confuse_wall_n:    ['Упоров в замок', '', 'num'],
+  funnel_confuse_wall_min:  ['…за столько минут', '', 'num'],
+
+  client_type_vk_value:     ['Какое число client_type означает ВК', '⚠️ ошибка дорогая: ВК-номера снова полетят в поле telegram_id. Пусто — числа не разбираем вовсе, только текст и подпись', 'text'],
 };
+
+const SETTINGS_GROUPS = [
+  ['Тексты сообщений бота', ['nudge_later_label','card_change_remind_text','card_change_revert_text','cross_tg_remind_text','cross_vk_remind_text','manual_renew_text']],
+  ['Дожимы', ['nudge_max_per_day','film_postpone_limit']],
+  ['Фильм и окно бонусов', ['film_lecture_slug','film_duration_sec','funnel_bonus_window_min','funnel_bonus_window_back','funnel_window_last_min','guest_tour_enabled','guest_plan_playlist']],
+  ['Что открыто участнику', ['insights_unlock_level','pdf_unlock_level','audio_preview_minutes']],
+  ['Дайджест', ['digest_public','digest_testers']],
+  ['Вход и реквизиты', ['show_requisites','sms_login_enabled','allow_direct_phone_login']],
+  ['Детектор растерянности', ['funnel_confuse_enabled','funnel_confuse_pay_n','funnel_confuse_pay_min','funnel_confuse_open_n','funnel_confuse_open_min','funnel_confuse_wall_n','funnel_confuse_wall_min']],
+  ['Служебное', ['client_type_vk_value']],
+];
 
 function openSettingsPopup(){
   document.getElementById('settings-popup-overlay').classList.add('open');
@@ -3422,92 +3481,83 @@ function openSettingsPopup(){
 }
 function closeSettingsPopup(){ document.getElementById('settings-popup-overlay').classList.remove('open'); }
 
+function setEsc(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+
+function settingRowHtml(key, value){
+  const meta  = SETTINGS_META[key] || [key, 'Подпись ещё не описана — значение правится как строка', 'text'];
+  const title = meta[0], hint = meta[1] || '', type = meta[2] || 'text';
+  const ok    = '<span class="set-ok" id="set-ok-' + key + '"></span>';
+  const head  = '<div class="pay-info"><div class="pay-name">' + title + ok + '</div>'
+              + (hint ? '<div class="pay-meta">' + hint + '</div>' : '') + '</div>';
+
+  if (type === 'bool'){
+    return '<div class="pay-item">' + head
+      + '<label class="switch"><input type="checkbox" ' + (value === '1' ? 'checked' : '')
+      + ' onchange="saveSetting(\'' + key + '\', this.checked ? \'1\' : \'0\')">'
+      + '<span class="switch-track"></span></label></div>';
+  }
+  if (type === 'num'){
+    return '<div class="pay-item">' + head
+      + '<input type="number" value="' + setEsc(value) + '" style="width:70px;text-align:center;padding:8px 6px;border-radius:10px;border:1px solid var(--line);background:var(--stat-bg);color:var(--text);font-family:inherit" '
+      + 'onchange="saveSetting(\'' + key + '\', this.value)"></div>';
+  }
+  if (type === 'area'){
+    /* Многострочные тексты — во всю ширину строки: в столбик по 190px их не
+       прочитать, а это ровно те слова, которые увидит человек */
+    return '<div class="pay-item" style="display:block">' + head
+      + '<textarea style="width:100%;margin-top:8px;min-height:66px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--stat-bg);color:var(--text);font-family:inherit;font-size:12.5px;line-height:1.45" '
+      + 'onchange="saveSetting(\'' + key + '\', this.value)">' + setEsc(value) + '</textarea></div>';
+  }
+  return '<div class="pay-item">' + head
+    + '<input type="text" value="' + setEsc(value) + '" style="width:190px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--stat-bg);color:var(--text);font-family:inherit;font-size:12px" '
+    + 'onchange="saveSetting(\'' + key + '\', this.value)"></div>';
+}
+
 async function loadSettings(){
   const el = document.getElementById('settings-body');
+  let s;
   try{
-    const s = await fetch(API+'/settings').then(r=>r.json());
-    const toggles = Object.keys(SETTING_LABELS).map(key=>{
-      const [title, hint] = SETTING_LABELS[key];
-      const on = !!s[key];
-      return `<div class="pay-item">
-        <div class="pay-info">
-          <div class="pay-name">${title}</div>
-          <div class="pay-meta">${hint}</div>
-        </div>
-        <label class="switch">
-          <input type="checkbox" ${on?'checked':''} onchange="toggleSetting('${key}', this.checked)">
-          <span class="switch-track"></span>
-        </label>
-      </div>`;
-    }).join('');
-    const numericRow = `<div class="pay-item">
-      <div class="pay-info">
-        <div class="pay-name">Уровень открытия "Главных идей"</div>
-        <div class="pay-meta">С какого уровня участнику открывается кнопка выжимки на карточке лекции</div>
-      </div>
-      <input type="number" min="1" value="${s.insights_unlock_level || 2}" style="width:56px;text-align:center;padding:8px 6px;border-radius:10px;border:1px solid var(--line);background:var(--stat-bg);color:var(--text);font-family:inherit" onchange="saveNumericSetting('insights_unlock_level', this.value)">
-    </div>`;
-    /* Ознакомительная часть аудио для НЕ участников (15.08.2026).
-       ⚠️ ЭТО НЕ КОСМЕТИКА В ПЛЕЕРЕ: по этому числу сервер РЕЖЕТ отдельный
-       файл превью, а гостю уходит ссылка именно на него. Ноль — гостям аудио
-       не давать вовсе. После смены длины старым занятиям превью надо
-       пересобрать кнопкой ниже. */
-    const audioRow = `<div class="pay-item">
-      <div class="pay-info">
-        <div class="pay-name">Ознакомительная часть аудио, минут</div>
-        <div class="pay-meta">Сколько минут занятия слышит человек без подписки. 0 — не давать вовсе</div>
-      </div>
-      <input type="number" min="0" value="${s.audio_preview_minutes || 10}" style="width:56px;text-align:center;padding:8px 6px;border-radius:10px;border:1px solid var(--line);background:var(--stat-bg);color:var(--text);font-family:inherit" onchange="saveNumericSetting('audio_preview_minutes', this.value, 0)">
-    </div>`;
+    const r = await fetch(API + '/admin/settings?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    if (!r.ok) throw new Error('нет доступа');
+    s = await r.json();
+  }catch(e){ el.innerHTML = '<div class="empty">Не удалось загрузить настройки</div>'; return; }
 
-    /* Какое занятие библиотеки считать фильмом о клубе.
-       ⚠️ ЗАШИВАТЬ SLUG В КОД НЕЛЬЗЯ: перезальёшь фильм под другим ключом —
-       ссылка `?startapp=film` тихо перестанет работать, и искать причину
-       будем в коде, а не здесь. */
-    const filmRow = `<div class="pay-item" style="align-items:flex-start">
-      <div class="pay-info">
-        <div class="pay-name">Занятие с фильмом о клубе</div>
-        <div class="pay-meta">Ключ занятия из библиотеки. По ссылке «фильм» участник попадёт на него, а неузнанный — на экран воронки</div>
-      </div>
-      <input type="text" value="${(s.film_lecture_slug || '').replace(/"/g,'&quot;')}" placeholder="funnels_p01_l02_lecture" style="width:190px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--stat-bg);color:var(--text);font-family:inherit;font-size:12px" onchange="saveTextSetting('film_lecture_slug', this.value)">
-    </div>`;
+  const показаны = {};
+  let html = '';
+  SETTINGS_GROUPS.forEach(function(g){
+    const keys = g[1].filter(function(k){ return k in s; });
+    if (!keys.length) return;
+    html += '<div class="section-title" style="margin:14px 0 6px;font-size:12px">' + g[0] + '</div>';
+    keys.forEach(function(k){ показаны[k] = 1; html += settingRowHtml(k, s[k]); });
+  });
 
-    el.innerHTML = toggles + numericRow + audioRow + filmRow;
-  }catch(e){ el.innerHTML='<div class="empty">Не удалось загрузить</div>'; }
+  /* Ключи, которых нет ни в одной группе: сервер знает больше, чем дашборд */
+  const остальные = Object.keys(s).filter(function(k){ return !показаны[k]; }).sort();
+  if (остальные.length){
+    html += '<div class="section-title" style="margin:14px 0 6px;font-size:12px">Прочее</div>';
+    остальные.forEach(function(k){ html += settingRowHtml(k, s[k]); });
+  }
+  el.innerHTML = html || '<div class="empty">Настроек нет</div>';
 }
 
-async function saveNumericSetting(key, value, min){
-  /* ⚠️ `parseInt(value) || 1` ПРЕВРАЩАЛ НОЛЬ В ЕДИНИЦУ. Для уровней это было
-     незаметно (ноль там и не нужен), но у длины аудио-превью ноль значит
-     «гостям не давать вовсе» — и молча становился одной минутой. Нижняя
-     граница теперь приходит аргументом, по умолчанию прежняя. */
-  const lo = (typeof min === 'number') ? min : 1;
-  let n = parseInt(value, 10);
-  if (!isFinite(n) || n < lo) n = lo;
+/* Сохраняем ПО ОДНОМУ ключу: экран длинный, и «сохранить всё» одной кнопкой
+   означало бы переписывать двадцать значений ради одного исправленного */
+async function saveSetting(key, value){
+  const знак = document.getElementById('set-ok-' + key);
   try{
-    await fetch(API+'/settings?x_admin_token='+ADMIN_TOKEN,{
+    const r = await fetch(API + '/admin/settings?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({[key]: String(n)})
+      body: JSON.stringify({ key: key, value: String(value == null ? '' : value) })
     });
-  }catch(e){ alert('Не получилось сохранить'); }
-}
-
-async function saveTextSetting(key, value){
-  try{
-    await fetch(API+'/settings?x_admin_token='+ADMIN_TOKEN,{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({[key]: String(value || '').trim()})
-    });
-  }catch(e){ alert('Не получилось сохранить'); }
-}
-
-async function toggleSetting(key, value){
-  try{
-    await fetch(API+'/settings?x_admin_token='+ADMIN_TOKEN,{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({[key]: value})
-    });
-    loadSettings();
+    if (!r.ok){
+      const d = await r.json().catch(function(){ return {}; });
+      alert(d.detail || 'Не получилось сохранить');
+      return;
+    }
+    if (знак){
+      знак.textContent = ' сохранено';
+      setTimeout(function(){ if (знак) знак.textContent = ''; }, 1400);
+    }
   }catch(e){ alert('Не получилось сохранить'); }
 }
 
@@ -9611,14 +9661,72 @@ const NUDGE_KIND_LABELS = {
   video: 'Бросил продающее видео (по секундам)',
   magazine: 'Не дочитал журнал',
   lecture: 'Посмотрел бесплатную лекцию и не купил',
+  film_stuck: 'Третий перенос фильма — больше не уговариваем',
   register: 'Участник не зашёл в канал',
 };
 /* ⚠️ Общая цепочка называется пустой строкой kind — так её хранит сервер */
 const NUDGE_CHAIN_KIND_LABELS = Object.assign({ '': 'Общая — для всех, у кого нет своей' }, NUDGE_KIND_LABELS);
 
-function openNudgesPopup(){
+/* ══ КУДА ВЕДЁТ КНОПКА ДОЖИМА (14.09.2026) ═══════════════════════════════════
+   Полезная нагрузка та же, что в генераторе ссылок: сервер развернёт её в
+   `?startapp=` для Telegram и в `#` для ВК. Список маршрутов берём у сервера
+   (он спрашивает само приложение) — иначе новый диплинк сюда не доедет; имена
+   — из LG_ACTIONS, если тот уже загружен. Пусто = главная, как было раньше */
+let NUDGE_TARGETS = null;
+
+async function nudgeLoadTargets(){
+  if (NUDGE_TARGETS) return;
+  const имена = {};
+  /* try, а не typeof: список объявлен ниже по файлу через const, и обращение к
+     нему до инициализации бросает ошибку, а не отдаёт undefined */
+  try { LG_ACTIONS.forEach(function(a){ if (!a.group && a.key) имена[a.key] = a.title; }); }
+  catch(e){ /* ещё не объявлен — обойдёмся ключами с сервера */ }
+  let ключи = [];
+  try {
+    const r = await fetch(API + '/admin/link-config?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    if (r.ok){
+      const d = await r.json();
+      ключи = (d.routes || []).map(function(x){ return x.key; }).filter(Boolean);
+    }
+  } catch(e){ /* сервер молчит — обойдёмся именами из своего списка */ }
+  if (!ключи.length) ключи = Object.keys(имена);
+  NUDGE_TARGETS = ключи.map(function(k){ return { key: k, title: имена[k] || k }; });
+}
+
+function nudgeTargetFieldHtml(prefix, id, value){
+  const v = String(value || '');
+  const список = NUDGE_TARGETS || [];
+  const известен = !v || список.some(function(t){ return t.key === v; });
+  let opts = '<option value=""' + (v ? '' : ' selected') + '>Главная приложения</option>';
+  список.forEach(function(t){
+    opts += '<option value="' + t.key + '"' + (t.key === v ? ' selected' : '') + '>' + t.title + '</option>';
+  });
+  opts += '<option value="__own__"' + (известен ? '' : ' selected') + '>Своя строка или полный адрес</option>';
+  const поле = 'padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px';
+  return '<label style="display:flex;flex-direction:column;gap:3px">'
+    + '<span style="font-size:11px;color:var(--text-faint)">Куда ведёт кнопка</span>'
+    + '<select id="' + prefix + '-cta_sel-' + id + '" onchange="nudgeTargetPick(\'' + prefix + '\',\'' + id + '\')" style="' + поле + '">' + opts + '</select>'
+    + '<input type="text" id="' + prefix + '-cta_target-' + id + '" value="' + String(v).replace(/"/g,'&quot;') + '" '
+    + 'placeholder="l_kluch-zanyatiya или https://…" style="' + поле + ';margin-top:4px;display:' + (известен ? 'none' : 'block') + '">'
+    + '</label>';
+}
+
+function nudgeTargetPick(prefix, id){
+  const sel = document.getElementById(prefix + '-cta_sel-' + id);
+  const inp = document.getElementById(prefix + '-cta_target-' + id);
+  if (!sel || !inp) return;
+  if (sel.value === '__own__'){ inp.style.display = 'block'; inp.focus(); return; }
+  inp.value = sel.value;
+  inp.style.display = 'none';
+}
+
+async function openNudgesPopup(){
   document.getElementById('nudges-popup-overlay').classList.add('open');
   switchNudgesTab('scenarios');
+  // Список маршрутов — после первой отрисовки: попап открывается сразу
+  await nudgeLoadTargets();
+  if (nudgeScenarioExpanded) renderNudgeScenarios();
+  if (nudgeChainExpanded) renderNudgeChain();
 }
 function closeNudgesPopup(){
   document.getElementById('nudges-popup-overlay').classList.remove('open');
@@ -9722,6 +9830,7 @@ function nudgeScenarioEditorHtml(s){
         + '<span style="font-size:11px;color:var(--text-faint)">Текст сообщения</span>'
         + '<textarea id="ns-body-' + s.kind + '" style="min-height:54px;padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">' + (s.body||'') + '</textarea></label>'
       + fld('Подпись кнопки','cta_label',s.cta_label)
+      + nudgeTargetFieldHtml('ns', s.kind, s.cta_target)
       + '<button onclick="saveNudgeScenario(' + jsArg(s.kind) + ')" style="padding:9px;border-radius:9px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:600">Сохранить</button>'
     + '</div></div>';
 }
@@ -9737,6 +9846,7 @@ async function saveNudgeScenario(kind){
     title: v('title').trim(),
     body: v('body'),
     cta_label: v('cta_label').trim() || 'Открыть',
+    cta_target: v('cta_target').trim(),
   });
   ['min_seconds','max_seconds','min_percent','max_percent','idle_minutes','wait_minutes'].forEach(function(f){
     const el = document.getElementById('ns-'+f+'-'+kind);
@@ -9855,6 +9965,7 @@ function nudgeChainStepEditorHtml(c){
         + '<span style="font-size:11px;color:var(--text-faint)">Текст</span>'
         + '<textarea id="nc-body-' + c.id + '" style="min-height:54px;padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">' + (c.body||'') + '</textarea></label>'
       + fld('Подпись кнопки','cta_label',c.cta_label)
+      + nudgeTargetFieldHtml('nc', c.id, c.cta_target)
       + '<div style="display:flex;gap:8px">'
         + '<button onclick="saveNudgeChainStep(' + c.id + ')" style="flex:1;padding:9px;border-radius:9px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:600">Сохранить</button>'
         + '<button onclick="deleteNudgeChainStep(' + c.id + ')" style="padding:9px 14px;border-radius:9px;border:1px solid #ef4444;background:transparent;color:#ef4444;cursor:pointer;font-size:13px">Удалить</button>'
@@ -9864,7 +9975,7 @@ function nudgeChainStepEditorHtml(c){
 
 function addNudgeChainStep(){
   const maxOrder = nudgeChain.reduce(function(m,c){ return Math.max(m,c.order); }, 0);
-  const row = { id: null, order: maxOrder+1, kind: '', delay_minutes: 1440, use_slot: false, active: true, title: 'Новый шаг', body: '', cta_label: 'Открыть приложение' };
+  const row = { id: null, order: maxOrder+1, kind: '', delay_minutes: 1440, use_slot: false, active: true, title: 'Новый шаг', body: '', cta_label: 'Открыть приложение', cta_target: '' };
   nudgeChain.push(row);
   nudgeChainExpanded = null;   // раскроется по клику — id ещё нет, пока не сохранён
   renderNudgeChain();
@@ -9888,6 +9999,7 @@ async function saveNudgeChainStep(id){
     title: v('title').trim(),
     body: v('body'),
     cta_label: v('cta_label').trim() || 'Открыть приложение',
+    cta_target: v('cta_target').trim(),
   };
   try {
     const r = await fetch(API+'/admin/nudge-chain?x_admin_token='+ADMIN_TOKEN, {
