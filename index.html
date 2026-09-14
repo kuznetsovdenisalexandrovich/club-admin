@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v108 -->
+<!-- FILE_VERSION: admin-v109 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1504,11 +1504,13 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <button class="action-btn" id="nudges-tab-scenarios-btn" onclick="switchNudgesTab('scenarios')" style="flex:1">Ситуации</button>
         <button class="action-btn" id="nudges-tab-chain-btn" onclick="switchNudgesTab('chain')" style="flex:1">Цепочка</button>
         <button class="action-btn" id="nudges-tab-stats-btn" onclick="switchNudgesTab('stats')" style="flex:1">Работает ли</button>
+        <button class="action-btn" id="nudges-tab-common-btn" onclick="switchNudgesTab('common')" style="flex:1">Общее</button>
       </div>
 
       <div id="nudges-tab-scenarios"><div class="loading">Загрузка...</div></div>
       <div id="nudges-tab-chain" style="display:none"></div>
       <div id="nudges-tab-stats" style="display:none"></div>
+      <div id="nudges-tab-common" style="display:none"></div>
     </div>
   </div>
 </div>
@@ -3464,9 +3466,17 @@ const SETTINGS_META = {
   client_type_vk_value:     ['Какое число client_type означает ВК', '⚠️ ошибка дорогая: ВК-номера снова полетят в поле telegram_id. Пусто — числа не разбираем вовсе, только текст и подпись', 'text'],
 };
 
+/* ⚠️ ЭТИ КЛЮЧИ ЖИВУТ ВО ВКЛАДКЕ «ОБЩЕЕ» ПОПАПА ДОЖИМНЫХ РАССЫЛОК (14.09.2026).
+   [stated] Denis: «зачем ты это в настройки клуба запихал? это всё в дожимных
+   рассылках должно быть». Рядом с ситуациями и цепочкой им и место: правишь
+   тексты писем — там же видишь потолок и пределы.
+   ⚠️ Список работает В ОБЕ СТОРОНЫ: он же исключает эти ключи из «Настроек
+   клуба», иначе они провалились бы в «Прочее» и правились бы в двух местах */
+const NUDGE_SETTING_KEYS = ['nudge_later_label','card_change_remind_text','card_change_revert_text',
+  'cross_tg_remind_text','cross_vk_remind_text','manual_renew_text',
+  'nudge_max_per_day','film_postpone_limit'];
+
 const SETTINGS_GROUPS = [
-  ['Тексты сообщений бота', ['nudge_later_label','card_change_remind_text','card_change_revert_text','cross_tg_remind_text','cross_vk_remind_text','manual_renew_text']],
-  ['Дожимы', ['nudge_max_per_day','film_postpone_limit']],
   ['Фильм и окно бонусов', ['film_lecture_slug','film_duration_sec','funnel_bonus_window_min','funnel_bonus_window_back','funnel_window_last_min','guest_tour_enabled','guest_plan_playlist']],
   ['Что открыто участнику', ['insights_unlock_level','pdf_unlock_level','audio_preview_minutes']],
   ['Дайджест', ['digest_public','digest_testers']],
@@ -3532,7 +3542,9 @@ async function loadSettings(){
   });
 
   /* Ключи, которых нет ни в одной группе: сервер знает больше, чем дашборд */
-  const остальные = Object.keys(s).filter(function(k){ return !показаны[k]; }).sort();
+  const остальные = Object.keys(s).filter(function(k){
+    return !показаны[k] && NUDGE_SETTING_KEYS.indexOf(k) < 0;
+  }).sort();
   if (остальные.length){
     html += '<div class="section-title" style="margin:14px 0 6px;font-size:12px">Прочее</div>';
     остальные.forEach(function(k){ html += settingRowHtml(k, s[k]); });
@@ -9733,7 +9745,7 @@ function closeNudgesPopup(){
 }
 
 function switchNudgesTab(tab){
-  ['scenarios','chain','stats'].forEach(function(t){
+  ['scenarios','chain','stats','common'].forEach(function(t){
     document.getElementById('nudges-tab-'+t).style.display = (t===tab) ? 'block' : 'none';
     const b = document.getElementById('nudges-tab-'+t+'-btn');
     if (b) b.style.opacity = (t===tab) ? '1' : '.55';
@@ -9741,6 +9753,36 @@ function switchNudgesTab(tab){
   if (tab === 'scenarios') loadNudgeScenarios();
   if (tab === 'chain') loadNudgeChain();
   if (tab === 'stats') loadNudgeStats();
+  if (tab === 'common') loadNudgeCommon();
+}
+
+/* ── Общее: тексты сообщений бота и пределы ───────────────────────────────
+   Поля те же, что на экране настроек, и сохраняются той же ручкой — здесь
+   только другой набор ключей и свои подписи групп */
+async function loadNudgeCommon(){
+  const el = document.getElementById('nudges-tab-common');
+  let s;
+  try{
+    const r = await fetch(API + '/admin/settings?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    if (!r.ok) throw new Error('нет доступа');
+    s = await r.json();
+  }catch(e){ el.innerHTML = '<div class="empty">Не удалось загрузить</div>'; return; }
+
+  const группы = [
+    ['Пределы', ['nudge_max_per_day','film_postpone_limit']],
+    ['Тексты сообщений бота', ['nudge_later_label','card_change_remind_text','card_change_revert_text',
+                               'cross_tg_remind_text','cross_vk_remind_text','manual_renew_text']],
+  ];
+  let html = '<div style="font-size:11.5px;color:var(--text-faint);margin-bottom:10px;line-height:1.5">'
+           + 'Это отдельные сообщения бота — не письма ситуаций и не шаги цепочки. '
+           + 'Они уходят по своему поводу: смена карты, недошедший доступ, ручное продление.</div>';
+  группы.forEach(function(g){
+    const keys = g[1].filter(function(k){ return k in s; });
+    if (!keys.length) return;
+    html += '<div class="section-title" style="margin:14px 0 6px;font-size:12px">' + g[0] + '</div>';
+    keys.forEach(function(k){ html += settingRowHtml(k, s[k]); });
+  });
+  el.innerHTML = html;
 }
 
 /* ── Ситуации ── */
