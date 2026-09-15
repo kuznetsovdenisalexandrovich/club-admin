@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v109 -->
+<!-- FILE_VERSION: admin-v110 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -384,6 +384,9 @@ header{padding:calc(max(env(safe-area-inset-top), 8px) + 20px) 0 16px;display:fl
 
 /* Попап карточек — по центру экрана, а не шторкой снизу */
 .popup-overlay.popup-centered{align-items:center}
+/* admin-v110: центральный попап не прилипает к краям окна — поля вокруг
+   на любой ширине ([stated] Denis 16.09: «занимает 100% ширины и прилипает») */
+.popup-overlay.popup-centered{padding:clamp(12px,4vw,40px);box-sizing:border-box}
 .popup-overlay.popup-centered .popup{
   border-radius:20px;
   max-height:86vh;
@@ -1400,7 +1403,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 <!-- Тексты приложения. Исходники живут в коде аппа и присылаются сюда при его
      запуске — здесь только замены и отметки о просмотре -->
 <div class="popup-overlay popup-centered" id="texts-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeTextsPopup()">
-  <div class="popup" style="max-width:720px">
+  <div class="popup" style="max-width:680px">
     <button class="popup-close-x" onclick="closeTextsPopup()" title="Закрыть">✕</button>
     <div class="popup-body" style="padding-top:20px">
       <div class="popup-section-title" style="margin-top:0">Тексты приложения</div>
@@ -14539,7 +14542,46 @@ function lgCopyFallback(url, done){
 
 function openTextsPopup(){
   document.getElementById('texts-popup-overlay').classList.add('open');
-  loadTexts();
+  loadTexts().then(syncTextsFromApp);
+}
+
+/* ⚠️ admin-v110: СПИСОК ТЕКСТОВ СВЕРЯЕТСЯ С ВЫЛОЖЕННЫМ АППОМ ПРЯМО ОТСЮДА.
+   Раньше новые ключи попадали в дашборд, только когда кто-то открывал апп
+   новой версии, — а Telegram и GitHub Pages держат старую страницу в кэше,
+   и после выкладки раздел оставался пустым ([stated] Denis 16.09: тексты
+   онбординга не появились). Теперь дашборд сам берёт index.html из
+   репозитория, достаёт реестр APP_TEXTS и шлёт его на тот же /app-texts/sync,
+   что и апп. Замены и отметки о просмотре сервер при этом не трогает */
+const APP_SOURCE_URL = 'https://raw.githubusercontent.com/kuznetsovdenisalexandrovich/club-app/main/index.html';
+let textsSyncNote = '';
+async function syncTextsFromApp(){
+  try {
+    const html = await fetch(APP_SOURCE_URL + '?x=' + Date.now(), { cache: 'no-store' }).then(function(r){
+      if (!r.ok) throw new Error('репозиторий ответил ' + r.status); return r.text();
+    });
+    const ver = (html.match(/FILE_VERSION:\s*(index-v\d+)/) || [])[1] || '';
+    const a = html.indexOf('const APP_TEXTS = {');
+    const b = a < 0 ? -1 : html.indexOf('\n};', a);
+    if (a < 0 || b < 0) throw new Error('реестр текстов в аппе не найден');
+    /* Код реестра — наш собственный, из нашего репозитория; кроме литерала
+       объекта там ничего нет, поэтому разбираем его как выражение */
+    const reg = (new Function('return ' + html.slice(a + 'const APP_TEXTS = '.length, b + 2).replace(/;\s*$/, '')))();
+    const items = Object.keys(reg).map(function(key){
+      const r = reg[key] || {};
+      return { key: key, base_text: r.t || '', category: r.c || '', label: r.l || '',
+               place: r.w || '', important: !!r.i, spintax: /\{[^{}]*\|/.test(r.t || '') };
+    });
+    const known = {};
+    ((textsData && textsData.items) || []).forEach(function(i){ known[i.key] = 1; });
+    const fresh = items.filter(function(i){ return !known[i.key]; }).length;
+    await fetch(API + '/app-texts/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: items }) }).then(function(r){ if (!r.ok) throw new Error('сервер ответил ' + r.status); });
+    textsSyncNote = 'сверено с ' + (ver || 'аппом') + (fresh ? ' · новых ' + fresh : '');
+    if (document.getElementById('texts-popup-overlay').classList.contains('open')) await loadTexts();
+  } catch(e){
+    textsSyncNote = 'сверка с аппом не удалась: ' + (e.message || e);
+    if (textsData) renderTexts();
+  }
 }
 function closeTextsPopup(){
   document.getElementById('texts-popup-overlay').classList.remove('open');
@@ -14914,7 +14956,8 @@ function renderTexts(){
 
   document.getElementById('texts-counters').innerHTML =
     'Всего ' + textsData.total + ' · не просмотрено <b>' + textsData.pending + '</b>'
-    + (textsData.changed ? ' · изменилось в коде <b>' + textsData.changed + '</b>' : '');
+    + (textsData.changed ? ' · изменилось в коде <b>' + textsData.changed + '</b>' : '')
+    + (textsSyncNote ? ' · <span style="opacity:.75">' + elEsc(textsSyncNote) + '</span>' : '');
 
   // Дробь «не просмотрено / всего» у каждой категории: первое число ярким,
   // второе приглушённым — так видно, где ещё есть работа, не открывая раздел
