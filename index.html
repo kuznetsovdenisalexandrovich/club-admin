@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v110 -->
+<!-- FILE_VERSION: admin-v111 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3882,7 +3882,16 @@ async function createCampaign(){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({list_id,title,announce_text,flow,meeting_link})
     });
-    if(!createRes.ok){ alert('Ошибка создания кампании'); return; }
+    if(!createRes.ok){
+      /* ⚠️ ПРИЧИНУ ПОКАЗЫВАЕМ, А НЕ ПРЯЧЕМ (17.09.2026). Общее «ошибка создания»
+         одинаково прикрывало 403 по протухшему токену, 422 по данным и 500 —
+         и ни один из них было не отличить без терминала */
+      let причина='';
+      try{ const d=await createRes.json(); причина=d.detail?(typeof d.detail==='string'?d.detail:JSON.stringify(d.detail)):JSON.stringify(d); }
+      catch(e){ try{ причина=await createRes.text(); }catch(_){} }
+      alert('Сервер отказал: код '+createRes.status+(причина?'\n'+причина.slice(0,600):''));
+      return;
+    }
     const created=await createRes.json();
 
     if(isSingleStep){
@@ -3897,7 +3906,7 @@ async function createCampaign(){
     document.getElementById('camp-text').innerHTML='';
     document.getElementById('camp-link').value='';
     await loadCampaigns();
-  }catch(e){ alert('Ошибка создания кампании'); }
+  }catch(e){ alert('Запрос не дошёл до сервера: '+(e && e.message ? e.message : e)); }
 }
 
 async function announceCampaign(id){
