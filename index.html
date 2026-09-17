@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v111 -->
+<!-- FILE_VERSION: admin-v112 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2976,6 +2976,32 @@ const APP_LAB_URL = 'https://kuznetsovdenisalexandrovich.github.io/club-app/pack
 const ADMIN_TOKEN_KEY = 'admin_token';
 let ADMIN_TOKEN = '';
 try { ADMIN_TOKEN = sessionStorage.getItem(ADMIN_TOKEN_KEY) || ''; } catch(e) {}
+
+/* ⚠️ ПРОТУХШИЙ КЛЮЧ ВКЛАДКИ → СНОВА ЭКРАН PIN (17.09.2026). Ключ живёт 12 часов,
+   а чтение списков токена не требует — поэтому дашборд выглядел рабочим, а любая
+   запись отбивалась 403, и Denis час искал «ошибку кампании». Теперь первый же
+   403 по адресу с x_admin_token сбрасывает ключ и поднимает PIN-экран */
+(function(){
+  const исходный = window.fetch;
+  window.fetch = async function(url, opts){
+    const r = await исходный.apply(this, arguments);
+    try {
+      const адрес = typeof url === 'string' ? url : (url && url.url) || '';
+      if (r.status === 403 && адрес.indexOf('x_admin_token=') >= 0) adminTokenExpired();
+    } catch(e) {}
+    return r;
+  };
+})();
+
+function adminTokenExpired(){
+  ADMIN_TOKEN = '';
+  try { sessionStorage.removeItem(ADMIN_TOKEN_KEY); } catch(e) {}
+  const scr = document.getElementById('pin-screen');
+  if (!scr || !scr.classList.contains('hidden')) return;   // уже показан — не дёргаем
+  scr.classList.remove('hidden');
+  const err = document.getElementById('pin-error');
+  if (err) err.textContent = 'Ключ вкладки истёк — введи PIN заново';
+}
 let allUsers=[], allPayments=[], revenueChart=null, currentPeriod='month', currentUser=null, pendingAction=null;
 
 /* ── Тема ── */
