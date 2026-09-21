@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v113 -->
+<!-- FILE_VERSION: admin-v114 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2981,19 +2981,49 @@ try { ADMIN_TOKEN = sessionStorage.getItem(ADMIN_TOKEN_KEY) || ''; } catch(e) {}
    а чтение списков токена не требует — поэтому дашборд выглядел рабочим, а любая
    запись отбивалась 403, и Denis час искал «ошибку кампании». Теперь первый же
    403 по адресу с x_admin_token сбрасывает ключ и поднимает PIN-экран */
+/* v114: запрос, споткнувшийся о протухший ключ, НЕ проваливается — он ждёт,
+   пока Denis введёт PIN, и уходит заново уже с новым ключом. Для вызывающего
+   кода это выглядит как один долгий запрос: ничего повторять руками не надо.
+   Безопасно: 403 от check_admin приходит ДО того, как сервер что-то сделал,
+   так что двойной отправки быть не может. Чужие 403 (не про ключ) — как раньше */
+let adminRetryQueue = [];
+let adminFetchRaw = null;
 (function(){
   const исходный = window.fetch;
+  adminFetchRaw = исходный;
   window.fetch = async function(url, opts){
     const r = await исходный.apply(this, arguments);
     try {
       const адрес = typeof url === 'string' ? url : (url && url.url) || '';
       /* v113: игры шлют ключ в теле JSON, а не в адресе — 403 там тоже наш */
       const вТеле = !!(opts && typeof opts.body === 'string' && opts.body.indexOf('x_admin_token') >= 0);
-      if (r.status === 403 && (адрес.indexOf('x_admin_token=') >= 0 || вТеле)) adminTokenExpired();
+      if (r.status === 403 && (адрес.indexOf('x_admin_token=') >= 0 || вТеле)){
+        let проКлюч = true;
+        try { const d = await r.clone().json(); проКлюч = !d || !d.detail || /токен/i.test(String(d.detail)); } catch(e) {}
+        if (проКлюч && typeof url === 'string'){
+          adminTokenExpired();
+          return new Promise(function(resolve, reject){
+            adminRetryQueue.push({ url: url, opts: opts, resolve: resolve, reject: reject });
+          });
+        }
+      }
     } catch(e) {}
     return r;
   };
 })();
+function adminRetryPending(){
+  const q = adminRetryQueue; adminRetryQueue = [];
+  q.forEach(function(job){
+    try {
+      const url = job.url.replace(/x_admin_token=[^&]*/, 'x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+      const opts = job.opts ? Object.assign({}, job.opts) : undefined;
+      if (opts && typeof opts.body === 'string' && opts.body.indexOf('x_admin_token') >= 0){
+        opts.body = opts.body.replace(/"x_admin_token"\s*:\s*"[^"]*"/, '"x_admin_token":"' + ADMIN_TOKEN + '"');
+      }
+      adminFetchRaw(url, opts).then(job.resolve, job.reject);
+    } catch(e){ job.reject(e); }
+  });
+}
 
 /* v113: ответ сервера как данные ТОЛЬКО при r.ok — иначе {detail} от 403/500
    читался как пустой список, и главная показывала «вопросов нет / тихо» */
@@ -3013,7 +3043,7 @@ function adminTokenExpired(){
   if (!scr || !scr.classList.contains('hidden')) return;   // уже показан — не дёргаем
   scr.classList.remove('hidden');
   const err = document.getElementById('pin-error');
-  if (err) err.textContent = 'Ключ вкладки истёк — введи PIN заново и повтори последнее действие';
+  if (err) err.textContent = 'Ключ вкладки истёк — введи PIN, начатое действие продолжится само';
 }
 let allUsers=[], allPayments=[], revenueChart=null, currentPeriod='month', currentUser=null, pendingAction=null;
 
@@ -4158,9 +4188,12 @@ function drawChart(){
 }
 
 /* ── Popup ── */
+/* v114: номер открытия карточки — поздний ответ по прошлой карточке выбрасывается */
+let popupSeq = 0;
 function openPopup(uid){
   const u=allUsers.find(u=>u.id===uid);
   if(!u)return;
+  popupSeq++;
   currentUser=u;
   const name=u.full_name||u.name||'—';
   document.getElementById('popup-avatar').textContent=initials(name);
@@ -4247,10 +4280,12 @@ async function loadJourney(telegramId){
   }
   box.innerHTML = 'Загружаю…';
   link.textContent = '…';
+  const my = popupSeq;
   try{
     const r = await fetch(API + '/admin/users/' + telegramId + '/journey?x_admin_token=' + ADMIN_TOKEN);
     if(!r.ok) throw new Error('сервер ответил ' + r.status);
     const d = await r.json();
+    if (my !== popupSeq) return;   // v114: уже открыта другая карточка
     currentJourney = d;
     const ref = d.referrer
       ? (escapeHtmlAdm(d.referrer.name) + (d.referrer.telegram_id ? ' · ' + d.referrer.telegram_id : '')
@@ -4784,8 +4819,10 @@ async function loadActivity(telegramId){
   const el = document.getElementById('popup-payments');
   if(!telegramId){ el.innerHTML='<div class="empty">Нет telegram_id — активность не собрать</div>'; return; }
   el.innerHTML = '<div class="loading">Загрузка...</div>';
+  const my = popupSeq;
   try{
     const d = await fetch(API + '/users/' + telegramId + '/activity?x_admin_token=' + ADMIN_TOKEN).then(r=>r.json());
+    if (my !== popupSeq) return;   // v114: уже открыта другая карточка
     renderActivity(d.items || []);
   }catch(e){ el.innerHTML='<div class="empty">Не удалось загрузить</div>'; }
 }
@@ -4862,9 +4899,11 @@ async function loadSnapshot(telegramId){
   if(!el) return;
   if(!telegramId){ el.innerHTML = '<div class="empty">Нет telegram_id — снимок не собрать</div>'; return; }
   el.innerHTML = '<div class="loading">Загрузка...</div>';
+  const my = popupSeq;
   try{
     const r = await fetch(API + '/admin/users/' + telegramId + '/snapshot?x_admin_token=' + ADMIN_TOKEN);
     const d = await r.json();
+    if (my !== popupSeq) return;   // v114: уже открыта другая карточка
     if(!r.ok) throw new Error(d.detail || 'Не получилось');
     renderSnapshot(d);
   }catch(e){
@@ -4966,12 +5005,16 @@ function setMetricGrain(g){
   document.querySelectorAll('.mgrain').forEach(b => b.classList.toggle('on', b.dataset.grain === g));
   renderMetrics();
 }
+let metricsSeq = 0;   // v114: быстрые переключения периода — рисуем только последний
 async function loadMetrics(){
   const box = document.getElementById('metrics-body');
   box.innerHTML = '<div class="loading">Загрузка...</div>';
+  const my = ++metricsSeq;
   try{
     const days = document.getElementById('metrics-days').value || '30';
-    metricsData = await fetch(API+'/admin/metrics?days='+days+'&x_admin_token='+ADMIN_TOKEN).then(r=>r.json());
+    const md = await fetch(API+'/admin/metrics?days='+days+'&x_admin_token='+ADMIN_TOKEN).then(r=>r.json());
+    if (my !== metricsSeq) return;
+    metricsData = md;
     renderMetrics();
     document.getElementById('metrics-raw').textContent =
       'Сырых стартов ждут свёртки: ' + (metricsData['сырых_ждут_свёртки'] || 0)
@@ -6751,16 +6794,19 @@ function funnelWhen(iso){
   } catch(e){ return ''; }
 }
 
+let funnelSeq = 0;
 async function loadFunnelReport(){
   const box = document.getElementById('funnel-summary');
   const steps = document.getElementById('funnel-steps');
   const leads = document.getElementById('funnel-leads');
   box.textContent = 'Считаю…';
+  const my = ++funnelSeq;   // v114
   try{
     const r = await fetch(API + '/admin/funnel/report?days=' + funnelDays
                           + '&audience=' + funnelAudience
                           + '&x_admin_token=' + ADMIN_TOKEN);
     const d = await r.json();
+    if (my !== funnelSeq) return;
     if (!r.ok){ box.textContent = d.detail || 'Не получилось'; return; }
 
     const who = { guests:'гостей', members:'участников', staff:'своих' }[d.audience] || 'людей';
@@ -6888,15 +6934,18 @@ async function loadAttrReport(){
 /* ── Сводка по пути клиента ──────────────────────────────────────────────
    Отличается от отчёта выше тем, что считает не платежи, а ЛЮДЕЙ: сколько
    привёл канал, сколько из них дошло до оплаты и за сколько дней */
+let attrSeq = 0;
 async function loadJourneySummary(){
   const box = document.getElementById('journey-sources');
   const inv = document.getElementById('journey-inviters');
   if (!box) return;
   box.innerHTML = '<div class="pay-meta">Считаю…</div>';
+  const my = ++attrSeq;   // v114
   try{
     const r = await fetch(API + '/admin/journey/summary?days=' + attrPeriodDays
                           + '&x_admin_token=' + ADMIN_TOKEN);
     const d = await r.json();
+    if (my !== attrSeq) return;
     if (!r.ok){ box.innerHTML = '<div class="pay-meta">' + (d.detail || 'Не получилось') + '</div>'; return; }
 
     const rows = d.sources || [];
@@ -8409,7 +8458,9 @@ async function submitPin(){
     try { sessionStorage.setItem(ADMIN_TOKEN_KEY, data.token); } catch(e) {}
     err.textContent = '';
     document.getElementById('pin-screen').classList.add('hidden');
-    loadAll();
+    const былОтложенный = adminRetryQueue.length > 0;
+    adminRetryPending();                 // v114: сначала довершаем то, на чём споткнулись
+    if (!былОтложенный) loadAll();       // а при повторном входе с нуля — обычная загрузка
   } catch (e) {
     err.textContent = e.message;
   } finally {
@@ -11658,12 +11709,15 @@ async function deleteSeries(key){
 
 function openShelf(key){ currentSeries = key || ''; renderSeriesList(0); loadShelf(currentSeries); }
 
+var shelfSeq = 0;
 async function loadShelf(key){
   var box = document.getElementById('series-shelf');
   box.innerHTML = '<div class="loading">Загрузка...</div>';
+  var my = ++shelfSeq;   // v114
   try {
     var d = await fetch(API + '/cards/admin/shelf?series_key=' + encodeURIComponent(key || '')
       + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN)).then(function(r){ return r.json(); });
+    if (my !== shelfSeq) return;
     var slots = d.slots || [];
     shelfSlots = slots;            // попап бога читает отсюда, не ходя на сервер второй раз
     var filled = slots.filter(function(s){ return s.cards.length; }).length;
@@ -16901,8 +16955,23 @@ async function dgSetTheme(id, key){
   }catch(e){ alert('Тема не сохранилась: '+e.message); }
 }
 
-function dgOpenPdf(id){
-  window.open(API+'/admin/digest/issues/'+id+'/pdf?x_admin_token='+encodeURIComponent(ADMIN_TOKEN), '_blank');
+/* v114: ключ администратора больше не попадает в адресную строку, историю и
+   «копировать ссылку» — PDF забираем внутри страницы и открываем как blob.
+   Окно открываем ДО ожидания ответа: Safari блокирует window.open после await */
+async function dgOpenPdf(id){
+  const w = window.open('', '_blank');
+  try {
+    const r = await fetch(API+'/admin/digest/issues/'+id+'/pdf?x_admin_token='+encodeURIComponent(ADMIN_TOKEN));
+    if (!r.ok){ const d = await r.json().catch(function(){ return {}; }); throw new Error(d.detail || ('сервер ответил ' + r.status)); }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    if (w) w.location = url;
+    else { const a = document.createElement('a'); a.href = url; a.download = 'digest-' + id + '.pdf'; document.body.appendChild(a); a.click(); a.remove(); }
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 60000);
+  } catch(e){
+    if (w) w.close();
+    alert('PDF не открылся: ' + (e.message || e));
+  }
 }
 
 </script>
