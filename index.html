@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v115 -->
+<!-- FILE_VERSION: admin-v116 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1387,6 +1387,8 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       </div>
       <div id="camp-text" class="popup-input rich-input" contenteditable="true" data-placeholder="Текст анонса... (для 'Просто встреча' необязателен)"></div>
       <input class="popup-input" type="text" id="camp-link" placeholder="Ссылка на телемост/материал" style="margin-bottom:0;display:none">
+      <!-- v116: поле баллов было только у неотправленных кампаний в списке, а встреча уходит сразу при создании — то есть всегда с нулём -->
+      <input class="popup-input" type="number" id="camp-points" min="0" max="100000" step="10" placeholder="Баллы тому, кто перейдёт (0 — не платим)" style="margin-bottom:0;display:none">
       <button class="popup-save" id="camp-submit-btn" onclick="createCampaign()">Создать кампанию</button>
     </div>
     <div id="campaigns-list"><div class="loading">Загрузка...</div></div>
@@ -3906,6 +3908,7 @@ function updateCampFormForFlow(){
   const flow=getSelectedFlow();
   const isSingleStep = flow==='material' || flow==='meetup';
   document.getElementById('camp-link').style.display = isSingleStep ? '' : 'none';
+  document.getElementById('camp-points').style.display = (flow==='meetup' || flow==='lecture') ? '' : 'none';
   document.getElementById('camp-submit-btn').textContent = isSingleStep ? 'Отправить' : 'Создать и отправить анонс';
 }
 
@@ -4012,6 +4015,7 @@ async function createCampaign(){
   const resolvedFlow=getSelectedFlow();
   const isSingleStep = resolvedFlow==='material' || resolvedFlow==='meetup';
   const meeting_link=isSingleStep?document.getElementById('camp-link').value.trim():undefined;
+  const click_points=(resolvedFlow==='meetup'||resolvedFlow==='lecture')?(parseInt(document.getElementById('camp-points').value,10)||0):undefined;
 
   if(resolvedFlow!=='meetup' && !announce_text){ alert('Заполни текст анонса'); return; }
   if(isSingleStep && !meeting_link){ alert('Вставь ссылку'); return; }
@@ -4021,7 +4025,7 @@ async function createCampaign(){
     const createRes=await fetch(API+'/campaigns?x_admin_token='+ADMIN_TOKEN,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({list_id,title,announce_text,flow,meeting_link})
+      body:JSON.stringify({list_id,title,announce_text,flow,meeting_link,click_points})
     });
     if(!createRes.ok){
       /* ⚠️ ПРИЧИНУ ПОКАЗЫВАЕМ, А НЕ ПРЯЧЕМ (17.09.2026). Общее «ошибка создания»
