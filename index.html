@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v117 -->
+<!-- FILE_VERSION: admin-v118 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2151,6 +2151,13 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <input class="popup-input" type="number" id="ev-points" min="0" max="100000" step="10" placeholder="Баллы за приход" style="flex:1;min-width:120px;margin:0" oninput="evDraftChanged()">
           <input class="popup-input" type="text" id="ev-meet-label" placeholder="Надпись на кнопке телемоста" style="flex:2;min-width:160px;margin:0" oninput="evDraftChanged()">
         </div>
+        <div class="section-title" style="margin:6px 0 6px;font-size:13px">Кнопка в анонсах</div>
+        <input class="popup-input" type="text" id="ev-btn-text" placeholder="Текст кнопки (пусто — как настроено у площадки)" style="margin-bottom:6px" oninput="evDraftChanged()">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+          <input class="popup-input" type="text" id="ev-btn-tg" placeholder="Ссылка для Telegram (пусто — в приложение на эфир)" style="flex:1;min-width:160px;margin:0" oninput="evDraftChanged()">
+          <input class="popup-input" type="text" id="ev-btn-vk" placeholder="Ссылка для ВК (пусто — мини-апп ВК на эфир)" style="flex:1;min-width:160px;margin:0" oninput="evDraftChanged()">
+        </div>
+        <div class="pay-meta" style="margin:0 2px 8px">Одна кнопка во всех постах и в боте. Куда ведёт — решает приложение по времени: до старта «скоро» с напоминанием, во время — эфир, после — запись; гостю — «Открыть доступ».</div>
         <label class="pay-item" style="cursor:pointer;margin-bottom:8px" id="ev-free-row">
           <input type="checkbox" id="live-free-part" checked style="flex-shrink:0" onchange="evDraftChanged()">
           <div style="flex:1;min-width:0">
@@ -2432,6 +2439,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <option value="vk_chat">ВКонтакте — беседа</option>
         <option value="vk_channel">ВКонтакте — канал сообщества</option>
         <option value="salebot_list">Бот — подписчики списка (Telegram и ВК разом)</option>
+        <option value="salebot_free">Бот-продажник — бесплатные подписчики с исключениями</option>
       </select>
       <input class="popup-input" type="text" id="target-address" placeholder="Адрес" style="margin-bottom:6px">
       <div class="pay-meta" id="target-hint" style="margin:-2px 2px 6px"></div>
@@ -6694,7 +6702,13 @@ function evDraftFields(){
     meet_link: (document.getElementById('ev-meet-link') || {}).value || '',
     meet_label: (document.getElementById('ev-meet-label') || {}).value || '',
     points: parseInt((document.getElementById('ev-points') || {}).value || '0', 10) || 0,
-    free_part: !!((document.getElementById('live-free-part') || {}).checked)
+    free_part: !!((document.getElementById('live-free-part') || {}).checked),
+    btn_text: (document.getElementById('ev-btn-text') || {}).value || '',
+    btn_link_tg: (document.getElementById('ev-btn-tg') || {}).value || '',
+    btn_link_vk: (document.getElementById('ev-btn-vk') || {}).value || '',
+    /* отчёт анонса, сделанного до старта, живёт в этом же документе — не затираем */
+    announce_log: (evDraft && evDraft.announce_log) || undefined,
+    announced_at: (evDraft && evDraft.announced_at) || undefined
   };
 }
 function evDraftApply(d){
@@ -6704,6 +6718,7 @@ function evDraftApply(d){
   set('live-admin-title', evDraft.title || ''); set('live-admin-desc', evDraft.desc || '');
   set('ev-meet-link', evDraft.meet_link || ''); set('ev-meet-label', evDraft.meet_label || '');
   set('ev-points', evDraft.points || 0);
+  set('ev-btn-text', evDraft.btn_text || ''); set('ev-btn-tg', evDraft.btn_link_tg || ''); set('ev-btn-vk', evDraft.btn_link_vk || '');
   const fp = document.getElementById('live-free-part'); if (fp) fp.checked = evDraft.free_part !== false;
   evKindApply();
 }
@@ -7383,7 +7398,8 @@ async function deleteAttrSource(id){
    что именно уйдёт. */
 const TARGET_METHOD_LABELS = {
   tg_channel: 'Telegram', vk_wall: 'стена ВК', vk_chat: 'беседа ВК', vk_channel: 'канал ВК',
-  salebot_list: 'подписчики бота'
+  salebot_list: 'подписчики бота',
+  salebot_free: 'бесплатники продажника'
 };
 const TARGET_LINK_LABELS = {
   app: 'диплинк в приложение', vk: 'трансляция ВК', none: 'без ссылки'
@@ -7482,7 +7498,7 @@ async function announcePreview(){
     return '<div style="margin:8px 0;padding:8px;border-radius:10px;background:rgba(127,127,127,.08)">'
       + '<div class="pay-name">' + escapeHtmlAdm(i.name) + '</div>'
       + '<div style="white-space:pre-wrap;font-size:12px;margin:4px 0">' + escapeHtmlAdm(i.text) + '</div>'
-      + '<div class="pay-meta">Ссылка: ' + escapeHtmlAdm(i.link || '— нет —') + '</div></div>';
+      + '<div class="pay-meta">' + (i.button ? 'Кнопка «' + escapeHtmlAdm(i.button) + '» → ' : 'Ссылка: ') + escapeHtmlAdm(i.link || '— нет —') + '</div></div>';
   }).join('');
 }
 
@@ -7550,7 +7566,8 @@ function renderTargetHint(){
     vk_wall: 'Адрес — номер сообщества БЕЗ минуса, например 232119632. Минус подставится сам.',
     vk_chat: 'Адрес беседы — число из ссылки vk.ru/im/convo/2000000180, то есть 2000000180.',
     vk_channel: 'Адрес канала — число из ссылки vk.ru/im/channels/-237934122, вместе с минусом. Поддержка каналов в API не подтверждена: проверь кнопкой «Проверить» до эфира.',
-    salebot_list: 'Адрес — номер списка Salebot, например 2100153 («Уведомления о живых занятиях»). Уходит подписчикам бота СРАЗУ в Telegram и ВК, с кнопками. Ссылки подставляются сами: на трансляцию ВК и в приложение.'
+    salebot_list: 'Адрес — номер списка Salebot, например 2100153 («Уведомления о живых занятиях»). Уходит подписчикам бота СРАЗУ в Telegram и ВК, с кнопками. Ссылки подставляются сами: на трансляцию ВК и в приложение.',
+    salebot_free: 'Адрес — четыре поля через точку с запятой: list=номер списка рассылки; exclude=номера списков-исключений через запятую (в клубе, бан, не слать, остановлены дожимные); bot=имя бота в Salebot; key=имя переменной окружения с API-ключом проекта (например SALEBOT_FREE_1_API_KEY). В проекте продажника нужен блок с условием старта html_relay_buttons. Участники клуба по нашей базе исключаются сами.',
   };
   document.getElementById('target-hint').textContent = hints[m] || '';
 }
@@ -10137,6 +10154,7 @@ const NUDGE_KIND_LABELS = {
   film_stuck: 'Третий перенос фильма — больше не уговариваем',
   register: 'Участник не зашёл в канал',
   app_broken: 'Приложение не открылось в Telegram (участник) — зовём продолжить в боте',
+  live_soon: 'Напоминание об эфире за 15 минут (по кнопке «Напомнить» в окне «скоро»)',
 };
 /* ⚠️ Общая цепочка называется пустой строкой kind — так её хранит сервер */
 const NUDGE_CHAIN_KIND_LABELS = Object.assign({ '': 'Общая — для всех, у кого нет своей' }, NUDGE_KIND_LABELS);
