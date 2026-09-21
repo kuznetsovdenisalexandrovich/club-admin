@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v116 -->
+<!-- FILE_VERSION: admin-v117 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -6758,10 +6758,12 @@ function evRenderAnnounceHint(){
     if (btn) btn.disabled = true;
     return;
   }
-  if (btn) btn.disabled = !active;
+  if (btn) btn.disabled = false;
+  const ann = evDraft && evDraft.announced_at ? ' Уже разослан: ' + evDraft.announced_at + '.' : '';
   el.textContent = active
-    ? 'Эфир идёт — анонс уйдёт в площадки с живыми ссылками на трансляции.'
-    : 'Анонс собирает ссылки на трансляции ВК, поэтому уходит ПОСЛЕ старта (этап 2). Сначала «Начать эфир», потом сюда.';
+    ? 'Эфир идёт — анонс уйдёт с живыми ссылками на трансляции ВК.'
+    : 'Эфир ещё не идёт — анонс уйдёт с названием и текстом из этапа 0 и ссылками в приложение (ссылок на трансляции ВК до старта нет).' + ann;
+  renderAnnounceTargets();
 }
 /* ── 1 · встреча без эфира: кампания «просто встреча» + рассылка ── */
 async function evSendMeetup(){
@@ -7424,16 +7426,31 @@ function renderAnnounceTargets(){
     box.innerHTML = '<div class="pay-meta" style="color:#e8614a">Все площадки выключены — звать некого. Включи нужные в настройках площадок.</div>';
     return;
   }
-  box.innerHTML = '<div class="pay-meta">Уйдёт в ' + act.length + ' мест: '
-    + act.map(function(t){
-        return escapeHtmlAdm(t.name)
-          + (t.last_error ? ' <span style="color:#e8614a">(прошлый раз: ' + escapeHtmlAdm(t.last_error.slice(0, 50)) + ')</span>' : '');
-      }).join(' · ')
-    + '</div>'
-    + '<div class="pay-meta" style="margin-top:2px">Состав меняется кнопкой «Настроить площадки».</div>';
+  /* v117: ГАЛОЧКИ ВЕРНУЛИСЬ, но с готовым ответом. Состав по умолчанию решает
+     черновик этапа 0: «с бесплатной частью» — отмечены и открытые площадки
+     (бесплатный канал ТГ, открытая группа ВК), иначе только закрытые и бот.
+     Открытость площадки угадываем по имени/ключу — справочник своего признака
+     не имеет */
+  const freePart = !evDraft || evDraft.free_part !== false;
+  box.innerHTML = act.map(function(t){
+    const open = evTargetIsOpen(t);
+    const on = open ? freePart : true;
+    return '<label class="pay-item" style="cursor:pointer"><input type="checkbox" class="ann-t" value="' + t.id + '"' + (on ? ' checked' : '') + ' style="flex-shrink:0">'
+      + '<div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(t.name) + (open ? ' <span class="badge">открытая</span>' : '') + '</div>'
+      + '<div class="pay-meta">' + escapeHtmlAdm(t.method)
+      + (t.last_error ? ' · <span style="color:#e8614a">прошлый раз: ' + escapeHtmlAdm(t.last_error.slice(0, 50)) + '</span>' : '') + '</div></div></label>';
+  }).join('')
+    + '<div class="pay-meta" style="margin-top:4px">Открытые отмечены, когда в черновике стоит «с бесплатной частью». Состав справочника — кнопкой «Настроить площадки».</div>';
+}
+function evTargetIsOpen(t){
+  const s = ((t.name || '') + ' ' + (t.key || '')).toLowerCase();
+  if (/закрыт|closed|private|подписчик|salebot|бот/.test(s)) return false;
+  return /открыт|open|бесплат|free|public/.test(s);
 }
 
 function checkedTargetIds(){
+  const boxes = document.querySelectorAll('.ann-t');
+  if (boxes.length) return Array.prototype.slice.call(boxes).filter(function(b){ return b.checked; }).map(function(b){ return Number(b.value); });
   return activeTargets().map(function(t){ return Number(t.id); });
 }
 
@@ -7472,7 +7489,8 @@ async function announcePreview(){
 async function announceSend(){
   const ids = checkedTargetIds();
   if (!ids.length){ document.getElementById('live-announce-out').textContent = 'Все площадки выключены — включи нужные в настройках площадок.'; return; }
-  if (!confirm('Позвать людей в ' + ids.length + ' мест? Отозвать посты будет нельзя.')) return;
+  const active = !!(liveAdminState && liveAdminState.active);
+  if (!confirm('Позвать людей в ' + ids.length + ' мест' + (active ? '' : ' (эфир ещё не идёт — уйдёт анонс из черновика)') + '? Отозвать посты будет нельзя.')) return;
   const d = await announceCall(false);
   if (!d) return;
   document.getElementById('live-announce-out').innerHTML =
@@ -7483,6 +7501,7 @@ async function announceSend(){
                                                      : escapeHtmlAdm(x.error || 'ошибка')) + '</div>';
       }).join('');
   loadTargets();
+  evDraftLoad().then(function(){ evRenderAnnounceHint(); });
 }
 
 /* ── Справочник площадок ─────────────────────────────────────────────── */
