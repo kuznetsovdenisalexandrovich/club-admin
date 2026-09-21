@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v112 -->
+<!-- FILE_VERSION: admin-v113 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2987,20 +2987,33 @@ try { ADMIN_TOKEN = sessionStorage.getItem(ADMIN_TOKEN_KEY) || ''; } catch(e) {}
     const r = await исходный.apply(this, arguments);
     try {
       const адрес = typeof url === 'string' ? url : (url && url.url) || '';
-      if (r.status === 403 && адрес.indexOf('x_admin_token=') >= 0) adminTokenExpired();
+      /* v113: игры шлют ключ в теле JSON, а не в адресе — 403 там тоже наш */
+      const вТеле = !!(opts && typeof opts.body === 'string' && opts.body.indexOf('x_admin_token') >= 0);
+      if (r.status === 403 && (адрес.indexOf('x_admin_token=') >= 0 || вТеле)) adminTokenExpired();
     } catch(e) {}
     return r;
   };
 })();
 
+/* v113: ответ сервера как данные ТОЛЬКО при r.ok — иначе {detail} от 403/500
+   читался как пустой список, и главная показывала «вопросов нет / тихо» */
+async function admJson(url, opts){
+  const r = await fetch(url, opts);
+  const d = await r.json().catch(function(){ return {}; });
+  if (!r.ok) throw new Error((d && d.detail) || ('сервер ответил ' + r.status));
+  return d;
+}
 function adminTokenExpired(){
   ADMIN_TOKEN = '';
   try { sessionStorage.removeItem(ADMIN_TOKEN_KEY); } catch(e) {}
+  /* v113: опросы с пустым ключом иначе бьют в сервер до таймаута */
+  try { if (typeof resetViewButton === 'function') resetViewButton(); } catch(e) {}
+  try { if (typeof stopChatAdminPoll === 'function') stopChatAdminPoll(); } catch(e) {}
   const scr = document.getElementById('pin-screen');
   if (!scr || !scr.classList.contains('hidden')) return;   // уже показан — не дёргаем
   scr.classList.remove('hidden');
   const err = document.getElementById('pin-error');
-  if (err) err.textContent = 'Ключ вкладки истёк — введи PIN заново';
+  if (err) err.textContent = 'Ключ вкладки истёк — введи PIN заново и повтори последнее действие';
 }
 let allUsers=[], allPayments=[], revenueChart=null, currentPeriod='month', currentUser=null, pendingAction=null;
 
@@ -3046,17 +3059,18 @@ async function loadAll(){
 async function loadQuestions(){
   const el=document.getElementById('questions-list');
   try{
-    const rows=await fetch(API+'/questions?x_admin_token='+ADMIN_TOKEN).then(r=>r.json());
+    const rows=await admJson(API+'/questions?x_admin_token='+ADMIN_TOKEN);
     if(!rows.length){ el.innerHTML='<div class="empty">Пока нет вопросов</div>'; return; }
     el.innerHTML=rows.map(q=>{
-      const d=new Date(q.created_at);
-      const date=d.toLocaleDateString('ru',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
-      const who=q.name||('id '+q.telegram_id);
+      const d=admUtcDate(q.created_at)||new Date(NaN);
+      const date=isNaN(d)?'—':(d.toLocaleDateString('ru',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}));
+      const who=escapeHtmlAdm(q.name||('id '+q.telegram_id));
+      /* v113: имя и текст — от участника, вставлялись сырыми (XSS) */
       return `<div class="pay-item" style="align-items:flex-start">
         <div class="pay-info">
           <div class="pay-name">${who}</div>
           <div class="pay-meta">${date}</div>
-          <div style="font-size:13px;margin-top:6px;white-space:pre-wrap">${q.text}</div>
+          <div style="font-size:13px;margin-top:6px;white-space:pre-wrap">${escapeHtmlAdm(q.text)}</div>
         </div>
         <button class="action-btn" style="flex-shrink:0" onclick="resolveQuestion(${q.id})">Готово</button>
       </div>`;
@@ -3308,17 +3322,17 @@ async function loadRegistrationReport(){
 async function loadSupport(){
   const el = document.getElementById('support-list');
   try{
-    const rows = await fetch(API+'/support?x_admin_token='+ADMIN_TOKEN).then(r=>r.json());
+    const rows = await admJson(API+'/support?x_admin_token='+ADMIN_TOKEN);
     if(!rows.length){ el.innerHTML='<div class="empty">Пока тихо</div>'; return; }
     supportRows = rows;
     el.innerHTML = rows.map(q=>`
       <div class="pay-item">
         <div class="pay-info">
-          <div class="pay-name">${q.name||'—'} <span style="color:var(--text-dim);font-weight:400">· ${q.telegram_id||'—'}</span>
+          <div class="pay-name">${escapeHtmlAdm(q.name||'—')} <span style="color:var(--text-dim);font-weight:400">· ${escapeHtmlAdm(q.telegram_id||'—')}</span>
             ${q.lite?'<span class="badge badge-act">щадящий</span>':''}
             ${q.replied_at?'<span class="badge">отвечено</span>':''}</div>
-          <div class="pay-meta" style="white-space:pre-wrap">${q.text}</div>
-          ${q.reply?`<div class="pay-meta" style="white-space:pre-wrap;opacity:.7;margin-top:6px">→ ${q.reply}</div>`:''}
+          <div class="pay-meta" style="white-space:pre-wrap">${escapeHtmlAdm(q.text)}</div>
+          ${q.reply?`<div class="pay-meta" style="white-space:pre-wrap;opacity:.7;margin-top:6px">→ ${escapeHtmlAdm(q.reply)}</div>`:''}
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0">
           <button class="action-btn primary" onclick="openSupportReply(${q.id})">Ответить</button>
@@ -3424,7 +3438,7 @@ async function resolveSupport(id){
 async function loadRewardRequests(){
   const el = document.getElementById('rewards-list');
   try{
-    const rows = await fetch(API+'/rewards/requests?x_admin_token='+ADMIN_TOKEN).then(r=>r.json());
+    const rows = await admJson(API+'/rewards/requests?x_admin_token='+ADMIN_TOKEN);
     if(!rows.length){ el.innerHTML='<div class="empty">Заявок нет</div>'; return; }
     el.innerHTML = rows.map(q=>`
       <div class="pay-item">
@@ -3628,7 +3642,12 @@ let paymentsPage = 1;
 
 async function loadUsers(){
   try{
-    allUsers=await fetch(API+'/users/list?limit=500').then(r=>r.json());
+    /* v113: 500 не хватало — каждый гость приложения теперь строка в users,
+       старые участники выпадали из списка и поиска. Сервер (v310) отдаёт до 5000 */
+    const rU = await fetch(API+'/users/list?limit=5000');
+    const dU = await rU.json();
+    if (!rU.ok || !Array.isArray(dU)) throw new Error((dU && dU.detail) || ('сервер ответил ' + rU.status));
+    allUsers = dU;
     document.getElementById('stat-members').textContent=allUsers.filter(u=>u.is_member).length;
     filterUsers();
   }catch(e){ document.getElementById('users-list').innerHTML='<div class="empty">Ошибка загрузки</div>'; }
@@ -3672,10 +3691,10 @@ function renderUsersList(){
   if(usersPage<1) usersPage=1;
   const pageItems=users.slice((usersPage-1)*PAGE_SIZE, usersPage*PAGE_SIZE);
   el.innerHTML=pageItems.map(u=>{
-    const name=u.full_name||u.name||'—';
-    const sub=u.username||u.email||u.phone||'—';
+    const name=escapeHtmlAdm(u.full_name||u.name||'—');
+    const sub=escapeHtmlAdm(u.username||u.email||u.phone||'—');
     const total=u.total_revenue||0;
-    const frozen=!!u.frozen_until;
+    const frozen=admFrozenActive(u.frozen_until);   // v113: пауза уже прошла — не «навсегда ❄»
     const cancelled=(u.sub_status||'')==='cancelled';
     const flagged=!!u.flagged;
     const stuckHard=!!u.stuck_hard;
@@ -3687,8 +3706,8 @@ function renderUsersList(){
     return `<div class="list-item${itemClass}" onclick="openPopup(${u.id})">
       <div class="avatar">${avatarMark}</div>
       <div class="item-info">
-        <div class="item-name">${name}${cancelled?' <span class="badge badge-err">остановлена</span>':''}${flagged?' <span class="badge badge-warn" title="'+u.flag_reason+'">⚠ часто пользуется</span>':''}${regNote}</div>
-        <div class="item-sub">${frozen?('пауза до '+u.frozen_until):sub}</div>
+        <div class="item-name">${name}${cancelled?' <span class="badge badge-err">остановлена</span>':''}${flagged?' <span class="badge badge-warn" title="'+setEsc(u.flag_reason)+'">⚠ часто пользуется</span>':''}${regNote}</div>
+        <div class="item-sub">${frozen?('пауза до '+escapeHtmlAdm(u.frozen_until)):sub}</div>
       </div>
       <div class="item-right">
         <div class="item-val">${total>0?fmt(total):''}</div>
@@ -3707,8 +3726,8 @@ async function loadPayments(){
     allPayments=await fetch(API+'/payments?limit=500').then(r=>r.json());
     const now=new Date(),from=new Date();
     from.setDate(now.getDate()-30);
-    document.getElementById('date-to').value=now.toISOString().slice(0,10);
-    document.getElementById('date-from').value=from.toISOString().slice(0,10);
+    document.getElementById('date-to').value=admLocalYmd(now);
+    document.getElementById('date-from').value=admLocalYmd(from);
     filterPayments();
     drawChart();
   }catch(e){ document.getElementById('payments-list').innerHTML='<div class="empty">Ошибка загрузки</div>'; }
@@ -3826,8 +3845,8 @@ function renderCampaigns(campaigns){
     sent:'<span class="badge badge-ok">завершена</span>',
   };
   el.innerHTML=campaigns.map(c=>{
-    const d=new Date(c.created_at);
-    const date=d.toLocaleDateString('ru',{day:'2-digit',month:'short'});
+    const d=admUtcDate(c.created_at)||new Date(NaN);
+    const date=isNaN(d)?'—':d.toLocaleDateString('ru',{day:'2-digit',month:'short'});
     let actions='';
 
     if(c.flow==='lecture'){
@@ -3835,16 +3854,16 @@ function renderCampaigns(campaigns){
         actions=`<button class="action-btn success" onclick="announceCampaign(${c.id})">Отправить анонс</button>`;
       } else if(c.status==='announced'){
         actions=`
-          <input class="popup-input" type="text" id="vk-input-${c.id}" placeholder="Ссылка на эфир в ВК..." value="${c.vk_stream_link||''}" style="margin-bottom:0">
-          <textarea class="popup-input" id="live-text-${c.id}" rows="2" placeholder="Текст 'эфир начался'..." style="margin-bottom:0;resize:vertical">${c.live_text||''}</textarea>
+          <input class="popup-input" type="text" id="vk-input-${c.id}" placeholder="Ссылка на эфир в ВК..." value="${setEsc(c.vk_stream_link||'')}" style="margin-bottom:0">
+          <textarea class="popup-input" id="live-text-${c.id}" rows="2" placeholder="Текст 'эфир начался'..." style="margin-bottom:0;resize:vertical">${escapeHtmlAdm(c.live_text||'')}</textarea>
           <button class="action-btn primary" onclick="startLiveCampaign(${c.id})">Начать эфир</button>`;
       } else if(c.status==='live_started'){
         actions=`
-          <input class="popup-input" type="text" id="link-input-${c.id}" placeholder="Ссылка на телемост (практика)..." value="${c.meeting_link||''}" style="margin-bottom:0">
+          <input class="popup-input" type="text" id="link-input-${c.id}" placeholder="Ссылка на телемост (практика)..." value="${setEsc(c.meeting_link||'')}" style="margin-bottom:0">
           <button class="action-btn primary" onclick="sendCampaignLink(${c.id})">Отправить ссылку на практику</button>`;
       } else {
         actions=`
-          <div class="pay-meta">Ссылка на практику отправлена: ${c.meeting_link}</div>
+          <div class="pay-meta">Ссылка на практику отправлена: ${escapeHtmlAdm(c.meeting_link)}</div>
           ${c.returned_to_menu?'':'<button class="action-btn" onclick="returnCampaignToMenu('+c.id+')">Вернуть всех в меню</button>'}`;
       }
     } else if(c.flow==='meetup'){
@@ -4163,14 +4182,14 @@ function openPopup(uid){
   document.getElementById('popup-rows').innerHTML=[
     ['Телефон',u.phone||'—'],
     ['Email',u.email||'—'],
-    ['Telegram', idCell(u.telegram_id, u.username ? 'https://t.me/'+String(u.username).replace(/^@/,'') : '',
-                        u.username ? '@'+String(u.username).replace(/^@/,'') : '')],
+    ['Telegram', idCell(u.telegram_id, u.username ? 'https://t.me/'+encodeURIComponent(String(u.username).replace(/^@/,'')) : '',
+                        u.username ? '@'+escapeHtmlAdm(String(u.username).replace(/^@/,'')) : '')],
     ['ВКонтакте', idCell(u.vk_id, u.vk_id ? 'https://vk.ru/id'+u.vk_id : '', u.vk_id ? 'профиль' : '')],
     ['Тариф',u.sub_name||'—'],
     ['Баллы',`<b>${u.points||0}</b>`],
     ['Следующий платёж',u.next_payment_date||'—'],
-    ...(u.frozen_until?[['Заморожен до',`<span class="badge badge-err">${u.frozen_until}</span>`]]:[]),
-    ...(u.flagged?[['Внимание',`<span class="badge badge-warn">${u.flag_reason}</span>`]]:[]),
+    ...(admFrozenActive(u.frozen_until)?[['Заморожен до',`<span class="badge badge-err">${escapeHtmlAdm(u.frozen_until)}</span>`]]:[]),
+    ...(u.flagged?[['Внимание',`<span class="badge badge-warn">${escapeHtmlAdm(u.flag_reason)}</span>`]]:[]),
     ['Скидок получено', String(u.discount_count||0)],
     ['Возвратов подписки', String(u.reactivate_count||0)],
     ['Дешёвых платежей', String(u.cheap_payment_count||0)],
@@ -4234,7 +4253,7 @@ async function loadJourney(telegramId){
     const d = await r.json();
     currentJourney = d;
     const ref = d.referrer
-      ? (d.referrer.name + (d.referrer.telegram_id ? ' · ' + d.referrer.telegram_id : '')
+      ? (escapeHtmlAdm(d.referrer.name) + (d.referrer.telegram_id ? ' · ' + d.referrer.telegram_id : '')
          + (d.referrer.is_member ? '' : ' <span class="journey-label">(не участник)</span>'))
       : 'сам по себе';
     box.innerHTML =
@@ -4390,7 +4409,7 @@ function searchBulkPointsCandidates(){
   ).slice(0, 8);
   el.innerHTML = matches.map(u => `
     <div class="pay-item" style="cursor:pointer" onclick="addBulkPointsRecipient(${u.id})">
-      <div class="pay-info"><div class="pay-name">${u.full_name||u.name||'—'}</div><div class="pay-meta">${u.phone||u.username||''}</div></div>
+      <div class="pay-info"><div class="pay-name">${escapeHtmlAdm(u.full_name||u.name||'—')}</div><div class="pay-meta">${escapeHtmlAdm(u.phone||u.username||'')}</div></div>
     </div>`).join('') || '<div class="empty" style="padding:10px">Никого не нашлось</div>';
 }
 
@@ -4413,13 +4432,15 @@ function renderBulkPointsRecipients(){
   if (!bulkPointsRecipients.length){ el.innerHTML = '<div class="empty">Пока никого не добавил(а)</div>'; return; }
   el.innerHTML = bulkPointsRecipients.map(r => `
     <div class="pay-item">
-      <div class="pay-info"><div class="pay-name">${r.name}</div></div>
+      <div class="pay-info"><div class="pay-name">${escapeHtmlAdm(r.name)}</div></div>
       <button class="action-btn danger" onclick="removeBulkPointsRecipient(${r.user_id})">✕</button>
     </div>`).join('');
 }
 
 async function submitBulkPoints(){
   if (!bulkPointsRecipients.length){ alert('Сначала добавь хотя бы одного участника'); return; }
+  if (pointsBusy) return;
+  pointsBusy = true;
   const amount = parseInt(document.getElementById('bulk-points-slider').value, 10);
   const category = document.getElementById('bulk-points-category').value;
   try{
@@ -4433,6 +4454,7 @@ async function submitBulkPoints(){
     alert(`Начислено ${amount} баллов ${d.granted_to.length} участникам`);
     await loadUsers();
   }catch(e){ alert(e.message || 'Не получилось'); }
+  finally { pointsBusy = false; }
 }
 
 /* ── Настроить уровни ──────────────────────────────────────────────────────── */
@@ -4703,8 +4725,11 @@ function updatePointsPopup(){
   document.getElementById('points-popup-value').textContent = document.getElementById('points-slider').value;
 }
 
+let pointsBusy = false;   // v113: два быстрых тапа = два начисления
 async function submitPoints(){
   if(!currentUser || !currentUser.telegram_id){ alert('У карточки нет telegram_id'); return; }
+  if (pointsBusy) return;
+  pointsBusy = true;
   const delta = parseInt(document.getElementById('points-slider').value, 10);
   const reason = document.getElementById('points-reason').value.trim();
   try{
@@ -4719,6 +4744,7 @@ async function submitPoints(){
     await loadUsers();
     loadActivity(currentUser.telegram_id);
   }catch(e){ alert(e.message || 'Не получилось'); }
+  finally { pointsBusy = false; }
 }
 
 /* ── Удаление карточки ── */
@@ -4768,7 +4794,7 @@ function renderActivity(items){
   const el = document.getElementById('popup-payments');
   if(!items.length){ el.innerHTML='<div class="empty">Пока ничего не происходило</div>'; return; }
   el.innerHTML = items.map(it=>{
-    const d = it.at ? new Date(it.at) : null;
+    const d = admUtcDate(it.at);
     const date = d ? d.toLocaleDateString('ru',{day:'2-digit',month:'short',year:'2-digit'}) : '—';
     if(it.type === 'payment'){
       const kind = PAYMENT_KIND_LABELS[it.kind] || '';
@@ -4827,8 +4853,8 @@ function diagChip(label, ok){
 
 function diagDate(iso){
   if(!iso) return '—';
-  const d = new Date(iso);
-  return isNaN(d) ? '—' : d.toLocaleDateString('ru',{day:'2-digit',month:'short',year:'2-digit'});
+  const d = admUtcDate(iso);
+  return !d ? '—' : d.toLocaleDateString('ru',{day:'2-digit',month:'short',year:'2-digit'});
 }
 
 async function loadSnapshot(telegramId){
@@ -6790,10 +6816,12 @@ async function loadFunnelThresholds(){
   try{
     const r = await fetch(API + '/settings');
     const d = await r.json();
-    document.getElementById('fx-enabled').checked = (d.funnel_confuse_enabled === '1');
+    /* v113: булево от сервера; иначе чекбокс всегда снят и «Сохранить пороги» выключал детектор */
+    document.getElementById('fx-enabled').checked = (d.funnel_confuse_enabled === true || d.funnel_confuse_enabled === '1');
     Object.keys(FX_FIELDS).forEach(function(id){
       const el = document.getElementById(id);
-      if (el) el.value = d[FX_FIELDS[id]] || '';
+      const v = d[FX_FIELDS[id]];
+      if (el) el.value = (v === true ? '1' : (v === false ? '0' : (v == null ? '' : v)));
     });
   }catch(e){}
 }
@@ -7443,6 +7471,30 @@ function stopChatAdminPoll(){
 
 function escapeHtmlAdm(v){
   return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+/* v113: сервер отдаёт время как naive-UTC без «Z» (`isoformat()` от utcnow) —
+   браузер считал его местным и показывал на 3 часа раньше. Дописываем зону */
+function admUtcDate(s){
+  if (!s) return null;
+  let v = String(s);
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v) && !/(Z|[+-]\d{2}:?\d{2})$/.test(v)) v += 'Z';
+  const d = new Date(v);
+  return isNaN(d) ? null : d;
+}
+/* v113: сервер не очищает frozen_until — сравниваем с сегодняшним днём.
+   Дата приходит как dd.mm.yyyy или yyyy-mm-dd */
+function admFrozenActive(s){
+  if (!s) return false;
+  const v = String(s).trim();
+  let m = v.match(/^(\d{2})\.(\d{2})\.(\d{4})/), d = null;
+  if (m) d = new Date(+m[3], +m[2]-1, +m[1], 23, 59, 59);
+  else { m = v.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) d = new Date(+m[1], +m[2]-1, +m[3], 23, 59, 59); }
+  return d ? d.getTime() >= Date.now() : true;
+}
+/* v113: местная дата yyyy-mm-dd (toISOString давала дату по UTC — после
+   полуночи по Москве фильтр платежей «до» был вчерашним) */
+function admLocalYmd(d){
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
 
 async function chatHide(id, on){
@@ -8241,11 +8293,17 @@ async function saveUserPatch(){
   const revenue=parseFloat(document.getElementById('popup-input-revenue').value)||0;
   const notes=document.getElementById('popup-input-notes').value;
   try{
-    await fetch(API+'/users/'+currentUser.telegram_id+'?x_admin_token='+ADMIN_TOKEN,{
+    /* v113: у ручных клиентов и карточек без Telegram адрес был /users/null → 422,
+       заметка молча терялась. Такие правим по id карточки (main-v310) */
+    const адрес = currentUser.telegram_id
+      ? API+'/users/'+currentUser.telegram_id+'?x_admin_token='+ADMIN_TOKEN
+      : API+'/users/by-id/'+currentUser.id+'?x_admin_token='+ADMIN_TOKEN;
+    const rN = await fetch(адрес,{
       method:'PATCH',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({manual_revenue:revenue,notes})
     });
+    if (!rN.ok){ const dN = await rN.json().catch(()=>({})); throw new Error(dN.detail || ('сервер ответил ' + rN.status)); }
     document.getElementById('popup-overlay').classList.remove('open');
     await loadUsers();
   }catch(e){alert('Ошибка сохранения');}
@@ -9215,7 +9273,8 @@ async function loadCardsMasterSwitch(){
   const el = document.getElementById('cards-master-switch');
   try {
     const st = await fetch(API+'/settings').then(r=>r.json());
-    const on = String(st.cards_enabled) === '1';
+    /* v113: /settings отдаёт «1»/«0» уже как true/false — сравнение со строкой держало тумблер вечно выключенным */
+    const on = st.cards_enabled === true || String(st.cards_enabled) === '1';
     el.innerHTML =
       '<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;cursor:pointer">'
       + '<input type="checkbox" id="cards-enabled-cb" ' + (on?'checked':'') + ' onchange="toggleCardsEnabled(this.checked)">'
@@ -9229,7 +9288,7 @@ async function toggleCardsEnabled(on){
   try {
     await fetch(API+'/settings?x_admin_token='+ADMIN_TOKEN, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ key:'cards_enabled', value: on ? '1' : '0' })
+      body: JSON.stringify({ cards_enabled: !!on })   /* v113: сервер ждёт {ключ: значение}, а не {key, value} */
     });
   } catch(e){ alert('Не удалось сохранить'); }
 }
@@ -9713,6 +9772,7 @@ const NUDGE_KIND_LABELS = {
   lecture: 'Посмотрел бесплатную лекцию и не купил',
   film_stuck: 'Третий перенос фильма — больше не уговариваем',
   register: 'Участник не зашёл в канал',
+  app_broken: 'Приложение не открылось в Telegram (участник) — зовём продолжить в боте',
 };
 /* ⚠️ Общая цепочка называется пустой строкой kind — так её хранит сервер */
 const NUDGE_CHAIN_KIND_LABELS = Object.assign({ '': 'Общая — для всех, у кого нет своей' }, NUDGE_KIND_LABELS);
@@ -9736,20 +9796,27 @@ async function nudgeLoadTargets(){
     const r = await fetch(API + '/admin/link-config?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
     if (r.ok){
       const d = await r.json();
-      ключи = (d.routes || []).map(function(x){ return x.key; }).filter(Boolean);
+      /* v113: маршруты С ПАРАМЕТРОМ (l, la, bonus, mag, g…) сами по себе
+         мёртвые — «bonus» без хвоста апп не поймёт и откроет главную. Их
+         пишут «Своей строкой» (l_ключ). Платные помечаем: дожимы ситуаций
+         идут неоплатившим, и кнопка привела бы гостя в пейвол */
+      ключи = (d.routes || []).filter(function(x){ return x.key && !x.param; })
+        .map(function(x){ return { key: x.key, guests: x.guests !== false }; });
     }
   } catch(e){ /* сервер молчит — обойдёмся именами из своего списка */ }
-  if (!ключи.length) ключи = Object.keys(имена);
-  NUDGE_TARGETS = ключи.map(function(k){ return { key: k, title: имена[k] || k }; });
+  if (!ключи.length) ключи = Object.keys(имена).map(function(k){ return { key: k, guests: true }; });
+  NUDGE_TARGETS = ключи.map(function(x){ return { key: x.key, guests: x.guests, title: (имена[x.key] || x.key) + (x.guests ? '' : ' — только участникам') }; });
 }
 
 function nudgeTargetFieldHtml(prefix, id, value){
   const v = String(value || '');
   const список = NUDGE_TARGETS || [];
   const известен = !v || список.some(function(t){ return t.key === v; });
-  let opts = '<option value=""' + (v ? '' : ' selected') + '>Главная приложения</option>';
+  /* v113: у ситуации «приложение не открылось» пустое назначение — переписка с ботом, а не главная */
+  const пусто = (prefix === 'ns' && String(id) === 'app_broken') ? 'Переписка с ботом (по умолчанию)' : 'Главная приложения';
+  let opts = '<option value=""' + (v ? '' : ' selected') + '>' + пусто + '</option>';
   список.forEach(function(t){
-    opts += '<option value="' + t.key + '"' + (t.key === v ? ' selected' : '') + '>' + t.title + '</option>';
+    opts += '<option value="' + t.key + '"' + (t.key === v ? ' selected' : '') + '>' + escapeHtmlAdm(t.title) + '</option>';
   });
   opts += '<option value="__own__"' + (известен ? '' : ' selected') + '>Своя строка или полный адрес</option>';
   const поле = 'padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px';
@@ -9895,6 +9962,10 @@ function nudgeScenarioEditorHtml(s){
     thresholdFields = '<div style="display:flex;gap:8px;flex-wrap:wrap">'
       + fld('Ждать после вступления и между повторами, минут','idle_minutes',s.idle_minutes,'number')
     + '</div>';
+  } else if (s.kind === 'app_broken'){
+    thresholdFields = '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + fld('Сколько минут ждать открытия приложения после кнопки в боте','idle_minutes',s.idle_minutes,'number')
+    + '</div>';
   }
 
   return '<div style="padding:0 16px 16px;border-top:1px solid var(--border)">'
@@ -9908,7 +9979,7 @@ function nudgeScenarioEditorHtml(s){
       + fld('Заголовок сообщения','title',s.title)
       + '<label style="display:flex;flex-direction:column;gap:3px">'
         + '<span style="font-size:11px;color:var(--text-faint)">Текст сообщения</span>'
-        + '<textarea id="ns-body-' + s.kind + '" style="min-height:54px;padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">' + (s.body||'') + '</textarea></label>'
+        + '<textarea id="ns-body-' + s.kind + '" style="min-height:54px;padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">' + escapeHtmlAdm(s.body||'') + '</textarea></label>'
       + fld('Подпись кнопки','cta_label',s.cta_label)
       + nudgeTargetFieldHtml('ns', s.kind, s.cta_target)
       + '<button onclick="saveNudgeScenario(' + jsArg(s.kind) + ')" style="padding:9px;border-radius:9px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:600">Сохранить</button>'
@@ -9999,7 +10070,7 @@ function nudgeChainRowHtml(c){
           + '<div style="width:26px;height:26px;border-radius:50%;background:var(--surface);border:1px solid var(--border);'
             + 'display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0">' + c.order + '</div>'
           + '<div style="flex:1;min-width:0">'
-            + '<div style="font-size:14px;font-weight:500;color:var(--text)">' + (c.title||'Без заголовка') + '</div>'
+            + '<div style="font-size:14px;font-weight:500;color:var(--text)">' + escapeHtmlAdm(c.title||'Без заголовка') + '</div>'
             + '<div style="font-size:12px;color:var(--text-faint);margin-top:3px">' + nudgeChainRhythmLabel(c) + '</div>'
           + '</div>'
           + '<span style="color:var(--text-faint);font-size:16px">' + (isOpen?'▲':'▼') + '</span>'
@@ -10043,7 +10114,7 @@ function nudgeChainStepEditorHtml(c){
       + fld('Заголовок','title',c.title)
       + '<label style="display:flex;flex-direction:column;gap:3px">'
         + '<span style="font-size:11px;color:var(--text-faint)">Текст</span>'
-        + '<textarea id="nc-body-' + c.id + '" style="min-height:54px;padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">' + (c.body||'') + '</textarea></label>'
+        + '<textarea id="nc-body-' + c.id + '" style="min-height:54px;padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">' + escapeHtmlAdm(c.body||'') + '</textarea></label>'
       + fld('Подпись кнопки','cta_label',c.cta_label)
       + nudgeTargetFieldHtml('nc', c.id, c.cta_target)
       + '<div style="display:flex;gap:8px">'
@@ -10108,7 +10179,7 @@ async function loadNudgeStats(){
   const el = document.getElementById('nudges-tab-stats');
   el.innerHTML = '<div class="loading">Загрузка...</div>';
   try {
-    const s = await fetch(API+'/admin/nudges/stats?days=30&x_admin_token='+ADMIN_TOKEN).then(function(r){ return r.json(); });
+    const s = await admJson(API+'/admin/nudges/stats?days=30&x_admin_token='+ADMIN_TOKEN);
     const byKind = Object.keys(s.by_kind||{}).map(function(k){
       return '<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0">'
         + '<span>' + (NUDGE_KIND_LABELS[k]||k) + '</span><span style="color:var(--text-faint)">' + s.by_kind[k] + '</span></div>';
@@ -11807,6 +11878,7 @@ function pkSend(god, slot, dataUrl, filename, onProgress){
     xhr.onload = function(){
       var d = {};
       try { d = JSON.parse(xhr.responseText); } catch(e){}
+      if (xhr.status === 403) { try { adminTokenExpired(); } catch(e){} }   // v113: XHR идёт мимо обёртки fetch
       if (xhr.status >= 200 && xhr.status < 300) res(d);
       else rej(new Error(d.detail || ('сервер ответил ' + xhr.status)));
     };
@@ -14298,6 +14370,7 @@ function lgApplyRoutes(routes, live){
     if (a.param) {                             // параметрические не из таблицы
       if (lastGroup){ merged.push(lastGroup); lastGroup = null; }
       merged.push(a);
+      delete byKey[a.key];                     // v113: иначе bonus/pay/u/film попадали в список дважды
       return;
     }
     const live = byKey[a.key];
