@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v118 -->
+<!-- FILE_VERSION: admin-v119 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2226,8 +2226,16 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 
       <!-- ── 3 · БЕСПЛАТНАЯ ЧАСТЬ ── -->
       <div class="ev-stage" id="ev-stage-3" style="display:none">
-        <div class="pay-meta" style="margin:0 2px 8px">Гости перестанут видеть плеер и получат пейвол; открытые площадки погаснут. Позвать в клуб тех, кто был на бесплатной части, — следующий шаг (в таскборде).</div>
+        <div class="pay-meta" style="margin:0 2px 8px">Гости перестанут видеть плеер и получат пейвол; открытые площадки погаснут.</div>
+        <label class="pay-item" style="cursor:pointer;margin-bottom:8px">
+          <input type="checkbox" id="ev-invite-club" checked style="flex-shrink:0">
+          <div style="flex:1;min-width:0">
+            <div class="pay-name">Позвать в клуб</div>
+            <div class="pay-meta">Тем, кто был на этом эфире и не участник, уйдёт сообщение в бота — в Telegram и в ВК. Текст правится в «Дожимных рассылках», ситуация «Дальше — для участников клуба». Каждому один раз за эфир.</div>
+          </div>
+        </label>
         <button class="popup-save" id="live-close-free-btn" onclick="liveCloseFree()" style="margin-bottom:8px">Закрыть бесплатную часть</button>
+        <div id="ev-close-out" class="pay-meta" style="margin:0 2px 10px"></div>
       </div>
 
       <!-- ── 4 · ПРИШЕДШИЕ И БАЛЛЫ ── -->
@@ -2265,11 +2273,28 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <textarea class="popup-input" id="ev-meet-text" rows="2" placeholder="Текст сообщения. {ссылка} — куда подставить ссылку, {название} — название" style="margin-bottom:6px;resize:vertical">Практическая часть началась — подключайся: {ссылка}</textarea>
         <div id="ev-meet-targets" style="margin-bottom:6px"></div>
         <button class="popup-save" onclick="evMeetCall()">Позвать в телемост</button>
-        <div id="ev-meet-out" class="pay-meta" style="margin:6px 2px 12px"></div>
+        <div id="ev-meet-out" class="pay-meta" style="margin:6px 2px 10px"></div>
+        <div class="section-title" style="margin:10px 0 6px;font-size:13px">Ссылка под трансляцией ВК</div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:6px">
+          <label class="pay-item" style="cursor:pointer"><input type="checkbox" id="ev-vk-comment" checked style="flex-shrink:0"><div style="flex:1">Комментарием от сообщества</div></label>
+          <label class="pay-item" style="cursor:pointer"><input type="checkbox" id="ev-vk-desc" style="flex-shrink:0"><div style="flex:1">В описание трансляции</div></label>
+        </div>
+        <button class="action-btn" onclick="evVkLink()">Положить ссылку в ВК</button>
+        <div class="pay-meta" style="margin:4px 2px 0">Берёт ссылку из поля выше. Описание перезаписывается целиком: анонс эфира + ссылка. Правку ИДУЩЕЙ трансляции ВК может не дать — тогда здесь будет его ответ дословно.</div>
+        <div id="ev-vk-out" class="pay-meta" style="margin:6px 2px 12px"></div>
       </div>
 
       <!-- ── ЕЩЁ: запись, обслуживание ── -->
       <div class="ev-stage" id="ev-stage-6" style="display:none">
+        <div class="section-title" style="margin:0 0 6px;font-size:13px">Реакции под эфиром</div>
+        <input class="popup-input" type="text" id="ev-react-base" placeholder="Смайлы всем, через запятую" style="margin-bottom:6px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+          <input class="popup-input" type="text" id="ev-react-pro" placeholder="Смайлы по уровню, через запятую" style="flex:2;min-width:160px;margin:0">
+          <input class="popup-input" type="number" id="ev-react-level" min="1" max="9" placeholder="Уровень" style="flex:1;min-width:90px;margin:0">
+        </div>
+        <button class="action-btn" onclick="evSaveReactions()">Сохранить реакции</button>
+        <div class="pay-meta" id="ev-react-out" style="margin:4px 2px 12px">До восьми смайлов в каждом наборе. Второй набор виден всем, но нажать его можно с указанного уровня.</div>
+
         <div class="section-title" style="margin:14px 0 6px;font-size:13px">Запись прошедшего эфира</div>
         <div id="record-state" class="pay-meta" style="margin:0 2px 6px">—</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
@@ -6670,6 +6695,7 @@ function evShow(n){
   if (st) st.style.display = 'block';
   document.querySelectorAll('#ev-strip .ptab').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-ev') === String(n)); });
   if (n === 4) evLoadAttendees();
+  if (n === 6) evLoadReactions();
   if (n === 5) evRenderMeetTargets();
   if (n === 1) evRenderAnnounceHint();
 }
@@ -6802,6 +6828,31 @@ async function evSendMeetup(){
     loadCampaigns && loadCampaigns();
   }catch(e){ if (out) out.textContent = 'Не ушло: ' + (e.message || e); }
 }
+/* ── реакции: наборы и порог уровня ── */
+async function evLoadReactions(){
+  try{
+    const d = await (await fetch(API + '/settings')).json();
+    const set = function(id, v){ const el = document.getElementById(id); if (el && document.activeElement !== el) el.value = v == null ? '' : v; };
+    set('ev-react-base', d.live_reactions || '');
+    set('ev-react-pro', d.live_reactions_pro || '');
+    set('ev-react-level', d.live_reactions_pro_level || 3);
+  }catch(e){}
+}
+async function evSaveReactions(){
+  const out = document.getElementById('ev-react-out');
+  const body = {
+    live_reactions: (document.getElementById('ev-react-base').value || '').trim(),
+    live_reactions_pro: (document.getElementById('ev-react-pro').value || '').trim(),
+    live_reactions_pro_level: String(parseInt(document.getElementById('ev-react-level').value, 10) || 3)
+  };
+  try{
+    const r = await fetch(API + '/settings?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error('сервер ответил ' + r.status);
+    if (out) out.textContent = 'Сохранено. У зрителей обновится в течение десяти секунд.';
+  }catch(e){ if (out) out.textContent = 'Не сохранилось: ' + (e.message || e); }
+}
+
 /* ── 4 · пришедшие ── */
 let evAttRef = '';
 async function evLoadAttendees(){
@@ -6850,6 +6901,28 @@ async function evAttendeeGift(tid, name){
     evLoadAttendees();
   }catch(e){ if (out) out.textContent = 'Не получилось: ' + (e.message || e); }
 }
+async function evVkLink(){
+  const url = (document.getElementById('live-practice-url').value || '').trim();
+  const text = (document.getElementById('ev-meet-text').value || '').trim();
+  const out = document.getElementById('ev-vk-out');
+  const comment = !!document.getElementById('ev-vk-comment').checked;
+  const desc = !!document.getElementById('ev-vk-desc').checked;
+  if (!url){ alert('Впиши ссылку на телемост выше'); return; }
+  if (!comment && !desc){ alert('Отметь хотя бы одно: комментарий или описание'); return; }
+  if (out) out.textContent = 'Кладу…';
+  try{
+    const d = await admJson(API + '/admin/live/vk-link?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ url: url, text: text, comment: comment, description: desc }) });
+    if (!out) return;
+    if (!(d.report || []).length){ out.textContent = d.note || 'Нечего править'; return; }
+    out.innerHTML = (d.report || []).map(function(x){
+      return '<div' + (x.ok ? '' : ' style="color:#e8614a"') + '>' + escapeHtmlAdm(x.name) + ' — '
+        + (x.ok ? ('ок' + (x.note ? ' (' + escapeHtmlAdm(x.note) + ')' : '')) : escapeHtmlAdm(x.error || 'ошибка')) + '</div>';
+    }).join('');
+  }catch(e){ if (out) out.textContent = 'Не получилось: ' + (e.message || e); }
+}
+
 /* ── 5 · телемост ── */
 function evRenderMeetTargets(){
   const box = document.getElementById('ev-meet-targets'); if (!box) return;
@@ -8063,13 +8136,18 @@ async function liveShowTargets(){
 }
 
 async function liveCloseFree(){
-  if (!confirm('Закрыть бесплатную часть? Не-участники потеряют плеер, отмеченные площадки погаснут.')) return;
+  const invite = !!(document.getElementById('ev-invite-club') || {}).checked;
+  if (!confirm('Закрыть бесплатную часть?' + (invite ? ' Тем, кто был на эфире и не участник, уйдёт приглашение в клуб.' : '') + ' Не-участники потеряют плеер, отмеченные площадки погаснут.')) return;
+  const out = document.getElementById('ev-close-out');
   try{
-    const r = await fetch(API + '/admin/live/close-free?x_admin_token=' + ADMIN_TOKEN, {method:'POST'});
+    const r = await fetch(API + '/admin/live/close-free?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ invite: invite })
+    });
     const d = await r.json();
     if (d.problems && d.problems.length){
       alert('Флаг переключён, но часть площадок не погасла:\n\n' + d.problems.join('\n'));
     }
+    if (out) out.textContent = d.note || '';
     loadLiveAdminState();
   }catch(e){ alert('Ошибка: ' + (e && e.message || e)); }
 }
@@ -10155,6 +10233,7 @@ const NUDGE_KIND_LABELS = {
   register: 'Участник не зашёл в канал',
   app_broken: 'Приложение не открылось в Telegram (участник) — зовём продолжить в боте',
   live_soon: 'Напоминание об эфире за 15 минут (по кнопке «Напомнить» в окне «скоро»)',
+  free_closed: 'Закрыли бесплатную часть — зовём в клуб тех, кто был на эфире',
 };
 /* ⚠️ Общая цепочка называется пустой строкой kind — так её хранит сервер */
 const NUDGE_CHAIN_KIND_LABELS = Object.assign({ '': 'Общая — для всех, у кого нет своей' }, NUDGE_KIND_LABELS);
