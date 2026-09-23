@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v123 -->
+<!-- FILE_VERSION: admin-v124 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -10623,6 +10623,7 @@ const NUDGE_KIND_LABELS = {
   app_broken: 'Приложение не открылось в Telegram (участник) — зовём продолжить в боте',
   live_soon: 'Напоминание об эфире за 15 минут (по кнопке «Напомнить» в окне «скоро»)',
   free_closed: 'Закрыли бесплатную часть — зовём в клуб тех, кто был на эфире',
+  live_record: 'Эфир прошёл, запись готова — зовём тех, кто просил напомнить или подписан на живые занятия, но не пришёл',
   pay_failed: 'Первая неудачная попытка списания — одно письмо участнику на весь цикл попыток (выключено, пока не сверишь с цепочкой Salebot)',
 };
 /* ⚠️ Общая цепочка называется пустой строкой kind — так её хранит сервер */
@@ -17895,6 +17896,6 @@ async function dgOpenPdf(id){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v123</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v124</div>
 </body>
 </html>
