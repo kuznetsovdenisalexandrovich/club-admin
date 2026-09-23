@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v121 -->
+<!-- FILE_VERSION: admin-v122 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3683,6 +3683,8 @@ const SETTINGS_META = {
   funnel_confuse_wall_n:    ['Упоров в замок', '', 'num'],
   funnel_confuse_wall_min:  ['…за столько минут', '', 'num'],
 
+  app_usage_days:           ['«Остыл» — через сколько дней без захода', 'Метка «Приложение» в списке участников и серверный список «давно не заходили»', 'num'],
+  membership_audit_auto:    ['Сторож подписок закрывает сам', 'Каждое утро ищет тех, у кого дата списания прошла больше шести дней назад и оплаты нет. Выключено — только докладывает в админский чат', 'bool'],
   client_type_vk_value:     ['Какое число client_type означает ВК', '⚠️ ошибка дорогая: ВК-номера снова полетят в поле telegram_id. Пусто — числа не разбираем вовсе, только текст и подпись', 'text'],
 };
 
@@ -3703,6 +3705,7 @@ const SETTINGS_GROUPS = [
   ['Дайджест', ['digest_public','digest_testers']],
   ['Вход и реквизиты', ['show_requisites','sms_login_enabled','allow_direct_phone_login']],
   ['Детектор растерянности', ['funnel_confuse_enabled','funnel_confuse_pay_n','funnel_confuse_pay_min','funnel_confuse_open_n','funnel_confuse_open_min','funnel_confuse_wall_n','funnel_confuse_wall_min']],
+  ['Участники', ['app_usage_days','membership_audit_auto']],
   ['Служебное', ['client_type_vk_value']],
 ];
 
@@ -7842,7 +7845,8 @@ function renderAnnounceTargets(){
   }
   const act = activeTargets();
   if (!act.length){
-    box.innerHTML = '<div class="pay-meta" style="color:#e8614a">Все площадки выключены — звать некого. Включи нужные в настройках площадок.</div>';
+    box.innerHTML = '<div class="pay-meta" style="color:#e8614a">Все площадки выключены — звать некого. Включи нужные в настройках площадок.</div>'
+      + annOneHtml();
     return;
   }
   /* v117: ГАЛОЧКИ ВЕРНУЛИСЬ, но с готовым ответом. Состав по умолчанию решает
@@ -7859,7 +7863,38 @@ function renderAnnounceTargets(){
       + '<div class="pay-meta">' + escapeHtmlAdm(t.method)
       + (t.last_error ? ' · <span style="color:#e8614a">прошлый раз: ' + escapeHtmlAdm(t.last_error.slice(0, 50)) + '</span>' : '') + '</div></div></label>';
   }).join('')
-    + '<div class="pay-meta" style="margin-top:4px">Открытые отмечены, когда в черновике стоит «с бесплатной частью». Состав справочника — кнопкой «Настроить площадки».</div>';
+    + '<div class="pay-meta" style="margin-top:4px">Открытые отмечены, когда в черновике стоит «с бесплатной частью». Состав справочника — кнопкой «Настроить площадки».</div>'
+    + annOneHtml();
+}
+
+/* ══ ОТПРАВИТЬ ТОЧЕЧНО (v122, ev12) ═════════════════════════════════════════
+   Спрятано под раскрывашкой: в горячую минуту эфира это не нужно, а нужно,
+   когда в одно место пост не ушёл или его надо повторить. Здесь ВСЕ площадки
+   справочника, включая выключенные, — ровно для таких случаев. Тот же адрес и
+   тот же код, что у общей рассылки, только список из одной площадки */
+function annOneHtml(){
+  if (!targetsCache.length) return '';
+  return '<details style="margin-top:10px"><summary class="pay-meta" style="cursor:pointer">Отправить точечно — в одну площадку</summary>'
+    + targetsCache.map(function(t){
+        /* «выключена» — в нижней строке: в заголовке её съедало многоточие длинного имени */
+        return '<div class="pay-item"><div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(t.name) + '</div>'
+          + '<div class="pay-meta">' + escapeHtmlAdm(TARGET_METHOD_LABELS[t.method] || t.method)
+          + (t.active ? '' : ' · <span style="color:#e8614a">выключена</span>') + '</div></div>'
+          + '<button class="action-btn" onclick="announceOne(' + Number(t.id) + ', true)">Показать</button>'
+          + '<button class="action-btn" onclick="announceOne(' + Number(t.id) + ', false)">Только сюда</button></div>';
+      }).join('')
+    + '</details>';
+}
+
+async function announceOne(id, preview){
+  const t = targetsCache.find(function(x){ return Number(x.id) === Number(id); });
+  if (!t) return;
+  if (!preview && !confirm('Отправить анонс только в «' + (t.name || 'площадку') + '»? Отозвать пост будет нельзя.')) return;
+  const d = await announceCall(!!preview, [Number(id)]);
+  if (!d) return;
+  if (preview){ announceRenderPreview(d); return; }
+  announceRenderReport(d);
+  loadTargets();
 }
 function evTargetIsOpen(t){
   const s = ((t.name || '') + ' ' + (t.key || '')).toLowerCase();
@@ -7873,9 +7908,9 @@ function checkedTargetIds(){
   return activeTargets().map(function(t){ return Number(t.id); });
 }
 
-async function announceCall(preview){
+async function announceCall(preview, idsOverride){
   const out = document.getElementById('live-announce-out');
-  const ids = checkedTargetIds();
+  const ids = idsOverride || checkedTargetIds();
   if (!ids.length){ out.textContent = 'Все площадки выключены — включи нужные в настройках площадок.'; return null; }
   out.textContent = preview ? 'Собираю тексты…' : 'Рассылаю…';
   try{
@@ -7897,6 +7932,10 @@ async function announceCall(preview){
 async function announcePreview(){
   const d = await announceCall(true);
   if (!d) return;
+  announceRenderPreview(d);
+}
+
+function announceRenderPreview(d){
   document.getElementById('live-announce-out').innerHTML = (d.items || []).map(function(i){
     return '<div style="margin:8px 0;padding:8px;border-radius:10px;background:rgba(127,127,127,.08)">'
       + '<div class="pay-name">' + escapeHtmlAdm(i.name) + '</div>'
@@ -7912,6 +7951,12 @@ async function announceSend(){
   if (!confirm('Позвать людей в ' + ids.length + ' мест' + (active ? '' : ' (эфир ещё не идёт — уйдёт анонс из черновика)') + '? Отозвать посты будет нельзя.')) return;
   const d = await announceCall(false);
   if (!d) return;
+  announceRenderReport(d);
+  loadTargets();
+  evDraftLoad().then(function(){ evRenderAnnounceHint(); });
+}
+
+function announceRenderReport(d){
   document.getElementById('live-announce-out').innerHTML =
     '<div class="pay-name">Ушло: ' + d.sent + ' · не ушло: ' + d.failed + '</div>'
     + (d.report || []).map(function(x){
@@ -7919,8 +7964,6 @@ async function announceSend(){
           + escapeHtmlAdm(x.name) + ' — ' + (x.ok ? ('ок' + (x.note ? ', ' + escapeHtmlAdm(x.note) : ''))
                                                      : escapeHtmlAdm(x.error || 'ошибка')) + '</div>';
       }).join('');
-  loadTargets();
-  evDraftLoad().then(function(){ evRenderAnnounceHint(); });
 }
 
 /* ── Справочник площадок ─────────────────────────────────────────────── */
@@ -10579,6 +10622,7 @@ const NUDGE_KIND_LABELS = {
   app_broken: 'Приложение не открылось в Telegram (участник) — зовём продолжить в боте',
   live_soon: 'Напоминание об эфире за 15 минут (по кнопке «Напомнить» в окне «скоро»)',
   free_closed: 'Закрыли бесплатную часть — зовём в клуб тех, кто был на эфире',
+  pay_failed: 'Первая неудачная попытка списания — одно письмо участнику на весь цикл попыток (выключено, пока не сверишь с цепочкой Salebot)',
 };
 /* ⚠️ Общая цепочка называется пустой строкой kind — так её хранит сервер */
 const NUDGE_CHAIN_KIND_LABELS = Object.assign({ '': 'Общая — для всех, у кого нет своей' }, NUDGE_KIND_LABELS);
@@ -17850,6 +17894,6 @@ async function dgOpenPdf(id){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v121</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v122</div>
 </body>
 </html>
