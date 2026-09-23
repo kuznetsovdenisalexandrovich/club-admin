@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v119 -->
+<!-- FILE_VERSION: admin-v120 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -351,6 +351,17 @@ header{padding:calc(max(env(safe-area-inset-top), 8px) + 20px) 0 16px;display:fl
 .action-result{font-size:12px;text-align:center;padding:8px;border-radius:10px;margin-bottom:8px;display:none}
 .action-result.ok{background:rgba(62,207,142,0.12);color:#1a9466}
 .action-result.err{background:rgba(255,69,58,0.10);color:var(--red)}
+/* v120: сообщение о подарке */
+.gift-msg{margin:10px 0 4px;padding:10px 12px;border-radius:14px;background:var(--stat-bg);border:1px solid var(--border)}
+.gift-msg-on{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer}
+.gift-msg-on input{width:17px;height:17px;accent-color:var(--lav-deep)}
+.gift-msg-where{font-size:12px;margin:6px 0;color:var(--text-faint)}
+.gift-msg-where.bad{color:var(--red)}
+.gift-msg-text{min-height:96px;resize:vertical;font-family:inherit;line-height:1.45;margin-bottom:4px}
+.gift-msg-note{font-size:11.5px;color:var(--text-faint);line-height:1.45}
+.gift-msg-note a{color:var(--lav-deep);cursor:pointer;text-decoration:underline}
+.gift-msg.off .gift-msg-text,.gift-msg.off .gift-msg-where,.gift-msg.off .gift-msg-note{display:none}
+.gift-popup-calc{font-size:13px;margin:2px 0 6px;min-height:18px}
 .payload-row{display:none;gap:6px;margin-bottom:8px}
 .payload-row.visible{display:flex}
 .payload-input{flex:1;font-size:12px;font-family:var(--body);padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--input-bg);color:var(--text)}
@@ -2775,8 +2786,39 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     <div id="points-popup-value" style="text-align:center;font-size:32px;font-weight:800;margin:8px 0"></div>
     <input type="range" id="points-slider" min="100" max="5000" step="100" value="500" oninput="updatePointsPopup()" style="width:100%;accent-color:var(--lav-deep)">
     <input class="popup-input" type="text" id="points-reason" placeholder="За что (попадёт в ленту активности)">
+    <!-- v120: сообщение участнику о подарке — видно ДО нажатия -->
+    <div class="gift-msg" id="pts-gift">
+      <label class="gift-msg-on"><input type="checkbox" id="pts-gift-on" checked onchange="giftMsgToggle('pts')"> Сообщить участнику</label>
+      <div class="gift-msg-where" id="pts-gift-where"></div>
+      <textarea class="popup-input gift-msg-text" id="pts-gift-text" rows="5" oninput="giftMsgEdited('pts')"></textarea>
+      <div class="gift-msg-note" id="pts-gift-note"></div>
+    </div>
     <button class="popup-save" onclick="submitPoints()">Начислить</button>
     <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)" onclick="closePointsPopup()">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<!-- v120: скидка и сдвиг платежа — окном, а не prompt(): в окне видно, что уйдёт человеку -->
+<div class="popup-overlay" id="gift-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeGiftPopup()">
+  <div class="popup" style="max-width:440px">
+    <button class="popup-close-x" onclick="closeGiftPopup()" title="Закрыть">✕</button>
+    <div class="popup-handle"></div>
+    <div class="popup-body">
+    <div class="popup-section-title" style="margin-top:0" id="gift-popup-title"></div>
+    <div class="gift-msg-note" id="gift-popup-hint" style="margin:0 0 6px"></div>
+    <input class="popup-input" type="number" id="gift-popup-value" oninput="giftPopupInput()">
+    <div class="gift-popup-calc" id="gift-popup-calc"></div>
+    <!-- v120: сообщение участнику о подарке — видно ДО нажатия -->
+    <div class="gift-msg" id="gft-gift">
+      <label class="gift-msg-on"><input type="checkbox" id="gft-gift-on" checked onchange="giftMsgToggle('gft')"> Сообщить участнику</label>
+      <div class="gift-msg-where" id="gft-gift-where"></div>
+      <textarea class="popup-input gift-msg-text" id="gft-gift-text" rows="5" oninput="giftMsgEdited('gft')"></textarea>
+      <div class="gift-msg-note" id="gft-gift-note"></div>
+    </div>
+    <div class="action-result err" id="gift-popup-error"></div>
+    <button class="popup-save" id="gift-popup-submit" onclick="submitGiftPopup()">Применить</button>
+    <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)" onclick="closeGiftPopup()">Отмена</button>
     </div>
   </div>
 </div>
@@ -3606,6 +3648,12 @@ const SETTINGS_META = {
   cross_tg_remind_text:     ['Пошёл за доступом в Telegram и не дошёл', 'Уходит через 3 часа тому, кто начал подключать вторую площадку', 'area'],
   cross_vk_remind_text:     ['Пошёл за доступом в ВК и не дошёл', 'То же самое для обратного направления', 'area'],
   manual_renew_text:        ['Напоминание платившему переводом', 'У него нет подписки — срок вышел, автосписания не будет', 'area'],
+  gift_title:               ['Подарок: первая строка', 'Заголовок над текстом о любом подарке. Пусто — без заголовка', 'text'],
+  gift_button_label:        ['Подарок: подпись кнопки', 'Кнопка под сообщением ведёт в приложение', 'text'],
+  gift_name_fallback:       ['Подарок: имя, если в карточке пусто', 'Встаёт на место {имя}. Слово общего рода — пол читаться не должен', 'text'],
+  gift_points_text:         ['Подарок: баллы', 'Подстановки: {имя} {баллы} {баланс}', 'area'],
+  gift_discount_text:       ['Подарок: скидка', 'Подстановки: {имя} {скидка} {цена} {итог}', 'area'],
+  gift_shift_text:          ['Подарок: сдвиг платежа', 'Подстановки: {имя} {дата}', 'area'],
 
   nudge_max_per_day:        ['Потолок дожимов в сутки на человека', '0 — без предела; ритм задают сами цепочки, ночью не шлём никогда', 'num'],
   film_postpone_limit:      ['После скольких переносов фильма перестаём уговаривать', 'На этом переносе вместо «досмотри» уходит письмо «фильм подождёт». 0 — не уводить никогда', 'num'],
@@ -3648,7 +3696,8 @@ const SETTINGS_META = {
    клуба», иначе они провалились бы в «Прочее» и правились бы в двух местах */
 const NUDGE_SETTING_KEYS = ['nudge_later_label','card_change_remind_text','card_change_revert_text',
   'cross_tg_remind_text','cross_vk_remind_text','manual_renew_text',
-  'nudge_max_per_day','film_postpone_limit'];
+  'nudge_max_per_day','film_postpone_limit',
+  'gift_title','gift_button_label','gift_name_fallback','gift_points_text','gift_discount_text','gift_shift_text'];
 
 const SETTINGS_GROUPS = [
   ['Фильм и окно бонусов', ['film_lecture_slug','film_duration_sec','funnel_bonus_window_min','funnel_bonus_window_back','funnel_window_last_min','guest_tour_enabled','guest_plan_playlist']],
@@ -4474,23 +4523,205 @@ async function subAction(url, body, okText){
   }
 }
 
-function adminDiscount(){
-  const v = prompt('Размер скидки в рублях на следующий платёж:');
-  if(!v) return;
-  subAction('/admin/subscription/discount', {amount: parseFloat(v)}, d => `Скидка применена, платёж составит ${d.new_price} ₽`);
+/* v120: скидка и сдвиг — подарки, и открываются окном подарка, где видно
+   сообщение человеку ДО нажатия. Сдвиг идёт в админскую ручку
+   `/admin/subscription/shift`: `/subscription/shift` — ручка самого участника */
+function adminDiscount(){ openGiftPopup('discount'); }
+function adminShift(){ openGiftPopup('shift'); }
+
+/* ══ СООБЩЕНИЕ О ПОДАРКЕ (v120) ═════════════════════════════════════════════
+   Одна механика на два окна: `pts` — окно баллов, `gft` — скидка и сдвиг.
+   ⚠️ ТЕКСТ СОБИРАЕТ СЕРВЕР (`/admin/gift/preview`), А НЕ СТРАНИЦА: шаблон в
+   настройках, подстановка в одной функции на сервере — превью и отправка не
+   разойдутся. Правленный руками текст уходит как есть и больше не
+   перезаписывается превью; «вернуть шаблон» снимает правку.
+   ⚠️ КЛЮЧ ПОДАРКА рождается при открытии окна и живёт до закрытия: повторное
+   нажатие (сеть оборвалась, пальцем дважды) сервер узнаёт по нему и не
+   применяет подарок и не шлёт сообщение второй раз */
+const giftMsgState = {};
+
+function giftNewKey(){
+  return 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-function adminShift(){
-  const v = prompt('На сколько дней сдвинуть платёж? (максимум 30)');
-  if(!v) return;
-  const days = parseInt(v, 10);
-  const base = currentUser.next_payment_date;
-  const parts = (base||'').split('.');
-  if(parts.length !== 3){ subResult('У карточки нет даты следующего платежа', false); return; }
+function giftMsgReset(p, kind){
+  const old = giftMsgState[p];
+  if (old && old.timer) clearTimeout(old.timer);
+  giftMsgState[p] = {kind: kind, key: giftNewKey(), edited: false, seq: 0, timer: null, can: false, params: {}};
+  document.getElementById(p + '-gift-on').checked = true;
+  document.getElementById(p + '-gift').classList.remove('off');
+  document.getElementById(p + '-gift-text').value = '';
+  giftMsgWhere(p, 'Готовлю текст…', false);
+  giftMsgNote(p);
+}
+
+function giftMsgWhere(p, text, bad){
+  const el = document.getElementById(p + '-gift-where');
+  el.textContent = text;
+  el.classList.toggle('bad', !!bad);
+}
+
+function giftMsgNote(p){
+  const st = giftMsgState[p]; const el = document.getElementById(p + '-gift-note');
+  if (!st) { el.innerHTML = ''; return; }
+  el.innerHTML = st.edited
+    ? 'Текст поправлен руками — числа в нём сами не обновятся. <a onclick="giftMsgRestore(\'' + p + '\')">Вернуть шаблон</a>'
+    : 'Правка здесь — разовая, шаблон не меняется. Сам шаблон — в «Дожимных рассылках», вкладка «Общее».';
+}
+
+function giftMsgToggle(p){
+  const on = document.getElementById(p + '-gift-on').checked;
+  document.getElementById(p + '-gift').classList.toggle('off', !on);
+}
+
+function giftMsgEdited(p){
+  const st = giftMsgState[p]; if (!st) return;
+  if (!st.edited){ st.edited = true; giftMsgNote(p); }
+}
+
+function giftMsgRestore(p){
+  const st = giftMsgState[p]; if (!st) return;
+  st.edited = false; giftMsgNote(p);
+  giftMsgRefresh(p, st.params, true);
+}
+
+/* Превью с задержкой: слайдер баллов шлёт событие на каждый шаг */
+function giftMsgRefresh(p, params, now){
+  const st = giftMsgState[p]; if (!st || !currentUser) return;
+  st.params = params || {};
+  if (st.timer) clearTimeout(st.timer);
+  st.timer = setTimeout(function(){ giftMsgFetch(p); }, now ? 0 : 250);
+}
+
+async function giftMsgFetch(p){
+  const st = giftMsgState[p]; if (!st || !currentUser) return;
+  const my = ++st.seq;
+  try{
+    const d = await admJson(API + '/admin/gift/preview?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(Object.assign({telegram_id: currentUser.telegram_id, kind: st.kind}, st.params))
+    });
+    if (my !== st.seq || giftMsgState[p] !== st) return;   // окно перезапустили или пришёл ответ новее
+    st.can = !!d.can_send;
+    if (!st.edited) document.getElementById(p + '-gift-text').value = d.text || '';
+    if (d.can_send) giftMsgWhere(p, 'Уйдёт ' + d.platform_label + (d.title ? ' · первой строкой «' + d.title + '»' : '') + ' · с кнопкой в приложение', false);
+    else giftMsgWhere(p, 'Не уйдёт: ' + (d.reason || 'написать некуда') + '. Подарок применится, отказ запишется в ленту', true);
+  }catch(e){
+    if (my !== st.seq) return;
+    giftMsgWhere(p, 'Превью не загрузилось: ' + (e.message || e), true);
+  }
+}
+
+/* Что добавить к запросу подарка. Неправленный текст не шлём: сервер соберёт
+   его сам по уже применённым числам — ровно тот, что был в превью */
+function giftMsgPayload(p){
+  const st = giftMsgState[p] || {};
+  return {
+    notify: document.getElementById(p + '-gift-on').checked,
+    notify_text: st.edited ? document.getElementById(p + '-gift-text').value.trim() : '',
+    gift_key: st.key || ''
+  };
+}
+
+/* Итог отправки словами — молчание здесь хуже отказа */
+function giftMsgResultText(m){
+  if (!m) return '';
+  if (m.repeat) return ' · сообщение уже уходило этим нажатием, второй раз не шлём';
+  const where = m.platform === 'vk' ? 'во ВКонтакте' : (m.platform === 'tg' ? 'в Telegram' : '');
+  return m.sent ? ' · сообщение ушло ' + where : ' · сообщение НЕ ушло: ' + (m.reason || 'причина неизвестна');
+}
+
+/* ── Окно скидки и сдвига ── */
+let giftPopupKind = '', giftPopupBusy = false;
+
+function giftIsoDate(dt){
+  return dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+}
+function giftRuDate(dt){
+  return String(dt.getDate()).padStart(2,'0') + '.' + String(dt.getMonth()+1).padStart(2,'0') + '.' + dt.getFullYear();
+}
+function giftCost(){
+  const n = parseFloat(String((currentUser && currentUser.cost) || '').replace(',', '.').replace(/[^0-9.]/g, ''));
+  return isFinite(n) ? n : 0;
+}
+
+function openGiftPopup(kind){
+  if(!currentUser || !currentUser.telegram_id){ subResult('У карточки нет telegram_id', false); return; }
+  if (kind === 'shift' && (currentUser.next_payment_date || '').split('.').length !== 3){
+    subResult('У карточки нет даты следующего платежа', false); return;
+  }
+  giftPopupKind = kind;
+  const cost = giftCost();
+  document.getElementById('gift-popup-title').textContent = kind === 'discount' ? 'Скидка на следующий платёж' : 'Сдвинуть дату списания';
+  document.getElementById('gift-popup-hint').textContent = kind === 'discount'
+    ? 'Сколько рублей скинуть' + (cost ? ' · сейчас ' + cost + ' ₽, максимум ' + (cost - 1) + ' ₽ — Продамус не принимает скидку на всю сумму' : '')
+    : 'На сколько дней вперёд, максимум 30 · сейчас ' + currentUser.next_payment_date;
+  const inp = document.getElementById('gift-popup-value');
+  inp.value = ''; inp.placeholder = kind === 'discount' ? 'Рублей' : 'Дней';
+  document.getElementById('gift-popup-calc').textContent = '';
+  const err = document.getElementById('gift-popup-error'); err.style.display = 'none'; err.textContent = '';
+  giftMsgReset('gft', kind);
+  giftMsgWhere('gft', 'Укажи ' + (kind === 'discount' ? 'сумму' : 'число дней') + ' — покажу, что уйдёт человеку', false);
+  document.getElementById('gift-popup-overlay').classList.add('open');
+  setTimeout(function(){ try{ inp.focus(); }catch(e){} }, 50);
+}
+function closeGiftPopup(){
+  document.getElementById('gift-popup-overlay').classList.remove('open');
+  const st = giftMsgState.gft; if (st && st.timer) clearTimeout(st.timer);
+}
+
+/* Разобранное значение окна: {ok, body, calc} */
+function giftPopupValue(){
+  const raw = document.getElementById('gift-popup-value').value;
+  const v = parseFloat(String(raw).replace(',', '.'));
+  if (!isFinite(v) || v <= 0) return {ok: false};
+  if (giftPopupKind === 'discount'){
+    const cost = giftCost();
+    const amount = Math.round(v * 100) / 100;
+    return {ok: true, preview: {discount: amount}, body: {amount: amount},
+            calc: cost ? 'Спишется ' + Math.max(cost - amount, 0) + ' ₽ вместо ' + cost + ' ₽' : ''};
+  }
+  const days = Math.round(v);
+  const parts = currentUser.next_payment_date.split('.');
   const target = new Date(parts[2], parts[1]-1, parts[0]);
   target.setDate(target.getDate() + days);
-  const iso = target.getFullYear() + '-' + String(target.getMonth()+1).padStart(2,'0') + '-' + String(target.getDate()).padStart(2,'0');
-  subAction('/subscription/shift', {date: iso}, d => `Платёж перенесён на ${d.next_payment}`);
+  return {ok: true, preview: {date: giftIsoDate(target)}, body: {date: giftIsoDate(target)},
+          calc: 'Новая дата списания: ' + giftRuDate(target)};
+}
+
+function giftPopupInput(){
+  const r = giftPopupValue();
+  document.getElementById('gift-popup-calc').textContent = r.ok ? r.calc : '';
+  if (r.ok) giftMsgRefresh('gft', r.preview);
+}
+
+async function submitGiftPopup(){
+  if (giftPopupBusy) return;
+  const r = giftPopupValue();
+  const err = document.getElementById('gift-popup-error');
+  if (!r.ok){ err.textContent = 'Укажи ' + (giftPopupKind === 'discount' ? 'сумму скидки' : 'число дней'); err.style.display = 'block'; return; }
+  giftPopupBusy = true;
+  const btn = document.getElementById('gift-popup-submit'); btn.disabled = true;
+  err.style.display = 'none';
+  const url = giftPopupKind === 'discount' ? '/admin/subscription/discount' : '/admin/subscription/shift';
+  try{
+    const d = await admJson(API + url + '?x_admin_token=' + ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(Object.assign({telegram_id: currentUser.telegram_id}, r.body, giftMsgPayload('gft')))
+    });
+    closeGiftPopup();
+    const head = giftPopupKind === 'discount'
+      ? 'Скидка применена' + (d.new_price != null ? ', платёж составит ' + d.new_price + ' ₽' : '')
+      : 'Платёж перенесён на ' + d.next_payment;
+    subResult(head + giftMsgResultText(d.message), !(d.message && !d.message.sent));
+    await loadUsers();
+    loadActivity(currentUser.telegram_id);
+  }catch(e){
+    /* Окно не закрываем и ключ не меняем: повтор того же нажатия сервер узнает */
+    err.textContent = e.message || 'Не получилось'; err.style.display = 'block';
+  }finally{
+    giftPopupBusy = false; btn.disabled = false;
+  }
 }
 
 function adminFreeze(){
@@ -4855,12 +5086,18 @@ async function deleteRewardCatalog(key){
 function openPointsPopup(){
   document.getElementById('points-slider').value = 500;
   document.getElementById('points-reason').value = '';
+  giftMsgReset('pts', 'points');     // v120: новый ключ подарка на каждое открытие
   updatePointsPopup();
   document.getElementById('points-popup-overlay').classList.add('open');
 }
-function closePointsPopup(){ document.getElementById('points-popup-overlay').classList.remove('open'); }
+function closePointsPopup(){
+  document.getElementById('points-popup-overlay').classList.remove('open');
+  const st = giftMsgState.pts; if (st && st.timer) clearTimeout(st.timer);
+}
 function updatePointsPopup(){
-  document.getElementById('points-popup-value').textContent = document.getElementById('points-slider').value;
+  const v = document.getElementById('points-slider').value;
+  document.getElementById('points-popup-value').textContent = v;
+  giftMsgRefresh('pts', {points: parseInt(v, 10)});
 }
 
 let pointsBusy = false;   // v113: два быстрых тапа = два начисления
@@ -4873,12 +5110,13 @@ async function submitPoints(){
   try{
     const r = await fetch(API + '/users/' + currentUser.telegram_id + '/points?x_admin_token=' + ADMIN_TOKEN, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({delta, reason})
+      body: JSON.stringify(Object.assign({delta, reason}, giftMsgPayload('pts')))
     });
     const d = await r.json().catch(()=>({}));
     if(!r.ok) throw new Error(d.detail || 'Не получилось');
     closePointsPopup();
-    subResult(`Начислено ${delta} баллов, баланс ${d.points}`, true);
+    subResult(`Начислено ${delta} баллов, баланс ${d.points}` + giftMsgResultText(d.message),
+              !(d.message && !d.message.sent));
     await loadUsers();
     loadActivity(currentUser.telegram_id);
   }catch(e){ alert(e.message || 'Не получилось'); }
@@ -4912,6 +5150,7 @@ const ACTIVITY_LABELS = {
   discount:'Оплата баллами', discount_admin:'Скидка от Дениса', shift:'Перенос платежа',
   freeze:'Пауза', cancel:'Остановка подписки', cancel_request:'Задумался об отмене',
   reactivate:'Восстановление подписки', points_admin:'Начисление баллов',
+  shift_admin:'Перенос платежа (подарок)', gift_message:'Сообщение о подарке',
 };
 const PAYMENT_KIND_LABELS = {
   first:'первая оплата', first_test:'тест-драйв', return:'возвращение',
@@ -10338,10 +10577,12 @@ async function loadNudgeCommon(){
     ['Пределы', ['nudge_max_per_day','film_postpone_limit']],
     ['Тексты сообщений бота', ['nudge_later_label','card_change_remind_text','card_change_revert_text',
                                'cross_tg_remind_text','cross_vk_remind_text','manual_renew_text']],
+    ['Сообщение о подарке (баллы, скидка, сдвиг)', ['gift_title','gift_button_label','gift_name_fallback',
+                               'gift_points_text','gift_discount_text','gift_shift_text']],
   ];
   let html = '<div style="font-size:11.5px;color:var(--text-faint);margin-bottom:10px;line-height:1.5">'
            + 'Это отдельные сообщения бота — не письма ситуаций и не шаги цепочки. '
-           + 'Они уходят по своему поводу: смена карты, недошедший доступ, ручное продление.</div>';
+           + 'Они уходят по своему поводу: смена карты, недошедший доступ, ручное продление, подарок из карточки.</div>';
   группы.forEach(function(g){
     const keys = g[1].filter(function(k){ return k in s; });
     if (!keys.length) return;
@@ -17503,6 +17744,6 @@ async function dgOpenPdf(id){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v107</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v120</div>
 </body>
 </html>
