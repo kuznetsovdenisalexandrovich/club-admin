@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v124 -->
+<!-- FILE_VERSION: admin-v125 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1264,6 +1264,11 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <div id="cards-widget"><div class="loading">Открываю колоду…</div></div>
         <div id="cards-widget-pager" style="display:flex;justify-content:center;align-items:center;gap:10px;margin-top:10px"></div>
         <button class="action-btn" style="width:100%;margin-top:10px" onclick="openCardsPopup()">Вся колода, симулятор и личное участие</button>
+        <!-- v125: арты пачкой — файл кладётся в карточку с ключом = имя файла -->
+        <button class="action-btn" style="width:100%;margin-top:8px" onclick="document.getElementById('bulk-art-input').click()">Загрузить арты пачкой</button>
+        <input type="file" id="bulk-art-input" accept="image/*" multiple style="display:none" onchange="bulkUploadArts(this.files); this.value=''">
+        <div style="font-size:11px;color:var(--text-faint);margin-top:6px;line-height:1.45">Имя файла = ключ карточки (<code>prologue-zeus.png</code> → карточка <code>prologue-zeus</code>). Карточки пролога, которых ещё нет, заведутся сами — бог узнаётся по имени файла.</div>
+        <div id="bulk-art-status" style="font-size:12px;margin-top:8px;line-height:1.5"></div>
       </div>
     </div>
   </div>
@@ -11694,6 +11699,139 @@ function cardResizeToDataUrl(file, maxWidth, quality){
   });
 }
 
+/* ══ КОДИРОВАНИЕ АРТА (v125) ═══════════════════════════════════════════════
+   Раньше обе версии уходили JPEG'ом всегда — и у картинки с прозрачностью
+   (скруглённые углы, фигура без фона) прозрачное становилось ЧЁРНЫМ. Теперь
+   смотрим на альфа-канал: есть прозрачные пиксели — обе версии PNG, нет —
+   JPEG, как раньше (он в разы легче). Размеры прежние: превью 400, полная 2400,
+   мельче оригинала не растягиваем */
+function cardArtCanvas(img, maxWidth){
+  const scale = Math.min(1, maxWidth / img.width);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(img.width * scale));
+  canvas.height = Math.max(1, Math.round(img.height * scale));
+  canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+function cardArtHasAlpha(img){
+  const c = cardArtCanvas(img, 300);   // хватит, чтобы увидеть прозрачные края
+  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  for (let i = 3; i < d.length; i += 4){ if (d[i] < 250) return true; }
+  return false;
+}
+function cardArtEncode(file){
+  return new Promise(function(resolve, reject){
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = function(){
+      img.onload = function(){
+        try {
+          const alpha = cardArtHasAlpha(img);
+          const mime = alpha ? 'image/png' : 'image/jpeg';
+          resolve({
+            ext: alpha ? 'png' : 'jpg', alpha: alpha,
+            thumb: cardArtCanvas(img, 400).toDataURL(mime, 0.82),
+            full:  cardArtCanvas(img, 2400).toDataURL(mime, 0.85),
+          });
+        } catch(e){ reject(e); }
+      };
+      img.onerror = function(){ reject(new Error('не картинка или битый файл')); };
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+async function cardArtPost(key, enc){
+  const r = await fetch(API + '/cards/admin/upload-art?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ card_key: key, image_base64: enc.thumb,
+                           image_full_base64: enc.full, ext: enc.ext })
+  });
+  const d = await r.json().catch(function(){ return {}; });
+  if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
+  return d;
+}
+
+/* ══ АРТЫ ПАЧКОЙ (v125) ═════════════════════════════════════════════════════
+   Выбрал все файлы разом — каждый ложится в карточку с ключом = имя файла без
+   расширения. Карточки ПРОЛОГА (`prologue-<бог>`), которых ещё нет, заводятся
+   сами: бог узнаётся по концу имени — английскому (GOD_SLUGS: zeus, athena…)
+   или по серверной латинице (zevs, afina…). Прочие неизвестные ключи не
+   заводим — пропускаем с объяснением: угадывать бога и редкость обычной карты
+   по имени файла опаснее, чем попросить завести её руками.
+   Новый пролог: класс «Пролог», частая, стиль тёмный, БЕЗ сезона (всесезонный),
+   название = имя бога — дальше правится в карточке как обычно */
+const RU_TRANSLIT = {'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'e','ж':'zh','з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'h','ц':'ts','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya'};
+function ruSlug(name){
+  return String(name || '').toLowerCase().split('').map(function(ch){
+    return (ch in RU_TRANSLIT) ? RU_TRANSLIT[ch] : (/[a-z0-9]/.test(ch) ? ch : '-');
+  }).join('').replace(/-+/g, '-').replace(/(^-|-$)/g, '');
+}
+function bulkGodByTail(tail){
+  const names = new Set(Object.keys(GOD_SLUGS));
+  (cardTypes || []).forEach(function(c){ if (c.god) names.add(c.god); });
+  (typeof godsList !== 'undefined' && godsList || []).forEach(function(g){ if (g && g.name) names.add(g.name); });
+  for (const n of names){
+    if (GOD_SLUGS[n] === tail || ruSlug(n) === tail) return n;
+  }
+  return '';
+}
+async function bulkUploadArts(fileList){
+  const files = Array.prototype.slice.call(fileList || []);
+  const box = document.getElementById('bulk-art-status');
+  if (!files.length || !box) return;
+  if (!cardTypes || !cardTypes.length){ try { await loadCardTypes(); } catch(e){} }
+  const lines = [];
+  const show = function(extra){
+    box.innerHTML = lines.join('<br>') + (extra ? '<br><span style="color:var(--text-faint)">' + extra + '</span>' : '');
+  };
+  let ok = 0, made = 0, skipped = 0;
+  for (let i = 0; i < files.length; i++){
+    const f = files[i];
+    const key = f.name.replace(/\.[^.]+$/, '').trim().toLowerCase();
+    show('Гружу ' + (i + 1) + ' из ' + files.length + ': ' + escapeHtmlAdm(f.name) + '…');
+    try {
+      let card = (cardTypes || []).find(function(c){ return c.key === key; });
+      let note = '';
+      if (!card){
+        if (key.indexOf('prologue-') !== 0){
+          lines.push('<span style="color:#e8614a">✗ ' + escapeHtmlAdm(f.name) + ' — нет карточки с ключом «' + escapeHtmlAdm(key) + '», заведи её и загрузи ещё раз</span>');
+          skipped++; continue;
+        }
+        const god = bulkGodByTail(key.slice('prologue-'.length));
+        if (!god){
+          lines.push('<span style="color:#e8614a">✗ ' + escapeHtmlAdm(f.name) + ' — не узнал бога по имени файла</span>');
+          skipped++; continue;
+        }
+        const r = await fetch(API + '/cards/admin/catalog?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: key, god: god, title: god, description: '', rarity: 'common',
+                                 weight: 0, card_class: 'prologue', style: 'dark', series_key: '',
+                                 effect_type: 'points', effect_points: 0, active: true })
+        });
+        if (!r.ok){
+          const d = await r.json().catch(function(){ return {}; });
+          throw new Error('не завёл карточку: ' + (d.detail || ('HTTP ' + r.status)));
+        }
+        card = { key: key, god: god };
+        cardTypes.push(card);
+        made++; note = ', карточка заведена (' + escapeHtmlAdm(god) + ')';
+      }
+      const enc = await cardArtEncode(f);
+      const d = await cardArtPost(key, enc);
+      card.image_url = d.url; card.image_full_url = d.full_url || '';
+      ok++;
+      lines.push('✓ ' + escapeHtmlAdm(f.name) + ' → ' + escapeHtmlAdm(key) + note + (enc.alpha ? ' · с прозрачностью (PNG)' : ''));
+    } catch(e){
+      skipped++;
+      lines.push('<span style="color:#e8614a">✗ ' + escapeHtmlAdm(f.name) + ' — ' + escapeHtmlAdm(e.message || String(e)) + '</span>');
+    }
+  }
+  show('Готово: загружено ' + ok + (made ? ', новых карточек ' + made : '') + (skipped ? ', пропущено ' + skipped : ''));
+  try { await loadCardTypes(); renderCardsWidget(); } catch(e){}
+}
+
 async function uploadCardArt(idx, file){
   if (!file) return;
   const status = document.getElementById('card-art-status-' + idx);
@@ -11708,16 +11846,10 @@ async function uploadCardArt(idx, file){
     // Полная 2400px — только для увеличения. Раздельно потому, что картинка
     // в памяти занимает ширину×высоту×4 байта независимо от размера показа,
     // и сетка из полноразмерных артов съела бы сотни мегабайт на телефоне
-    const thumbUrl = await cardResizeToDataUrl(file, 400, 0.82);
-    status.textContent = 'Коммичу в GitHub...';
-    const fullUrl  = await cardResizeToDataUrl(file, 2400, 0.85);
-    const r = await fetch(API + '/cards/admin/upload-art?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ card_key: key, image_base64: thumbUrl,
-                             image_full_base64: fullUrl, ext: 'jpg' })
-    });
-    const d = await r.json().catch(function(){ return {}; });
-    if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
+    // v125: прозрачные картинки уходят PNG — иначе прозрачное становилось чёрным
+    const enc = await cardArtEncode(file);
+    status.textContent = 'Загружаю на сервер...';
+    const d = await cardArtPost(key, enc);
 
     const hidden = document.getElementById('cf-image_url-' + idx);
     if (hidden) hidden.value = d.url;
@@ -17896,6 +18028,6 @@ async function dgOpenPdf(id){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v124</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v125</div>
 </body>
 </html>
