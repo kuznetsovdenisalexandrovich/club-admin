@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v125 -->
+<!-- FILE_VERSION: admin-v126 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2156,12 +2156,16 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
             <option value="meet_only">Только телемост</option>
           </select>
         </div>
+        <!-- v126: в режиме «Только телемост» трансляция не нужна — блок прячется -->
+        <div id="ev-kin-box">
         <div class="pay-meta" id="live-default-line" style="margin-bottom:8px">Трансляция: загружаю…</div>
         <div id="live-event-picker" style="display:none">
           <select class="popup-input" id="live-admin-event" style="margin-bottom:8px" onchange="liveEventPicked()">
             <option value="">Выбери трансляцию Kinescope</option>
           </select>
         </div>
+        </div>
+        <div class="pay-meta" id="ev-meet-only-note" style="display:none;margin:0 2px 8px;color:var(--text)">Режим «Только телемост»: эфир не запускается, трансляции Кинескопа и ВК не создаются, в приложении не будет ни эфира, ни «эфир скоро». Людей зовёт рассылка ссылки на встречу (этап 1).</div>
         <input class="popup-input" type="text" id="live-admin-title" placeholder="Название эфира (увидят участники и площадки)" style="margin-bottom:8px" oninput="evDraftChanged()">
         <textarea class="popup-input" id="live-admin-desc" placeholder="Текст анонса — он же описание трансляции ВК. Например: «Как продавать даже без скриптов?»" style="margin-bottom:8px;min-height:60px" oninput="evDraftChanged()"></textarea>
         
@@ -2170,6 +2174,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <input class="popup-input" type="number" id="ev-points" min="0" max="100000" step="10" placeholder="Баллы за приход" style="flex:1;min-width:120px;margin:0" oninput="evDraftChanged()">
           <input class="popup-input" type="text" id="ev-meet-label" placeholder="Надпись на кнопке телемоста" style="flex:2;min-width:160px;margin:0" oninput="evDraftChanged()">
         </div>
+        <div id="ev-btn-box">
         <div class="section-title" style="margin:6px 0 6px;font-size:13px">Кнопка в анонсах</div>
         <input class="popup-input" type="text" id="ev-btn-text" placeholder="Текст кнопки (пусто — как настроено у площадки)" style="margin-bottom:6px" oninput="evDraftChanged()">
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
@@ -2177,6 +2182,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <input class="popup-input" type="text" id="ev-btn-vk" placeholder="Ссылка для ВК (пусто — мини-апп ВК на эфир)" style="flex:1;min-width:160px;margin:0" oninput="evDraftChanged()">
         </div>
         <div class="pay-meta" style="margin:0 2px 8px">Одна кнопка во всех постах и в боте. Куда ведёт — решает приложение по времени: до старта «скоро» с напоминанием, во время — эфир, после — запись; гостю — «Открыть доступ».</div>
+        </div>
         <label class="pay-item" style="cursor:pointer;margin-bottom:8px" id="ev-free-row">
           <input type="checkbox" id="live-free-part" checked style="flex-shrink:0" onchange="evDraftChanged()">
           <div style="flex:1;min-width:0">
@@ -2221,6 +2227,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 
       <!-- ── 2 · СТАРТ ── -->
       <div class="ev-stage" id="ev-stage-2" style="display:none">
+        <div class="pay-meta" id="ev-start-meet-note" style="display:none;margin:4px 2px 12px;color:var(--text)">Событие «Только телемост» — эфир не запускается. Встреча начинается рассылкой ссылки на этапе 1, а кнопку телемоста поверх приложения включает этап 5 «Позвать в телемост».</div>
         <div id="ev-start-box">
           <button class="popup-save" onclick="liveAutoStart()">Начать эфир</button>
           <div class="pay-meta" style="margin-top:6px">Сам включит трансляцию, создаст площадки ВК и пропишет точки ретрансляции. Название, анонс, баллы и галочка бесплатной части — из этапа 0.</div>
@@ -7091,7 +7098,25 @@ function evKindApply(){
   const meetOnly = kind === 'meet_only';
   const fr = document.getElementById('ev-free-row'); if (fr) fr.style.display = meetOnly ? 'none' : '';
   const mb = document.getElementById('ev-meetup-box'); if (mb) mb.style.display = meetOnly ? '' : 'none';
-  const sb = document.getElementById('ev-start-box'); if (sb && !(liveAdminState && liveAdminState.active)) sb.style.opacity = meetOnly ? '.45' : '';
+  /* v126: раньше кнопка «Начать эфир» лишь бледнела и оставалась нажимаемой —
+     одно касание запускало настоящую трансляцию Кинескопа и эфиры ВК. Теперь
+     в режиме «Только телемост» старт спрятан целиком (и охраняется в самих
+     liveStart/liveAutoStart), выбор трансляции и кнопка анонсов — тоже.
+     Идущий эфир не прячем: его надо уметь завершить в любом режиме */
+  const running = !!(liveAdminState && liveAdminState.active);
+  const sb = document.getElementById('ev-start-box'); if (sb && !running){ sb.style.opacity = ''; sb.style.display = meetOnly ? 'none' : ''; }
+  const sn = document.getElementById('ev-start-meet-note'); if (sn) sn.style.display = (meetOnly && !running) ? '' : 'none';
+  const kb = document.getElementById('ev-kin-box'); if (kb) kb.style.display = meetOnly ? 'none' : '';
+  const bb = document.getElementById('ev-btn-box'); if (bb) bb.style.display = meetOnly ? 'none' : '';
+  const mn = document.getElementById('ev-meet-only-note'); if (mn) mn.style.display = meetOnly ? '' : 'none';
+}
+function evIsMeetOnly(){
+  return ((document.getElementById('ev-kind') || {}).value) === 'meet_only';
+}
+function evMeetOnlyGuard(){
+  if (!evIsMeetOnly()) return false;
+  alert('Событие «Только телемост» — эфир не запускается. Если нужен эфир, на этапе 0 смени тип на «Эфир + телемост».');
+  return true;
 }
 async function evDraftLoad(){
   try{
@@ -8384,6 +8409,7 @@ async function liveToggleOpen(){
 }
 
 async function liveStart(){
+  if (evMeetOnlyGuard()) return;   // v126
   const sel = document.getElementById('live-admin-event');
   const opt = sel.options[sel.selectedIndex];
   const live_event_id = sel.value;
@@ -8449,6 +8475,7 @@ async function copyId(value, el){
 }
 
 async function liveAutoStart(){
+  if (evMeetOnlyGuard()) return;   // v126
   const sel = document.getElementById('live-admin-event');
   const opt = sel.options[sel.selectedIndex];
   const live_event_id = sel.value;
@@ -18028,6 +18055,6 @@ async function dgOpenPdf(id){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v125</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v126</div>
 </body>
 </html>
