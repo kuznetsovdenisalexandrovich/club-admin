@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v126 -->
+<!-- FILE_VERSION: admin-v127 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -203,6 +203,18 @@ header{padding:calc(max(env(safe-area-inset-top), 8px) + 20px) 0 16px;display:fl
 .avatar{width:38px;height:38px;border-radius:50%;flex-shrink:0;background:var(--lav-dim);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--lav-deep)}
 .item-info{flex:1;min-width:0}
 .item-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* v127: у строки участника имя обрезается многоточием, а метки — никогда.
+   Раньше метки стояли в той же строке после имени, и длинное имя («Эвелина
+   Распаковка суперсилы…») съедало их целиком. Теперь метки не сжимаются и при
+   нехватке места переносятся на вторую строку */
+.item-name.u-row{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;white-space:normal;overflow:visible}
+.item-name.u-row .u-nm{min-width:0;max-width:100%;flex:0 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item-name.u-row .badge{flex:none;white-space:nowrap}
+.ustats{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 10px}
+.ustat{display:flex;align-items:baseline;gap:6px;padding:6px 10px;border-radius:12px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-family:inherit;font-size:12px;cursor:pointer}
+.ustat b{font-size:14px}
+.ustat.on{border-color:var(--accent,#e8814a);box-shadow:0 0 0 1px var(--accent,#e8814a) inset}
+.ustat.warn b{color:#e8614a}
 .item-sub{font-size:11px;color:var(--text-faint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .item-right{text-align:right;flex-shrink:0}
 .item-val{font-size:12px;font-weight:700;color:var(--lav-deep)}
@@ -1316,12 +1328,16 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <option value="app_idle">— остыли</option>
         <option value="app_stuck">— знакомство не пройдено</option>
         <option value="app_active">Пользуются приложением</option>
+        <option value="stuck_hard">Оплатил и пропал</option>
+        <option value="empty">Пустые карточки</option>
       </select>
     </div>
     <div class="card">
       <div class="search-wrap">
         <input type="text" id="user-search" placeholder="Поиск по имени, телефону, email, username..." oninput="filterUsers()">
       </div>
+      <!-- v127: сводка по этапам — каждая плашка работает как фильтр -->
+      <div id="users-stats" class="ustats"></div>
       <!-- ⚠️ ДВЕ КНОПКИ РЯДОМ: обе про «завести человека руками», и искать их в
            разных концах экрана незачем ([stated] Denis 20.08) -->
       <div style="padding:14px 16px;display:flex;gap:8px">
@@ -3865,6 +3881,49 @@ function filterUsers(){
   renderUsersList();
 }
 
+/* v127: ПУСТАЯ КАРТОЧКА — ни имени, ни настоящего Telegram, ни ВК. Так выглядит
+   оплата, которую прислал Продамус, а Salebot не сказал, кто это: человек
+   заплатил, а мы не знаем, куда ему писать и кого узнавать в приложении */
+function userIsEmpty(u){
+  if(!u) return false;
+  const named=!!String(u.full_name||u.name||'').trim();
+  const tg=Number(u.telegram_id||0)>0;
+  return !named && !tg && !u.vk_id;
+}
+/* Дата платежа приходит из двух мест в разном виде: Salebot — «17.10.2026»,
+   Продамус — «2026-09-24». В списке — одним видом */
+function admPayDate(v){
+  const s=String(v||'').trim();
+  const m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? (m[3]+'.'+m[2]+'.'+m[1]) : escapeHtmlAdm(s);
+}
+/* v127: СВОДКА НАД СПИСКОМ. Сколько людей на каком этапе — и та же плашка
+   включает фильтр (повторное нажатие — обратно к активным). Считаем по всей
+   базе, а не по странице: поиск на цифры не влияет, чтобы они не прыгали */
+const USERS_STATS = [
+  ['active',     'участников',           function(u){ return u.is_member; }],
+  ['app_active', 'в приложении',         function(u){ return u.is_member && u.app_status==='active'; }],
+  ['app_stuck',  'знакомство не пройдено', function(u){ return u.is_member && u.app_status==='stuck'; }],
+  ['app_idle',   'остыли',               function(u){ return u.is_member && u.app_status==='idle'; }],
+  ['app_never',  'не знакомы с приложением', function(u){ return u.is_member && u.app_status==='never'; }],
+  ['stuck_hard', 'оплатил и пропал',     function(u){ return !!u.stuck_hard; }, true],
+  ['empty',      'пустые карточки',      function(u){ return userIsEmpty(u); }, true],
+];
+function renderUsersStats(f){
+  const box=document.getElementById('users-stats'); if(!box) return;
+  const list=allUsers||[];
+  box.innerHTML=USERS_STATS.map(function(st){
+    const n=list.filter(st[2]).length;
+    if(st[3] && !n) return '';          // тревожные плашки — только когда есть кого показать
+    return '<button class="ustat'+(f===st[0]?' on':'')+(st[3]?' warn':'')+'" onclick="usersStatClick(\''+st[0]+'\')"><b>'+n+'</b>'+st[1]+'</button>';
+  }).join('');
+}
+function usersStatClick(key){
+  const sel=document.getElementById('user-filter'); if(!sel) return;
+  sel.value = (sel.value===key && key!=='active') ? 'active' : key;
+  filterUsers();
+}
+
 /* ── «ПОЛЬЗУЕТСЯ ПРИЛОЖЕНИЕМ» (v121) ─────────────────────────────────────────
    Состояние считает сервер: never / idle / stuck / active. Значок — только у
    участников: у гостя «не знаком с приложением» ничего не сообщает */
@@ -3912,6 +3971,8 @@ function renderUsersList(){
   else if(f==='app_idle')   users=users.filter(u=>u.is_member && u.app_status==='idle');
   else if(f==='app_stuck')  users=users.filter(u=>u.is_member && u.app_status==='stuck');
   else if(f==='app_active') users=users.filter(u=>u.is_member && u.app_status==='active');
+  else if(f==='stuck_hard') users=users.filter(u=>!!u.stuck_hard);
+  else if(f==='empty')      users=users.filter(u=>userIsEmpty(u));
   if(q) users=users.filter(u=>
     (u.full_name||'').toLowerCase().includes(q)||
     (u.name||'').toLowerCase().includes(q)||
@@ -3921,6 +3982,7 @@ function renderUsersList(){
   );
   const el=document.getElementById('users-list');
   usersCountNote(f, users.length);
+  renderUsersStats(f);
   if(!users.length){el.innerHTML='<div class="empty">Ничего не найдено</div>'; document.getElementById('users-pagination').innerHTML=''; return;}
   const totalPages=Math.ceil(users.length/PAGE_SIZE);
   if(usersPage>totalPages) usersPage=totalPages;
@@ -3942,12 +4004,12 @@ function renderUsersList(){
     return `<div class="list-item${itemClass}" onclick="openPopup(${u.id})">
       <div class="avatar">${avatarMark}</div>
       <div class="item-info">
-        <div class="item-name">${name}${cancelled?' <span class="badge badge-err">остановлена</span>':''}${flagged?' <span class="badge badge-warn" title="'+setEsc(u.flag_reason)+'">⚠ часто пользуется</span>':''}${regNote}${appUsageBadge(u)}</div>
+        <div class="item-name u-row"><span class="u-nm">${name}</span>${cancelled?' <span class="badge badge-err">остановлена</span>':''}${flagged?' <span class="badge badge-warn" title="'+setEsc(u.flag_reason)+'">⚠ часто пользуется</span>':''}${regNote}${userIsEmpty(u)?' <span class="badge badge-err" title="Нет ни имени, ни Telegram, ни ВК — оплата пришла от Продамуса, а Salebot не сообщил, кто это. Открой карточку: почта и телефон подскажут, с кем склеить">пустая карточка</span>':appUsageBadge(u)}</div>
         <div class="item-sub">${frozen?('пауза до '+escapeHtmlAdm(u.frozen_until)):sub}</div>
       </div>
       <div class="item-right">
         <div class="item-val">${total>0?fmt(total):''}</div>
-        <div class="item-date">${u.next_payment_date||''}</div>
+        <div class="item-date">${admPayDate(u.next_payment_date)}</div>
       </div>
     </div>`;
   }).join('');
@@ -18055,6 +18117,6 @@ async function dgOpenPdf(id){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v126</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v127</div>
 </body>
 </html>
