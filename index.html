@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v128 -->
+<!-- FILE_VERSION: admin-v129 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -17920,6 +17920,7 @@ async function dgLoadIssues(){
         +     (r.has_column ? ' · колонка есть' : ' · колонки нет') + '</div>'
         + '</div>'
         + '<button class="action-btn" style="flex-shrink:0" onclick="dgEditColumn('+r.id+')">Колонка</button>'
+        + '<button class="action-btn" style="flex-shrink:0" onclick="dgDecorOpen('+r.id+')">Оформление'+(r.decor_count ? ' · '+r.decor_count : '')+'</button>'
         + '<button class="action-btn" style="flex-shrink:0" onclick="dgPublish('+r.id+','+(опубликован?'false':'true')+')">'+(опубликован?'Снять':'Выпустить')+'</button>'
         /* ⚠️ ТЕМА МЕНЯЕТ ТОЛЬКО ВИД ПОЛОС, НЕ ИХ СОСТАВ. Поэтому её можно
            переключать у готового номера: содержание не поедет. */
@@ -17956,12 +17957,15 @@ async function dgCreateIssue(){
 /* ⚠️ КОЛОНКА — ЕДИНСТВЕННОЕ, ЧЕГО МАШИНА НЕ СОБИРАЕТ. Из-за неё публикация
    осмысленно ручная: состав готов сам, ждём только живой голос. */
 async function dgEditColumn(id){
-  var текст = prompt('Колонка ведущего — своими словами о прошедшем месяце.\nПустая строка делит абзацы.');
+  /* v129: прежний текст подставляется в окно — раньше каждое открытие
+     начиналось с пустоты, и правка одного слова означала набрать всё заново */
+  var был = ((DG_LAST_ISSUES || []).find(function(x){ return x.id === id; }) || {}).column_text || '';
+  var текст = prompt('Колонка ведущего — своими словами о прошедшем месяце.\nПустая строка делит абзацы.', был);
   if(текст === null) return;
   try{
     var r = await fetch(API+'/admin/digest/issues/'+id+'?x_admin_token='+ADMIN_TOKEN, {method:'PUT',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({column_title:'От ведущего', column_text:текст, cover_url:'', settings:{}})});
+      body: JSON.stringify({column_title:'От ведущего', column_text:текст})});
     if(!r.ok) throw new Error('сервер ответил '+r.status);
     dgLoadIssues();
   }catch(e){ alert('Не сохранилось: '+e.message); }
@@ -18026,6 +18030,72 @@ async function dgLoadThemes(){
   }catch(e){}
 }
 
+/* ══ v129: ОФОРМЛЕНИЕ НОМЕРА (g40) ═════════════════════════════════════════
+   [stated] Denis: оформлять номера будет жена — орнаменты на полосы, фото
+   месяца — без кода. У каждой полосы свой слот; картинка слота встаёт на место
+   орнамента (обложка, колонка, идеи, финал) или вставкой внизу полосы.
+   Список полос берём из превью номера — ровно тот состав, что уйдёт в выпуск.
+   Картинка льётся в хранилище напрямую по подписанной ссылке, как видео сториз */
+let dgDecorIssue = null, dgDecorSlot = '';
+async function dgDecorOpen(id){
+  dgDecorIssue = id;
+  const box = document.getElementById('dg-decor');
+  box.style.display = 'block';
+  box.innerHTML = '<div class="loading">Собираю полосы номера…</div>';
+  try{
+    const d = await fetch(API+'/admin/digest/preview?issue_id='+id+'&x_admin_token='+ADMIN_TOKEN).then(function(r){return r.json();});
+    const issue = (DG_LAST_ISSUES || []).find(function(x){ return x.id === id; }) || {};
+    const decor = issue.decor || {};
+    const pages = d.pages || [];
+    box.innerHTML = '<div class="section-title" style="margin:0 0 4px;font-size:14px">Оформление: '+escapeHtmlAdm(issue.title || issue.slug || '')+'</div>'
+      + '<div class="pay-meta" style="margin-bottom:8px">Картинка встаёт на место орнамента (обложка, колонка, идеи, финал) или вставкой внизу полосы. PNG или JPG, лучше вдвое крупнее полосы — от 1600 px по ширине. Посмотреть результат — кнопка «PDF» у выпуска.</div>'
+      + pages.map(function(p){
+          const slot = p.slot || '';
+          const url = decor[slot] || '';
+          return '<div class="pay-item" style="align-items:center">'
+            + '<div style="width:34px;font-weight:700;opacity:.6">'+String(p.num||'').padStart(2,'0')+'</div>'
+            + (url ? '<img src="'+escapeHtmlAdm(url)+'" style="width:54px;height:40px;object-fit:cover;border-radius:8px;flex-shrink:0">' : '<div style="width:54px;height:40px;border-radius:8px;border:1px dashed var(--border);flex-shrink:0"></div>')
+            + '<div style="flex:1;min-width:0"><div class="pay-name">'+escapeHtmlAdm(p.slot_label || p.layout || '')+'</div>'
+            + '<div class="pay-meta">'+(url ? 'своя картинка' : 'орнамент темы')+'</div></div>'
+            + '<button class="action-btn" style="flex-shrink:0" onclick="dgDecorPick('+JSON.stringify(slot).replace(/"/g,'&quot;')+')">'+(url ? 'Заменить' : 'Загрузить')+'</button>'
+            + (url ? '<button class="action-btn" style="flex-shrink:0" onclick="dgDecorSet('+JSON.stringify(slot).replace(/"/g,'&quot;')+',\'\')">Убрать</button>' : '')
+            + '</div>';
+        }).join('')
+      + '<div id="dg-decor-state" class="pay-meta" style="margin-top:6px"></div>'
+      + '<button class="action-btn" style="margin-top:8px" onclick="document.getElementById(\'dg-decor\').style.display=\'none\'">Свернуть</button>';
+  }catch(e){ box.innerHTML = '<div style="opacity:.6">Не собралось: '+escapeHtmlAdm(e.message||String(e))+'</div>'; }
+}
+function dgDecorPick(slot){
+  dgDecorSlot = slot;
+  const f = document.getElementById('dg-decor-file');
+  f.value = '';
+  f.click();
+}
+async function dgDecorFile(input){
+  const file = input.files && input.files[0];
+  if (!file || !dgDecorIssue) return;
+  const state = document.getElementById('dg-decor-state');
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace('jpeg','jpg');
+  if (state) state.textContent = 'заливаю…';
+  try{
+    const meta = await retPost('/admin/audio-upload-url', { slug: 'dg' + dgDecorIssue + '-' + Date.now().toString(36), kind: 'digest_decor', ext: ext });
+    const put = await fetch(meta.upload_url, { method:'PUT', headers:{ 'Content-Type': meta.content_type }, body: file });
+    if (!put.ok) throw new Error('хранилище ответило ' + put.status);
+    await dgDecorSet(dgDecorSlot, meta.public_url);
+  }catch(e){ if (state) state.textContent = 'не залилось: ' + (e.message || e); }
+}
+async function dgDecorSet(slot, url){
+  try{
+    const r = await fetch(API+'/admin/digest/issues/'+dgDecorIssue+'/decor?x_admin_token='+ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ slot: slot, url: url })});
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
+    const id = dgDecorIssue;
+    await dgLoadIssues();
+    dgDecorOpen(id);
+  }catch(e){ alert('Не сохранилось: ' + (e.message || e)); }
+}
+
 async function dgSetTheme(id, key){
   const r = (DG_LAST_ISSUES || []).find(function(x){ return x.id === id; }) || {};
   try{
@@ -18033,10 +18103,10 @@ async function dgSetTheme(id, key){
       method:'PUT', headers:{'Content-Type':'application/json'},
       /* ⚠️ ШЛЁМ ПОЛНЫЙ ОБЪЕКТ: ручка принимает выпуск целиком, и половинчатая
          посылка обнулила бы колонку и период — та же ловушка, что с записями ленты */
-      body: JSON.stringify({ title: r.title||'', month: r.month||'',
-                             period_from: r.from||null, period_to: r.to||null,
-                             column_title: r.column_title||'', column_text: r.column_text||'',
-                             cover_url: r.cover_url||'', settings: r.settings||{}, theme: key })});
+      /* ⚠️ v129: ТОЛЬКО ТЕМА. Раньше слался «полный» выпуск из списка, а в
+         списке не было текста колонки — смена темы стирала колонку. Сервер с
+         main-v332 не трогает поля, которых нет в посылке */
+      body: JSON.stringify({ theme: key })});
     if(!resp.ok) throw new Error('сервер ответил '+resp.status);
     dgLoadIssues();
   }catch(e){ alert('Тема не сохранилась: '+e.message); }
@@ -18163,6 +18233,9 @@ async function dgOpenPdf(id){
         </div>
         <button class="action-btn" onclick="dgCreateIssue()" style="margin-bottom:10px">Завести черновик номера</button>
         <div id="dg-issues"><div class="loading">Загрузка...</div></div>
+        <!-- v129: ОФОРМЛЕНИЕ НОМЕРА — картинка в слот каждой полосы -->
+        <div id="dg-decor" style="display:none;margin-top:14px"></div>
+        <input type="file" id="dg-decor-file" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="dgDecorFile(this)">
       </div>
 
       <div id="dg-pane-types" style="display:none">
@@ -18180,6 +18253,6 @@ async function dgOpenPdf(id){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v128</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v129</div>
 </body>
 </html>
