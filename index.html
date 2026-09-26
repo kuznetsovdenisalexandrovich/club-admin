@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v129 -->
+<!-- FILE_VERSION: admin-v130 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1279,7 +1279,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <!-- v125: арты пачкой — файл кладётся в карточку с ключом = имя файла -->
         <button class="action-btn" style="width:100%;margin-top:8px" onclick="document.getElementById('bulk-art-input').click()">Загрузить арты пачкой</button>
         <input type="file" id="bulk-art-input" accept="image/*" multiple style="display:none" onchange="bulkUploadArts(this.files); this.value=''">
-        <div style="font-size:11px;color:var(--text-faint);margin-top:6px;line-height:1.45">Имя файла = ключ карточки (<code>prologue-zeus.png</code> → карточка <code>prologue-zeus</code>). Карточки пролога, которых ещё нет, заведутся сами — бог узнаётся по имени файла.</div>
+        <div style="font-size:11px;color:var(--text-faint);margin-top:6px;line-height:1.45">Имя файла = ключ карточки (<code>prologue-zeus.png</code> → карточка <code>prologue-zeus</code>). Карточки пролога, которых ещё нет, заведутся сами — бог узнаётся по имени файла. Версия для участников — с хвостом <code>-plus</code> (<code>prologue-zeus-plus.png</code>): заводится нечастой, поэтому рамки у неё наряднее; редкость можно поменять в карточке.</div>
         <div id="bulk-art-status" style="font-size:12px;margin-top:8px;line-height:1.5"></div>
       </div>
     </div>
@@ -11951,14 +11951,19 @@ async function bulkUploadArts(fileList){
           lines.push('<span style="color:#e8614a">✗ ' + escapeHtmlAdm(f.name) + ' — нет карточки с ключом «' + escapeHtmlAdm(key) + '», заведи её и загрузи ещё раз</span>');
           skipped++; continue;
         }
-        const god = bulkGodByTail(key.slice('prologue-'.length));
+        /* v130: `prologue-<бог>-plus` — версия пролога для участников: свой арт,
+           редкость «нечастая» → рамки из более нарядного сета */
+        let tail = key.slice('prologue-'.length);
+        const plus = /-plus$/.test(tail);
+        if (plus) tail = tail.replace(/-plus$/, '');
+        const god = bulkGodByTail(tail);
         if (!god){
           lines.push('<span style="color:#e8614a">✗ ' + escapeHtmlAdm(f.name) + ' — не узнал бога по имени файла</span>');
           skipped++; continue;
         }
         const r = await fetch(API + '/cards/admin/catalog?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key: key, god: god, title: god, description: '', rarity: 'common',
+          body: JSON.stringify({ key: key, god: god, title: god, description: '', rarity: plus ? 'uncommon' : 'common',
                                  weight: 0, card_class: 'prologue', style: 'dark', series_key: '',
                                  effect_type: 'points', effect_points: 0, active: true })
         });
@@ -11968,7 +11973,7 @@ async function bulkUploadArts(fileList){
         }
         card = { key: key, god: god };
         cardTypes.push(card);
-        made++; note = ', карточка заведена (' + escapeHtmlAdm(god) + ')';
+        made++; note = ', карточка заведена (' + escapeHtmlAdm(god) + (plus ? ', версия участника' : '') + ')';
       }
       const enc = await cardArtEncode(f);
       const d = await cardArtPost(key, enc);
@@ -18253,6 +18258,6 @@ async function dgOpenPdf(id){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v129</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v130</div>
 </body>
 </html>
