@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v130 -->
+<!-- FILE_VERSION: admin-v131 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -6913,6 +6913,44 @@ function switchScheduleTab(tab){
   });
 }
 
+/* ══ v131: «ЗВАТЬ НОВИЧКОВ» у правила и события расписания ══════════════════
+   [stated] Denis 27.09: знакомство зовёт новичков ТОЛЬКО на живые занятия с
+   ним — четверг и пятница да, воскресные встречи участников и книжный клуб
+   нет, новые — да. Флаг хранится в настройке знакомства (onboard.py), а не в
+   таблицах расписания, поэтому сохраняется отдельной кнопкой прямо в строке,
+   сразу по нажатию. Нет отметки — зовём */
+let nbInvite = {};
+let nbInviteLoaded = false;
+async function loadNbInvite(){
+  try{
+    const r = await fetch(API+'/onb/admin/live-invite?x_admin_token='+ADMIN_TOKEN);
+    if(!r.ok) return;
+    const d = await r.json();
+    nbInvite = {};
+    (d.items||[]).forEach(function(i){ nbInvite[i.key] = !!i.on; });
+    nbInviteLoaded = true;
+    try{ renderOneOffList(); }catch(e){}
+    try{ renderScheduleRulesList(); }catch(e){}
+  }catch(e){}
+}
+function nbInviteOn(key){ return nbInvite[key] !== false; }
+function nbInviteChip(key){
+  if(!nbInviteLoaded) return '';
+  const on = nbInviteOn(key);
+  return '<button class="action-btn" style="flex-shrink:0;'+(on?'':'opacity:.55')+'" title="Звать ли на эту встречу новичков из знакомства с клубом" onclick="toggleNbInvite(\''+key+'\')">'+(on?'Новичков: зовём':'Новичков: нет')+'</button>';
+}
+async function toggleNbInvite(key){
+  const on = !nbInviteOn(key);
+  try{
+    const r = await fetch(API+'/onb/admin/live-invite?x_admin_token='+ADMIN_TOKEN,{
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({key:key, on:on})});
+    if(!r.ok){ alert('Не сохранилось: '+r.status); return; }
+    nbInvite[key] = on;
+    try{ renderOneOffList(); }catch(e){}
+    try{ renderScheduleRulesList(); }catch(e){}
+  }catch(e){ alert('Ошибка соединения'); }
+}
+
 async function loadScheduleEvents(){
   const oneoffEl=document.getElementById('sched-oneoff-list');
   const teaserEl=document.getElementById('sched-teaser-list');
@@ -6921,6 +6959,7 @@ async function loadScheduleEvents(){
   try{
     scheduleEvents=await fetch(API+'/schedule/events').then(r=>r.json());
     renderOneOffList();
+    loadNbInvite();   // v131: флаги «звать новичков» дорисуются, когда придут
     renderTeaserList();
     updateCategoryDatalist();
   }catch(e){
@@ -6939,6 +6978,7 @@ function renderOneOffList(){
         <div class="pay-name">${e.title}${categoryBadge(e.category)}</div>
         <div class="pay-meta">${e.event_date}${e.event_time?' · '+e.event_time:''}</div>
       </div>
+      ${nbInviteChip('event:'+e.id)}
       <button class="action-btn" style="flex-shrink:0" onclick='editOneOffEvent(${JSON.stringify(e)})'>Изм.</button>
       <button class="action-btn danger" style="flex-shrink:0" onclick="deleteScheduleEvent(${e.id})">Удл.</button>
     </div>`).join('');
@@ -8907,6 +8947,7 @@ async function loadScheduleRules(){
   try{
     scheduleRules=await fetch(API+'/schedule/rules').then(r=>r.json());
     renderScheduleRulesList();
+    loadNbInvite();   // v131
     updateCategoryDatalist();
   }catch(e){ el.innerHTML='<div class="pay-meta">Ошибка загрузки</div>'; }
 }
@@ -8920,6 +8961,7 @@ function renderScheduleRulesList(){
         <div class="pay-name">${r.title} <span class="badge ${r.active?'badge-ok':'badge-err'}">${r.active?'активно':'выкл'}</span>${categoryBadge(r.category)}</div>
         <div class="pay-meta">Каждый ${WEEKDAY_NAMES[r.weekday]}${r.event_time?' · '+r.event_time:''}</div>
       </div>
+      ${nbInviteChip('rule:'+r.id)}
       <button class="action-btn" style="flex-shrink:0" onclick='editScheduleRule(${JSON.stringify(r)})'>Изм.</button>
       <button class="action-btn danger" style="flex-shrink:0" onclick="deleteScheduleRule(${r.id})">Удл.</button>
     </div>`).join('');
@@ -18258,6 +18300,6 @@ async function dgOpenPdf(id){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v130</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v131</div>
 </body>
 </html>
