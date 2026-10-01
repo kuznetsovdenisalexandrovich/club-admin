@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v132 -->
+<!-- FILE_VERSION: admin-v133 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -18427,6 +18427,12 @@ async function onbxLoadStats(){
     + retKpi('Уровень 2', s.level2, pct(s.level2))
     + retKpi('Встречи в календаре', s.calendar_people || 0, pct(s.calendar_people || 0))
     + '</div>';
+  /* admin-v133: где купили начавшие знакомство (сервер пишет с main-v336) */
+  const bp = s.by_place || {};
+  const BPN = {app: 'в приложении', bot: 'в боте', manual: 'переводом', unknown: 'неизвестно (до 01.10)'};
+  const bpk = Object.keys(bp);
+  if (bpk.length) h += '<div style="font-size:12.5px;color:var(--text-faint);margin:-4px 0 12px">Где купили: '
+    + bpk.map(function(k){ return escapeHtmlAdm(BPN[k] || k) + ' — ' + bp[k]; }).join(' · ') + '</div>';
   h += '<div class="section-title" style="margin:6px 0 8px;font-size:12px">Шаги — сколько людей сделали</div>';
   (s.steps || []).forEach(function(st){
     const w = s.started ? Math.round(100 * st.people / s.started) : 0;
@@ -18671,6 +18677,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v132</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v133</div>
 </body>
 </html>
