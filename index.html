@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v134 -->
+<!-- FILE_VERSION: admin-v135 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3699,6 +3699,11 @@ async function resolveReward(id){
    сама, ещё до того как я допишу ей человеческую подпись.
    Вид поля: bool — тумблер, num — число, text — строка, area — многострочный */
 const SETTINGS_META = {
+  /* admin-v135: ссылка в браузер и отдельный блок ВК с двумя кнопками */
+  weblink_title: ['Ссылка в браузер — заголовок', 'Сообщение со ссылкой, которая открывает клуб в обычном браузере', 'text'],
+  weblink_body:  ['Ссылка в браузер — текст', 'Уходит по просьбе бота и второй кнопкой в «Не открылось приложение?»', 'area'],
+  weblink_btn:   ['Ссылка в браузер — кнопка', '', 'text'],
+  vk_nudge2_block: ['ВК: блок с двумя кнопками заведён', 'Включи, когда в Salebot есть блок с условием ^nudge2_ — тогда «Не открылось приложение?» во ВКонтакте придёт с кнопкой «Открыть в браузере». Выключено — одной кнопкой, как раньше', 'bool'],
   nudge_later_label:        ['Подпись кнопки «напомнить позже»', 'Вторая кнопка в каждом дожиме', 'text'],
   card_change_remind_text:  ['Смена карты: напоминание', 'Уходит через 2 часа, если оплата новой картой так и не прошла', 'area'],
   card_change_revert_text:  ['Смена карты: возврат прежней', 'Уходит через 3 часа — карта не сменилась, списания пойдут по старой', 'area'],
@@ -10960,7 +10965,7 @@ async function loadNudgeCommon(){
   }catch(e){ el.innerHTML = '<div class="empty">Не удалось загрузить</div>'; return; }
 
   const группы = [
-    ['Пределы', ['nudge_max_per_day','film_postpone_limit']],
+    ['Пределы', ['nudge_max_per_day','film_postpone_limit','vk_nudge2_block']],
     ['Тексты сообщений бота', ['nudge_later_label','weblink_title','weblink_body','weblink_btn','card_change_remind_text','card_change_revert_text',
                                'cross_tg_remind_text','cross_vk_remind_text','manual_renew_text']],
     ['Сообщение о подарке (баллы, скидка, сдвиг)', ['gift_title','gift_button_label','gift_name_fallback',
@@ -18690,6 +18695,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v134</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v135</div>
 </body>
 </html>
