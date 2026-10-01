@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v131 -->
+<!-- FILE_VERSION: admin-v132 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1191,6 +1191,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <button class="action-btn" onclick="openPlacesPopup()">Каналы и чаты</button>
           <button class="action-btn" onclick="openBonusPopup()">Бонусы за вступление</button>
           <button class="action-btn" onclick="openNudgesPopup()">Дожимные рассылки</button>
+          <button class="action-btn" onclick="openOnbxPopup()">Знакомство новичка</button>
         </div>
       </div>
 
@@ -1554,6 +1555,27 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <div id="nudges-tab-chain" style="display:none"></div>
       <div id="nudges-tab-stats" style="display:none"></div>
       <div id="nudges-tab-common" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<div class="popup-overlay popup-centered" id="onbx-overlay" onclick="if(overlayShouldClose(event,this)) closeOnbxPopup()">
+  <div class="popup" style="max-width:680px">
+    <button class="popup-close-x" onclick="closeOnbxPopup()" title="Закрыть">✕</button>
+    <div class="popup-body" style="padding-top:20px">
+      <div class="popup-section-title" style="margin-top:0">Знакомство новичка</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+        <button class="scroll-btn on" id="onbx-btn-stats" onclick="onbxSetTab('stats')">Как идёт</button>
+        <button class="scroll-btn" id="onbx-btn-steps" onclick="onbxSetTab('steps')">Шаги</button>
+        <button class="scroll-btn" id="onbx-btn-nudges" onclick="onbxSetTab('nudges')">Дожимы</button>
+        <button class="scroll-btn" id="onbx-btn-common" onclick="onbxSetTab('common')">Общее</button>
+        <button class="scroll-btn" id="onbx-btn-texts" onclick="onbxSetTab('texts')">Тексты</button>
+      </div>
+      <div id="onbx-tab-stats"><div class="loading">Загрузка...</div></div>
+      <div id="onbx-tab-steps" style="display:none"></div>
+      <div id="onbx-tab-nudges" style="display:none"></div>
+      <div id="onbx-tab-common" style="display:none"></div>
+      <div id="onbx-tab-texts" style="display:none"></div>
     </div>
   </div>
 </div>
@@ -18300,6 +18322,355 @@ async function dgOpenPdf(id){
   <img id="admin-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:12px">
 </div>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v131</div>
+<script>
+/* ══ admin-v132: ЗНАКОМСТВО НОВИЧКА — НАСТРОЙКА И ЦИФРЫ (01.10.2026) ═════════
+   [stated] Denis 01.10: «экран онбординга тоже» — до этого настройка
+   знакомства (`onb_config` на сервере) правилась только командой. Пять
+   вкладок: «Как идёт» (воронка шагов, дожимы, календарь, вопросы ИИ),
+   «Шаги» (названия, очки, тексты кнопок и сообщений бота), «Дожимы»
+   (цепочка обязательных шагов: через сколько минут и заголовок), «Общее»
+   (режим, пороги, баллы, календарь, поиск), «Тексты» (всё, что сервер
+   знакомства показывает человеку).
+   ⚠️ СОХРАНЯЕМ ТОЛЬКО СВОЁ. Ручка `/onb/admin/config` кладёт присланные ключи
+   поверх сохранённого; тексты шлём только отличающиеся от умолчаний — иначе
+   новое умолчание из кода у сохранившего навсегда перекрыто бы старым */
+let onbxTab = 'stats', onbxDays = 30, onbxCfg = null, onbxDef = null;
+const ONBX_IN = 'padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px;width:100%;box-sizing:border-box';
+const ONBX_LBL = 'font-size:11px;color:var(--text-faint)';
+
+function openOnbxPopup(){
+  document.getElementById('onbx-overlay').classList.add('open');
+  onbxSetTab(onbxTab);
+}
+function closeOnbxPopup(){
+  document.getElementById('onbx-overlay').classList.remove('open');
+}
+function onbxSetTab(tab){
+  onbxTab = tab;
+  ['stats','steps','nudges','common','texts'].forEach(function(t){
+    const el = document.getElementById('onbx-tab-' + t);
+    if (el) el.style.display = (t === tab) ? '' : 'none';
+    const b = document.getElementById('onbx-btn-' + t);
+    if (b) b.classList.toggle('on', t === tab);
+  });
+  if (tab === 'stats') onbxLoadStats();
+  else onbxLoadCfg().then(function(){ onbxRender(tab); });
+}
+async function onbxLoadCfg(force){
+  if (onbxCfg && !force) return;
+  const el = document.getElementById('onbx-tab-' + onbxTab);
+  try {
+    const r = await fetch(API + '/onb/admin/config?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    onbxCfg = j.config || {}; onbxDef = j.defaults || {};
+  } catch(e){
+    if (el) el.innerHTML = '<div class="empty">Не удалось загрузить настройку знакомства</div>';
+  }
+}
+function onbxRender(tab){
+  if (!onbxCfg) return;
+  if (tab === 'steps') onbxRenderSteps();
+  if (tab === 'nudges') onbxRenderNudges();
+  if (tab === 'common') onbxRenderCommon();
+  if (tab === 'texts') onbxRenderTexts();
+}
+async function onbxSave(part, btn){
+  if (btn){ btn.disabled = true; btn.textContent = 'Сохраняю…'; }
+  try {
+    const r = await fetch(API + '/onb/admin/config?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(part)
+    });
+    const j = await r.json().catch(function(){ return {}; });
+    if (!r.ok){ alert(j.detail || 'Не сохранилось'); return false; }
+    onbxCfg = j.config || onbxCfg;
+    if (btn){ btn.textContent = 'Сохранено'; setTimeout(function(){ btn.textContent = 'Сохранить'; btn.disabled = false; }, 1500); }
+    return true;
+  } catch(e){ alert('Ошибка соединения'); return false; }
+  finally { if (btn && btn.textContent === 'Сохраняю…'){ btn.textContent = 'Сохранить'; btn.disabled = false; } }
+}
+function onbxField(label, id, value, opts){
+  opts = opts || {};
+  const v = escapeHtmlAdm(value == null ? '' : String(value));
+  const inp = opts.area
+    ? '<textarea id="' + id + '" rows="' + (opts.rows || 3) + '" style="' + ONBX_IN + ';resize:vertical;font-family:inherit">' + v + '</textarea>'
+    : '<input id="' + id + '" type="' + (opts.type || 'text') + '" value="' + v + '" style="' + ONBX_IN + '">';
+  return '<label style="display:flex;flex-direction:column;gap:3px;flex:' + (opts.flex || 1) + ';min-width:' + (opts.min || 120) + 'px">'
+    + '<span style="' + ONBX_LBL + '">' + escapeHtmlAdm(label) + '</span>' + inp + '</label>';
+}
+function onbxVal(id){ const el = document.getElementById(id); return el ? el.value : ''; }
+function onbxNote(t){ return '<div style="font-size:11.5px;color:var(--text-faint);margin:0 0 12px;line-height:1.5">' + t + '</div>'; }
+
+/* ── Как идёт ── */
+async function onbxLoadStats(){
+  const el = document.getElementById('onbx-tab-stats');
+  el.innerHTML = '<div class="loading">Загрузка...</div>';
+  let s, q;
+  try {
+    const t = encodeURIComponent(ADMIN_TOKEN);
+    const rs = await Promise.all([
+      fetch(API + '/onb/admin/stats?days=' + onbxDays + '&x_admin_token=' + t),
+      fetch(API + '/onb/admin/questions?days=' + onbxDays + '&x_admin_token=' + t)
+    ]);
+    if (!rs[0].ok) throw new Error('HTTP ' + rs[0].status);
+    s = await rs[0].json();
+    q = rs[1].ok ? await rs[1].json() : {items: []};
+  } catch(e){ el.innerHTML = '<div class="empty">Не удалось загрузить цифры</div>'; return; }
+  const pct = function(n){ return s.started ? Math.round(100 * n / s.started) + '%' : '—'; };
+  let h = '<div style="display:flex;gap:6px;margin-bottom:12px">'
+    + [7, 30, 90].map(function(d){
+        return '<button class="scroll-btn' + (d === onbxDays ? ' on' : '') + '" onclick="onbxDays=' + d + ';onbxLoadStats()">' + d + ' дней</button>';
+      }).join('') + '</div>';
+  h += '<div class="kpi-grid">'
+    + retKpi('Начали знакомство', s.started, s.test_rows ? ('без ' + s.test_rows + ' тестовых') : '')
+    + retKpi('Уровень 1', s.level1, pct(s.level1) + ' · за сутки ' + (s.level1_within_day || 0))
+    + retKpi('Уровень 2', s.level2, pct(s.level2))
+    + retKpi('Встречи в календаре', s.calendar_people || 0, pct(s.calendar_people || 0))
+    + '</div>';
+  h += '<div class="section-title" style="margin:6px 0 8px;font-size:12px">Шаги — сколько людей сделали</div>';
+  (s.steps || []).forEach(function(st){
+    const w = s.started ? Math.round(100 * st.people / s.started) : 0;
+    h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">'
+      + '<div style="flex:1;min-width:0;font-size:13px;color:var(--text)">' + escapeHtmlAdm(st.n)
+      + (st.mand ? ' <span style="font-size:10.5px;color:var(--accent,#9b82ff)">обязательно</span>' : '')
+      + (st.day > 1 ? ' <span style="font-size:10.5px;color:var(--text-faint)">день ' + st.day + '</span>' : '') + '</div>'
+      + '<div style="flex:0 0 38%;height:8px;border-radius:6px;background:var(--input-bg);overflow:hidden">'
+      + '<div style="height:100%;width:' + w + '%;background:var(--accent,#9b82ff)"></div></div>'
+      + '<div style="flex:0 0 64px;text-align:right;font-size:12px;color:var(--text-faint)">' + st.people + ' · ' + w + '%</div></div>';
+  });
+  const n = s.nudges || {};
+  const tries = Object.keys(n.by_try || {}).sort().map(function(k){ return k + '-я: ' + n.by_try[k]; }).join(' · ');
+  h += '<div class="section-title" style="margin:16px 0 6px;font-size:12px">Дожимы обязательных шагов</div>'
+    + '<div style="font-size:13px;color:var(--text);line-height:1.6">'
+    + (n.error ? escapeHtmlAdm(n.error)
+       : ('Ушло сообщений: ' + (n.sent || 0) + (tries ? ' (' + tries + ')' : '') + '<br>'
+          + 'Получили: ' + (n.people || 0) + ' · из них потом вступили: ' + (n.closed_after || 0)))
+    + '</div>';
+  const cp = s.cal_page || {};
+  const CPN = {webcal: 'Подписаться', safari: 'Открыть в Safari', google: 'Google Календарь', file: 'Файлом', copy: 'Скопировать ссылку'};
+  const cpk = Object.keys(cp);
+  h += '<div class="section-title" style="margin:16px 0 6px;font-size:12px">Страница календаря (ВК) — что нажимают</div>'
+    + '<div style="font-size:13px;color:var(--text)">' + (cpk.length
+        ? cpk.map(function(k){ return escapeHtmlAdm(CPN[k] || k) + ': ' + cp[k]; }).join(' · ')
+        : 'Пока никто не открывал') + '</div>';
+  const kinds = s.questions_by_kind || {};
+  h += '<div class="section-title" style="margin:16px 0 6px;font-size:12px">Вопросы ИИ-помощнику: ' + (s.questions || 0)
+    + ' <span style="font-weight:400;color:var(--text-faint)">· про продажи ' + (kinds.sales || 0)
+    + ' · про приложение ' + (kinds.app || 0) + ' · «с чего начать» ' + (kinds.start || 0) + '</span></div>';
+  const KN = {sales: 'продажи', app: 'приложение', start: 'с чего начать'};
+  const items = (q.items || []).slice(0, 60);
+  h += items.length ? items.map(function(it){
+      const picks = (it.picked || []).join(', ');
+      return '<div style="padding:8px 0;border-bottom:1px solid var(--border)">'
+        + '<div style="font-size:13px;color:var(--text)">' + escapeHtmlAdm(it.q || '') + '</div>'
+        + '<div style="font-size:11px;color:var(--text-faint);margin-top:2px">' + retWhen(it.at) + ' · ' + escapeHtmlAdm(KN[it.kind] || it.kind)
+        + (picks ? ' · нашлось: ' + escapeHtmlAdm(picks) : (it.kind === 'sales' ? ' · ничего не нашлось' : '')) + '</div></div>';
+    }).join('') : '<div class="empty">Вопросов за период нет</div>';
+  el.innerHTML = h;
+}
+
+/* ── Шаги ── */
+function onbxRenderSteps(){
+  const el = document.getElementById('onbx-tab-steps');
+  const steps = onbxCfg.steps || [];
+  /* ⚠️ НАЗВАНИЕ И «ЗАЧЕМ» ШАГА В АППЕ БЕРУТСЯ ИЗ РЕЕСТРА ТЕКСТОВ АППА
+     (nb.step.* / nb.why.*), серверные — только запасные. Править их здесь
+     значило бы завести вторую ручку, которая ничего не меняет на экране */
+  let h = onbxNote('Здесь — очки за шаг и «Сообщение бота»: текст напоминания (у канала и чата его шлют дожимы). '
+    + 'Названия и пояснения шагов, которые видит человек, — в «Текстах приложения», раздел «Онбординг» (ключи nb.step… и nb.why…). '
+    + 'Набор и порядок шагов здесь не меняются.');
+  steps.forEach(function(st, i){
+    const id = 'onbx-s' + i + '-';
+    const flags = [st.mand ? 'обязательный' : '', st.hero ? 'главный' : '', 'уровень ' + (st.lvl || 1), 'день ' + (st.day || 1)]
+      .filter(Boolean).join(' · ');
+    h += '<div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px">'
+      + '<div style="font-size:11px;color:var(--text-faint);margin-bottom:6px">' + escapeHtmlAdm(st.k) + ' · ' + flags + '</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:6px">'
+      + '<div style="flex:3;min-width:180px;font-size:14px;font-weight:500;color:var(--text);padding-bottom:8px">' + escapeHtmlAdm(st.n || st.k) + '</div>'
+      + onbxField('Очки', id + 'p', st.p, {type: 'number', min: 70})
+      + '</div>'
+      + (st.k === 'paid' || st.k === 'return' ? '' :
+          onbxField('Сообщение бота' + (st.k === 'channel' || st.k === 'chat' ? ' (Telegram)' : ''), id + 'bot', st.bot, {area: true, rows: 2})
+          + (st.k === 'channel' || st.k === 'chat'
+              ? '<div style="height:6px"></div>' + onbxField('Сообщение бота (ВКонтакте)', id + 'bot_vk', st.bot_vk, {area: true, rows: 2})
+              : ''))
+      + '</div>';
+  });
+  h += '<button class="action-btn" style="width:100%" onclick="onbxSaveSteps(this)">Сохранить</button>';
+  el.innerHTML = h;
+}
+async function onbxSaveSteps(btn){
+  const steps = JSON.parse(JSON.stringify(onbxCfg.steps || []));
+  steps.forEach(function(st, i){
+    const id = 'onbx-s' + i + '-';
+    const p = document.getElementById(id + 'p'); if (p) st.p = parseInt(p.value, 10) || 0;
+    ['bot', 'bot_vk'].forEach(function(f){ const e = document.getElementById(id + f); if (e) st[f] = e.value.trim(); });
+  });
+  await onbxSave({steps: steps}, btn);
+}
+
+/* ── Дожимы ── */
+function onbxRenderNudges(){
+  const el = document.getElementById('onbx-tab-nudges');
+  const list = onbxCfg.nudges || [];
+  let h = onbxNote('Если новичок не вступил в канал или чат — бот напоминает. Минуты считаются от первого открытия приложения. '
+    + 'Текст сообщения — «Сообщение бота» у шага (вкладка «Шаги»), здесь заголовок каждой попытки. '
+    + 'Перед отправкой сервер сам проверяет, не вступил ли человек. Ночью не пишем — сдвигаем на 10 утра по его времени.');
+  h += '<label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:13px;color:var(--text)">'
+    + '<input type="checkbox" id="onbx-n-on"' + (parseInt(onbxCfg.nudge_on, 10) ? ' checked' : '') + '> Дожимы включены</label>';
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
+    + onbxField('Новичком считаем дней', 'onbx-n-win', onbxCfg.nudge_window_days, {type: 'number', min: 140})
+    + onbxField('Надпись на кнопке', 'onbx-n-btn', (onbxCfg.texts || {})['nudge.btn'], {min: 160, flex: 2})
+    + '</div>';
+  list.forEach(function(x, i){
+    h += '<div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px">'
+      + onbxField('Через, минут', 'onbx-n' + i + '-m', x.after_min, {type: 'number', min: 90})
+      + onbxField('Заголовок ' + (i + 1) + '-го сообщения', 'onbx-n' + i + '-t', x.title, {flex: 4, min: 180})
+      + '<label style="flex-shrink:0;font-size:11px;color:var(--text-faint);display:flex;align-items:center;gap:4px;padding-bottom:8px">'
+      + '<input type="checkbox" id="onbx-n' + i + '-off"' + (x.off ? ' checked' : '') + '> пропустить</label>'
+      + '<button class="scroll-btn" style="flex-shrink:0;margin-bottom:2px" onclick="onbxNudgeDel(' + i + ')">✕</button>'
+      + '</div>';
+  });
+  h += '<div style="display:flex;gap:8px;margin-top:6px">'
+    + '<button class="scroll-btn" onclick="onbxNudgeAdd()">+ Ещё сообщение</button>'
+    + '<button class="action-btn" style="flex:1" onclick="onbxSaveNudges(this)">Сохранить</button></div>';
+  el.innerHTML = h;
+}
+function onbxNudgeRead(){
+  return (onbxCfg.nudges || []).map(function(x, i){
+    return {after_min: parseInt(onbxVal('onbx-n' + i + '-m'), 10) || 0, title: onbxVal('onbx-n' + i + '-t').trim(),
+            off: document.getElementById('onbx-n' + i + '-off') && document.getElementById('onbx-n' + i + '-off').checked ? 1 : 0};
+  });
+}
+function onbxNudgeAdd(){
+  const list = onbxNudgeRead();
+  const last = list.length ? list[list.length - 1].after_min : 0;
+  list.push({after_min: last + 1440, title: '', off: 0});
+  onbxCfg.nudges = list; onbxRenderNudges();
+}
+function onbxNudgeDel(i){
+  const list = onbxNudgeRead(); list.splice(i, 1);
+  onbxCfg.nudges = list; onbxRenderNudges();
+}
+async function onbxSaveNudges(btn){
+  const texts = onbxTextsDiff();
+  const b = onbxVal('onbx-n-btn').trim();
+  if (b) texts['nudge.btn'] = b;
+  await onbxSave({nudge_on: document.getElementById('onbx-n-on').checked ? 1 : 0,
+                  nudge_window_days: parseInt(onbxVal('onbx-n-win'), 10) || 3,
+                  nudges: onbxNudgeRead(), texts: texts}, btn);
+  onbxRenderNudges();
+}
+
+/* ── Общее ── */
+const ONBX_COMMON = [
+  ['Кому включено', [
+    ['mode', 'Режим', 'select', [['new', 'новым участникам'], ['all', 'всем участникам'], ['off', 'выключено (кроме теста)']]],
+    ['launch_date', 'Новые — это вступившие с даты (ГГГГ-ММ-ДД)', 'text']]],
+  ['Уровни и награды', [
+    ['th1', 'Очков до уровня 1', 'number'], ['th2', 'Очков до уровня 2', 'number'],
+    ['level2_points', 'Баллов клуба за уровень 2', 'number'], ['calendar_points', 'Баллов клуба за встречу в календаре (один раз)', 'number'],
+    ['mand_later_min', '«Позже» на окне обязательных — минут', 'number']]],
+  ['Календарь клуба', [
+    ['calendar_name', 'Название календаря у человека', 'text'], ['calendar_vk_link', 'Ссылка на приложение в ВК (в описании встреч)', 'text']]],
+  ['ИИ-помощник', [
+    ['search_on', 'Искать занятия на нашем сервере (1 — да, 0 — через Salebot)', 'number'],
+    ['ask_model', 'Модель разбора вопроса', 'text'], ['search_model', 'Модель поиска (пусто — та же)', 'text'],
+    ['ask_prompt', 'Промпт разбора вопроса ({help} — список статей справки)', 'area'],
+    ['search_prompt', 'Промпт поиска занятий ({kb} — база занятий)', 'area']]],
+];
+function onbxRenderCommon(){
+  const el = document.getElementById('onbx-tab-common');
+  let h = '';
+  ONBX_COMMON.forEach(function(g){
+    h += '<div class="section-title" style="margin:12px 0 6px;font-size:12px">' + g[0] + '</div><div style="display:flex;gap:8px;flex-wrap:wrap">';
+    g[1].forEach(function(f){
+      const id = 'onbx-c-' + f[0], v = onbxCfg[f[0]];
+      if (f[2] === 'select'){
+        h += '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:200px"><span style="' + ONBX_LBL + '">' + escapeHtmlAdm(f[1]) + '</span>'
+          + '<select id="' + id + '" style="' + ONBX_IN + '">' + f[3].map(function(o){
+              return '<option value="' + o[0] + '"' + (String(v) === o[0] ? ' selected' : '') + '>' + escapeHtmlAdm(o[1]) + '</option>';
+            }).join('') + '</select></label>';
+      } else if (f[2] === 'area'){
+        h += '<div style="flex:1 1 100%">' + onbxField(f[1], id, v, {area: true, rows: 7}) + '</div>';
+      } else {
+        h += onbxField(f[1], id, v, {type: f[2], min: 200});
+      }
+    });
+    h += '</div>';
+  });
+  h += '<button class="action-btn" style="width:100%;margin-top:14px" onclick="onbxSaveCommon(this)">Сохранить</button>';
+  el.innerHTML = h;
+}
+async function onbxSaveCommon(btn){
+  const part = {};
+  ONBX_COMMON.forEach(function(g){ g[1].forEach(function(f){
+    const raw = onbxVal('onbx-c-' + f[0]);
+    part[f[0]] = f[2] === 'number' ? (parseInt(raw, 10) || 0) : raw;
+  }); });
+  await onbxSave(part, btn);
+}
+
+/* ── Тексты ── */
+function onbxTextsDiff(){
+  const cur = onbxCfg.texts || {}, def = (onbxDef && onbxDef.texts) || {}, out = {};
+  Object.keys(cur).forEach(function(k){ if (cur[k] !== def[k]) out[k] = cur[k]; });
+  return out;
+}
+/* Ключи реестра аппа: серверный текст с таким же ключом (nb.<ключ>) апп не
+   показывает — его перекрывает реестр. Такие здесь прячем, чтобы не было двух
+   ручек у одного текста. Не достали реестр — показываем всё */
+let onbxAppKeys = null;
+async function onbxLoadAppKeys(){
+  if (onbxAppKeys) return;
+  try {
+    const html = await fetch(APP_SOURCE_URL + '?x=' + Date.now(), { cache: 'no-store' }).then(function(r){ return r.ok ? r.text() : ''; });
+    const a = html.indexOf('const APP_TEXTS = {'), b = a < 0 ? -1 : html.indexOf('\n};', a);
+    if (a < 0 || b < 0) return;
+    const reg = (new Function('return ' + html.slice(a + 'const APP_TEXTS = '.length, b + 2).replace(/;\s*$/, '')))();
+    onbxAppKeys = {}; Object.keys(reg).forEach(function(k){ onbxAppKeys[k] = 1; });
+  } catch(e){}
+}
+async function onbxRenderTexts(){
+  const el = document.getElementById('onbx-tab-texts');
+  await onbxLoadAppKeys();
+  const t = onbxCfg.texts || {}, def = (onbxDef && onbxDef.texts) || {};
+  const keys = Object.keys(t).sort();
+  let h = onbxNote('Тексты, которые показывает сам сервер: страница календаря для ВК (cal.page_…), кнопка дожима и запасные строки. '
+    + 'Всё, что на экранах приложения (шкала, окно обязательных шагов, ответ ИИ), — в «Текстах приложения», раздел «Онбординг». '
+    + 'Пустое поле — вернуть как было.')
+    + '<input id="onbx-t-q" placeholder="Найти текст или ключ" oninput="onbxFilterTexts()" style="' + ONBX_IN + ';margin-bottom:10px">';
+  keys.forEach(function(k, i){
+    if (onbxAppKeys && onbxAppKeys['nb.' + k]) return;
+    const changed = def[k] !== undefined && t[k] !== def[k];
+    h += '<div class="onbx-trow" data-s="' + escapeHtmlAdm((k + ' ' + t[k]).toLowerCase()) + '" style="margin-bottom:8px">'
+      + onbxField(k + (changed ? ' · изменён' : ''), 'onbx-t' + i, t[k], {area: true, rows: String(t[k] || '').length > 90 ? 3 : 1})
+      + '</div>';
+  });
+  h += '<button class="action-btn" style="width:100%;position:sticky;bottom:0" onclick="onbxSaveTexts(this)">Сохранить</button>';
+  el.innerHTML = h;
+}
+function onbxFilterTexts(){
+  const q = onbxVal('onbx-t-q').toLowerCase().trim();
+  document.querySelectorAll('.onbx-trow').forEach(function(r){
+    r.style.display = !q || r.getAttribute('data-s').indexOf(q) >= 0 ? '' : 'none';
+  });
+}
+async function onbxSaveTexts(btn){
+  const t = onbxCfg.texts || {}, def = (onbxDef && onbxDef.texts) || {};
+  const keys = Object.keys(t).sort(), out = {};
+  keys.forEach(function(k, i){
+    if (!document.getElementById('onbx-t' + i)){ if (t[k] !== def[k]) out[k] = t[k]; return; }   // спрятанный — как был
+    const v = onbxVal('onbx-t' + i);
+    const val = v.trim() === '' && def[k] !== undefined ? def[k] : v;
+    if (val !== def[k]) out[k] = val;
+  });
+  /* ⚠️ Ручка кладёт `texts` целиком на место сохранённых — поэтому шлём все
+     изменённые разом, а вернувшиеся к умолчанию просто не попадают в набор */
+  if (await onbxSave({texts: out}, btn)) onbxRenderTexts();
+}
+</script>
+
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v132</div>
 </body>
 </html>
