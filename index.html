@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v133 -->
+<!-- FILE_VERSION: admin-v134 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2821,6 +2821,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <button class="action-btn" id="view-start-btn" style="width:100%;margin-bottom:10px" onclick="startViewSession()">Смотреть глазами</button>
       <!-- Приложение не узнаёт человека — выдать разовую ссылку, она впишет id -->
       <button class="action-btn" style="width:100%;margin-bottom:10px" onclick="reissueInvite(currentUser && currentUser.id)">Ссылка «узнай меня»</button>
+      <button class="action-btn" style="width:100%;margin-bottom:10px" onclick="issueWebLink(currentUser && currentUser.id)">Ссылка в браузер</button>
       <div id="popup-diag" style="border-radius:14px;overflow:hidden;background:var(--stat-bg);border:1px solid var(--border)"></div>
 
       <!-- Лента активности -->
@@ -9093,6 +9094,18 @@ async function reissueInvite(userId){
     showInviteLink(d.url, d['живёт_дней']);
   }catch(e){ alert('Ошибка соединения'); }
 }
+/* admin-v134: вход в веб-версию по разовой ссылке — для тех, у кого приложение
+   внутри мессенджера не открывается. Человек сразу внутри, без номера и кода */
+async function issueWebLink(userId){
+  if(!userId){ alert('Сначала открой карточку клиента'); return; }
+  try{
+    const r=await fetch(API+'/admin/users/'+userId+'/web-link?x_admin_token='+ADMIN_TOKEN,{method:'POST'});
+    const d=await r.json();
+    if(!r.ok){ alert(d.detail||'Не получилось выдать ссылку'); return; }
+    openManualUserPopup();
+    showInviteLink(d.url, d['живёт_дней']);
+  }catch(e){ alert('Ошибка соединения'); }
+}
 function closeManualUserPopup(){ document.getElementById('manual-user-popup-overlay').classList.remove('open'); }
 
 async function createManualUser(){
@@ -10948,7 +10961,7 @@ async function loadNudgeCommon(){
 
   const группы = [
     ['Пределы', ['nudge_max_per_day','film_postpone_limit']],
-    ['Тексты сообщений бота', ['nudge_later_label','card_change_remind_text','card_change_revert_text',
+    ['Тексты сообщений бота', ['nudge_later_label','weblink_title','weblink_body','weblink_btn','card_change_remind_text','card_change_revert_text',
                                'cross_tg_remind_text','cross_vk_remind_text','manual_renew_text']],
     ['Сообщение о подарке (баллы, скидка, сдвиг)', ['gift_title','gift_button_label','gift_name_fallback',
                                'gift_points_text','gift_discount_text','gift_shift_text']],
@@ -18677,6 +18690,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v133</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v134</div>
 </body>
 </html>
