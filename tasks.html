@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: tasks-v32 -->
+<!-- FILE_VERSION: tasks-v33 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -667,6 +667,9 @@ let ITEMS = [];
    галочка «эту я доделал», задача заводится в момент первого нажатия */
 const LEC_SEC = 'lec';
 const SELF_SEC = 'self';   // личные задачи — вне общего прогресса
+/* v33: копилка идей партнёра тоже вне кольца — это идеи, а не путь к запуску.
+   [stated] Denis 03.10 согласился: иначе «закрыто N из 400» ничего не значит */
+const OUT_OF_RING = [SELF_SEC, 'partner'];
 let LECTURES = [];
 let CHECKS = {};
 let cur = 'dev';
@@ -1284,7 +1287,7 @@ function render(){
      из M» бессмысленным. Свой счётчик у раздела на вкладке и так есть */
   let all = 0, dn = 0;
   tabs().forEach(function(s){
-    if (s.key === SELF_SEC) return;
+    if (OUT_OF_RING.indexOf(s.key) >= 0) return;
     /* Календарь — витрина тех же задач из разделов, в кольцо второй раз не считаем */
     if (s.key === CAL_SEC) return;
     const list = allItems(s.key);
