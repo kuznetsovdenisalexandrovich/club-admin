@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v141 -->
+<!-- FILE_VERSION: admin-v142 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -18017,6 +18017,7 @@ function dgRenderPreview(d){
 /* ── ВЫПУСКИ ─────────────────────────────────────────────────────────── */
 
 async function dgLoadIssues(){
+  dgThemeRulesLoad();
   var box = document.getElementById('dg-issues');
   try{
     var rows = await fetch(API+'/admin/digest/issues?x_admin_token='+ADMIN_TOKEN).then(function(r){return r.json();});
@@ -18048,6 +18049,8 @@ async function dgLoadIssues(){
             }).join('')
         + '</select>'
         + '<button class="action-btn" style="flex-shrink:0" onclick="dgOpenPdf('+r.id+')">PDF</button>'
+        + '<button class="action-btn" style="flex-shrink:0" title="Вёрстка номера одним HTML-файлом — править вне системы" onclick="dgDownloadHtml('+r.id+')">HTML</button>'
+        + (опубликован ? '<button class="action-btn" style="flex-shrink:0" title="Собрать файлы номера во всех темах сейчас (после «Выпустить» это идёт само)" onclick="dgPrerender('+r.id+',this)">PDF во всех темах</button>' : '')
         + '<button class="action-btn" style="flex-shrink:0" onclick="dgAnnounceOpen('+r.id+')">Анонс</button>'
         + '<button class="action-btn danger" style="flex-shrink:0" onclick="dgDeleteIssue('+r.id+')">Удл.</button>'
         + '</div>';
@@ -18644,6 +18647,66 @@ async function dgSetTheme(id, key){
 /* v114: ключ администратора больше не попадает в адресную строку, историю и
    «копировать ссылку» — PDF забираем внутри страницы и открываем как blob.
    Окно открываем ДО ожидания ответа: Safari блокирует window.open после await */
+/* v142 (g42) · ПРАВИЛА ТЕМ. Режим и число на тему; хранится документом на
+   сервере. Новая тема на диске появляется здесь «скрытой», пока не откроешь */
+var DG_THEME_RULES = [];
+async function dgThemeRulesLoad(){
+  var box = document.getElementById('dg-theme-rules');
+  if (!box) return;
+  try{
+    var d = await fetch(API+'/admin/digest/theme-rules?x_admin_token='+ADMIN_TOKEN).then(function(r){ return r.json(); });
+    DG_THEME_RULES = d.themes || [];
+    box.innerHTML = DG_THEME_RULES.map(function(t, i){
+      var опции = [['closed','скрыта'],['free','всем участникам'],['level','с уровня'],['points','за баллы']].map(function(o){
+        return '<option value="'+o[0]+'"'+(t.mode===o[0]?' selected':'')+'>'+o[1]+'</option>';
+      }).join('');
+      return '<div class="pay-item" style="align-items:center;gap:6px;flex-wrap:wrap">'
+        + '<div style="flex:1;min-width:110px;font-size:13px">'+escapeHtmlAdm(t.title || t.key)
+        +   (t.key === d.default ? ' <span style="font-size:11px;opacity:.6">по умолчанию</span>' : '') + '</div>'
+        + '<select class="popup-input" style="margin:0;max-width:150px" id="dgtr-mode-'+i+'" onchange="dgThemeRuleMode('+i+')">'+опции+'</select>'
+        + '<input class="popup-input" style="margin:0;width:90px" type="number" min="0" id="dgtr-num-'+i+'" placeholder="'+(t.mode==='points'?'баллов':'уровень')+'" value="'+(t.mode==='points'?(t.points||''):(t.mode==='level'?(t.level||''):''))+'"'+((t.mode==='points'||t.mode==='level')?'':' disabled')+'>'
+        + '</div>';
+    }).join('') || '<div style="font-size:12px;opacity:.6">Тем на сервере нет.</div>';
+  }catch(e){ box.innerHTML = '<div style="opacity:.6">Не загрузилось: '+e+'</div>'; }
+}
+function dgThemeRuleMode(i){
+  var m = document.getElementById('dgtr-mode-'+i).value, n = document.getElementById('dgtr-num-'+i);
+  n.disabled = !(m === 'points' || m === 'level');
+  n.placeholder = m === 'points' ? 'баллов' : 'уровень';
+}
+async function dgThemeRulesSave(){
+  var rules = {};
+  DG_THEME_RULES.forEach(function(t, i){
+    var m = document.getElementById('dgtr-mode-'+i).value, n = Number(document.getElementById('dgtr-num-'+i).value || 0);
+    rules[t.key] = {mode: m, level: m === 'level' ? n : 0, points: m === 'points' ? n : 0};
+  });
+  try{
+    var r = await fetch(API+'/admin/digest/theme-rules?x_admin_token='+ADMIN_TOKEN, {method:'POST',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify({rules: rules})});
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    alert('Сохранено');
+    dgThemeRulesLoad();
+  }catch(e){ alert('Не сохранилось: '+(e.message||e)); }
+}
+async function dgPrerender(id, btn){
+  var был = btn.textContent;
+  btn.textContent = 'Собираю…'; btn.disabled = true;
+  try{
+    var d = await fetch(API+'/admin/digest/issues/'+id+'/prerender?x_admin_token='+ADMIN_TOKEN, {method:'POST'}).then(function(r){ return r.json(); });
+    alert('Готово: ' + ((d.ok||[]).join(', ') || 'ничего') + ((d.fail||[]).length ? '\nНе вышло: ' + d.fail.join('; ') : ''));
+  }catch(e){ alert('Не вышло: '+(e.message||e)); }
+  btn.textContent = был; btn.disabled = false;
+}
+async function dgDownloadHtml(id){
+  try{
+    var r = await fetch(API+'/admin/digest/issues/'+id+'/html?x_admin_token='+encodeURIComponent(ADMIN_TOKEN));
+    if (!r.ok) throw new Error('сервер ответил '+r.status);
+    var blob = await r.blob(), url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = 'digest-' + id + '.html'; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 60000);
+  }catch(e){ alert('Не скачалось: '+(e.message||e)); }
+}
+
 async function dgOpenPdf(id){
   const w = window.open('', '_blank');
   try {
@@ -18794,6 +18857,13 @@ async function dgOpenPdf(id){
           <div style="font-size:11.5px;opacity:.6;margin:6px 0 8px">Пока выключено, дайджест видят только айди из списка. Дашборд и PDF по токену работают всегда.</div>
           <input id="dg-testers" class="popup-input" placeholder="Кому показывать на время тестов: telegram_id через запятую">
           <button class="action-btn" onclick="dgSaveAccess()">Сохранить доступ</button>
+        </div>
+        <!-- v142 (g42): ТЕМЫ PDF ДЛЯ УЧАСТНИКОВ — кому какая открыта -->
+        <div class="card" style="padding:12px;margin-bottom:12px">
+          <div style="font-weight:700;font-size:13px;margin-bottom:4px">Темы PDF для участников</div>
+          <div style="font-size:11.5px;opacity:.6;margin-bottom:8px">Экран выпуска в приложении один на всех — темы меняют только файл. Тема номера доступна всегда. Остальные: всем участникам, с уровня, за баллы или скрыта. Купленная тема сгорает с концом подписки вместе с баллами.</div>
+          <div id="dg-theme-rules"><div class="loading">Загрузка...</div></div>
+          <button class="action-btn" onclick="dgThemeRulesSave()">Сохранить темы</button>
         </div>
         <button class="action-btn" onclick="dgCreateIssue()" style="margin-bottom:10px">Завести черновик номера</button>
         <div id="dg-issues"><div class="loading">Загрузка...</div></div>
@@ -19173,6 +19243,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v141</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v142</div>
 </body>
 </html>
