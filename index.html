@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v138 -->
+<!-- FILE_VERSION: admin-v139 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1224,6 +1224,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <div class="tools-group-t">Содержимое и привлечение</div>
         <div class="tools-grid">
           <button class="action-btn" onclick="openDigestPopup()">Дайджест</button>
+          <button class="action-btn" onclick="openQaPopup()">Тестирование</button>
           <button class="action-btn" onclick="openTextsPopup()">Тексты приложения</button>
           <button class="action-btn" onclick="openHelpDocsPopup()">Справка клуба</button>
           <button class="action-btn" onclick="openGamesPopup()">Конструктор игр</button>
@@ -3741,6 +3742,11 @@ const SETTINGS_META = {
   botmenu_digest_line:      ['Меню бота: свежий выпуск дайджеста', 'Подстановка {выпуск}. Только пока дайджест открыт всем', 'text'],
   digest_announce_text:     ['Анонс выпуска: текст по умолчанию', 'Подставляется в окно «Анонс» у выпуска, там его можно поправить перед отправкой. Метки {название} и {номер}', 'text'],
   digest_announce_button:   ['Анонс выпуска: надпись на кнопке', 'Кнопка-ссылка под анонсом в боте и в каналах', 'text'],
+  tester_link_enabled:      ['Режим тестера по ссылке', 'Включено — ссылка startapp=tester открывает режим тестера любому. Выключено — ссылка молчит', 'bool'],
+  tester_check_points:      ['Баллы за одну проверку', 'За отметку «Работает» или «Не работает» — один раз за пункт в круге. 0 — без баллов', 'num'],
+  tester_bug_points:        ['Баллы за баг по умолчанию', 'Столько получает каждый нашедший, когда баг починен. У каждого бага можно поменять отдельно', 'num'],
+  tester_fixed_text:        ['Сообщение «баг починен»', 'Уходит каждому нашедшему в бота и в приложение. Метки {баг} и {баллы}', 'text'],
+  tester_fixed_text_nopoints: ['Сообщение «баг починен» без баллов', 'Когда баллов нет (0 или человек без карточки). Метка {баг}', 'text'],
   digest_guest_delay_days:  ['Гостям выпуск — через сколько дней', 'Участники читают номер сразу после выпуска, гости — через столько дней. 0 — всем сразу', 'num'],
 
   show_requisites:          ['Показывать реквизиты ИП', 'Строка с ИП и ИНН в приложении и на экране входа', 'bool'],
@@ -3774,6 +3780,7 @@ const NUDGE_SETTING_KEYS = ['nudge_later_label','card_change_remind_text','card_
 const SETTINGS_GROUPS = [
   ['Фильм и окно бонусов', ['film_lecture_slug','film_duration_sec','funnel_bonus_window_min','funnel_bonus_window_back','funnel_window_last_min','guest_tour_enabled','guest_plan_playlist']],
   ['Что открыто участнику', ['insights_unlock_level','pdf_unlock_level','audio_preview_minutes']],
+  ['Тестирование', ['tester_link_enabled','tester_check_points','tester_bug_points','tester_fixed_text','tester_fixed_text_nopoints']],
   ['Дайджест', ['digest_public','digest_testers','digest_guest_delay_days','digest_announce_text','digest_announce_button']],
   ['Меню бота', ['botmenu_app_line','botmenu_next_line','botmenu_done_line','botmenu_live_line','botmenu_digest_line']],
   ['Вход и реквизиты', ['show_requisites','sms_login_enabled','allow_direct_phone_login']],
@@ -18137,6 +18144,286 @@ async function dgAnnounceGo(preview){
   }catch(e){ st.textContent = 'Не вышло: ' + (e.message || e); }
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   v139 · ТЕСТИРОВАНИЕ — обращения, баги, пункты проверки.
+
+   [stated] Denis 03.10: сообщения тестеров копить в дашборде и отвечать
+   оттуда; баги — отдельным списком с отметкой «исправлен», нашедшие
+   привязаны, баллы всем сразу и уведомление; пункты проверки хранить на
+   сервере и пополнять отсюда, из терминала и через ассистента.
+   Сервер — модуль testers.py (маршруты /tester/admin/*).
+   ══════════════════════════════════════════════════════════════════════════ */
+var QA_TAB = 'inbox';
+var QA_SHOW = 'open';
+var QA_BUGS = [];
+var QA_ITEMS = null;
+var QA_REPLY_OPEN = null;
+var QA_CTX_OPEN = {};
+var QA_EDIT_ITEM = null;
+var QA_AUD = { any: 'всем', guest: 'гостям', member: 'участникам' };
+var QA_PLAT = { tg: 'Telegram', vk: 'ВКонтакте', max: 'MAX', web: 'веб' };
+
+function qaAdmUrl(path){ return API + '/tester/admin' + path + (path.indexOf('?') >= 0 ? '&' : '?') + 'x_admin_token=' + ADMIN_TOKEN; }
+async function qaAdmFetch(path, body){
+  var r = await fetch(qaAdmUrl(path), body === undefined ? {} : {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  var d = await r.json().catch(function(){ return {}; });
+  if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
+  return d;
+}
+function qaEsc(v){ return escapeHtmlAdm(v == null ? '' : String(v)); }
+function qaArg(v){ return JSON.stringify(v).replace(/"/g, '&quot;'); }
+
+function openQaPopup(){
+  document.getElementById('qa-overlay').classList.add('open');
+  qaTab(QA_TAB);
+}
+function closeQaPopup(){ document.getElementById('qa-overlay').classList.remove('open'); }
+
+function qaTab(name){
+  QA_TAB = name;
+  ['inbox', 'bugs', 'items', 'links'].forEach(function(t){
+    document.getElementById('qa-pane-' + t).style.display = (t === name ? '' : 'none');
+    var b = document.getElementById('qa-tab-' + t);
+    if (b) b.classList.toggle('on', t === name);
+  });
+  if (name === 'inbox') qaLoadInbox();
+  if (name === 'bugs') qaLoadBugs();
+  if (name === 'items') qaLoadItems();
+  if (name === 'links') qaRenderLinks();
+}
+
+/* ── ВХОДЯЩИЕ ─────────────────────────────────────────────────────────── */
+var QA_REPORTS = [];
+async function qaLoadInbox(){
+  var box = document.getElementById('qa-pane-inbox-list');
+  box.innerHTML = '<div class="loading">Загрузка…</div>';
+  try {
+    var d = await qaAdmFetch('/reports?show=' + QA_SHOW);
+    QA_REPORTS = d.reports || [];
+    var cnt = document.getElementById('qa-tab-inbox');
+    if (cnt) cnt.textContent = 'Входящие' + (d.open ? ' · ' + d.open : '');
+    if (!QA_BUGS.length){ try { QA_BUGS = (await qaAdmFetch('/bugs')).bugs || []; } catch(e){} }
+    qaRenderInbox();
+  } catch(e){ box.innerHTML = '<div style="opacity:.6">Не загрузилось: ' + qaEsc(e.message) + '</div>'; }
+}
+function qaSetShow(v){ QA_SHOW = v; qaLoadInbox(); }
+
+function qaRenderInbox(){
+  var box = document.getElementById('qa-pane-inbox-list');
+  if (!QA_REPORTS.length){
+    box.innerHTML = '<div style="opacity:.6;font-size:13px">' + (QA_SHOW === 'open' ? 'Неразобранных нет.' : 'Обращений пока нет.') + '</div>';
+    return;
+  }
+  var openBugs = QA_BUGS.filter(function(b){ return b.status === 'new' || b.status === 'work'; });
+  box.innerHTML = QA_REPORTS.map(function(r){
+    var ctx = r.ctx || {};
+    var ctxRows = Object.keys(ctx).map(function(k){
+      return '<div><span style="opacity:.55">' + qaEsc(k) + ':</span> ' + qaEsc(typeof ctx[k] === 'object' ? JSON.stringify(ctx[k]) : ctx[k]) + '</div>';
+    }).join('');
+    var logRows = (r.log || []).map(function(x){ return '<div>' + qaEsc(x.t || '') + '  ' + qaEsc(x.e || x.text || '') + '</div>'; }).join('');
+    var bugLine = r.bug_id
+      ? '<span style="font-size:12px;font-weight:700;color:var(--lav-deep)">баг #' + r.bug_id + (r.bug_status === 'fixed' ? ' · починен' : '') + '</span>'
+      : (r.handled ? '<span style="font-size:12px;opacity:.6">убрано</span>' : '<span style="font-size:12px;font-weight:700;color:#c0392b">не разобрано</span>');
+    return '<div class="pay-item" style="flex-direction:column;align-items:stretch;gap:8px">'
+      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+      +   '<b>' + qaEsc(r.name || 'Без имени') + '</b>'
+      +   '<span class="pay-meta">' + qaEsc(QA_PLAT[r.platform] || r.platform || '?') + ' · ' + (r.mode === 'tester' ? 'тестер' : 'обычный режим') + ' · ' + qaEsc(r.at) + '</span>'
+      +   '<span style="margin-left:auto">' + bugLine + '</span>'
+      + '</div>'
+      + '<div class="pay-meta">Экран: ' + qaEsc(r.screen || '—') + (r.item_title ? ' · не прошла проверка «' + qaEsc(r.item_title) + '»' : '') + '</div>'
+      + '<div style="font-size:14px;line-height:1.5;white-space:pre-wrap">' + qaEsc(r.text) + '</div>'
+      + ((r.shots || []).length ? '<div style="display:flex;gap:8px;flex-wrap:wrap">' + r.shots.map(function(u){
+          return '<a href="' + qaEsc(u) + '" target="_blank" rel="noopener"><img src="' + qaEsc(u) + '" style="width:84px;height:84px;object-fit:cover;border-radius:10px;border:1px solid var(--border)"></a>';
+        }).join('') + '</div>' : '')
+      + (r.reply ? '<div style="background:rgba(62,207,142,.12);border-radius:10px;padding:8px 10px;font-size:13px;white-space:pre-wrap">Твой ответ: ' + qaEsc(r.reply) + '</div>' : '')
+      + (QA_CTX_OPEN[r.id] ? '<div style="background:rgba(0,0,0,.05);border-radius:10px;padding:10px;font:11.5px/1.6 ui-monospace,Menlo,monospace;word-break:break-word">'
+          + ctxRows + (logRows ? '<div style="margin-top:6px;opacity:.6">Последние действия:</div>' + logRows : '') + '</div>' : '')
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
+      +   '<button class="action-btn primary" onclick="qaToggleReply(' + r.id + ')">Ответить</button>'
+      +   '<button class="action-btn" onclick="qaToggleCtx(' + r.id + ')">' + (QA_CTX_OPEN[r.id] ? 'Скрыть контекст' : 'Контекст и действия') + '</button>'
+      +   (!r.bug_id ? '<button class="action-btn" onclick="qaLink(' + r.id + ',null)">Завести баг</button>'
+            + (openBugs.length ? '<select class="popup-input" style="margin:0;max-width:220px" onchange="if(this.value) qaLink(' + r.id + ',+this.value)">'
+              + '<option value="">Тот же баг, что…</option>' + openBugs.map(function(b){ return '<option value="' + b.id + '">#' + b.id + ' ' + qaEsc(b.title.slice(0, 50)) + '</option>'; }).join('')
+              + '</select>' : '')
+            + (!r.handled ? '<button class="action-btn" onclick="qaHide(' + r.id + ')">Убрать без бага</button>' : '')
+          : '')
+      +   (r.dm_url ? '<a href="' + qaEsc(r.dm_url) + '" target="_blank" rel="noopener" style="margin-left:auto;font-size:13px">Написать в личку · ' + qaEsc(r.dm_label) + '</a>' : '')
+      + '</div>'
+      + (QA_REPLY_OPEN === r.id ? '<div style="display:flex;gap:8px;align-items:flex-end">'
+          + '<textarea id="qa-reply-text" class="popup-input" rows="3" style="flex:1;margin:0" placeholder="Ответ уйдёт человеку в бота и в «новости» приложения"></textarea>'
+          + '<button class="action-btn primary" onclick="qaSendReply(' + r.id + ')">Отправить</button></div>' : '')
+      + '</div>';
+  }).join('');
+}
+function qaToggleReply(id){ QA_REPLY_OPEN = QA_REPLY_OPEN === id ? null : id; qaRenderInbox(); var t = document.getElementById('qa-reply-text'); if (t) t.focus(); }
+function qaToggleCtx(id){ QA_CTX_OPEN[id] = !QA_CTX_OPEN[id]; qaRenderInbox(); }
+async function qaSendReply(id){
+  var t = document.getElementById('qa-reply-text');
+  var text = t ? t.value.trim() : '';
+  if (!text) return;
+  try {
+    var d = await qaAdmFetch('/reports/' + id + '/reply', { text: text });
+    QA_REPLY_OPEN = null;
+    if (!d.bot) alert('Ответ лёг в «новости» приложения. В бота не ушло — человек, похоже, не начинал диалог с ботом.');
+    qaLoadInbox();
+  } catch(e){ alert('Не ушло: ' + e.message); }
+}
+async function qaLink(id, bugId){
+  var body = bugId ? { bug_id: bugId } : { title: '' };
+  if (!bugId){
+    var r = QA_REPORTS.find(function(x){ return x.id === id; }) || {};
+    var title = prompt('Название бага — коротко, своими словами:', (r.text || '').slice(0, 90));
+    if (title === null) return;
+    body.title = title;
+  }
+  try { await qaAdmFetch('/reports/' + id + '/link', body); QA_BUGS = []; qaLoadInbox(); }
+  catch(e){ alert('Не вышло: ' + e.message); }
+}
+async function qaHide(id){
+  try { await qaAdmFetch('/reports/' + id + '/link', { handled: true }); qaLoadInbox(); }
+  catch(e){ alert('Не вышло: ' + e.message); }
+}
+
+/* ── БАГИ ─────────────────────────────────────────────────────────────── */
+async function qaLoadBugs(){
+  var box = document.getElementById('qa-pane-bugs-list');
+  box.innerHTML = '<div class="loading">Загрузка…</div>';
+  try { QA_BUGS = (await qaAdmFetch('/bugs')).bugs || []; qaRenderBugs(); }
+  catch(e){ box.innerHTML = '<div style="opacity:.6">Не загрузилось: ' + qaEsc(e.message) + '</div>'; }
+}
+function qaRenderBugs(){
+  var box = document.getElementById('qa-pane-bugs-list');
+  if (!QA_BUGS.length){ box.innerHTML = '<div style="opacity:.6;font-size:13px">Багов пока нет. Их заводят во «Входящих» кнопкой «Завести баг».</div>'; return; }
+  var S = { new: ['Новый', '#c0392b'], work: ['В работе', '#b7791f'], fixed: ['Починен', '#2e7d4f'], nobug: ['Не баг', '#888'] };
+  box.innerHTML = QA_BUGS.map(function(b){
+    var s = S[b.status] || S.new;
+    var open = b.status === 'new' || b.status === 'work';
+    return '<div class="pay-item" style="flex-direction:column;align-items:stretch;gap:8px">'
+      + '<div style="display:flex;gap:10px;align-items:center">'
+      +   '<span class="pay-meta">#' + b.id + '</span>'
+      +   '<b style="flex:1;min-width:0">' + qaEsc(b.title) + '</b>'
+      +   '<span style="font-size:12px;font-weight:700;color:' + s[1] + '">' + s[0] + '</span>'
+      + '</div>'
+      + '<div class="pay-meta">Нашли: ' + (b.finders.length ? b.finders.map(function(f){ return qaEsc(f.name || '?'); }).join(', ') : '—')
+      +   ' · обращений ' + b.reports.length + (b.fixed_at ? ' · починен ' + qaEsc(b.fixed_at) : '') + '</div>'
+      + '<details><summary class="pay-meta" style="cursor:pointer">Что писали</summary>'
+      +   b.reports.map(function(r){ return '<div style="font-size:13px;margin-top:6px"><b>' + qaEsc(r.name) + ':</b> ' + qaEsc(r.text) + '</div>'; }).join('')
+      + '</details>'
+      + (open
+          ? '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
+            + (b.status === 'new' ? '<button class="action-btn" onclick="qaBugSet(' + b.id + ',{status:\'work\'})">В работе</button>' : '')
+            + '<label class="pay-meta" style="display:inline-flex;gap:6px;align-items:center">Баллы каждому <input type="number" min="0" step="10" value="' + (b.points || 0) + '" class="popup-input" style="margin:0;width:80px" onchange="qaBugSet(' + b.id + ',{points:+this.value})"></label>'
+            + '<button class="action-btn primary" onclick="qaBugFix(' + b.id + ')">Починен — начислить и уведомить</button>'
+            + '<button class="action-btn" onclick="qaBugSet(' + b.id + ',{status:\'nobug\'})">Не баг</button>'
+            + '<button class="action-btn" onclick="qaBugRename(' + b.id + ')">Переименовать</button>'
+            + '</div>'
+          : (b.status === 'fixed' ? '<div class="pay-meta">Начислено по ' + (b.points || 0) + ' баллов, уведомлено: ' + b.paid + '</div>'
+             : '<button class="action-btn" style="align-self:flex-start" onclick="qaBugSet(' + b.id + ',{status:\'new\'})">Вернуть в работу</button>'))
+      + '</div>';
+  }).join('');
+}
+async function qaBugSet(id, patch){
+  try { await qaAdmFetch('/bugs/' + id, patch); qaLoadBugs(); } catch(e){ alert('Не вышло: ' + e.message); }
+}
+function qaBugRename(id){
+  var b = QA_BUGS.find(function(x){ return x.id === id; }) || {};
+  var t = prompt('Название бага:', b.title || '');
+  if (t) qaBugSet(id, { title: t });
+}
+async function qaBugFix(id){
+  var b = QA_BUGS.find(function(x){ return x.id === id; }) || {};
+  if (!confirm('Баг «' + (b.title || '') + '» починен?\n\nКаждому нашедшему (' + (b.finders || []).length + ') — по ' + (b.points || 0) + ' баллов и сообщение в бота и в приложение.')) return;
+  try {
+    var d = await qaAdmFetch('/bugs/' + id + '/fix', {});
+    alert('Готово: ' + (d.finders || []).map(function(f){ return f.name + (f.points ? ' +' + f.points : ''); }).join(', '));
+    qaLoadBugs();
+  } catch(e){ alert('Не вышло: ' + e.message); }
+}
+
+/* ── ПРОВЕРКИ ─────────────────────────────────────────────────────────── */
+async function qaLoadItems(){
+  var box = document.getElementById('qa-pane-items-list');
+  box.innerHTML = '<div class="loading">Загрузка…</div>';
+  try { QA_ITEMS = await qaAdmFetch('/items'); qaRenderItems(); }
+  catch(e){ box.innerHTML = '<div style="opacity:.6">Не загрузилось: ' + qaEsc(e.message) + '</div>'; }
+}
+function qaRenderItems(){
+  var d = QA_ITEMS || { items: [] };
+  var head = '<div class="pay-item" style="flex-direction:column;align-items:stretch;gap:6px">'
+    + '<b>Круг ' + d.round + ': проверено ' + d.covered + ' из ' + d.total + '</b>'
+    + '<div style="height:8px;border-radius:8px;background:rgba(0,0,0,.08)"><div style="height:8px;border-radius:8px;background:var(--lav-deep);width:' + Math.round(100 * d.covered / Math.max(1, d.total)) + '%"></div></div>'
+    + '<div class="pay-meta">Каждому достаётся пункт, который в этом круге проверяли меньше всего и который он сам ещё не проверял. Когда проверено всё — начинается следующий круг.'
+    + (d.testers && d.testers.length ? ' Кто сколько отметил: ' + d.testers.map(function(x){ return qaEsc(x.name) + ' ' + x.n; }).join(', ') + '.' : '') + '</div></div>';
+  var rows = (d.items || []).map(function(i){
+    var fails = i.runs.filter(function(r){ return !r.ok; }), oks = i.runs.filter(function(r){ return r.ok; });
+    var color = fails.length ? '#c0392b' : (oks.length ? '#2e7d4f' : '#999');
+    var state = fails.length ? 'не работает' + (i.bug_id ? ' · баг #' + i.bug_id : '') : (oks.length ? 'работает' : 'ещё никто');
+    if (QA_EDIT_ITEM === i.id) return qaItemForm(i);
+    return '<div class="pay-item" style="align-items:center;gap:10px;' + (i.active ? '' : 'opacity:.5') + '">'
+      + '<span style="width:10px;height:10px;border-radius:50%;background:' + color + ';flex-shrink:0"></span>'
+      + '<div style="flex:1;min-width:0"><div class="pay-name">' + qaEsc(i.title) + '</div>'
+      + '<div class="pay-meta">' + (QA_AUD[i.aud] || i.aud) + (i.platform !== 'any' ? ' · только ' + (QA_PLAT[i.platform] || i.platform) : '')
+      + ' · ' + (i.runs.length ? i.runs.map(function(r){ return qaEsc(r.name) + (r.ok ? ' — да' : ' — нет'); }).join(', ') : 'в этом круге не проверяли')
+      + (i.active ? '' : ' · выключен') + '</div></div>'
+      + '<span style="font-size:12px;font-weight:700;color:' + color + ';white-space:nowrap">' + state + '</span>'
+      + '<button class="action-btn" style="flex-shrink:0" onclick="qaEditItem(' + i.id + ')">Изм.</button>'
+      + '</div>';
+  }).join('');
+  document.getElementById('qa-pane-items-list').innerHTML = head + rows
+    + (QA_EDIT_ITEM === 0 ? qaItemForm(null) : '<button class="action-btn primary" style="margin-top:10px" onclick="qaEditItem(0)">Добавить пункт</button>');
+}
+function qaItemForm(i){
+  i = i || { id: null, title: '', steps: '', aud: 'member', platform: 'any', active: true };
+  var opt = function(map, val){ return Object.keys(map).map(function(k){ return '<option value="' + k + '"' + (k === val ? ' selected' : '') + '>' + map[k] + '</option>'; }).join(''); };
+  return '<div class="pay-item" style="flex-direction:column;align-items:stretch;gap:6px;border:1px dashed var(--lav-deep)">'
+    + '<input id="qa-i-title" class="popup-input" style="margin:0" placeholder="Что проверить — человеческими словами" value="' + qaEsc(i.title) + '">'
+    + '<textarea id="qa-i-steps" class="popup-input" rows="3" style="margin:0" placeholder="Как проверить и что должно получиться">' + qaEsc(i.steps) + '</textarea>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+    +   '<label class="pay-meta">Кому <select id="qa-i-aud" class="popup-input" style="margin:0;width:auto">' + opt(QA_AUD, i.aud) + '</select></label>'
+    +   '<label class="pay-meta">Где <select id="qa-i-plat" class="popup-input" style="margin:0;width:auto">' + opt({ any: 'везде', tg: 'только Telegram', vk: 'только ВКонтакте' }, i.platform) + '</select></label>'
+    +   '<label class="pay-meta"><input type="checkbox" id="qa-i-active"' + (i.active ? ' checked' : '') + '> выдавать тестерам</label>'
+    +   '<button class="action-btn primary" style="margin-left:auto" onclick="qaSaveItem(' + (i.id || 'null') + ')">Сохранить</button>'
+    +   '<button class="action-btn" onclick="qaEditItem(null)">Отмена</button>'
+    + '</div></div>';
+}
+function qaEditItem(id){ QA_EDIT_ITEM = id; qaRenderItems(); var t = document.getElementById('qa-i-title'); if (t) t.focus(); }
+async function qaSaveItem(id){
+  var body = {
+    id: id, title: document.getElementById('qa-i-title').value.trim(),
+    steps: document.getElementById('qa-i-steps').value.trim(),
+    aud: document.getElementById('qa-i-aud').value, platform: document.getElementById('qa-i-plat').value,
+    active: document.getElementById('qa-i-active').checked, source: 'dash'
+  };
+  if (!body.title){ alert('Напиши, что проверить'); return; }
+  try { await qaAdmFetch('/items', body); QA_EDIT_ITEM = null; qaLoadItems(); }
+  catch(e){ alert('Не сохранилось: ' + e.message); }
+}
+
+/* ── ССЫЛКИ ───────────────────────────────────────────────────────────── */
+function qaRenderLinks(){
+  var links = [
+    ['Включить в Telegram', 'https://t.me/youselllikeagod_bot/app?startapp=tester'],
+    ['Включить во ВКонтакте', 'https://vk.com/app54715238#tester'],
+    ['Выключить в Telegram', 'https://t.me/youselllikeagod_bot/app?startapp=testeroff'],
+    ['Выключить во ВКонтакте', 'https://vk.com/app54715238#testeroff']
+  ];
+  document.getElementById('qa-pane-links').innerHTML =
+    '<div class="pay-meta" style="margin-bottom:8px">Ссылка включает режим тестера любому, кто её открыл: кнопка «Сообщить об ошибке» поверх всего и задания по одному. Выключить — ссылкой ниже или внизу окна тестера. Закрыть режим для всех — настройка «Режим тестера по ссылке» в разделе «Тестирование».</div>'
+    + links.map(function(l){
+      return '<div class="pay-item" style="align-items:center">'
+        + '<div style="width:190px;font-weight:700;flex-shrink:0">' + l[0] + '</div>'
+        + '<input class="popup-input" style="margin:0;flex:1;min-width:0;font-size:12px" readonly value="' + qaEsc(l[1]) + '" onclick="this.select()">'
+        + '<button class="action-btn" style="flex-shrink:0" onclick="qaCopy(' + qaArg(l[1]) + ')">Копировать</button></div>';
+    }).join('');
+}
+function qaCopy(text){
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){ alert('Скопировано:\n' + text); })
+      .catch(function(){ prompt('Скопируй:', text); });
+  } else prompt('Скопируй:', text);
+}
+
 async function dgCreateIssue(){
   var месяц = prompt('Месяц выпуска в виде 2026-08:', new Date().toISOString().slice(0,7));
   if(!месяц) return;
@@ -18379,6 +18666,41 @@ async function dgOpenPdf(id){
      Лента событий — единственный источник выпуска. Роды задают рубрику и
      вёрстку, пульт собирает полосы, выпуск замораживает состав снимком.
      ═══════════════════════════════════════════════════════════════════════ -->
+<!-- ══ v139 · ТЕСТИРОВАНИЕ: обращения, баги, пункты проверки ══ -->
+<div class="popup-overlay popup-centered" id="qa-overlay" onclick="if(overlayShouldClose(event,this)) closeQaPopup()">
+  <div class="popup" style="max-width:900px">
+    <button class="popup-close-x" onclick="closeQaPopup()" title="Закрыть">✕</button>
+    <div class="popup-body" style="padding-top:20px">
+      <div class="popup-section-title" style="margin-top:0">Тестирование</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="scroll-btn on" id="qa-tab-inbox" onclick="qaTab('inbox')">Входящие</button>
+        <button class="scroll-btn" id="qa-tab-bugs" onclick="qaTab('bugs')">Баги</button>
+        <button class="scroll-btn" id="qa-tab-items" onclick="qaTab('items')">Проверки</button>
+        <button class="scroll-btn" id="qa-tab-links" onclick="qaTab('links')">Ссылки</button>
+      </div>
+      <div id="qa-pane-inbox">
+        <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
+          <span class="pay-meta">Показать:</span>
+          <select class="popup-input" style="margin:0;width:auto" onchange="qaSetShow(this.value)">
+            <option value="open">неразобранные</option>
+            <option value="all">все последние</option>
+          </select>
+          <span class="pay-meta">Сюда приходит всё: от тестеров и из обычной кнопки «Сообщить о баге». Разобрать — значит завести баг, приклеить к существующему или убрать.</span>
+        </div>
+        <div id="qa-pane-inbox-list"></div>
+      </div>
+      <div id="qa-pane-bugs" style="display:none">
+        <div class="pay-meta" style="margin-bottom:10px">Один баг — одна строка, сколько бы человек его ни прислали. Нашедшие — авторы приклеенных обращений. «Починен» начисляет баллы каждому и шлёт сообщение в бота и в приложение; повторное нажатие баллы не задвоит.</div>
+        <div id="qa-pane-bugs-list"></div>
+      </div>
+      <div id="qa-pane-items" style="display:none">
+        <div id="qa-pane-items-list"></div>
+      </div>
+      <div id="qa-pane-links" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
 <div class="popup-overlay popup-centered" id="digest-overlay" onclick="if(overlayShouldClose(event,this)) closeDigestPopup()">
   <div class="popup" style="max-width:760px">
     <button class="popup-close-x" onclick="closeDigestPopup()" title="Закрыть">✕</button>
@@ -18824,6 +19146,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v138</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v139</div>
 </body>
 </html>
