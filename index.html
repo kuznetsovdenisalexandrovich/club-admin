@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v139 -->
+<!-- FILE_VERSION: admin-v140 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1217,6 +1217,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <button class="action-btn" onclick="openRewardCatalogPopup()">Управление наградами</button>
           <button class="action-btn" onclick="openRafflePopup()">Розыгрыши</button>
           <button class="action-btn" onclick="openCardsPopup()">Колода карточек</button>
+          <button class="action-btn" onclick="storageCleanRun()">Чистка хранилища</button>
         </div>
       </div>
 
@@ -1709,7 +1710,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <!-- Симулятор -->
       <div id="cards-tab-sim" style="display:none">
         <div style="font-size:12px;color:var(--text-faint);line-height:1.45;margin-bottom:12px">
-          Прогоняет раздачу на текущей колоде. Ничего не записывает — только считает.
+          Прогоняет раздачу на текущей колоде тем же кодом, что настоящая выдача на сервере. Ничего не записывает — только считает.
           Показывает распределение, а не средние: среднее скрывает и обделённых, и тех, кто выбил всё сразу.
         </div>
         <div style="display:flex;gap:8px;margin-bottom:8px">
@@ -3742,6 +3743,9 @@ const SETTINGS_META = {
   botmenu_digest_line:      ['Меню бота: свежий выпуск дайджеста', 'Подстановка {выпуск}. Только пока дайджест открыт всем', 'text'],
   digest_announce_text:     ['Анонс выпуска: текст по умолчанию', 'Подставляется в окно «Анонс» у выпуска, там его можно поправить перед отправкой. Метки {название} и {номер}', 'text'],
   digest_announce_button:   ['Анонс выпуска: надпись на кнопке', 'Кнопка-ссылка под анонсом в боте и в каналах', 'text'],
+  digest_former_text:       ['Дайджест бывшим: текст', 'Разовая рассылка номера тем, кто ушёл раньше (галочка в окне «Анонс»). Метки {название} и {номер}. Кнопка ведёт на экран «С возвращением»', 'text'],
+  digest_former_button:     ['Дайджест бывшим: надпись на кнопке', 'Кнопка под этим сообщением', 'text'],
+  missed_banner_days:       ['Плашка «что я пропустил»: через сколько дней', 'Участнику, которого не было столько дней (ни захода в приложение, ни просмотра), на главной встаёт плашка с выпуском пропущенного. 0 — не показывать', 'num'],
   tester_link_enabled:      ['Режим тестера по ссылке', 'Включено — ссылка startapp=tester открывает режим тестера любому. Выключено — ссылка молчит', 'bool'],
   tester_check_points:      ['Баллы за одну проверку', 'За отметку «Работает» или «Не работает» — один раз за пункт в круге. 0 — без баллов', 'num'],
   tester_bug_points:        ['Баллы за баг по умолчанию', 'Столько получает каждый нашедший, когда баг починен. У каждого бага можно поменять отдельно', 'num'],
@@ -3781,7 +3785,7 @@ const SETTINGS_GROUPS = [
   ['Фильм и окно бонусов', ['film_lecture_slug','film_duration_sec','funnel_bonus_window_min','funnel_bonus_window_back','funnel_window_last_min','guest_tour_enabled','guest_plan_playlist']],
   ['Что открыто участнику', ['insights_unlock_level','pdf_unlock_level','audio_preview_minutes']],
   ['Тестирование', ['tester_link_enabled','tester_check_points','tester_bug_points','tester_fixed_text','tester_fixed_text_nopoints']],
-  ['Дайджест', ['digest_public','digest_testers','digest_guest_delay_days','digest_announce_text','digest_announce_button']],
+  ['Дайджест', ['digest_public','digest_testers','digest_guest_delay_days','digest_announce_text','digest_announce_button','digest_former_text','digest_former_button','missed_banner_days']],
   ['Меню бота', ['botmenu_app_line','botmenu_next_line','botmenu_done_line','botmenu_live_line','botmenu_digest_line']],
   ['Вход и реквизиты', ['show_requisites','sms_login_enabled','allow_direct_phone_login']],
   ['Детектор растерянности', ['funnel_confuse_enabled','funnel_confuse_pay_n','funnel_confuse_pay_min','funnel_confuse_open_n','funnel_confuse_open_min','funnel_confuse_wall_n','funnel_confuse_wall_min']],
@@ -11725,107 +11729,52 @@ async function markCardFulfilled(id){
 
 
 /* ── Симулятор раздачи ──────────────────────────────────────────────────────
-   Повторяет логику draw_pack из main.py: веса, месячные лимиты, счётчик
-   невезения. Ничего не пишет в базу — чистая математика в браузере.
-   Если правишь правила выдачи на бэкенде, поправь и здесь, иначе симулятор
-   начнёт врать. */
-
-const SIM_CARDS_PER_PACK = 3;
-const SIM_PITY_THRESHOLD = 6;
-const SIM_RARE = ['rare','legendary'];
-
-function simWeightedPick(pool){
-  let total = 0;
-  for (const c of pool) total += Math.max(c.weight||0, 0);
-  if (total <= 0) return null;
-  let r = Math.random() * total, upto = 0;
-  for (const c of pool){
-    const w = Math.max(c.weight||0, 0);
-    if (upto + w >= r) return c;
-    upto += w;
-  }
-  return pool[pool.length-1];
+   v140 (d85): СЧИТАЕТ СЕРВЕР, тем же кодом, что настоящая выдача
+   (`pack_pick` + правило колоды + порог невезения и кулдаун из настроек).
+   Раньше правила были продублированы здесь и уже разошлись: порог был зашит
+   шестёркой, Знаки попадали в колоду, кулдаун легендарных не учитывался. */
+/* v140 (d92) · ЧИСТКА ХРАНИЛИЩА. Сервер сам ищет файлы карточек, рамок и
+   сигилов, на которые больше не ссылается ни одна строка базы (прежние
+   версии после перезаливки). Сначала показывает, удаляет только по второму
+   нажатию и только файлы старше двух недель. */
+async function storageCleanRun(){
+  const q = API + '/admin/storage/orphans?x_admin_token=' + ADMIN_TOKEN;
+  try {
+    let r = await fetch(q + '&dry_run=true', { method: 'POST' });
+    let d = await r.json();
+    if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
+    if (!d.orphans){ alert('Чисто: файлов в хранилище ' + d.files_total + ', лишних нет.'); return; }
+    const примеры = (d.sample || []).slice(0, 8).map(function(x){ return '· ' + x.key + ' (' + x.at + ')'; }).join('\n');
+    if (!confirm('В хранилище ' + d.files_total + ' файлов карточек, рамок и сигилов.\n'
+        + 'Ни одна строка базы не ссылается на ' + d.orphans + ' из них (' + d.orphans_mb + ' МБ) — это прежние версии после перезаливок.\n\n'
+        + примеры + (d.orphans > 8 ? '\n…' : '') + '\n\nУдалить их?')) return;
+    let удалено = 0;
+    for (let i = 0; i < 20; i++){
+      r = await fetch(q + '&dry_run=false&limit=1000', { method: 'POST' });
+      d = await r.json();
+      if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
+      удалено += d.deleted || 0;
+      if (!d.left || !d.deleted) break;
+    }
+    alert('Удалено файлов: ' + удалено + (d.left ? '. Осталось ' + d.left + ' — нажми ещё раз.' : '.'));
+  } catch(e){ alert('Не вышло: ' + (e.message || e)); }
 }
 
-function runCardsSimulation(){
+async function runCardsSimulation(){
   const members = Math.max(1, parseInt(document.getElementById('sim-members').value,10) || 1);
   const months  = Math.max(1, parseInt(document.getElementById('sim-months').value,10) || 1);
   const usePity = document.getElementById('sim-use-pity').checked;
   const out = document.getElementById('sim-result');
-
-  const deck = cardTypes.filter(function(c){ return c.active && !c.secret && (c.weight||0) > 0; });
-  if (!deck.length){ out.innerHTML = '<div class="empty">В колоде нет активных карточек с ненулевым весом</div>'; return; }
-
-  // На человека: сколько баллов, сколько редких, сколько личного участия
-  const perMemberPoints = [], perMemberRare = [];
-  let personalTotal = 0, rareTotal = 0, packsTotal = 0;
-  const cardCounts = {};
-  // Расход лимитов: помним, в каких месяцах карточка выдавалась, и считаем
-  // попадания в скользящее окно её периода — иначе карточка «раз в год»
-  // симулировалась бы как «раз в месяц»
-  const issueLog = {};   // key -> массив номеров месяцев
-  let curMonth = 0;
-  const issuedInWindow = function(c){
-    const log = issueLog[c.key];
-    if (!log) return 0;
-    const per = Math.max(1, c.limit_period_months || 1);
-    const from = curMonth - per + 1;
-    let n = 0;
-    for (const mm of log) if (mm >= from) n++;
-    return n;
-  };
-
-  for (let m = 0; m < months; m++){
-    curMonth = m;
-    for (let u = 0; u < members; u++){
-      if (m === 0){ perMemberPoints.push(0); perMemberRare.push(0); }
-      const pity = usePity ? (perMemberRare.__pity || (perMemberRare.__pity = [])) : null;
-      if (pity && pity[u] === undefined) pity[u] = 0;
-
-      // Лимит проверяем ПЕРЕД КАЖДЫМ слотом, а не один раз на пак — иначе
-      // карточка с лимитом 1 может выпасть дважды внутри одного пака,
-      // и симулятор будет врать в щедрую сторону (на бэкенде это учтено)
-      const availableNow = function(){
-        return deck.filter(function(c){
-          if (!usePity) return true;
-          if (!c.monthly_limit) return true;
-          return issuedInWindow(c) < c.monthly_limit;
-        });
-      };
-      if (!availableNow().length) continue;
-
-      packsTotal++;
-      const picked = [];
-      const forceRare = usePity && pity && (pity[u]+1) >= SIM_PITY_THRESHOLD;
-
-      for (let slot = 0; slot < SIM_CARDS_PER_PACK; slot++){
-        const pool = availableNow();
-        if (!pool.length) break;
-        let poolNow = pool;
-        if (forceRare && slot === SIM_CARDS_PER_PACK-1 && !picked.some(function(c){ return SIM_RARE.includes(c.rarity); })){
-          const rarePool = pool.filter(function(c){ return SIM_RARE.includes(c.rarity); });
-          if (rarePool.length) poolNow = rarePool;
-        }
-        const card = simWeightedPick(poolNow);
-        if (!card) continue;
-        picked.push(card);
-        (issueLog[card.key] || (issueLog[card.key] = [])).push(curMonth);
-        cardCounts[card.key] = (cardCounts[card.key]||0) + 1;
-        if (card.effect_type === 'points') perMemberPoints[u] += (card.effect_points||0);
-        if (card.personal) personalTotal++;
-      }
-
-      const gotRare = picked.some(function(c){ return SIM_RARE.includes(c.rarity); });
-      if (gotRare){ perMemberRare[u]++; rareTotal++; }
-      if (pity) pity[u] = gotRare ? 0 : pity[u]+1;
-    }
-  }
-
-  const sorted = perMemberPoints.slice().sort(function(a,b){ return a-b; });
-  const pct = function(p){ return sorted[Math.min(sorted.length-1, Math.floor(sorted.length*p))]; };
-  const avg = sorted.reduce(function(a,b){ return a+b; }, 0) / sorted.length;
-  const noRare = perMemberRare.filter(function(n){ return n === 0; }).length;
-  const manyRare = perMemberRare.filter(function(n){ return n >= 3; }).length;
+  out.innerHTML = '<div class="loading">Считаю…</div>';
+  let d;
+  try {
+    const r = await fetch(API + '/cards/admin/simulate?x_admin_token=' + ADMIN_TOKEN, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ members: members, months: months, use_rules: usePity }) });
+    d = await r.json();
+    if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
+  } catch(e){ out.innerHTML = '<div class="empty">Не посчиталось: ' + escapeHtmlAdm(e.message || String(e)) + '</div>'; return; }
+  if (!d.ok){ out.innerHTML = '<div class="empty">' + escapeHtmlAdm(d.reason || 'Нечего считать') + '</div>'; return; }
 
   const row = function(label, value, hint){
     return '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--border)">'
@@ -11834,23 +11783,26 @@ function runCardsSimulation(){
       + (hint ? '<span style="font-size:11px;color:var(--text-faint);font-weight:400"> ' + hint + '</span>' : '')
       + '</span></div>';
   };
-
-  const monthsWord = months === 1 ? 'месяц' : (months < 5 ? 'месяца' : 'месяцев');
+  const m = d.months, n = d.members, pts = d.points || {}, rare = d.rare || {};
+  const monthsWord = m === 1 ? 'месяц' : (m < 5 ? 'месяца' : 'месяцев');
 
   let html = '<div style="font-size:12px;color:var(--text-faint);margin-bottom:8px">'
-    + members + ' участников · ' + months + ' ' + monthsWord + ' · ' + packsTotal + ' паков</div>';
+    + n + ' участников · ' + m + ' ' + monthsWord + ' · ' + d.packs + ' паков'
+    + (d.rules ? ' · редкая гарантирована на ' + d.pity_threshold + '-м паке без редкой'
+               + (d.rare_cooldown ? ', легендарная не чаще раза в ' + d.rare_cooldown + ' мес.' : '') : ' · без лимитов и счётчика')
+    + '</div>';
 
   html += '<div class="popup-section-title" style="margin-top:10px;font-size:12px">Твоя нагрузка</div>';
-  html += row('Личное участие выпало', personalTotal + ' раз', personalTotal ? '≈ ' + (personalTotal/months).toFixed(1) + ' в месяц' : '');
+  html += row('Личное участие выпало', d.personal + ' раз', d.personal ? '≈ ' + (d.personal/m).toFixed(1) + ' в месяц' : '');
 
   html += '<div class="popup-section-title" style="margin-top:14px;font-size:12px">Баллы на человека за период</div>';
-  html += row('Худшие 5%', pct(0.05));
-  html += row('Медиана', pct(0.5));
-  html += row('В среднем', Math.round(avg));
-  html += row('Лучшие 5%', pct(0.95));
-  html += row('Максимум', sorted[sorted.length-1]);
+  html += row('Худшие 5%', pts.p05);
+  html += row('Медиана', pts.median);
+  html += row('В среднем', pts.avg);
+  html += row('Лучшие 5%', pts.p95);
+  html += row('Максимум', pts.max);
 
-  const spread = pct(0.05) > 0 ? (sorted[sorted.length-1] / pct(0.05)) : 0;
+  const spread = pts.p05 > 0 ? (pts.max / pts.p05) : 0;
   if (spread > 5){
     html += '<div style="font-size:12px;color:#f59e0b;line-height:1.45;padding:8px 0">'
       + 'Разброс большой: у везучего в ' + spread.toFixed(0) + ' раз больше, чем у невезучего. '
@@ -11858,18 +11810,15 @@ function runCardsSimulation(){
   }
 
   html += '<div class="popup-section-title" style="margin-top:14px;font-size:12px">Редкие карточки</div>';
-  html += row('Не получили ни одной', noRare + ' чел', '(' + (noRare/members*100).toFixed(0) + '%)');
-  html += row('Получили 3 и больше', manyRare + ' чел', '(' + (manyRare/members*100).toFixed(0) + '%)');
-  html += row('Всего редких выпало', rareTotal);
+  html += row('Не получили ни одной', rare.none + ' чел', '(' + (rare.none/n*100).toFixed(0) + '%)');
+  html += row('Получили 3 и больше', rare.three_plus + ' чел', '(' + (rare.three_plus/n*100).toFixed(0) + '%)');
+  html += row('Всего редких выпало', rare.total);
 
   html += '<div class="popup-section-title" style="margin-top:14px;font-size:12px">Что выпадало</div>';
-  const totalDraws = Object.keys(cardCounts).reduce(function(a,k){ return a + cardCounts[k]; }, 0);
-  html += Object.keys(cardCounts).sort(function(a,b){ return cardCounts[b]-cardCounts[a]; }).map(function(k){
-    const c = cardTypes.find(function(x){ return x.key === k; }) || {};
-    const share = (cardCounts[k]/totalDraws*100).toFixed(1);
+  html += (d.cards || []).map(function(c){
     return '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px">'
-      + '<span style="color:var(--text-faint)">' + (c.title||k) + '</span>'
-      + '<span style="color:var(--text)">' + cardCounts[k] + ' · ' + share + '%</span></div>';
+      + '<span style="color:var(--text-faint)">' + escapeHtmlAdm(c.title || c.key) + '</span>'
+      + '<span style="color:var(--text)">' + c.count + ' · ' + c.share + '%</span></div>';
   }).join('');
 
   out.innerHTML = html;
@@ -17771,6 +17720,7 @@ function dgRenderFeed(){
       +   (e.text ? '<div style="font-size:12px;opacity:.65;margin-top:2px">' + escapeHtmlAdm(e.text.slice(0,140)) + (e.text.length>140?'…':'') + '</div>' : '')
       + '</div>'
       + '<button class="action-btn" style="flex-shrink:0" onclick="dgEditEvent('+e.id+')">Изм.</button>'
+      + (e.type !== 'news' ? '<button class="action-btn" style="flex-shrink:0" title="Сделать из записи новость в приложении" onclick="dgEventToNews('+e.id+')">'+((e.meta && e.meta.news_id) ? 'В новостях' : 'В новости')+'</button>' : '')
       + '<button class="action-btn" style="flex-shrink:0" onclick="dgToggleEvent('+e.id+')">'+(e.visible?'Скрыть':'Вернуть')+'</button>'
       + '<button class="action-btn danger" style="flex-shrink:0" onclick="dgDeleteEvent('+e.id+')">Удл.</button>'
       + '</div>';
@@ -17813,6 +17763,8 @@ function dgShowEventForm(e){
     + '<textarea id="dg-f-text" class="popup-input" rows="3" placeholder="Текст">'+escapeHtmlAdm(e ? e.text : '')+'</textarea>'
     + '<textarea id="dg-f-links" class="popup-input" rows="2" placeholder="Ссылки, по одной в строке: подпись | адрес">'+escapeHtmlAdm(ссылки)+'</textarea>'
     + '<input id="dg-f-weight" class="popup-input" type="number" min="0" max="3" placeholder="Вес 1-3 (0 — брать у рода)" value="'+(e ? e.weight : 0)+'">'
+    + '<label style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px"><span style="font-size:11px;color:var(--text-faint)">Кнопка «Открыть» внутри приложения — куда ведёт</span>'
+    +   '<select id="dg-f-route" class="popup-input" style="margin:0">' + dgRouteOptions(e && e.meta ? e.meta.route : '') + '</select></label>'
     + '<div style="display:flex;gap:8px">'
     +   '<button class="popup-save" onclick="dgSaveEvent()">Сохранить</button>'
     +   '<button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)" onclick="dgCancelEvent()">Отмена</button>'
@@ -17837,17 +17789,44 @@ function dgParseLinks(raw){
   }).filter(Boolean);
 }
 
+/* v140 (g29): КУДА ВЕДЁТ КНОПКА ЗАПИСИ — ключ из общей таблицы диплинков
+   приложения. Записи о новой функции нужна кнопка на сам экран, а не ссылка
+   наружу: внутри приложения она откроется без перехода через бота. */
+const DG_ROUTES = [['','— без кнопки —'],['games','Игры'],['cards','Карточки'],['digest','Дайджест'],
+  ['missed','Что я пропустил'],['magazine','Журнал'],['live','Эфир'],['library','Библиотека'],['watch','Что посмотреть'],
+  ['plan','Личный план'],['bonuses','Бонусы'],['rewards','Награды'],['points','Баллы'],['levels','Уровни'],
+  ['invite','Пригласить друга'],['schedule','Расписание'],['help','Справка'],['support','Поддержка'],['pay','Оплата']];
+function dgRouteOptions(cur){
+  cur = cur || '';
+  var есть = DG_ROUTES.some(function(r){ return r[0] === cur; });
+  return (есть ? '' : '<option value="'+escapeHtmlAdm(cur)+'" selected>'+escapeHtmlAdm(cur)+'</option>')
+    + DG_ROUTES.map(function(r){
+        return '<option value="'+r[0]+'"'+(r[0]===cur?' selected':'')+'>'+escapeHtmlAdm(r[1])+'</option>';
+      }).join('');
+}
+function dgEditingEvent(){
+  for(var i=0;i<dgEvents.length;i++) if(dgEvents[i].id === dgEditingId) return dgEvents[i];
+  return null;
+}
+
 async function dgSaveEvent(){
+  /* ⚠️ v140: КАРТИНКУ И META НЕСЁМ ИЗ ЗАПИСИ. Раньше правка слала пустую
+     картинку и пустой meta — у занятия, поправленного руками, пропадали
+     картинка на полосе и ссылка «к занятию» */
+  var было = dgEditingEvent();
+  var мета = Object.assign({}, (было && было.meta) || {});
+  var маршрут = document.getElementById('dg-f-route').value;
+  if (маршрут) мета.route = маршрут; else delete мета.route;
   var payload = {
     type_code: document.getElementById('dg-f-type').value,
     happened_at: document.getElementById('dg-f-date').value + 'T12:00:00',
     title: document.getElementById('dg-f-title').value,
     text: document.getElementById('dg-f-text').value,
     links: dgParseLinks(document.getElementById('dg-f-links').value),
-    image_url: '',
+    image_url: (было && было.image_url) || '',
     weight: Number(document.getElementById('dg-f-weight').value || 0),
-    visible: true,
-    meta: {}
+    visible: было ? !!было.visible : true,
+    meta: мета
   };
   try{
     var url = API+'/admin/digest/events'+(dgEditingId ? '/'+dgEditingId : '')+'?x_admin_token='+ADMIN_TOKEN;
@@ -17857,6 +17836,27 @@ async function dgSaveEvent(){
     dgCancelEvent();
     dgLoadFeed();
   }catch(e){ alert('Не сохранилось: '+e.message); }
+}
+
+/* v140 (g33) · «В НОВОСТИ». Одна запись — две пометки: новость собирается из
+   записи один раз, сервер ставит пустышку, чтобы сборщик не положил в выпуск
+   ту же новость второй копией. В приложении видна ПОСЛЕДНЯЯ новость. */
+async function dgEventToNews(id){
+  var q = API+'/admin/digest/events/'+id+'/to-news?x_admin_token='+ADMIN_TOKEN;
+  try{
+    var pr = await fetch(q, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({preview:true})});
+    var p = await pr.json();
+    if(!pr.ok) throw new Error(p.detail || ('HTTP '+pr.status));
+    var текст = p.html.replace(/<br\s*\/?>/g,'\n').replace(/<[^>]+>/g,'');
+    var зап = dgEvents.find(function(x){ return x.id === id; }) || {};
+    if(!confirm((зап.meta && зап.meta.news_id ? 'Эта запись уже уходила в новости. Отправить ещё раз?\n\n' : '')
+       + 'Новость в приложении сменится этой:\n\n' + текст)) return;
+    var срочно = confirm('Сделать срочной? Срочная показывается первой и на экране входа.\n\nОК — срочная, Отмена — обычная');
+    var r = await fetch(q, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({urgent: срочно})});
+    var d = await r.json();
+    if(!r.ok) throw new Error(d.detail || ('HTTP '+r.status));
+    dgLoadFeed();
+  }catch(e){ alert('Не вышло: '+(e.message||e)); }
 }
 
 async function dgToggleEvent(id){
@@ -18091,6 +18091,12 @@ async function dgAnnounceOpen(id){
       + '<input id="dg-ann-btn" class="popup-input" placeholder="Надпись на кнопке" value="'+escapeHtmlAdm(L.button||'')+'">'
       + '<label class="pay-item" style="gap:8px;cursor:pointer"><input type="checkbox" id="dg-ann-bot" checked> <span><b>Бот</b> — список «Дайджест на месяц». Каждому ссылка его площадки; кто выбрал «только приложение», в бот не получит</span></label>'
       + '<label class="pay-item" style="gap:8px;cursor:pointer"><input type="checkbox" id="dg-ann-push" checked> <span><b>Push в приложении</b> — участникам из того же списка, кто разрешил уведомления. Нажатие открывает номер</span></label>'
+      /* v140 (g48): бывшим участникам — своим текстом, кнопка ведёт на экран «С возвращением» */
+      + '<label class="pay-item" style="gap:8px;cursor:pointer"><input type="checkbox" id="dg-ann-former" onchange="document.getElementById(\'dg-ann-former-box\').style.display=this.checked?\'\':\'none\'"> <span><b>Бывшим участникам</b> — каждому его площадкой, без скидки. Кнопка открывает «С возвращением» с тем, что пропущено. Кто уже получил этот номер, второй раз не получит</span></label>'
+      + '<div id="dg-ann-former-box" style="display:none">'
+      +   '<textarea id="dg-ann-former-text" class="popup-input" rows="3" style="width:100%" placeholder="Пусто — текст из настроек («Дайджест бывшим»)"></textarea>'
+      +   '<input id="dg-ann-former-btn" class="popup-input" placeholder="Надпись на кнопке (пусто — из настроек)">'
+      + '</div>'
       + (площадки.length ? '<div class="pay-meta" style="margin:8px 0 4px">Площадки (как у эфиров):</div>' + площадки.map(function(t){
           return '<label class="pay-item" style="gap:8px;cursor:pointer"><input type="checkbox" class="dg-ann-t" value="'+t.id+'"'+(t.active?' checked':'')+'> <span>'+escapeHtmlAdm(t.name||t.key)+' <span class="pay-meta">· '+escapeHtmlAdm(t.method)+'</span></span></label>';
         }).join('') : '<div class="pay-meta">Площадок-каналов в справочнике нет — выложи по ссылкам выше вручную.</div>')
@@ -18117,10 +18123,13 @@ async function dgAnnounceGo(preview){
     bot: document.getElementById('dg-ann-bot').checked,
     push: document.getElementById('dg-ann-push').checked,
     target_ids: Array.prototype.map.call(document.querySelectorAll('.dg-ann-t:checked'), function(x){ return +x.value; }),
-    preview: !!preview
+    preview: !!preview,
+    former: document.getElementById('dg-ann-former').checked,
+    former_text: document.getElementById('dg-ann-former-text').value,
+    former_button: document.getElementById('dg-ann-former-btn').value
   };
   if (!preview){
-    if (!body.bot && !body.push && !body.target_ids.length){ alert('Не выбрано, куда слать'); return; }
+    if (!body.bot && !body.push && !body.former && !body.target_ids.length){ alert('Не выбрано, куда слать'); return; }
     if (!confirm('Разослать анонс? Это уйдёт людям сразу.')) return;
   }
   st.textContent = preview ? 'Считаю…' : 'Отправляю… (бот идёт по одному человеку, на сотню уходит около минуты)';
@@ -18135,6 +18144,9 @@ async function dgAnnounceGo(preview){
         + (body.bot ? '<div>Бот: '+(b.total||0)+' чел. — Telegram '+(b.tg||0)+', ВК '+(b.vk||0)+(b.unknown ? ', площадка не ясна '+b.unknown+' (им придут обе кнопки)' : '')+'</div>' : '')
         + (body.push ? '<div>Push: '+(d.push||0)+' чел.</div>' : '')
         + (d.targets||[]).map(function(t){ return '<div>'+escapeHtmlAdm(t.name)+' → '+escapeHtmlAdm(t.link)+'</div>'; }).join('')
+        + (d.former ? '<div class="pay-meta" style="white-space:pre-wrap;border:1px solid var(--border);border-radius:10px;padding:10px;margin:8px 0 6px">'+escapeHtmlAdm(d.former_text||'')+'\n\n[ '+escapeHtmlAdm(d.former_button||'')+' ]</div>'
+            + '<div>Бывшим: '+(d.former.total||0)+' чел. — Telegram '+(d.former.tg||0)+', ВК '+(d.former.vk||0)
+            + (d.former.none ? ', написать некуда '+d.former.none : '') + (d.former.already ? ', уже получали '+d.former.already : '') + '</div>' : '')
         + '<div class="pay-meta" style="margin-top:4px">Ничего не отправлено — это проверка.</div>';
     } else {
       st.innerHTML = (d.report||[]).map(function(i){
@@ -19146,6 +19158,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v139</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v140</div>
 </body>
 </html>
