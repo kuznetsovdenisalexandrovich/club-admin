@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v137 -->
+<!-- FILE_VERSION: admin-v138 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3739,6 +3739,8 @@ const SETTINGS_META = {
   botmenu_done_line:        ['Меню бота: когда шагов не осталось', 'Можно оставить пустым', 'text'],
   botmenu_live_line:        ['Меню бота: ближайшая встреча', 'Подстановка {встреча}', 'text'],
   botmenu_digest_line:      ['Меню бота: свежий выпуск дайджеста', 'Подстановка {выпуск}. Только пока дайджест открыт всем', 'text'],
+  digest_announce_text:     ['Анонс выпуска: текст по умолчанию', 'Подставляется в окно «Анонс» у выпуска, там его можно поправить перед отправкой. Метки {название} и {номер}', 'text'],
+  digest_announce_button:   ['Анонс выпуска: надпись на кнопке', 'Кнопка-ссылка под анонсом в боте и в каналах', 'text'],
   digest_guest_delay_days:  ['Гостям выпуск — через сколько дней', 'Участники читают номер сразу после выпуска, гости — через столько дней. 0 — всем сразу', 'num'],
 
   show_requisites:          ['Показывать реквизиты ИП', 'Строка с ИП и ИНН в приложении и на экране входа', 'bool'],
@@ -3772,7 +3774,7 @@ const NUDGE_SETTING_KEYS = ['nudge_later_label','card_change_remind_text','card_
 const SETTINGS_GROUPS = [
   ['Фильм и окно бонусов', ['film_lecture_slug','film_duration_sec','funnel_bonus_window_min','funnel_bonus_window_back','funnel_window_last_min','guest_tour_enabled','guest_plan_playlist']],
   ['Что открыто участнику', ['insights_unlock_level','pdf_unlock_level','audio_preview_minutes']],
-  ['Дайджест', ['digest_public','digest_testers','digest_guest_delay_days']],
+  ['Дайджест', ['digest_public','digest_testers','digest_guest_delay_days','digest_announce_text','digest_announce_button']],
   ['Меню бота', ['botmenu_app_line','botmenu_next_line','botmenu_done_line','botmenu_live_line','botmenu_digest_line']],
   ['Вход и реквизиты', ['show_requisites','sms_login_enabled','allow_direct_phone_login']],
   ['Детектор растерянности', ['funnel_confuse_enabled','funnel_confuse_pay_n','funnel_confuse_pay_min','funnel_confuse_open_n','funnel_confuse_open_min','funnel_confuse_wall_n','funnel_confuse_wall_min']],
@@ -18024,7 +18026,7 @@ async function dgLoadIssues(){
             }).join('')
         + '</select>'
         + '<button class="action-btn" style="flex-shrink:0" onclick="dgOpenPdf('+r.id+')">PDF</button>'
-        + '<button class="action-btn" style="flex-shrink:0" onclick="dgCopyLink('+JSON.stringify(r.slug).replace(/"/g,'&quot;')+')">Ссылка</button>'
+        + '<button class="action-btn" style="flex-shrink:0" onclick="dgAnnounceOpen('+r.id+')">Анонс</button>'
         + '<button class="action-btn danger" style="flex-shrink:0" onclick="dgDeleteIssue('+r.id+')">Удл.</button>'
         + '</div>';
     }).join('');
@@ -18040,6 +18042,99 @@ function dgCopyLink(slug){
     navigator.clipboard.writeText(link).then(function(){ alert('Ссылка скопирована:\n' + link); })
       .catch(function(){ prompt('Скопируй ссылку:', link); });
   } else prompt('Скопируй ссылку:', link);
+}
+
+/* ── v138 · АНОНС ВЫПУСКА ─────────────────────────────────────────────
+   [stated] Denis 03.10: «как о нём узнают? уведомление в аппе, рассылка по
+   спискам с диплинком, ссылки для каналов — на ВК и на ТГ?»
+   Одно окно у выпуска: две ссылки (копировать), текст и кнопка, куда слать —
+   бот (список «Дайджест на месяц», каждому ссылка его площадки), push в
+   приложении, площадки эфиров (каналы, группы, чаты). Сначала «Проверить»:
+   тот же код соберёт тексты и посчитает людей, ничего не отправив. */
+var dgAnnIssue = null;
+async function dgAnnounceOpen(id){
+  dgAnnIssue = id;
+  var box = document.getElementById('dg-announce');
+  box.style.display = 'block';
+  box.innerHTML = '<div class="loading">Собираю ссылки…</div>';
+  var issue = (DG_LAST_ISSUES || []).find(function(x){ return x.id === id; }) || {};
+  try{
+    var q = '?x_admin_token='+ADMIN_TOKEN;
+    var L = await fetch(API+'/admin/digest/issues/'+id+'/links'+q).then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); });
+    var T = await fetch(API+'/admin/broadcast/targets'+q).then(function(r){ return r.ok ? r.json() : {targets:[]}; }).catch(function(){ return {targets:[]}; });
+    var площадки = (T.targets || []).filter(function(t){ return String(t.method||'').indexOf('salebot') !== 0; });
+    var опубликован = issue.status === 'published';
+    var линк = function(name, url){
+      return '<div class="pay-item" style="align-items:center">'
+        + '<div style="width:90px;font-weight:700;flex-shrink:0">'+name+'</div>'
+        + '<input class="popup-input" style="margin:0;flex:1;min-width:0;font-size:12px" readonly value="'+escapeHtmlAdm(url)+'" onclick="this.select()">'
+        + '<button class="action-btn" style="flex-shrink:0" onclick="dgCopyText('+JSON.stringify(url).replace(/"/g,'&quot;')+')">Копировать</button></div>';
+    };
+    var журнал = (L.log || []).map(function(e){
+      return '<div class="pay-meta">'+escapeHtmlAdm(e.at)+': '+(e.items||[]).map(function(i){
+        return escapeHtmlAdm(i.name)+' — '+(i.ok ? 'ок'+(i.note ? ' ('+escapeHtmlAdm(i.note)+')' : '') : 'ошибка: '+escapeHtmlAdm(i.error||''));
+      }).join('; ')+'</div>';
+    }).join('');
+    box.innerHTML = '<div class="section-title" style="margin:0 0 4px;font-size:14px">Анонс: '+escapeHtmlAdm(issue.title || issue.slug || '')+'</div>'
+      + '<div class="pay-meta" style="margin-bottom:8px">Ссылки ведут прямо в этот номер. Telegram — для канала и чата в ТГ, ВК — для группы, стены и чатов ВК. Гость увидит номер, если включено «Дайджест открыт всем» (и прошла отсрочка для гостей).</div>'
+      + линк('Telegram', L.tg) + линк('ВКонтакте', L.vk)
+      + '<div class="section-title" style="margin:14px 0 4px;font-size:13px">Разослать</div>'
+      + (опубликован ? '' : '<div class="pay-meta" style="color:var(--danger,#c33)">Номер ещё черновик — рассылка откроется после «Выпустить». Ссылки выше уже можно копировать.</div>')
+      + '<textarea id="dg-ann-text" class="popup-input" rows="4" style="width:100%">'+escapeHtmlAdm(L.text||'')+'</textarea>'
+      + '<input id="dg-ann-btn" class="popup-input" placeholder="Надпись на кнопке" value="'+escapeHtmlAdm(L.button||'')+'">'
+      + '<label class="pay-item" style="gap:8px;cursor:pointer"><input type="checkbox" id="dg-ann-bot" checked> <span><b>Бот</b> — список «Дайджест на месяц». Каждому ссылка его площадки; кто выбрал «только приложение», в бот не получит</span></label>'
+      + '<label class="pay-item" style="gap:8px;cursor:pointer"><input type="checkbox" id="dg-ann-push" checked> <span><b>Push в приложении</b> — участникам из того же списка, кто разрешил уведомления. Нажатие открывает номер</span></label>'
+      + (площадки.length ? '<div class="pay-meta" style="margin:8px 0 4px">Площадки (как у эфиров):</div>' + площадки.map(function(t){
+          return '<label class="pay-item" style="gap:8px;cursor:pointer"><input type="checkbox" class="dg-ann-t" value="'+t.id+'"'+(t.active?' checked':'')+'> <span>'+escapeHtmlAdm(t.name||t.key)+' <span class="pay-meta">· '+escapeHtmlAdm(t.method)+'</span></span></label>';
+        }).join('') : '<div class="pay-meta">Площадок-каналов в справочнике нет — выложи по ссылкам выше вручную.</div>')
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'
+      +   '<button class="action-btn" onclick="dgAnnounceGo(true)"'+(опубликован?'':' disabled')+'>Проверить</button>'
+      +   '<button class="action-btn primary" onclick="dgAnnounceGo(false)"'+(опубликован?'':' disabled')+'>Разослать</button>'
+      +   '<button class="action-btn" onclick="document.getElementById(\'dg-announce\').style.display=\'none\'">Свернуть</button>'
+      + '</div>'
+      + '<div id="dg-ann-state" style="margin-top:10px;font-size:13px"></div>'
+      + (журнал ? '<div class="section-title" style="margin:14px 0 4px;font-size:13px">Уже отправляли</div>' + журнал : '');
+  }catch(e){ box.innerHTML = '<div style="opacity:.6">Не открылось: '+escapeHtmlAdm(e.message||String(e))+'</div>'; }
+}
+function dgCopyText(text){
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){ alert('Скопировано:\n' + text); })
+      .catch(function(){ prompt('Скопируй:', text); });
+  } else prompt('Скопируй:', text);
+}
+async function dgAnnounceGo(preview){
+  var st = document.getElementById('dg-ann-state');
+  var body = {
+    text: document.getElementById('dg-ann-text').value,
+    button: document.getElementById('dg-ann-btn').value,
+    bot: document.getElementById('dg-ann-bot').checked,
+    push: document.getElementById('dg-ann-push').checked,
+    target_ids: Array.prototype.map.call(document.querySelectorAll('.dg-ann-t:checked'), function(x){ return +x.value; }),
+    preview: !!preview
+  };
+  if (!preview){
+    if (!body.bot && !body.push && !body.target_ids.length){ alert('Не выбрано, куда слать'); return; }
+    if (!confirm('Разослать анонс? Это уйдёт людям сразу.')) return;
+  }
+  st.textContent = preview ? 'Считаю…' : 'Отправляю… (бот идёт по одному человеку, на сотню уходит около минуты)';
+  try{
+    var r = await fetch(API+'/admin/digest/issues/'+dgAnnIssue+'/announce?x_admin_token='+ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    var d = await r.json();
+    if (!r.ok) throw new Error(d.detail || ('HTTP '+r.status));
+    if (preview){
+      var b = d.bot || {};
+      st.innerHTML = '<div class="pay-meta" style="white-space:pre-wrap;border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:6px">'+escapeHtmlAdm(d.text)+'\n\n[ '+escapeHtmlAdm(d.button)+' ]</div>'
+        + (body.bot ? '<div>Бот: '+(b.total||0)+' чел. — Telegram '+(b.tg||0)+', ВК '+(b.vk||0)+(b.unknown ? ', площадка не ясна '+b.unknown+' (им придут обе кнопки)' : '')+'</div>' : '')
+        + (body.push ? '<div>Push: '+(d.push||0)+' чел.</div>' : '')
+        + (d.targets||[]).map(function(t){ return '<div>'+escapeHtmlAdm(t.name)+' → '+escapeHtmlAdm(t.link)+'</div>'; }).join('')
+        + '<div class="pay-meta" style="margin-top:4px">Ничего не отправлено — это проверка.</div>';
+    } else {
+      st.innerHTML = (d.report||[]).map(function(i){
+        return '<div>'+(i.ok?'✅ ':'❌ ')+escapeHtmlAdm(i.name)+(i.ok ? (i.note?' — '+escapeHtmlAdm(i.note):'') : ' — '+escapeHtmlAdm(i.error||''))+'</div>';
+      }).join('');
+    }
+  }catch(e){ st.textContent = 'Не вышло: ' + (e.message || e); }
 }
 
 async function dgCreateIssue(){
@@ -18355,6 +18450,7 @@ async function dgOpenPdf(id){
         <div id="dg-issues"><div class="loading">Загрузка...</div></div>
         <!-- v129: ОФОРМЛЕНИЕ НОМЕРА — картинка в слот каждой полосы -->
         <div id="dg-decor" style="display:none;margin-top:14px"></div>
+        <div id="dg-announce" style="display:none;margin-top:14px"></div>
         <input type="file" id="dg-decor-file" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="dgDecorFile(this)">
       </div>
 
@@ -18728,6 +18824,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v137</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v138</div>
 </body>
 </html>
