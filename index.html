@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v136 -->
+<!-- FILE_VERSION: admin-v137 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3734,6 +3734,11 @@ const SETTINGS_META = {
 
   digest_public:            ['Дайджест открыт всем', 'Выключено — выпуск видят только тестировщики из списка ниже', 'bool'],
   digest_testers:           ['Тестировщики дайджеста', 'telegram_id через запятую', 'text'],
+  botmenu_app_line:         ['Меню бота: строка про приложение', 'Блок главного меню бота берёт её перед показом (запрос /bot/menu-info). Пусто — строки не будет', 'text'],
+  botmenu_next_line:        ['Меню бота: следующий шаг знакомства', 'Подстановка {шаг}. Показывается, пока знакомство не пройдено', 'text'],
+  botmenu_done_line:        ['Меню бота: когда шагов не осталось', 'Можно оставить пустым', 'text'],
+  botmenu_live_line:        ['Меню бота: ближайшая встреча', 'Подстановка {встреча}', 'text'],
+  botmenu_digest_line:      ['Меню бота: свежий выпуск дайджеста', 'Подстановка {выпуск}. Только пока дайджест открыт всем', 'text'],
   digest_guest_delay_days:  ['Гостям выпуск — через сколько дней', 'Участники читают номер сразу после выпуска, гости — через столько дней. 0 — всем сразу', 'num'],
 
   show_requisites:          ['Показывать реквизиты ИП', 'Строка с ИП и ИНН в приложении и на экране входа', 'bool'],
@@ -3768,6 +3773,7 @@ const SETTINGS_GROUPS = [
   ['Фильм и окно бонусов', ['film_lecture_slug','film_duration_sec','funnel_bonus_window_min','funnel_bonus_window_back','funnel_window_last_min','guest_tour_enabled','guest_plan_playlist']],
   ['Что открыто участнику', ['insights_unlock_level','pdf_unlock_level','audio_preview_minutes']],
   ['Дайджест', ['digest_public','digest_testers','digest_guest_delay_days']],
+  ['Меню бота', ['botmenu_app_line','botmenu_next_line','botmenu_done_line','botmenu_live_line','botmenu_digest_line']],
   ['Вход и реквизиты', ['show_requisites','sms_login_enabled','allow_direct_phone_login']],
   ['Детектор растерянности', ['funnel_confuse_enabled','funnel_confuse_pay_n','funnel_confuse_pay_min','funnel_confuse_open_n','funnel_confuse_open_min','funnel_confuse_wall_n','funnel_confuse_wall_min']],
   ['Участники', ['app_usage_days','membership_audit_auto']],
@@ -18722,6 +18728,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v136</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v137</div>
 </body>
 </html>
