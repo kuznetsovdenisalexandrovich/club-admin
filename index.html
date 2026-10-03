@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v140 -->
+<!-- FILE_VERSION: admin-v141 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -12884,7 +12884,22 @@ async function loadShelf(key){
         + '<div style="font-size:10px;color:var(--text-faint)">'
         + (empty ? 'пусто' : slot.cards.length + ' шт.') + '</div></div>';
     });
-    box.innerHTML = h + '</div>';
+    h += '</div>';
+    /* v141 (d78): герои и существа — отдельным рядом под богами. Флажок
+       «Вне пантеона» в редакторе карточки; слоты богов они не занимают */
+    var вне = d.outside || [];
+    if (вне.length){
+      h += '<div class="popup-section-title" style="margin-top:16px;font-size:12px">Вне пантеона · ' + вне.length + '</div>'
+        + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px">'
+        + вне.map(function(c){
+            return '<div onclick="openCardEditor(' + jsArg(c.key) + ')" style="cursor:pointer;border:1px solid var(--line);border-radius:10px;padding:6px;text-align:center">'
+              + (c.image_url ? '<img src="' + elEsc(c.image_url) + '" style="width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:7px">'
+                             : '<div style="width:100%;aspect-ratio:3/4;border-radius:7px;background:var(--surface)"></div>')
+              + '<div style="font-size:11px;margin-top:5px">' + elEsc(c.title || c.key) + '</div>'
+              + '<div style="font-size:10px;color:var(--text-faint)">' + elEsc(c.god || '') + '</div></div>';
+          }).join('') + '</div>';
+    }
+    box.innerHTML = h;
   } catch(e){
     box.innerHTML = '<div style="color:var(--text-faint);font-size:12px">Полка не загрузилась: ' + elEsc(e.message) + '</div>';
   }
@@ -19158,6 +19173,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v140</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v141</div>
 </body>
 </html>
