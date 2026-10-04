@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v154 -->
+<!-- FILE_VERSION: admin-v155 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2488,6 +2488,10 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <div class="pay-meta" style="margin-bottom:6px">Работает и без меток: площадка, где человек впервые зашёл в бота. Конверсия — новые покупатели площадки к её лидам за период.</div>
       <div id="attr-platform-list"></div>
       <div id="attr-place-list" style="margin-top:6px"></div>
+
+      <div class="section-title" style="margin:14px 0 6px;font-size:13px">По метке лида — кампании и креативы</div>
+      <div class="pay-meta" style="margin-bottom:6px">Метка, которую блок бота передаёт при первом заходе (utm рекламы). Заводить её в справочнике не обязательно — новая метка появится здесь сама.</div>
+      <div id="attr-leadsrc-list"></div>
 
       <div class="section-title" style="margin:14px 0 6px;font-size:13px">По каналу первого касания</div>
       <div id="attr-first-list"></div>
@@ -7919,6 +7923,15 @@ function renderAttrPlatforms(d){
       + '<div class="pay-meta">лидов ' + x.leads + ' · новых покупателей ' + x.new + ' · ' + conv
       + ' · платежей ' + x.payments + '</div></div>'
       + '<div class="pay-name" style="flex-shrink:0">' + Math.round(x.sum).toLocaleString('ru-RU') + ' ₽</div></div>';
+  }).join('') : '<div class="pay-meta">Пока пусто.</div>';
+  const ls = document.getElementById('attr-leadsrc-list');
+  const lr = (d.by_lead_source || []).filter(function(x){ return x.leads || x.new; });
+  if (ls) ls.innerHTML = lr.length ? lr.map(function(x){
+    const conv = (x.conv === null || x.conv === undefined) ? '' : (' · ' + x.conv + '%');
+    return '<div class="pay-item"><div style="flex:1;min-width:0">'
+      + '<div class="pay-name">' + escapeHtmlAdm(x.source || 'без метки') + (x.title ? ' <span class="pay-meta">«' + escapeHtmlAdm(x.title) + '»</span>' : '') + '</div>'
+      + '<div class="pay-meta">' + escapeHtmlAdm(ATTR_PLATFORM_LABELS[x.platform] || x.platform) + ' · лидов ' + x.leads + ' → новых оплат ' + x.new + conv + '</div></div>'
+      + '<div class="pay-name" style="flex-shrink:0">' + Math.round(x.sum || 0).toLocaleString('ru-RU') + ' ₽</div></div>';
   }).join('') : '<div class="pay-meta">Пока пусто.</div>';
   const pp = d.by_place || [];
   if (pl) pl.innerHTML = pp.length ? '<div class="pay-meta">Новые покупатели купили: '
@@ -19755,6 +19768,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v154</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v155</div>
 </body>
 </html>
