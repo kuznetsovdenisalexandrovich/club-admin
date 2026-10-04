@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v150 -->
+<!-- FILE_VERSION: admin-v151 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3784,9 +3784,6 @@ const SETTINGS_META = {
   digest_guest_delay_days:  ['Гостям выпуск — через сколько дней', 'Участники читают номер сразу после выпуска, гости — через столько дней. 0 — всем сразу', 'num'],
 
   show_requisites:          ['Показывать реквизиты ИП', 'Строка с ИП и ИНН в приложении и на экране входа', 'bool'],
-  sms_sender:               ['Имя отправителя SMS', 'Буквенное имя, одобренное в SMS.RU (например YSLG.RU). Пусто — имя SMS.RU по умолчанию', 'text'],
-  sms_login_enabled:        ['Вход по SMS-коду', 'Выключено — пускаем просто по номеру, пока SMS.RU не одобрил отправку. Оба способа входа разом выключить нельзя — сервер не даст', 'bool'],
-  allow_direct_phone_login: ['Разрешить вход без кода', 'Страховка: если SMS отвалятся, включи — и все зайдут по номеру. Выключить можно только при включённом SMS-коде', 'bool'],
 
   funnel_confuse_enabled:   ['Ловить растерявшихся', 'Подряд открывает приложение или страницу оплаты — пишем себе в админский чат', 'bool'],
   funnel_confuse_pay_n:     ['Заходов на оплату', '', 'num'],
@@ -3820,7 +3817,7 @@ const SETTINGS_GROUPS = [
   ['Тестирование', ['tester_link_enabled','tester_check_points','tester_bug_points','tester_fixed_text','tester_fixed_text_nopoints']],
   ['Дайджест', ['digest_public','digest_testers','digest_guest_delay_days','digest_announce_text','digest_announce_button','digest_former_text','digest_former_button','missed_banner_days']],
   ['Меню бота', ['botmenu_app_line','botmenu_next_line','botmenu_done_line','botmenu_live_line','botmenu_digest_line']],
-  ['Вход и реквизиты', ['show_requisites','sms_sender','sms_login_enabled','allow_direct_phone_login']],
+  ['Вход и реквизиты', ['show_requisites']],
   ['Детектор растерянности', ['funnel_confuse_enabled','funnel_confuse_pay_n','funnel_confuse_pay_min','funnel_confuse_open_n','funnel_confuse_open_min','funnel_confuse_wall_n','funnel_confuse_wall_min']],
   ['Участники', ['app_usage_days','membership_audit_auto']],
   ['Служебное', ['client_type_vk_value']],
@@ -18390,12 +18387,8 @@ async function secLoad(){
         + '. ' + (d.prodamus_enforce ? 'Поддельные оплаты отклоняются.' : 'Сейчас режим «наблюдаю»: неверная подпись не отклоняется, но тебе приходит тревога. Когда пара живых оплат сошлась, а «не сошлось» нет — включай отклонение.');
     h += secRow(d.prodamus_enforce, 'Подпись оплат Продамуса', sigText,
       d.prodamus_key ? '<button class="action-btn" onclick="secEnforce(' + (d.prodamus_enforce ? 0 : 1) + ')">' + (d.prodamus_enforce ? 'Только наблюдать' : 'Отклонять поддельные') + '</button>' : '');
-    h += secRow(!d.direct_phone_login, 'Вход в веб-версию по номеру без кода',
-      d.direct_phone_login ? 'Включён: зная номер участника, любой войдёт под ним. Это страховка, пока не работают SMS. Безопасная замена — разовая ссылка на вход из бота. Попытки ограничены: 6 в час с одного адреса.'
-        : 'Выключен — вход только по SMS-коду или разовой ссылке.', '');
-    h += secRow(d.sms_login && d.sms_provider, 'Вход по SMS-коду',
-      (d.sms_login ? 'Включён. ' : 'Выключен. ') + (d.sms_provider ? 'Ключ SMS.RU на сервере есть.' : 'Ключа SMS.RU на сервере нет (переменная SMS_RU_API_ID).') + ' SMS ограничены: 8 в час с адреса, 300 в сутки всего.', '');
-    h += secRow(!d.test_phone, 'Тестовый вход кодом 1234', d.test_phone ? 'Включён переменной TEST_PHONE_LOGIN=1 — выключи, когда тесты закончатся.' : 'Выключен.', '');
+    h += secRow(true, 'Вход в веб-версию',
+      'Только кодом в бота клуба (Telegram или ВКонтакте) или разовой ссылкой из бота. SMS и входа по номеру без кода нет. Запросы кода ограничены: 10 в час с адреса.', '');
     h += secRow(d.session_secret && !d.admin_open, 'Ключи сервера',
       (d.session_secret ? 'SESSION_SECRET задан.' : 'SESSION_SECRET не задан — вход в веб-версию не работает.') + (d.admin_open ? ' ⚠️ ADMIN_OPEN=1 — админка открыта всем! Убери переменную.' : ''), '');
     box.innerHTML = h;
@@ -19712,6 +19705,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v150</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v151</div>
 </body>
 </html>
