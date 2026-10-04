@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v151 -->
+<!-- FILE_VERSION: admin-v152 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3757,6 +3757,14 @@ const SETTINGS_META = {
   assistant_facts:          ['Помощник: факты о клубе', 'Цены, что внутри, правила паузы — то, что помощник говорит как факт. Справку он читает сам', 'area'],
   assistant_prompt:         ['Помощник: характер и правила', 'Как говорит, что делает, как ведёт себя при отмене подписки. Формат ответа добавляет сервер сам', 'area'],
   assistant_admin_prompt:   ['Помощник дашборда: правила', 'Что знает о данных клуба (таблицы, время по Москве). Описание разделов дашборда он получает сам', 'area'],
+  promo_tester_on:          ['Оффер тестировщикам включён', 'Ссылка t.me/youselllikeagod_bot/app?startapp=tester1r (ВК: vk.com/app54715238#tester1r) включает режим тестера и предлагает тест-драйв за 1 ₽; после оплаты сервер сам отодвигает первое списание. Выключено — ссылка только включает режим тестера', 'bool'],
+  promo_tester_days:        ['Оффер: сколько дней за 1 ₽', 'На столько дней от оплаты отодвигается первое списание 990 (обычно 30)', 'text'],
+  promo_tester_until:       ['Оффер: до какого дня', 'ГГГГ-ММ-ДД включительно. Пусто — пока включён тумблер', 'text'],
+  promo_tester_title:       ['Оффер: заголовок окна', 'Окно по ссылке тестировщика', 'text'],
+  promo_tester_body:        ['Оффер: текст окна', 'Окно по ссылке тестировщика', 'area'],
+  promo_tester_btn:         ['Оффер: кнопка', 'Ведёт на обычную покупку тест-драйва', 'text'],
+  promo_tester_off_text:    ['Оффер: текст, когда закрыт', 'Если оффер выключен, срок прошёл или человек уже брал его', 'area'],
+  promo_tester_member_text: ['Оффер: сообщение после оплаты', 'Уходит человеку в бота, когда списание отодвинуто. Метка {дата}', 'area'],
   pause_block_trial:        ['Пауза: почему нельзя — первый месяц', 'Показывается, если у человека меньше двух оплат (тест-драйв, первый месяц)', 'text'],
   pause_block_repeat:       ['Пауза: почему нельзя — повторная', 'Новая пауза — только после месяца, оплаченного после прошлой', 'text'],
   pause_block_year:         ['Пауза: почему нельзя — годовой лимит', 'За 365 дней — не больше 6 месяцев паузы. Метки {макс} и {осталось}', 'text'],
@@ -3813,6 +3821,7 @@ const SETTINGS_GROUPS = [
   ['Фильм и окно бонусов', ['film_lecture_slug','film_duration_sec','funnel_bonus_window_min','funnel_bonus_window_back','funnel_window_last_min','guest_tour_enabled']],
   ['Что открыто участнику', ['insights_unlock_level','pdf_unlock_level','audio_preview_minutes']],
   ['ИИ-помощник', ['assistant_on','assistant_guests','assistant_limit_member','assistant_limit_guest','assistant_limit_text','assistant_fail_text','assistant_facts','assistant_prompt','assistant_admin_prompt','assistant_model']],
+  ['Оффер тестировщикам', ['promo_tester_on','promo_tester_days','promo_tester_until','promo_tester_title','promo_tester_body','promo_tester_btn','promo_tester_off_text','promo_tester_member_text']],
   ['Пауза подписки', ['pause_block_trial','pause_block_repeat','pause_block_year','pause_remind_days','pause_remind_text','pause_remind_button']],
   ['Тестирование', ['tester_link_enabled','tester_check_points','tester_bug_points','tester_fixed_text','tester_fixed_text_nopoints']],
   ['Дайджест', ['digest_public','digest_testers','digest_guest_delay_days','digest_announce_text','digest_announce_button','digest_former_text','digest_former_button','missed_banner_days']],
@@ -19705,6 +19714,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v151</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v152</div>
 </body>
 </html>
