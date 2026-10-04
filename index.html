@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v153 -->
+<!-- FILE_VERSION: admin-v154 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2484,7 +2484,12 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       </div>
       <div id="attr-summary" class="pay-meta" style="margin-bottom:10px">—</div>
 
-      <div class="section-title" style="margin:8px 0 6px;font-size:13px">По каналу первого касания</div>
+      <div class="section-title" style="margin:8px 0 6px;font-size:13px">По площадке</div>
+      <div class="pay-meta" style="margin-bottom:6px">Работает и без меток: площадка, где человек впервые зашёл в бота. Конверсия — новые покупатели площадки к её лидам за период.</div>
+      <div id="attr-platform-list"></div>
+      <div id="attr-place-list" style="margin-top:6px"></div>
+
+      <div class="section-title" style="margin:14px 0 6px;font-size:13px">По каналу первого касания</div>
       <div id="attr-first-list"></div>
 
       <div class="section-title" style="margin:14px 0 6px;font-size:13px">По единице, которая дожала</div>
@@ -7899,6 +7904,27 @@ const ATTR_CHANNEL_LABELS = {
   vk_ads:'реклама ВК', yandex:'реклама Яндекс', other:'другое'
 };
 
+/* v154: разрез по площадке — виден и без меток в ссылках */
+const ATTR_PLATFORM_LABELS = { tg:'Telegram', vk:'ВКонтакте', max:'MAX', inst:'Instagram', yt:'YouTube',
+  dzen:'Дзен', threads:'Threads', tiktok:'TikTok', '?':'площадка не определена' };
+function renderAttrPlatforms(d){
+  const box = document.getElementById('attr-platform-list');
+  const pl = document.getElementById('attr-place-list');
+  if (!box) return;
+  const rows = d.by_platform || [];
+  box.innerHTML = rows.length ? rows.map(function(x){
+    const conv = (x.conv === null || x.conv === undefined) ? 'лидов не было' : ('конверсия ' + x.conv + '%');
+    return '<div class="pay-item"><div style="flex:1;min-width:0">'
+      + '<div class="pay-name">' + escapeHtmlAdm(ATTR_PLATFORM_LABELS[x.platform] || x.platform) + '</div>'
+      + '<div class="pay-meta">лидов ' + x.leads + ' · новых покупателей ' + x.new + ' · ' + conv
+      + ' · платежей ' + x.payments + '</div></div>'
+      + '<div class="pay-name" style="flex-shrink:0">' + Math.round(x.sum).toLocaleString('ru-RU') + ' ₽</div></div>';
+  }).join('') : '<div class="pay-meta">Пока пусто.</div>';
+  const pp = d.by_place || [];
+  if (pl) pl.innerHTML = pp.length ? '<div class="pay-meta">Новые покупатели купили: '
+    + pp.map(function(x){ return escapeHtmlAdm(x.title) + ' — ' + x.new; }).join(' · ') + '</div>' : '';
+}
+
 async function loadAttrReport(){
   const box = document.getElementById('attr-summary');
   box.textContent = 'Считаю…';
@@ -7908,6 +7934,7 @@ async function loadAttrReport(){
     if (!r.ok){ box.textContent = d.detail || 'Не получилось'; return; }
     box.textContent = 'Платежей за ' + d.days + ' дн.: ' + d.total_payments
       + (d.untagged_payments ? ' · без метки: ' + d.untagged_payments : '');
+    renderAttrPlatforms(d);
     renderAttrList('attr-first-list', d.by_first_touch);
     renderAttrList('attr-last-list', d.by_last_touch);
     loadJourneySummary();
@@ -19728,6 +19755,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v153</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v154</div>
 </body>
 </html>
