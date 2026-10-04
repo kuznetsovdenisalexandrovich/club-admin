@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v147 -->
+<!-- FILE_VERSION: admin-v149 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1188,6 +1188,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <div class="tools-grid">
           <button class="action-btn" onclick="location.href='tasks.html'">Задачи проекта</button>
           <button class="action-btn" onclick="openSettingsPopup()">Настройки клуба</button>
+          <button class="action-btn" onclick="openSecPopup()" id="sec-btn">Безопасность</button>
           <button class="action-btn" onclick="openPlacesPopup()">Каналы и чаты</button>
           <button class="action-btn" onclick="openBonusPopup()">Бонусы за вступление</button>
           <button class="action-btn" onclick="openNudgesPopup()">Дожимные рассылки</button>
@@ -1706,6 +1707,11 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           Описание открывается в приложении по клику на имя бога — и в альбоме, и на самой карточке.
           Пока описания нет или оно снято с публикации, имя остаётся обычным текстом.
         </div>
+        <!-- v149 (d88): готовность пантеона — чего не хватает каждому богу -->
+        <details id="pantheon-ready" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:12px" ontoggle="if(this.open) loadPantheonReady()">
+          <summary style="cursor:pointer;font-size:13px;font-weight:600">Готовность пантеона <span id="pantheon-ready-sum" style="font-weight:400;color:var(--text-faint)"></span></summary>
+          <div id="pantheon-ready-body" style="margin-top:8px"><div class="loading">Загрузка...</div></div>
+        </details>
         <div id="gods-body"><div class="loading">Загрузка...</div></div>
       </div>
 
@@ -3740,6 +3746,7 @@ const SETTINGS_META = {
   insights_unlock_level:    ['С какого уровня открыты «Главные идеи»', 'Задаётся в «Настроить уровни» (галочка «открывает идеи») — здесь только показано', 'ro'],
   pdf_unlock_level:         ['С какого уровня доступна выжимка PDF', 'Задаётся в «Настроить уровни» (галочка «открывает PDF») — здесь только показано', 'ro'],
   audio_preview_minutes:    ['Ознакомительная часть аудио, минут', 'Сколько слышит человек без подписки (и на паузе). 0 — не давать вовсе. Сервер режет отдельный файл; после смены числа кусочки пересоберутся сами при первом прослушивании', 'num'],
+  prodamus_sig_enforce:     ['Отклонять оплаты с неверной подписью Продамуса', 'Включать из окна «Безопасность», когда видно, что подпись живых оплат сходится. Выключено — только тревога в админский чат', 'bool'],
   assistant_on:             ['Помощник включён', 'ИИ-помощник в приложении. Выключен — кнопка работает по-старому (подбор занятий)', 'bool'],
   assistant_guests:         ['Помощник отвечает гостям', 'Гостям и бывшим участникам: рассказывает про клуб и ведёт к вступлению за 1 ₽', 'bool'],
   assistant_model:          ['Помощник: модель', 'Имя модели DeepSeek. Без нужды не трогать', 'text'],
@@ -13050,7 +13057,43 @@ function composeForCard(key){
 
 /* ── Уникальные и персональные ────────────────────────────────────────────── */
 
-function renderUniqueCards(){
+/* v149 (d88): у кого какие уникальные — грузим один раз на открытие вида */
+var uniqueOwners = null;
+async function loadUniqueOwners(){
+  try {
+    const r = await fetch(API + '/cards/admin/unique-owners?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    if (r.ok) { uniqueOwners = (await r.json()).owners || {}; renderUniqueCards(true); }
+  } catch(e){}
+}
+async function loadPantheonReady(){
+  const box = document.getElementById('pantheon-ready-body');
+  try {
+    const r = await fetch(API + '/cards/admin/pantheon?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
+    const sm = d.summary || {};
+    document.getElementById('pantheon-ready-sum').textContent = '· готовы ' + (sm.ready || 0) + ' из ' + (sm.total || 0)
+      + (sm.quiz_without_card ? ' · без карты за тест: ' + sm.quiz_without_card : '');
+    const RN = { common: 'ч', uncommon: 'н', rare: 'р', legendary: 'л' };
+    box.innerHTML = '<div style="font-size:11.5px;color:var(--text-faint);margin-bottom:6px">Богов с тестом: ' + (sm.quiz_gods || 0)
+      + ' · без карты за тест: ' + (sm.quiz_without_card || 0) + ' · без версии для участника: ' + (sm.quiz_without_plus || 0)
+      + '. В паках — сколько карт выпадает (ч/н/р/л — частые, нечастые, редкие, легендарные).</div>'
+      + (d.gods || []).map(function(g){
+          const rar = Object.keys(g.by_rarity || {}).map(function(k){ return (RN[k] || k) + g.by_rarity[k]; }).join(' ');
+          return '<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-top:1px solid var(--border)">'
+            + '<div style="width:18px">' + (g.ready ? '✅' : '⚠️') + '</div>'
+            + '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">' + godEsc(g.god)
+            + (g.quiz_codes.length ? ' <span style="font-weight:400;font-size:11px;color:var(--text-faint)">тест: ' + godEsc(g.quiz_codes.join(', ')) + '</span>' : '') + '</div>'
+            + '<div style="font-size:11.5px;color:var(--text-faint)">в паках: ' + g.in_packs + (rar ? ' (' + godEsc(rar) + ')' : '')
+            + ' · всего карт: ' + g.cards_total + (g.unique ? ' · уникальных: ' + g.unique : '') + (g.gift_card ? ' · за тест: ' + godEsc(g.gift_card) + (g.gift_plus ? ' + участника' : '') : '') + '</div>'
+            + (g.missing.length ? '<div style="font-size:11.5px;color:#c0392b">' + godEsc(g.missing.join(' · ')) + '</div>' : '')
+            + '</div></div>';
+        }).join('');
+  } catch(e){ box.innerHTML = '<div class="empty">Не загрузилось: ' + godEsc(e.message) + '</div>'; }
+}
+
+function renderUniqueCards(fromOwners){
+  if (!fromOwners) loadUniqueOwners();
   var box = document.getElementById('unique-list');
   var rows = (cardTypes || []).filter(function(c){ return c.personal || c.secret; });
   if (!rows.length){
@@ -13067,10 +13110,22 @@ function renderUniqueCards(){
         + '<div style="font-size:13px">' + elEsc(c.title || c.key) + '</div>'
         + '<div style="font-size:11px;color:var(--text-faint)">' + elEsc(c.god || '—')
           + (c.personal ? ' · личная' : '') + (c.secret ? ' · секретная' : '') + '</div>'
+        + uniqueOwnersHtml(c.key)
       + '</div>'
       + '<button class="action-btn" onclick="openCardEditor(' + jsArg(c.key) + ')">Открыть</button></div>';
   });
   box.innerHTML = h + '</div>';
+}
+
+function uniqueOwnersHtml(key){
+  if (uniqueOwners === null) return '<div style="font-size:11px;color:var(--text-faint)">кто получил — загружаю…</div>';
+  var list = uniqueOwners[key] || [];
+  if (!list.length) return '<div style="font-size:11px;color:var(--text-faint)">ещё ни у кого</div>';
+  return '<div style="font-size:11.5px;margin-top:3px">' + list.map(function(o){
+    var st = o.fulfilled ? 'выполнено' : (o.claimed ? 'ждёт тебя' : (o.opened ? 'открыта' : 'не открыта'));
+    var when = o.at ? new Date(o.at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) : '';
+    return elEsc(o.name || ('tg ' + (o.telegram_id || '—'))) + ' <span style="color:var(--text-faint)">(' + elEsc(when + ', ' + st) + ')</span>';
+  }).join(' · ') + '</div>';
 }
 
 /* ── Библиотека элементов ─────────────────────────────────────────────────── */
@@ -18308,6 +18363,61 @@ async function qaAdmFetch(path, body){
 function qaEsc(v){ return escapeHtmlAdm(v == null ? '' : String(v)); }
 function qaArg(v){ return JSON.stringify(v).replace(/"/g, '&quot;'); }
 
+/* ══ v148: БЕЗОПАСНОСТЬ ══════════════════════════════════════════════════════ */
+function openSecPopup(){ document.getElementById('sec-overlay').classList.add('open'); secLoad(); }
+function closeSecPopup(){ document.getElementById('sec-overlay').classList.remove('open'); }
+function secRow(ok, title, text, btn){
+  return '<div class="pay-item" style="align-items:flex-start"><div style="font-size:18px;line-height:1;margin-right:8px">' + (ok ? '✅' : '⚠️') + '</div>'
+    + '<div class="pay-info" style="flex:1"><div class="pay-name">' + title + '</div><div class="pay-meta">' + text + '</div></div>'
+    + (btn || '') + '</div>';
+}
+async function secLoad(){
+  const box = document.getElementById('sec-body');
+  try {
+    const r = await fetch(API + '/admin/security/status?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
+    const sig = d.prodamus_sig || {};
+    let h = '';
+    h += secRow(d.pin !== 'default', 'PIN дашборда',
+      d.pin === 'default' ? 'Стоит заводской PIN — его знает всякий, кто видел код. Смени: старое число сразу перестанет пускать.'
+        : (d.pin === 'env' ? 'Задан переменной ADMIN_PIN на сервере.' : 'Свой PIN, задан в дашборде.'),
+      d.pin === 'env' ? '' : '<button class="action-btn" onclick="secChangePin()">Сменить PIN</button>');
+    const sigText = !d.prodamus_key ? 'На сервере нет ключа Продамуса — подпись оплат проверить нечем.'
+      : 'Сошлось: ' + (sig.ok || 0) + ' · не сошлось: ' + (sig.bad || 0)
+        + (sig.last_bad ? ' (последний раз ' + new Date(sig.last_bad).toLocaleString('ru-RU') + ', заказ ' + escapeHtmlAdm(sig.last_bad_order || '—') + ')' : '')
+        + '. ' + (d.prodamus_enforce ? 'Поддельные оплаты отклоняются.' : 'Сейчас режим «наблюдаю»: неверная подпись не отклоняется, но тебе приходит тревога. Когда пара живых оплат сошлась, а «не сошлось» нет — включай отклонение.');
+    h += secRow(d.prodamus_enforce, 'Подпись оплат Продамуса', sigText,
+      d.prodamus_key ? '<button class="action-btn" onclick="secEnforce(' + (d.prodamus_enforce ? 0 : 1) + ')">' + (d.prodamus_enforce ? 'Только наблюдать' : 'Отклонять поддельные') + '</button>' : '');
+    h += secRow(!d.direct_phone_login, 'Вход в веб-версию по номеру без кода',
+      d.direct_phone_login ? 'Включён: зная номер участника, любой войдёт под ним. Это страховка, пока не работают SMS. Безопасная замена — разовая ссылка на вход из бота. Попытки ограничены: 6 в час с одного адреса.'
+        : 'Выключен — вход только по SMS-коду или разовой ссылке.', '');
+    h += secRow(d.sms_login && d.sms_provider, 'Вход по SMS-коду',
+      (d.sms_login ? 'Включён. ' : 'Выключен. ') + (d.sms_provider ? 'Ключ SMS.RU на сервере есть.' : 'Ключа SMS.RU на сервере нет (переменная SMS_RU_API_ID).') + ' SMS ограничены: 8 в час с адреса, 300 в сутки всего.', '');
+    h += secRow(!d.test_phone, 'Тестовый вход кодом 1234', d.test_phone ? 'Включён переменной TEST_PHONE_LOGIN=1 — выключи, когда тесты закончатся.' : 'Выключен.', '');
+    h += secRow(d.session_secret && !d.admin_open, 'Ключи сервера',
+      (d.session_secret ? 'SESSION_SECRET задан.' : 'SESSION_SECRET не задан — вход в веб-версию не работает.') + (d.admin_open ? ' ⚠️ ADMIN_OPEN=1 — админка открыта всем! Убери переменную.' : ''), '');
+    box.innerHTML = h;
+  } catch(e){ box.innerHTML = '<div class="empty">Не загрузилось: ' + escapeHtmlAdm(e.message) + '</div>'; }
+}
+async function secChangePin(){
+  const a = prompt('Новый PIN — пять цифр');
+  if (!a) return;
+  const b = prompt('Повтори новый PIN');
+  if (a !== b){ alert('Не совпало — PIN не сменён'); return; }
+  const r = await fetch(API + '/admin/pin/change?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ new_pin: a }) });
+  const d = await r.json().catch(function(){ return {}; });
+  alert(r.ok ? 'PIN сменён. Запомни его — старый больше не пускает.' : (d.detail || 'Не получилось'));
+  secLoad();
+}
+async function secEnforce(on){
+  if (on && !confirm('Включить отклонение оплат с неверной подписью? Если подпись живых оплат не сходится, они тоже будут отклонены — включай, только когда «сошлось» больше нуля, а «не сошлось» ноль.')) return;
+  await fetch(API + '/admin/settings?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'prodamus_sig_enforce', value: on ? '1' : '0' }) });
+  secLoad();
+}
+
 /* ══ v145: ИИ-ПОМОЩНИК ══════════════════════════════════════════════════════
    Сервер не знает, как устроен дашборд, — описание разделов и настроек
    собираем здесь же, из того, что нарисовано на странице и в SETTINGS_META,
@@ -19044,6 +19154,17 @@ async function dgOpenPdf(id){
 <!-- v145: ИИ-помощник. «Спросить» — вопросы Дениса (как сделать в дашборде,
      цифры по базе); «Вопросы участников» — что люди спрашивают в приложении -->
 <button id="asst-fab" onclick="openAsstPopup('chat')" title="Спросить ИИ-помощника">Спросить ИИ</button>
+<!-- v148: Безопасность — состояние защит и действия по ним -->
+<div class="popup-overlay popup-centered" id="sec-overlay" onclick="if(overlayShouldClose(event,this)) closeSecPopup()">
+  <div class="popup" style="max-width:640px">
+    <button class="popup-close-x" onclick="closeSecPopup()" title="Закрыть">✕</button>
+    <div class="popup-body" style="padding-top:20px">
+      <div class="popup-section-title" style="margin-top:0">Безопасность</div>
+      <div id="sec-body"><div class="loading">Загрузка…</div></div>
+    </div>
+  </div>
+</div>
+
 <div class="popup-overlay popup-centered" id="asst-overlay" onclick="if(overlayShouldClose(event,this)) closeAsstPopup()">
   <div class="popup" style="max-width:820px">
     <button class="popup-close-x" onclick="closeAsstPopup()" title="Закрыть">✕</button>
@@ -19590,6 +19711,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v147</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v149</div>
 </body>
 </html>
