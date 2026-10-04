@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v143 -->
+<!-- FILE_VERSION: admin-v144 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3735,7 +3735,13 @@ const SETTINGS_META = {
 
   insights_unlock_level:    ['С какого уровня открыты «Главные идеи»', '', 'num'],
   pdf_unlock_level:         ['С какого уровня доступна выжимка PDF', '', 'num'],
-  audio_preview_minutes:    ['Ознакомительная часть аудио, минут', 'Сколько слышит человек без подписки. 0 — не давать вовсе. ⚠️ по этому числу сервер РЕЖЕТ отдельный файл превью', 'num'],
+  audio_preview_minutes:    ['Ознакомительная часть аудио, минут', 'Сколько слышит человек без подписки (и на паузе). 0 — не давать вовсе. Сервер режет отдельный файл; после смены числа кусочки пересоберутся сами при первом прослушивании', 'num'],
+  pause_block_trial:        ['Пауза: почему нельзя — первый месяц', 'Показывается, если у человека меньше двух оплат (тест-драйв, первый месяц)', 'text'],
+  pause_block_repeat:       ['Пауза: почему нельзя — повторная', 'Новая пауза — только после месяца, оплаченного после прошлой', 'text'],
+  pause_block_year:         ['Пауза: почему нельзя — годовой лимит', 'За 365 дней — не больше 6 месяцев паузы. Метки {макс} и {осталось}', 'text'],
+  pause_remind_days:        ['Пауза: напомнить о конце за, дней', 'Письмо в бота за столько дней до конца паузы. 0 — не напоминать', 'num'],
+  pause_remind_text:        ['Пауза: текст напоминания', 'Метка {дата} — когда пауза кончится. В ВК уходит в блок nudge_ Salebot', 'text'],
+  pause_remind_button:      ['Пауза: кнопка напоминания', 'Ведёт в управление подпиской в приложении', 'text'],
 
   digest_public:            ['Дайджест открыт всем', 'Выключено — выпуск видят только тестировщики из списка ниже', 'bool'],
   digest_testers:           ['Тестировщики дайджеста', 'telegram_id через запятую', 'text'],
@@ -3787,6 +3793,7 @@ const NUDGE_SETTING_KEYS = ['nudge_later_label','card_change_remind_text','card_
 const SETTINGS_GROUPS = [
   ['Фильм и окно бонусов', ['film_lecture_slug','film_duration_sec','funnel_bonus_window_min','funnel_bonus_window_back','funnel_window_last_min','guest_tour_enabled','guest_plan_playlist']],
   ['Что открыто участнику', ['insights_unlock_level','pdf_unlock_level','audio_preview_minutes']],
+  ['Пауза подписки', ['pause_block_trial','pause_block_repeat','pause_block_year','pause_remind_days','pause_remind_text','pause_remind_button']],
   ['Тестирование', ['tester_link_enabled','tester_check_points','tester_bug_points','tester_fixed_text','tester_fixed_text_nopoints']],
   ['Дайджест', ['digest_public','digest_testers','digest_guest_delay_days','digest_announce_text','digest_announce_button','digest_former_text','digest_former_button','missed_banner_days']],
   ['Меню бота', ['botmenu_app_line','botmenu_next_line','botmenu_done_line','botmenu_live_line','botmenu_digest_line']],
@@ -4598,7 +4605,8 @@ function openPopup(uid){
     ['Тариф',u.sub_name||'—'],
     ['Баллы',`<b>${u.points||0}</b>`],
     ['Следующий платёж',u.next_payment_date||'—'],
-    ...(admFrozenActive(u.frozen_until)?[['Заморожен до',`<span class="badge badge-err">${escapeHtmlAdm(u.frozen_until)}</span>`]]:[]),
+    /* v144: пауза-пейвол — с какого числа контент закрыт. Без «с» — старая пауза, доступ открыт */
+    ...(admFrozenActive(u.frozen_until)?[['Пауза',`<span class="badge badge-err">${u.frozen_from?('с '+escapeHtmlAdm(u.frozen_from)+' '):''}до ${escapeHtmlAdm(u.frozen_until)}</span>${u.frozen_from?'':' <span class="muted" style="font-size:11px">старая — доступ открыт</span>'}`]]:[]),
     ...(u.flagged?[['Внимание',`<span class="badge badge-warn">${escapeHtmlAdm(u.flag_reason)}</span>`]]:[]),
     ['Скидок получено', String(u.discount_count||0)],
     ['Возвратов подписки', String(u.reactivate_count||0)],
@@ -19303,6 +19311,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v143</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v144</div>
 </body>
 </html>
