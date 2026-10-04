@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v144 -->
+<!-- FILE_VERSION: admin-v145 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1198,6 +1198,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <div class="tools-group">
         <div class="tools-group-t">Цифры</div>
         <div class="tools-grid">
+          <button class="action-btn" onclick="openAsstPopup('chat')">ИИ-помощник</button>
           <button class="action-btn" onclick="openMetrics()">Метрики по дням</button>
           <button class="action-btn" onclick="openRetentionPopup()">Воронка и удержание</button>
           <button class="action-btn" onclick="openStoriesPopup()">Сториз</button>
@@ -3736,6 +3737,16 @@ const SETTINGS_META = {
   insights_unlock_level:    ['С какого уровня открыты «Главные идеи»', '', 'num'],
   pdf_unlock_level:         ['С какого уровня доступна выжимка PDF', '', 'num'],
   audio_preview_minutes:    ['Ознакомительная часть аудио, минут', 'Сколько слышит человек без подписки (и на паузе). 0 — не давать вовсе. Сервер режет отдельный файл; после смены числа кусочки пересоберутся сами при первом прослушивании', 'num'],
+  assistant_on:             ['Помощник включён', 'ИИ-помощник в приложении. Выключен — кнопка работает по-старому (подбор занятий)', 'bool'],
+  assistant_guests:         ['Помощник отвечает гостям', 'Гостям и бывшим участникам: рассказывает про клуб и ведёт к вступлению за 1 ₽', 'bool'],
+  assistant_model:          ['Помощник: модель', 'Имя модели DeepSeek. Без нужды не трогать', 'text'],
+  assistant_limit_member:   ['Помощник: вопросов в день участнику', '0 — без лимита', 'num'],
+  assistant_limit_guest:    ['Помощник: вопросов в день гостю', '0 — без лимита', 'num'],
+  assistant_limit_text:     ['Помощник: текст, когда лимит кончился', '', 'text'],
+  assistant_fail_text:      ['Помощник: текст, когда модель не ответила', '', 'text'],
+  assistant_facts:          ['Помощник: факты о клубе', 'Цены, что внутри, правила паузы — то, что помощник говорит как факт. Справку он читает сам', 'text'],
+  assistant_prompt:         ['Помощник: характер и правила', 'Как говорит, что делает, как ведёт себя при отмене подписки. Формат ответа добавляет сервер сам', 'text'],
+  assistant_admin_prompt:   ['Помощник дашборда: правила', 'Что знает о данных клуба (таблицы, время по Москве). Описание разделов дашборда он получает сам', 'text'],
   pause_block_trial:        ['Пауза: почему нельзя — первый месяц', 'Показывается, если у человека меньше двух оплат (тест-драйв, первый месяц)', 'text'],
   pause_block_repeat:       ['Пауза: почему нельзя — повторная', 'Новая пауза — только после месяца, оплаченного после прошлой', 'text'],
   pause_block_year:         ['Пауза: почему нельзя — годовой лимит', 'За 365 дней — не больше 6 месяцев паузы. Метки {макс} и {осталось}', 'text'],
@@ -3793,6 +3804,7 @@ const NUDGE_SETTING_KEYS = ['nudge_later_label','card_change_remind_text','card_
 const SETTINGS_GROUPS = [
   ['Фильм и окно бонусов', ['film_lecture_slug','film_duration_sec','funnel_bonus_window_min','funnel_bonus_window_back','funnel_window_last_min','guest_tour_enabled','guest_plan_playlist']],
   ['Что открыто участнику', ['insights_unlock_level','pdf_unlock_level','audio_preview_minutes']],
+  ['ИИ-помощник', ['assistant_on','assistant_guests','assistant_limit_member','assistant_limit_guest','assistant_limit_text','assistant_fail_text','assistant_facts','assistant_prompt','assistant_admin_prompt','assistant_model']],
   ['Пауза подписки', ['pause_block_trial','pause_block_repeat','pause_block_year','pause_remind_days','pause_remind_text','pause_remind_button']],
   ['Тестирование', ['tester_link_enabled','tester_check_points','tester_bug_points','tester_fixed_text','tester_fixed_text_nopoints']],
   ['Дайджест', ['digest_public','digest_testers','digest_guest_delay_days','digest_announce_text','digest_announce_button','digest_former_text','digest_former_button','missed_banner_days']],
@@ -18272,6 +18284,153 @@ async function qaAdmFetch(path, body){
 function qaEsc(v){ return escapeHtmlAdm(v == null ? '' : String(v)); }
 function qaArg(v){ return JSON.stringify(v).replace(/"/g, '&quot;'); }
 
+/* ══ v145: ИИ-ПОМОЩНИК ══════════════════════════════════════════════════════
+   Сервер не знает, как устроен дашборд, — описание разделов и настроек
+   собираем здесь же, из того, что нарисовано на странице и в SETTINGS_META,
+   и шлём с каждым вопросом. Добавил раздел или настройку — помощник знает
+   о ней сразу, отдельной базы знаний вести не нужно. */
+var ASST = { history: [], only: 'all', tab: 'chat' };
+function asstEsc(v){ return escapeHtmlAdm(v == null ? '' : String(v)); }
+function asstKb(){
+  var out = [];
+  document.querySelectorAll('.section').forEach(function(sec){
+    var t = sec.querySelector('.section-title');
+    if (!t) return;
+    var groups = sec.querySelectorAll('.tools-group');
+    if (groups.length){
+      out.push('Раздел главной «' + t.textContent.trim() + '»:');
+      groups.forEach(function(g){
+        var gt = g.querySelector('.tools-group-t');
+        var btns = Array.prototype.map.call(g.querySelectorAll('button'), function(b){ return b.textContent.trim(); }).filter(Boolean);
+        out.push('  группа «' + (gt ? gt.textContent.trim() : '') + '»: ' + btns.join(', '));
+      });
+    } else {
+      var btns2 = Array.prototype.map.call(sec.querySelectorAll('.section-head button, .card > .tools-grid button'), function(b){ return b.textContent.trim(); }).filter(Boolean);
+      out.push('Раздел главной «' + t.textContent.trim() + '»' + (btns2.length ? ': ' + btns2.join(', ') : ''));
+    }
+  });
+  /* Окна (открываются кнопками выше): заголовки внутри и кнопки — чтобы
+     отвечать «где это» на уровень глубже, чем главная */
+  out.push('', 'ОКНА ДАШБОРДА (заголовки разделов внутри окна; кнопки):');
+  document.querySelectorAll('.popup-overlay').forEach(function(ov){
+    if (ov.id === 'asst-overlay') return;
+    var heads = Array.prototype.map.call(ov.querySelectorAll('.popup-section-title, .popup-title, h2, h3'), function(h){ return h.textContent.replace(/\s+/g, ' ').trim(); })
+      .filter(function(x){ return x && x.length < 80; });
+    if (!heads.length) return;
+    var btns = Array.prototype.map.call(ov.querySelectorAll('button'), function(b){ return b.textContent.replace(/\s+/g, ' ').trim(); })
+      .filter(function(x){ return x && x.length < 40 && x !== '✕'; });
+    var uniq = btns.filter(function(x, i){ return btns.indexOf(x) === i; }).slice(0, 25);
+    out.push('- «' + heads[0] + '»' + (heads.length > 1 ? ': ' + heads.slice(1, 12).join(' · ') : '') + (uniq.length ? ' [кнопки: ' + uniq.join(', ') + ']' : ''));
+  });
+  out.push('', 'НАСТРОЙКИ КЛУБА (Инструменты → «Настройки клуба»), по группам. Формат: ключ — название — пояснение:');
+  var used = {};
+  (typeof SETTINGS_GROUPS !== 'undefined' ? SETTINGS_GROUPS : []).forEach(function(g){
+    out.push('## ' + g[0]);
+    g[1].forEach(function(k){
+      used[k] = 1;
+      var m = SETTINGS_META[k];
+      if (m) out.push('- ' + k + ' — ' + m[0] + (m[1] ? ' — ' + m[1] : ''));
+    });
+  });
+  var rest = Object.keys(SETTINGS_META).filter(function(k){ return !used[k]; });
+  if (rest.length){
+    out.push('## Прочие');
+    rest.forEach(function(k){ var m = SETTINGS_META[k]; out.push('- ' + k + ' — ' + m[0] + (m[1] ? ' — ' + m[1] : '')); });
+  }
+  return out.join('\n').slice(0, 40000);
+}
+function openAsstPopup(tab){
+  document.getElementById('asst-overlay').classList.add('open');
+  asstTab(tab || ASST.tab);
+  if (!document.getElementById('asst-chat').children.length) asstReset();
+}
+function closeAsstPopup(){ document.getElementById('asst-overlay').classList.remove('open'); }
+function asstTab(name){
+  ASST.tab = name;
+  ['chat', 'turns'].forEach(function(t){
+    document.getElementById('asst-pane-' + t).style.display = (t === name ? '' : 'none');
+    document.getElementById('asst-tab-' + t).classList.toggle('on', t === name);
+  });
+  if (name === 'turns') asstLoadTurns();
+  if (name === 'chat') setTimeout(function(){ var i = document.getElementById('asst-input'); if (i) i.focus(); }, 50);
+}
+function asstPush(html, cls){
+  var c = document.getElementById('asst-chat');
+  var el = document.createElement(cls === 'asst-steps' ? 'details' : 'div');
+  el.className = cls;
+  el.innerHTML = html;
+  c.appendChild(el);
+  c.scrollTop = c.scrollHeight;
+  return el;
+}
+function asstReset(){
+  ASST.history = [];
+  document.getElementById('asst-chat').innerHTML = '';
+  asstPush('Спроси, как что-то сделать в дашборде, или про цифры клуба: оплаты, отмены, кто что спрашивал, кто давно не заходил.', 'asst-msg bot');
+}
+async function asstSend(){
+  var inp = document.getElementById('asst-input');
+  var q = inp.value.trim();
+  if (!q) return;
+  inp.value = '';
+  var btn = document.getElementById('asst-send');
+  btn.disabled = true;
+  asstPush(asstEsc(q), 'asst-msg me');
+  var wait = asstPush('Думаю…', 'asst-msg bot');
+  try {
+    var r = await fetch(API + '/admin/assistant/chat?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q, history: ASST.history.slice(-10), kb: asstKb() })
+    });
+    var d = await r.json().catch(function(){ return {}; });
+    wait.remove();
+    if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
+    if ((d.steps || []).length){
+      asstPush('<summary>Запросов к базе: ' + d.steps.length + '</summary>' + d.steps.map(function(st){
+        return '<code>' + asstEsc(st.sql) + '</code>' + (st.error ? '<div style="color:#c0392b">' + asstEsc(st.error) + '</div>' : '<div>строк: ' + st.count + '</div>');
+      }).join(''), 'asst-steps');
+    }
+    asstPush(asstEsc(d.reply || ''), 'asst-msg bot');
+    ASST.history.push({ role: 'user', content: q }, { role: 'assistant', content: d.reply || '' });
+  } catch(e){
+    try { wait.remove(); } catch(_){}
+    asstPush('Не получилось: ' + asstEsc(e.message), 'asst-msg bot');
+  }
+  btn.disabled = false;
+}
+function asstOnly(v){
+  ASST.only = v;
+  ['all', 'unresolved', 'down', 'cancel'].forEach(function(k){
+    document.getElementById('asst-only-' + k).classList.toggle('on', k === v);
+  });
+  asstLoadTurns();
+}
+var ASST_STATUS = { member: 'участник', paused: 'на паузе', guest: 'гость', former: 'бывший' };
+async function asstLoadTurns(){
+  var box = document.getElementById('asst-turns');
+  box.innerHTML = '<div class="loading">Загрузка…</div>';
+  try {
+    var days = document.getElementById('asst-days').value;
+    var r = await fetch(API + '/admin/assistant/turns?days=' + days + '&only=' + ASST.only + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    var d = await r.json();
+    if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
+    var sm = d.summary || {};
+    document.getElementById('asst-summary').textContent = 'Вопросов: ' + (sm.total || 0) + ' · не справился: ' + (sm.unresolved || 0)
+      + ' · «помогло»: ' + (sm.up || 0) + ' · «мимо»: ' + (sm.down || 0) + ' · про отмену: ' + (sm.cancel || 0);
+    if (!(d.items || []).length){ box.innerHTML = '<div style="opacity:.6">Пока пусто</div>'; return; }
+    box.innerHTML = d.items.map(function(it){
+      var when = it.at ? new Date(it.at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+      var who = (it.name || (it.telegram_id ? 'tg ' + it.telegram_id : 'без имени')) + ' · ' + (ASST_STATUS[it.status] || it.status);
+      var marks = (it.unresolved ? ' · <b>не справился</b>' : '') + (it.feedback > 0 ? ' · помогло' : it.feedback < 0 ? ' · <b>мимо</b>' : '');
+      var acts = (it.actions || []).map(function(a){ return a.label || a.do; }).join(', ');
+      return '<div class="asst-turn"><div class="m">' + asstEsc(when) + ' · ' + asstEsc(who) + marks + '</div>'
+        + '<div class="q">' + asstEsc(it.question) + '</div><div class="a">' + asstEsc(it.reply) + '</div>'
+        + ((acts || it.lectures) ? '<div class="m" style="margin-top:4px">' + (acts ? 'Кнопки: ' + asstEsc(acts) : '') + (it.lectures ? ' · Занятия: ' + asstEsc(it.lectures) : '') + '</div>' : '')
+        + '</div>';
+    }).join('');
+  } catch(e){ box.innerHTML = '<div style="opacity:.6">Не загрузилось: ' + asstEsc(e.message) + '</div>'; }
+}
+
 function openQaPopup(){
   document.getElementById('qa-overlay').classList.add('open');
   qaTab(QA_TAB);
@@ -18825,6 +18984,58 @@ async function dgOpenPdf(id){
      вёрстку, пульт собирает полосы, выпуск замораживает состав снимком.
      ═══════════════════════════════════════════════════════════════════════ -->
 <!-- ══ v139 · ТЕСТИРОВАНИЕ: обращения, баги, пункты проверки ══ -->
+<!-- v145: ИИ-помощник. «Спросить» — вопросы Дениса (как сделать в дашборде,
+     цифры по базе); «Вопросы участников» — что люди спрашивают в приложении -->
+<button id="asst-fab" onclick="openAsstPopup('chat')" title="Спросить ИИ-помощника">Спросить ИИ</button>
+<div class="popup-overlay popup-centered" id="asst-overlay" onclick="if(overlayShouldClose(event,this)) closeAsstPopup()">
+  <div class="popup" style="max-width:820px">
+    <button class="popup-close-x" onclick="closeAsstPopup()" title="Закрыть">✕</button>
+    <div class="popup-body" style="padding-top:20px">
+      <div class="popup-section-title" style="margin-top:0">ИИ-помощник</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="scroll-btn on" id="asst-tab-chat" onclick="asstTab('chat')">Спросить</button>
+        <button class="scroll-btn" id="asst-tab-turns" onclick="asstTab('turns')">Вопросы участников</button>
+      </div>
+      <div id="asst-pane-chat">
+        <div id="asst-chat" class="asst-chat"></div>
+        <div style="display:flex;gap:8px;align-items:flex-end;margin-top:10px">
+          <textarea id="asst-input" rows="2" class="popup-input" style="flex:1;resize:vertical" placeholder="Например: сколько оплат было вчера? где включить отсрочку дайджеста для гостей?" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();asstSend();}"></textarea>
+          <button class="action-btn primary" id="asst-send" onclick="asstSend()">Спросить</button>
+        </div>
+        <div style="font-size:11px;opacity:.55;margin-top:6px">Помощник только читает базу — ничего не меняет. Телефоны и почты ему не видны. <span style="text-decoration:underline;cursor:pointer" onclick="asstReset()">Новый разговор</span></div>
+      </div>
+      <div id="asst-pane-turns" style="display:none">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+          <select id="asst-days" class="popup-input" style="width:auto" onchange="asstLoadTurns()">
+            <option value="1">Сутки</option><option value="7" selected>Неделя</option><option value="30">Месяц</option>
+          </select>
+          <button class="scroll-btn on" id="asst-only-all" onclick="asstOnly('all')">Все</button>
+          <button class="scroll-btn" id="asst-only-unresolved" onclick="asstOnly('unresolved')">Не справился</button>
+          <button class="scroll-btn" id="asst-only-down" onclick="asstOnly('down')">«Мимо»</button>
+          <button class="scroll-btn" id="asst-only-cancel" onclick="asstOnly('cancel')">Про отмену</button>
+        </div>
+        <div id="asst-summary" style="font-size:12px;opacity:.7;margin-bottom:8px"></div>
+        <div id="asst-turns"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<style>
+#asst-fab{position:fixed;left:12px;bottom:12px;z-index:40;padding:9px 14px;border-radius:999px;border:1px solid var(--border);
+  background:var(--card);color:var(--text);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+.asst-chat{display:flex;flex-direction:column;gap:8px;max-height:52vh;min-height:120px;overflow-y:auto;padding:4px 2px}
+.asst-msg{max-width:86%;padding:9px 12px;border-radius:14px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word}
+.asst-msg.me{align-self:flex-end;background:var(--accent,#e8614a);color:#fff}
+.asst-msg.bot{align-self:flex-start;background:var(--card2,rgba(0,0,0,.04));border:1px solid var(--border)}
+.asst-steps{align-self:flex-start;font-size:11px;opacity:.6;max-width:86%}
+.asst-steps summary{cursor:pointer}
+.asst-steps code{display:block;white-space:pre-wrap;margin:4px 0;font-size:10.5px}
+.asst-turn{border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px;font-size:12.5px}
+.asst-turn .q{font-weight:600;margin:4px 0}
+.asst-turn .a{opacity:.8;white-space:pre-wrap}
+.asst-turn .m{font-size:11px;opacity:.6}
+</style>
+
 <div class="popup-overlay popup-centered" id="qa-overlay" onclick="if(overlayShouldClose(event,this)) closeQaPopup()">
   <div class="popup" style="max-width:900px">
     <button class="popup-close-x" onclick="closeQaPopup()" title="Закрыть">✕</button>
@@ -19311,6 +19522,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v144</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v145</div>
 </body>
 </html>
