@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v142 -->
+<!-- FILE_VERSION: admin-v143 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1218,6 +1218,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <button class="action-btn" onclick="openRafflePopup()">Розыгрыши</button>
           <button class="action-btn" onclick="openCardsPopup()">Колода карточек</button>
           <button class="action-btn" onclick="storageCleanRun()">Чистка хранилища</button>
+          <button class="action-btn" onclick="adminPushToggle()" id="admin-push-btn">Уведомления о выкладке</button>
         </div>
       </div>
 
@@ -2372,6 +2373,8 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         </div>
         <div id="record-list" style="margin-bottom:6px"></div>
         <input class="popup-input" type="text" id="record-code" placeholder="Или вставь ссылку/код записи вручную" style="margin-bottom:6px">
+        <!-- v143 (d60): граница бесплатной части записи для гостей -->
+        <input class="popup-input" type="text" id="record-free" placeholder="Гостям бесплатно до (мин:сек). Пусто — по моменту закрытия бесплатной части" style="margin-bottom:6px">
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
           <button class="action-btn" onclick="saveRecordCode()">Привязать запись</button>
           <button class="action-btn" onclick="clearRecordCode()">Убрать запись</button>
@@ -7601,6 +7604,16 @@ async function saveRecordCode(){
   const code = (document.getElementById('record-code').value || '').trim();
   await sendRecordCode(code);
 }
+/* «12:30», «1:05:00» или просто минуты «12» → секунды. Пусто — null (сервер
+   посчитает сам по моменту закрытия бесплатной части), «0» — гостям ничего */
+function recordFreeSec(){
+  var v = (document.getElementById('record-free').value || '').trim();
+  if (!v) return null;
+  var p = v.split(':').map(function(x){ return Number(x) || 0; });
+  if (p.length === 1) return p[0] * 60;
+  if (p.length === 2) return p[0] * 60 + p[1];
+  return p[0] * 3600 + p[1] * 60 + p[2];
+}
 
 async function clearRecordCode(){
   if (!confirm('Убрать запись? Участники перестанут её видеть.')) return;
@@ -7613,12 +7626,14 @@ async function sendRecordCode(code){
   try{
     const r = await fetch(API + '/admin/live/record?x_admin_token=' + ADMIN_TOKEN, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ code: code })
+      body: JSON.stringify({ code: code, free_sec: recordFreeSec() })
     });
     const d = await r.json();
     if (!r.ok){ box.textContent = d.detail || 'Не получилось'; return; }
+    var fs = d.free_sec, free = fs === -1 ? 'гостям запись открыта целиком'
+      : (fs > 0 ? 'гостям бесплатно первые ' + Math.floor(fs/60) + ' мин ' + (fs%60) + ' с' : 'гостям запись закрыта');
     box.textContent = d.record_code
-      ? ('Привязана к эфиру «' + (d.title || '') + '», код ' + d.record_code)
+      ? ('Привязана к эфиру «' + (d.title || '') + '», код ' + d.record_code + ' · ' + free)
       : 'Запись не привязана — участники её не увидят.';
   }catch(e){ box.textContent = 'Нет связи с бэкендом: ' + (e && e.message || e); }
 }
@@ -11737,6 +11752,51 @@ async function markCardFulfilled(id){
    сигилов, на которые больше не ссылается ни одна строка базы (прежние
    версии после перезаливки). Сначала показывает, удаляет только по второму
    нажатию и только файлы старше двух недель. */
+/* v143 · ПУШИ ДАШБОРДУ. [stated] Denis 04.10: «по 10 минут сижу жду» сборку.
+   Сервер шлёт пуш, когда новая сборка поднялась. Нужен сервис-воркер
+   `admin-sw.js` рядом со страницей. ⚠️ На айфоне — только если дашборд
+   добавлен на экран «Домой» и открыт оттуда */
+function adminB64ToBytes(b64){
+  var pad = '='.repeat((4 - b64.length % 4) % 4);
+  var raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  var out = new Uint8Array(raw.length);
+  for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+async function adminPushToggle(){
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)){
+    alert('Этот браузер не умеет уведомления. На айфоне: добавь дашборд на экран «Домой» (Поделиться → На экран Домой) и открой оттуда.');
+    return;
+  }
+  try{
+    var reg = await navigator.serviceWorker.register('admin-sw.js');
+    await navigator.serviceWorker.ready;
+    var sub = await reg.pushManager.getSubscription();
+    if (sub){
+      if (!confirm('Уведомления включены на этом устройстве.\n\nОК — прислать проверочное, Отмена — выключить.')){
+        await fetch(API+'/admin/push/unsubscribe?x_admin_token='+ADMIN_TOKEN, {method:'POST',
+          headers:{'Content-Type':'application/json'}, body: JSON.stringify({endpoint: sub.endpoint, keys:{}})});
+        await sub.unsubscribe();
+        alert('Выключено на этом устройстве');
+        return;
+      }
+    } else {
+      var perm = await Notification.requestPermission();
+      if (perm !== 'granted'){ alert('Уведомления запрещены в настройках браузера'); return; }
+      var k = await fetch(API+'/push/vapid-public-key').then(function(r){ return r.json(); });
+      var key = k.public_key || k.key || k.vapid_public_key || '';
+      if (!key) throw new Error('сервер не отдал ключ');
+      sub = await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: adminB64ToBytes(key)});
+    }
+    var j = sub.toJSON();
+    var r = await fetch(API+'/admin/push/subscribe?x_admin_token='+ADMIN_TOKEN, {method:'POST',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify({endpoint: j.endpoint, keys: j.keys, device: navigator.userAgent.slice(0, 80)})});
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    await fetch(API+'/admin/push/test?x_admin_token='+ADMIN_TOKEN, {method:'POST'});
+    alert('Готово: проверочное уведомление должно прийти через пару секунд. Дальше будет приходить, когда новая сборка сервера поднимется.');
+  }catch(e){ alert('Не получилось: '+(e.message||e)+'\n\nЕсли «admin-sw.js» не найден — выполни команду установки из чата.'); }
+}
+
 async function storageCleanRun(){
   const q = API + '/admin/storage/orphans?x_admin_token=' + ADMIN_TOKEN;
   try {
@@ -19243,6 +19303,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v142</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v143</div>
 </body>
 </html>
