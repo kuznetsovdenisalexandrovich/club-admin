@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v146 -->
+<!-- FILE_VERSION: admin-v147 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1213,7 +1213,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <div class="tools-group">
         <div class="tools-group-t">Баллы и карточки</div>
         <div class="tools-grid">
-          <button class="action-btn" onclick="openBulkPointsPopup()">Раздать баллы всем</button>
+          <button class="action-btn" onclick="openBulkPointsPopup()">Раздать баллы нескольким</button>
           <button class="action-btn" onclick="openLevelConfigPopup()">Настроить уровни</button>
           <button class="action-btn" onclick="openRewardCatalogPopup()">Управление наградами</button>
           <button class="action-btn" onclick="openRafflePopup()">Розыгрыши</button>
@@ -1409,7 +1409,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
          поверх штатного .popup-close-x, который есть у всех окон дашборда.
          Два крестика рядом — оставлен только общий -->
     <div style="margin-bottom:14px">
-      <div class="popup-section-title" style="margin-top:0;margin-bottom:0">Уведомления</div>
+      <div class="popup-section-title" style="margin-top:0;margin-bottom:0">Кампании</div>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <select id="camp-list" class="popup-input" style="margin-bottom:0" onchange="onCampListChange()"></select>
@@ -2068,8 +2068,8 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     </div>
 
     <div style="font-size:11px;color:var(--text-faint);line-height:1.5;margin-bottom:12px">
-      Вёрстка выпуска лежит в репозитории club-app, папкой <b>magazine/&lt;папка&gt;/</b> — она заливается через терминал.
-      Здесь заводится карточка выпуска: обложка, описание и место в очереди.
+      Сам выпуск свёрстан на Тильде — приложение читает его оттуда по слагу страницы.
+      Здесь заводится карточка выпуска: слаг на Тильде, обложка, описание и место в очереди.
     </div>
 
     <div class="popup-section-title" style="margin-top:0">Обложка плитки «Журнал»</div>
@@ -2207,7 +2207,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           </select>
         </div>
         </div>
-        <div class="pay-meta" id="ev-meet-only-note" style="display:none;margin:0 2px 8px;color:var(--text)">Режим «Только телемост»: эфир не запускается, трансляции Кинескопа и ВК не создаются, в приложении не будет ни эфира, ни «эфир скоро». Людей зовёт рассылка ссылки на встречу (этап 1).</div>
+        <div class="pay-meta" id="ev-meet-only-note" style="display:none;margin:0 2px 8px;color:var(--text)">Действует на ближайшую встречу — на следующий день тип сам вернётся к «Эфир + телемост». Режим «Только телемост»: эфир не запускается, трансляции Кинескопа и ВК не создаются, в приложении не будет ни эфира, ни «эфир скоро». Людей зовёт рассылка ссылки на встречу (этап 1).</div>
         <input class="popup-input" type="text" id="live-admin-title" placeholder="Название эфира (увидят участники и площадки)" style="margin-bottom:8px" oninput="evDraftChanged()">
         <textarea class="popup-input" id="live-admin-desc" placeholder="Текст анонса — он же описание трансляции ВК. Например: «Как продавать даже без скриптов?»" style="margin-bottom:8px;min-height:60px" oninput="evDraftChanged()"></textarea>
         
@@ -2380,6 +2380,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <button class="action-btn" onclick="saveRecordCode()">Привязать запись</button>
           <button class="action-btn" onclick="clearRecordCode()">Убрать запись</button>
         </div>
+        <div class="pay-meta" style="margin:-6px 2px 12px">⚠️ При первой привязке записи людям сразу уходит письмо «эфир прошёл — запись готова» (тем, кто просил напомнить, и подписчикам уведомлений). Правка кода записи второго письма не шлёт.</div>
 
         
         <div class="section-title" style="margin:16px 0 6px;font-size:13px">Обслуживание</div>
@@ -2806,6 +2807,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 
       <!-- Ручная корректировка -->
       <div class="popup-section-title">Ручная корректировка</div>
+      <div style="font-size:11.5px;opacity:.65;margin:0 2px 4px">Сумма «вручную», ₽ — итог целиком: сохранённое число заменит текущее (в нём же копятся «Оплатил» и «Ссылка за перевод»)</div>
       <input class="popup-input" type="number" id="popup-input-revenue" placeholder="Сумма исторических платежей ₽">
       <input class="popup-input" type="text"   id="popup-input-notes"   placeholder="Заметки об участнике...">
       <button class="popup-save" onclick="saveUserPatch()">Сохранить</button>
@@ -2904,7 +2906,8 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     <button class="popup-close-x" onclick="closeBulkPointsPopup()" title="Закрыть">✕</button>
     <div class="popup-handle"></div>
     <div class="popup-body">
-    <div class="popup-section-title" style="margin-top:0">Раздать баллы всем</div>
+    <div class="popup-section-title" style="margin-top:0">Раздать баллы нескольким</div>
+    <div style="font-size:12px;opacity:.65;margin-bottom:6px">Одинаковые баллы тем, кого добавишь в «Получатели» ниже — например, всем пришедшим на книжный клуб.</div>
 
     <div id="bulk-points-value" style="text-align:center;font-size:32px;font-weight:800;margin:8px 0">500</div>
     <input type="range" id="bulk-points-slider" min="100" max="5000" step="100" value="500" oninput="updateBulkPointsValue()" style="width:100%;accent-color:var(--lav-deep)">
@@ -2921,7 +2924,8 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     <div id="bulk-points-search-results" style="max-height:160px;overflow-y:auto;border-radius:12px;background:var(--stat-bg);border:1px solid var(--border);margin-bottom:10px"></div>
 
     <div class="popup-section-title" style="margin-top:6px">Получатели</div>
-    <div id="bulk-points-recipients" style="margin-bottom:10px"><div class="empty">Пока никого не добавил(а)</div></div>
+    <div id="bulk-points-recipients" style="margin-bottom:10px"><div class="empty">Пока никого нет</div></div>
+    <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin-bottom:10px"><input type="checkbox" id="bulk-points-notify" checked> Сообщить каждому о подарке (тот же шаблон, что в окне баллов карточки)</label>
 
     <button class="popup-save" onclick="submitBulkPoints()">Раздать баллы</button>
     <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text)" onclick="closeBulkPointsPopup()">Закрыть</button>
@@ -3730,28 +3734,27 @@ const SETTINGS_META = {
   film_duration_sec:        ['Длительность фильма, секунд', 'По ней считается глубина просмотра в процентах — от неё зависит, какое письмо уйдёт бросившему', 'num'],
   funnel_bonus_window_min:  ['Окно бонусов после фильма, минут', '0 — окна нет вовсе: ни бара, ни попапа', 'num'],
   funnel_bonus_window_back: ['Возвращать окно тому, кто не успел', '', 'bool'],
-  funnel_window_last_min:   ['Финальная фаза окна, минут', 'В эти последние минуты врезаются напоминания. 0 — отдельной фазы нет', 'num'],
+  funnel_window_last_min:   ['Финальная фаза окна, минут', 'Последние минуты окна: приложение показывает их как «осталось совсем немного», сервер отмечает вход в них. Отдельных напоминаний в эту фазу нет. 0 — фазы нет', 'num'],
   guest_tour_enabled:       ['Показывать гостю тур по клубу', '', 'bool'],
-  guest_plan_playlist:      ['Плейлист бесплатного маршрута гостя', 'Ключ плейлиста, из которого собирается путь для неоплатившего', 'text'],
 
-  insights_unlock_level:    ['С какого уровня открыты «Главные идеи»', '', 'num'],
-  pdf_unlock_level:         ['С какого уровня доступна выжимка PDF', '', 'num'],
+  insights_unlock_level:    ['С какого уровня открыты «Главные идеи»', 'Задаётся в «Настроить уровни» (галочка «открывает идеи») — здесь только показано', 'ro'],
+  pdf_unlock_level:         ['С какого уровня доступна выжимка PDF', 'Задаётся в «Настроить уровни» (галочка «открывает PDF») — здесь только показано', 'ro'],
   audio_preview_minutes:    ['Ознакомительная часть аудио, минут', 'Сколько слышит человек без подписки (и на паузе). 0 — не давать вовсе. Сервер режет отдельный файл; после смены числа кусочки пересоберутся сами при первом прослушивании', 'num'],
   assistant_on:             ['Помощник включён', 'ИИ-помощник в приложении. Выключен — кнопка работает по-старому (подбор занятий)', 'bool'],
   assistant_guests:         ['Помощник отвечает гостям', 'Гостям и бывшим участникам: рассказывает про клуб и ведёт к вступлению за 1 ₽', 'bool'],
   assistant_model:          ['Помощник: модель', 'Имя модели DeepSeek. Без нужды не трогать', 'text'],
   assistant_limit_member:   ['Помощник: вопросов в день участнику', '0 — без лимита', 'num'],
   assistant_limit_guest:    ['Помощник: вопросов в день гостю', '0 — без лимита', 'num'],
-  assistant_limit_text:     ['Помощник: текст, когда лимит кончился', '', 'text'],
-  assistant_fail_text:      ['Помощник: текст, когда модель не ответила', '', 'text'],
-  assistant_facts:          ['Помощник: факты о клубе', 'Цены, что внутри, правила паузы — то, что помощник говорит как факт. Справку он читает сам', 'text'],
-  assistant_prompt:         ['Помощник: характер и правила', 'Как говорит, что делает, как ведёт себя при отмене подписки. Формат ответа добавляет сервер сам', 'text'],
-  assistant_admin_prompt:   ['Помощник дашборда: правила', 'Что знает о данных клуба (таблицы, время по Москве). Описание разделов дашборда он получает сам', 'text'],
+  assistant_limit_text:     ['Помощник: текст, когда лимит кончился', '', 'area'],
+  assistant_fail_text:      ['Помощник: текст, когда модель не ответила', '', 'area'],
+  assistant_facts:          ['Помощник: факты о клубе', 'Цены, что внутри, правила паузы — то, что помощник говорит как факт. Справку он читает сам', 'area'],
+  assistant_prompt:         ['Помощник: характер и правила', 'Как говорит, что делает, как ведёт себя при отмене подписки. Формат ответа добавляет сервер сам', 'area'],
+  assistant_admin_prompt:   ['Помощник дашборда: правила', 'Что знает о данных клуба (таблицы, время по Москве). Описание разделов дашборда он получает сам', 'area'],
   pause_block_trial:        ['Пауза: почему нельзя — первый месяц', 'Показывается, если у человека меньше двух оплат (тест-драйв, первый месяц)', 'text'],
   pause_block_repeat:       ['Пауза: почему нельзя — повторная', 'Новая пауза — только после месяца, оплаченного после прошлой', 'text'],
   pause_block_year:         ['Пауза: почему нельзя — годовой лимит', 'За 365 дней — не больше 6 месяцев паузы. Метки {макс} и {осталось}', 'text'],
   pause_remind_days:        ['Пауза: напомнить о конце за, дней', 'Письмо в бота за столько дней до конца паузы. 0 — не напоминать', 'num'],
-  pause_remind_text:        ['Пауза: текст напоминания', 'Метка {дата} — когда пауза кончится. В ВК уходит в блок nudge_ Salebot', 'text'],
+  pause_remind_text:        ['Пауза: текст напоминания', 'Метка {дата} — когда пауза кончится. В ВК уходит в блок nudge_ Salebot', 'area'],
   pause_remind_button:      ['Пауза: кнопка напоминания', 'Ведёт в управление подпиской в приложении', 'text'],
 
   digest_public:            ['Дайджест открыт всем', 'Выключено — выпуск видят только тестировщики из списка ниже', 'bool'],
@@ -3774,8 +3777,8 @@ const SETTINGS_META = {
   digest_guest_delay_days:  ['Гостям выпуск — через сколько дней', 'Участники читают номер сразу после выпуска, гости — через столько дней. 0 — всем сразу', 'num'],
 
   show_requisites:          ['Показывать реквизиты ИП', 'Строка с ИП и ИНН в приложении и на экране входа', 'bool'],
-  sms_login_enabled:        ['Вход по SMS-коду', 'Выключено — пускаем просто по номеру, пока SMS.RU не одобрил отправку', 'bool'],
-  allow_direct_phone_login: ['Разрешить вход без кода', 'Страховка: если SMS отвалятся, включи — и все зайдут по номеру', 'bool'],
+  sms_login_enabled:        ['Вход по SMS-коду', 'Выключено — пускаем просто по номеру, пока SMS.RU не одобрил отправку. Оба способа входа разом выключить нельзя — сервер не даст', 'bool'],
+  allow_direct_phone_login: ['Разрешить вход без кода', 'Страховка: если SMS отвалятся, включи — и все зайдут по номеру. Выключить можно только при включённом SMS-коде', 'bool'],
 
   funnel_confuse_enabled:   ['Ловить растерявшихся', 'Подряд открывает приложение или страницу оплаты — пишем себе в админский чат', 'bool'],
   funnel_confuse_pay_n:     ['Заходов на оплату', '', 'num'],
@@ -3802,7 +3805,7 @@ const NUDGE_SETTING_KEYS = ['nudge_later_label','card_change_remind_text','card_
   'gift_title','gift_button_label','gift_name_fallback','gift_points_text','gift_discount_text','gift_shift_text'];
 
 const SETTINGS_GROUPS = [
-  ['Фильм и окно бонусов', ['film_lecture_slug','film_duration_sec','funnel_bonus_window_min','funnel_bonus_window_back','funnel_window_last_min','guest_tour_enabled','guest_plan_playlist']],
+  ['Фильм и окно бонусов', ['film_lecture_slug','film_duration_sec','funnel_bonus_window_min','funnel_bonus_window_back','funnel_window_last_min','guest_tour_enabled']],
   ['Что открыто участнику', ['insights_unlock_level','pdf_unlock_level','audio_preview_minutes']],
   ['ИИ-помощник', ['assistant_on','assistant_guests','assistant_limit_member','assistant_limit_guest','assistant_limit_text','assistant_fail_text','assistant_facts','assistant_prompt','assistant_admin_prompt','assistant_model']],
   ['Пауза подписки', ['pause_block_trial','pause_block_repeat','pause_block_year','pause_remind_days','pause_remind_text','pause_remind_button']],
@@ -3840,6 +3843,10 @@ function settingRowHtml(key, value){
     return '<div class="pay-item">' + head
       + '<input type="number" value="' + setEsc(value) + '" style="width:70px;text-align:center;padding:8px 6px;border-radius:10px;border:1px solid var(--line);background:var(--stat-bg);color:var(--text);font-family:inherit" '
       + 'onchange="saveSetting(\'' + key + '\', this.value)"></div>';
+  }
+  if (type === 'ro'){
+    /* v147: значение задаётся в другом окне — одна ручка на одно значение */
+    return '<div class="pay-item">' + head + '<div style="font-weight:700;min-width:40px;text-align:center">' + setEsc(value) + '</div></div>';
   }
   if (type === 'area'){
     /* Многострочные тексты — во всю ширину строки: в столбик по 190px их не
@@ -3894,6 +3901,7 @@ async function saveSetting(key, value){
     if (!r.ok){
       const d = await r.json().catch(function(){ return {}; });
       alert(d.detail || 'Не получилось сохранить');
+      try { loadSettings(); } catch(e){}   // вернуть переключатель как было на сервере
       return;
     }
     if (знак){
@@ -4099,7 +4107,7 @@ function nextPaymentsPage(){ paymentsPage++; renderPaymentsList(); }
 
 async function loadPayments(){
   try{
-    allPayments=await fetch(API+'/payments?limit=500&x_admin_token='+encodeURIComponent(ADMIN_TOKEN)).then(r=>r.json());
+    allPayments=await fetch(API+'/payments?limit=20000&x_admin_token='+encodeURIComponent(ADMIN_TOKEN)).then(r=>r.json());
     const now=new Date(),from=new Date();
     from.setDate(now.getDate()-30);
     document.getElementById('date-to').value=admLocalYmd(now);
@@ -4995,8 +5003,10 @@ function adminCancel(){
 
 let bulkPointsRecipients = []; // [{user_id, telegram_id, name}]
 
+var bulkGiftKey = '';
 function openBulkPointsPopup(){
   bulkPointsRecipients = [];
+  bulkGiftKey = 'bulk' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);   // повтор того же нажатия не начислит дважды
   document.getElementById('bulk-points-slider').value = 500;
   document.getElementById('bulk-points-search').value = '';
   document.getElementById('bulk-points-search-results').innerHTML = '';
@@ -5045,7 +5055,7 @@ function removeBulkPointsRecipient(userId){
 
 function renderBulkPointsRecipients(){
   const el = document.getElementById('bulk-points-recipients');
-  if (!bulkPointsRecipients.length){ el.innerHTML = '<div class="empty">Пока никого не добавил(а)</div>'; return; }
+  if (!bulkPointsRecipients.length){ el.innerHTML = '<div class="empty">Пока никого нет</div>'; return; }
   el.innerHTML = bulkPointsRecipients.map(r => `
     <div class="pay-item">
       <div class="pay-info"><div class="pay-name">${escapeHtmlAdm(r.name)}</div></div>
@@ -5062,12 +5072,16 @@ async function submitBulkPoints(){
   try{
     const r = await fetch(API + '/admin/points/bulk?x_admin_token=' + ADMIN_TOKEN, {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ telegram_ids: bulkPointsRecipients.map(x => x.telegram_id), amount, category })
+      body: JSON.stringify({ telegram_ids: bulkPointsRecipients.map(x => x.telegram_id), amount, category,
+        notify: !!(document.getElementById('bulk-points-notify') || {}).checked, gift_key: bulkGiftKey })
     });
     const d = await r.json().catch(()=>({}));
     if (!r.ok) throw new Error(d.detail || 'Не получилось');
     closeBulkPointsPopup();
-    alert(`Начислено ${amount} баллов ${d.granted_to.length} участникам`);
+    const notSent = Object.values(d.messages || {}).filter(m => !m.sent).length;
+    alert(`Начислено ${amount} баллов: ${d.granted_to.length} чел.`
+      + ((d.repeat || []).length ? `\nУже начислено этим нажатием раньше: ${d.repeat.length}` : '')
+      + (Object.keys(d.messages || {}).length ? `\nСообщение ушло: ${d.sent || 0}` + (notSent ? `, не ушло: ${notSent} (написать некуда или бот заблокирован)` : '') : ''));
     await loadUsers();
   }catch(e){ alert(e.message || 'Не получилось'); }
   finally { pointsBusy = false; }
@@ -5374,10 +5388,12 @@ async function submitPoints(){
 
 async function deleteCurrentUser(){
   if(!currentUser) return;
-  if(!confirm('Удалить карточку целиком? Действие необратимо.')) return;
+  if(!confirm('Удалить карточку целиком? Действие необратимо. Подписку в Продамусе удаление не останавливает — если она действует, сначала «Остановить подписку».')) return;
   try{
     let r = await fetch(API + '/users/' + currentUser.id + '?x_admin_token=' + ADMIN_TOKEN, {method:'DELETE'});
     let d = await r.json().catch(()=>({}));
+    /* v147: живая подписка в Продамусе — удаление её не остановит, сервер не даёт */
+    if(r.status === 409){ alert(d.detail || 'Сначала останови подписку'); return; }
     if(!r.ok){
       // За карточкой есть успешные платежи — спрашиваем ещё раз, уже честно про историю
       if(confirm((d.detail || 'Есть платежи') + '. Удалить вместе с историей платежей?')){
@@ -7260,7 +7276,10 @@ function evDraftFields(){
     btn_link_vk: (document.getElementById('ev-btn-vk') || {}).value || '',
     /* отчёт анонса, сделанного до старта, живёт в этом же документе — не затираем */
     announce_log: (evDraft && evDraft.announce_log) || undefined,
-    announced_at: (evDraft && evDraft.announced_at) || undefined
+    announced_at: (evDraft && evDraft.announced_at) || undefined,
+    /* v147: «Только телемост» — на одну встречу: дату ставит сервер, после неё
+       тип сам возвращается к «Эфир + телемост». Сменил тип — дата забывается */
+    meet_only_for: (((document.getElementById('ev-kind') || {}).value === 'meet_only') && evDraft && evDraft.kind === 'meet_only' && evDraft.meet_only_for) || undefined
   };
 }
 function evDraftApply(d){
@@ -9635,6 +9654,12 @@ const RARITY_COLORS = { common:'#94a3b8', uncommon:'#4ade80', rare:'#60a5fa', le
 const EFFECT_LABELS = { points:'Баллы', content:'Контент', unlock_reward:'Открывает награду' };
 
 let cardTypes = [];
+/* v147: может ли карточка выпасть из пака. Правило знает сервер (in_packs);
+   старый сервер его не присылает — тогда прежняя прикидка */
+function cardInPacksAdm(c){
+  if (c && typeof c.in_packs === 'boolean') return c.in_packs;
+  return !!(c && c.active && !c.secret && (c.card_class || 'regular') === 'regular' && (c.weight || 0) > 0);
+}
 let cardExpanded = null;
 let cardsTab = 'deck';
 
@@ -10542,9 +10567,10 @@ function visibleCards(){
     return ((c.title||'') + ' ' + (c.god||'') + ' ' + (c.key||'')).toLowerCase().indexOf(q) !== -1;
   });
 
-  // Секретные в колоде не участвуют, поэтому шанс считаем без них
-  const totalWeight = cardTypes.filter(function(c){ return c.active && !c.secret; })
-                               .reduce(function(a,c){ return a + (c.weight||0); }, 0);
+  // v147: шанс — только среди карточек, которые реально выпадают из паков
+  // (сервер говорит in_packs: обычные, включённые, несекретные, с весом,
+  // из сезона «в выдаче»). Знаки, Прологи и Призы раньше занижали проценты
+  const totalWeight = cardTypes.filter(cardInPacksAdm).reduce(function(a,c){ return a + (c.weight||0); }, 0);
 
   list.sort(function(a,b){
     if (sort === 'added')  return cardAddedCmp(a, b);
@@ -10607,7 +10633,7 @@ function renderCardShelf(){
 
   html += slice.map(function(c){
     const rc = RARITY_COLORS[c.rarity] || '#94a3b8';
-    const chance = (totalWeight > 0 && c.active) ? ((c.weight||0)/totalWeight*100) : 0;
+    const chance = (totalWeight > 0 && cardInPacksAdm(c)) ? ((c.weight||0)/totalWeight*100) : 0;
     const art = c.image_url
       ? '<img src="' + c.image_url + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.style.display=\'none\'">'
       : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;color:' + rc + ';opacity:.5">◆</div>';
@@ -10676,9 +10702,8 @@ function renderCardDetailSlot(){
    а не сразу лезть в поля. */
 function cardDetailHtml(c, idx){
   const rc = RARITY_COLORS[c.rarity] || '#94a3b8';
-  const totalWeight = cardTypes.filter(function(x){ return x.active && !x.secret; })
-                               .reduce(function(a,x){ return a + (x.weight||0); }, 0);
-  const chance = (totalWeight > 0 && c.active) ? ((c.weight||0)/totalWeight*100) : 0;
+  const totalWeight = cardTypes.filter(cardInPacksAdm).reduce(function(a,x){ return a + (x.weight||0); }, 0);
+  const chance = (totalWeight > 0 && cardInPacksAdm(c)) ? ((c.weight||0)/totalWeight*100) : 0;
 
   // В крупном просмотре показываем полную версию, если она есть — это ровно то,
   // что увидит участник при увеличении
@@ -10726,7 +10751,6 @@ function cardDetailHtml(c, idx){
     + '</div>'
     + '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">'
       + '<button onclick="editCardType()" style="flex:1;min-width:110px;padding:10px;border-radius:9px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:600">Редактировать</button>'
-      + '<button onclick="composeForCard(' + jsArg(c.key) + ')" style="flex:1;min-width:110px;padding:10px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:13px">Собрать картинку</button>'
       + '<button onclick="sendCardFromDetail(' + jsArg(c.key) + ')" style="flex:1;min-width:110px;padding:10px;border-radius:9px;border:1.5px solid var(--accent);background:var(--surface);color:var(--text);cursor:pointer;font-size:13px">Отправить</button>'
       + '<button onclick="deleteCardType(' + jsArg(c.key) + ')" style="padding:10px 14px;border-radius:9px;border:1px solid #ef4444;background:transparent;color:#ef4444;cursor:pointer;font-size:13px">Удалить</button>'
     + '</div></div>';
@@ -12288,7 +12312,7 @@ function renderCardsWidget(){
   if (secretCb) secretCb.checked = showSecretInWidget;
 
   const active = cardTypes.filter(function(c){ return c.active && !c.secret; });
-  const totalWeight = active.reduce(function(a,c){ return a + (c.weight||0); }, 0);
+  const totalWeight = cardTypes.filter(cardInPacksAdm).reduce(function(a,c){ return a + (c.weight||0); }, 0);
   if (countEl){
     countEl.textContent = cardTypes.length
       ? cardTypes.length + ' карточек, ' + active.length + ' в обороте'
@@ -12313,7 +12337,7 @@ function renderCardsWidget(){
 
   html += shown.map(function(c){
     const rc = RARITY_COLORS[c.rarity] || '#94a3b8';
-    const chance = (totalWeight > 0 && c.active) ? ((c.weight||0)/totalWeight*100) : 0;
+    const chance = (totalWeight > 0 && cardInPacksAdm(c)) ? ((c.weight||0)/totalWeight*100) : 0;
     const art = c.image_url
       ? '<img src="' + c.image_url + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.style.display=\'none\'">'
       : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:19px;color:' + rc + ';opacity:.5">◆</div>';
@@ -19566,6 +19590,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v146</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v147</div>
 </body>
 </html>
