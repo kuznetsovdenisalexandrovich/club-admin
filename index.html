@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v145 -->
+<!-- FILE_VERSION: admin-v146 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -18347,11 +18347,12 @@ function openAsstPopup(tab){
 function closeAsstPopup(){ document.getElementById('asst-overlay').classList.remove('open'); }
 function asstTab(name){
   ASST.tab = name;
-  ['chat', 'turns'].forEach(function(t){
+  ['chat', 'turns', 'guide'].forEach(function(t){
     document.getElementById('asst-pane-' + t).style.display = (t === name ? '' : 'none');
     document.getElementById('asst-tab-' + t).classList.toggle('on', t === name);
   });
   if (name === 'turns') asstLoadTurns();
+  if (name === 'guide') asstGuideLoad();
   if (name === 'chat') setTimeout(function(){ var i = document.getElementById('asst-input'); if (i) i.focus(); }, 50);
 }
 function asstPush(html, cls){
@@ -18386,7 +18387,9 @@ async function asstSend(){
     wait.remove();
     if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
     if ((d.steps || []).length){
-      asstPush('<summary>Запросов к базе: ' + d.steps.length + '</summary>' + d.steps.map(function(st){
+      var nSql = d.steps.filter(function(st){ return st.sql; }).length, nG = d.steps.length - nSql;
+      asstPush('<summary>' + [nG ? 'Открыл разделов базы знаний: ' + nG : '', nSql ? 'запросов к базе: ' + nSql : ''].filter(Boolean).join(' · ') + '</summary>' + d.steps.map(function(st){
+        if (st.guide) return '<div>Разделы: ' + asstEsc((st.guide || []).join(', ')) + '</div>';
         return '<code>' + asstEsc(st.sql) + '</code>' + (st.error ? '<div style="color:#c0392b">' + asstEsc(st.error) + '</div>' : '<div>строк: ' + st.count + '</div>');
       }).join(''), 'asst-steps');
     }
@@ -18396,6 +18399,36 @@ async function asstSend(){
     try { wait.remove(); } catch(_){}
     asstPush('Не получилось: ' + asstEsc(e.message), 'asst-msg bot');
   }
+  btn.disabled = false;
+}
+async function asstGuideLoad(){
+  var meta = document.getElementById('asst-guide-meta');
+  meta.textContent = 'Загрузка…';
+  try {
+    var r = await fetch(API + '/admin/assistant/guide?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    var d = await r.json();
+    if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
+    document.getElementById('asst-guide-text').value = d.text || '';
+    meta.textContent = 'Разделов: ' + (d.sections || []).length + ' · знаков: ' + (d.text || '').length
+      + (d.updated_at ? ' · обновлено ' + new Date(d.updated_at).toLocaleString('ru-RU') : ' · ещё не залита');
+    document.getElementById('asst-guide-toc').innerHTML = (d.sections || []).map(function(c){
+      return '<div>' + asstEsc((c.part ? c.part + ' → ' : '') + c.title) + '</div>';
+    }).join('');
+  } catch(e){ meta.textContent = 'Не загрузилось: ' + e.message; }
+}
+async function asstGuideSave(btn){
+  var ok = document.getElementById('asst-guide-ok');
+  btn.disabled = true; ok.textContent = 'Сохраняю…';
+  try {
+    var r = await fetch(API + '/admin/assistant/guide?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: document.getElementById('asst-guide-text').value })
+    });
+    var d = await r.json();
+    if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
+    ok.textContent = 'Сохранено: разделов ' + d.sections;
+    asstGuideLoad();
+  } catch(e){ ok.textContent = 'Не сохранилось: ' + e.message; }
   btn.disabled = false;
 }
 function asstOnly(v){
@@ -18995,6 +19028,7 @@ async function dgOpenPdf(id){
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
         <button class="scroll-btn on" id="asst-tab-chat" onclick="asstTab('chat')">Спросить</button>
         <button class="scroll-btn" id="asst-tab-turns" onclick="asstTab('turns')">Вопросы участников</button>
+        <button class="scroll-btn" id="asst-tab-guide" onclick="asstTab('guide')">База знаний</button>
       </div>
       <div id="asst-pane-chat">
         <div id="asst-chat" class="asst-chat"></div>
@@ -19003,6 +19037,16 @@ async function dgOpenPdf(id){
           <button class="action-btn primary" id="asst-send" onclick="asstSend()">Спросить</button>
         </div>
         <div style="font-size:11px;opacity:.55;margin-top:6px">Помощник только читает базу — ничего не меняет. Телефоны и почты ему не видны. <span style="text-decoration:underline;cursor:pointer" onclick="asstReset()">Новый разговор</span></div>
+      </div>
+      <div id="asst-pane-guide" style="display:none">
+        <div style="font-size:12px;opacity:.7;margin-bottom:8px">Подробное описание окон и настроек дашборда — по нему помощник отвечает «где и как». Разделы начинаются строкой «## Название», части — «# Название». Дописал окно или настройку — допиши раздел, иначе помощник знает о ней только по названию кнопки.</div>
+        <div id="asst-guide-meta" style="font-size:12px;opacity:.7;margin-bottom:6px"></div>
+        <details style="margin-bottom:8px"><summary style="cursor:pointer;font-size:12.5px">Оглавление</summary><div id="asst-guide-toc" style="font-size:12px;columns:2;margin-top:6px"></div></details>
+        <textarea id="asst-guide-text" class="popup-input" style="width:100%;min-height:46vh;font-family:ui-monospace,monospace;font-size:12px;box-sizing:border-box"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+          <button class="action-btn primary" onclick="asstGuideSave(this)">Сохранить базу знаний</button>
+          <span id="asst-guide-ok" style="font-size:12px;opacity:.7"></span>
+        </div>
       </div>
       <div id="asst-pane-turns" style="display:none">
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
@@ -19522,6 +19566,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v145</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v146</div>
 </body>
 </html>
