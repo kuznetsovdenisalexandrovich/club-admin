@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v157 -->
+<!-- FILE_VERSION: admin-v158 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4753,7 +4753,8 @@ async function loadJourney(telegramId){
          + (d.referrer.is_member ? '' : ' <span class="journey-label">(не участник)</span>'))
       : 'сам по себе';
     box.innerHTML =
-        journeyRow('Пришёл откуда', srcText(d.first_touch))
+        journeyRow('Метка входа в бота', leadMarkText(d.lead_mark))
+      + journeyRow('Пришёл откуда', srcText(d.first_touch))
       + journeyRow('Дожало до оплаты', srcText(d.last_touch))
       + journeyRow('Кто привёл', ref)
       + journeyRow('Привёл сам', d.invited_total + ' <span class="journey-label">из них оплатили ' + d.invited_paid + '</span>')
@@ -4765,6 +4766,19 @@ async function loadJourney(telegramId){
     box.innerHTML = '<div class="journey-empty">Не загрузилось: ' + (e.message || e) + '</div>';
     link.textContent = '—';
   }
+}
+
+/* v158: метка, с которой человек впервые зашёл в бота (utm рекламы, код генератора) */
+function leadMarkText(m){
+  if (!m) return '<span class="journey-label">старта в боте не нашлось</span>';
+  let t = escapeHtmlAdm(m.platform_name || m.platform) + ' · ' + escapeHtmlAdm(m.source || 'без метки');
+  if (m.title && m.title !== m.source) t += ' «' + escapeHtmlAdm(m.title) + '»';
+  const det = [m.audience, m.creative].filter(Boolean).join(', ');
+  if (det) t += ' <span class="journey-label">[' + escapeHtmlAdm(det) + ']</span>';
+  const utm = m.utm ? Object.keys(m.utm).map(function(k){ return k.replace('utm_','') + '=' + m.utm[k]; }).join(' · ') : '';
+  if (utm) t += '<br><span class="journey-label">' + escapeHtmlAdm(utm) + '</span>';
+  if (m.day) t += ' <span class="journey-label">' + escapeHtmlAdm(m.day) + '</span>';
+  return t;
 }
 
 function refResult(text, ok){
@@ -19890,6 +19904,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v157</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v158</div>
 </body>
 </html>
