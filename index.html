@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v158 -->
+<!-- FILE_VERSION: admin-v159 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1075,6 +1075,9 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
   </header>
 
   <div class="last-update" id="last-update">Загрузка...</div>
+
+  <!-- v159: окно появляется само, только когда есть что разбирать в тестировании -->
+  <div id="qa-alert" style="display:none;margin:0 0 14px;padding:14px 16px;border-radius:18px;border:1.5px solid #e8614a;background:rgba(232,97,74,.08);cursor:pointer" onclick="openQaPopup()"></div>
 
   <div class="kpi-grid">
     <div class="kpi">
@@ -3323,6 +3326,7 @@ async function loadAll(){
   loadRewardRequests();
   document.getElementById('last-update').textContent='Обновлено в '+new Date().toLocaleTimeString('ru');
   loadManualList();          // «должны оплатить» — своя секция на главной
+  qaAlertLoad();             // v159: окно новых багов наверху
   await Promise.all([loadStats(),loadUsers(),loadPayments(),loadNotificationLists(),loadCampaigns(),loadAdminCalendarMonth(),loadQuestions(),loadCardsWidget(),loadSeasonWidget(),loadLiveHero()]);
 }
 
@@ -18558,6 +18562,64 @@ async function qaAdmFetch(path, body){
   return d;
 }
 function qaEsc(v){ return escapeHtmlAdm(v == null ? '' : String(v)); }
+
+/* ── v159: окно наверху — новые и неразобранные ──
+   [stated] Denis 05.10: «на самый верх добавь динамическое окно, которое
+   появляется, если есть новые или неразобранные баги, а то у меня уже в глазах
+   рябит от обилия кнопок». Сам обновляется раз в минуту */
+var QA_ALERT_TIMER = null;
+async function qaAlertLoad(){
+  var box = document.getElementById('qa-alert');
+  if (!box) return;
+  if (!QA_ALERT_TIMER) QA_ALERT_TIMER = setInterval(qaAlertLoad, 60000);
+  var d;
+  try { d = await qaAdmFetch('/summary'); } catch(e){ return; }
+  var n = d.open || 0, nb = d.bugs_new || 0, nw = d.bugs_work || 0;
+  if (!n && !nb){ box.style.display = 'none'; return; }
+  var parts = [];
+  if (n) parts.push('неразобранных сообщений: <b>' + n + '</b>');
+  if (nb) parts.push('новых багов: <b>' + nb + '</b>');
+  if (nw) parts.push('в работе: ' + nw);
+  box.innerHTML = '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    + '<b style="font-size:15px">🐞 Тестирование</b><span style="font-size:13px">' + parts.join(' · ') + '</span>'
+    + '<span class="action-btn primary" style="margin-left:auto;padding:8px 14px">Разобрать</span></div>'
+    + (d.last || []).map(function(r){
+        return '<div style="font-size:13px;margin-top:8px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+          + '<span style="opacity:.6">' + qaEsc(r.ticket) + ' · ' + qaEsc(r.at) + ' · ' + qaEsc(r.name) + ':</span> ' + qaEsc(r.text) + '</div>';
+      }).join('');
+  box.style.display = '';
+}
+
+/* v159: скопировать всё содержание тикета без окна со всем текстом */
+function qaCopyAll(text, btn){
+  var done = function(){ if (btn){ var o = btn.textContent; btn.textContent = 'Скопировано ✓'; setTimeout(function(){ btn.textContent = o; }, 1600); } };
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(function(){ prompt('Скопируй:', text); });
+  } else prompt('Скопируй:', text);
+}
+function qaCopyReport(id, btn){
+  var r = QA_REPORTS.find(function(x){ return x.id === id; });
+  if (r) qaCopyAll(r.ticket_text || r.text || '', btn);
+}
+function qaCopyBug(id, btn){
+  var b = QA_BUGS.find(function(x){ return x.id === id; });
+  if (b) qaCopyAll(b.ticket_text || b.title || '', btn);
+}
+/* Архив: текст тикета и скриншоты файлами */
+async function qaZip(path, name, btn){
+  var o = btn ? btn.textContent : '';
+  if (btn) btn.textContent = 'Собираю…';
+  try {
+    var r = await fetch(qaAdmUrl(path));
+    if (!r.ok){ var d = await r.json().catch(function(){ return {}; }); throw new Error(d.detail || ('HTTP ' + r.status)); }
+    var blob = await r.blob();
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  } catch(e){ alert('Не скачалось: ' + e.message); }
+  if (btn) btn.textContent = o;
+}
 function qaArg(v){ return JSON.stringify(v).replace(/"/g, '&quot;'); }
 
 /* ══ v148: БЕЗОПАСНОСТЬ ══════════════════════════════════════════════════════ */
@@ -18844,6 +18906,7 @@ function qaRenderInbox(){
       : (r.handled ? '<span style="font-size:12px;opacity:.6">убрано</span>' : '<span style="font-size:12px;font-weight:700;color:#c0392b">не разобрано</span>');
     return '<div class="pay-item" style="flex-direction:column;align-items:stretch;gap:8px">'
       + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+      +   '<span class="pay-meta" style="font-weight:700">Тикет ' + qaEsc(r.ticket || ('№' + r.id)) + '</span>'
       +   '<b>' + qaEsc(r.name || 'Без имени') + '</b>'
       +   '<span class="pay-meta">' + qaEsc(QA_PLAT[r.platform] || r.platform || '?') + ' · ' + (r.mode === 'tester' ? 'тестер' : 'обычный режим') + ' · ' + qaEsc(r.at) + '</span>'
       +   '<span style="margin-left:auto">' + bugLine + '</span>'
@@ -18859,7 +18922,10 @@ function qaRenderInbox(){
       + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
       +   '<button class="action-btn primary" onclick="qaToggleReply(' + r.id + ')">Ответить</button>'
       +   '<button class="action-btn" onclick="qaToggleCtx(' + r.id + ')">' + (QA_CTX_OPEN[r.id] ? 'Скрыть контекст' : 'Контекст и действия') + '</button>'
-      +   (!r.bug_id ? '<button class="action-btn" onclick="qaLink(' + r.id + ',null)">Завести баг</button>'
+      +   '<button class="action-btn" onclick="qaCopyReport(' + r.id + ',this)">Скопировать всё</button>'
+      +   '<button class="action-btn" onclick="qaZip(\'/reports/' + r.id + '/zip\',\'тикет-' + r.id + '.zip\',this)">Скачать zip</button>'
+      +   (!r.bug_id ? '<button class="action-btn" onclick="qaLink(' + r.id + ',null,\'work\')">В работу</button>'
+            + '<button class="action-btn" onclick="qaLink(' + r.id + ',null)">Завести баг</button>'
             + (openBugs.length ? '<select class="popup-input" style="margin:0;max-width:220px" onchange="if(this.value) qaLink(' + r.id + ',+this.value)">'
               + '<option value="">Тот же баг, что…</option>' + openBugs.map(function(b){ return '<option value="' + b.id + '">#' + b.id + ' ' + qaEsc(b.title.slice(0, 50)) + '</option>'; }).join('')
               + '</select>' : '')
@@ -18886,19 +18952,20 @@ async function qaSendReply(id){
     qaLoadInbox();
   } catch(e){ alert('Не ушло: ' + e.message); }
 }
-async function qaLink(id, bugId){
+async function qaLink(id, bugId, status){
   var body = bugId ? { bug_id: bugId } : { title: '' };
+  if (status) body.status = status;   // v159: «В работу» — баг сразу в работе, человек увидит это на главной
   if (!bugId){
     var r = QA_REPORTS.find(function(x){ return x.id === id; }) || {};
     var title = prompt('Название бага — коротко, своими словами:', (r.text || '').slice(0, 90));
     if (title === null) return;
     body.title = title;
   }
-  try { await qaAdmFetch('/reports/' + id + '/link', body); QA_BUGS = []; qaLoadInbox(); }
+  try { await qaAdmFetch('/reports/' + id + '/link', body); QA_BUGS = []; qaLoadInbox(); qaAlertLoad(); }
   catch(e){ alert('Не вышло: ' + e.message); }
 }
 async function qaHide(id){
-  try { await qaAdmFetch('/reports/' + id + '/link', { handled: true }); qaLoadInbox(); }
+  try { await qaAdmFetch('/reports/' + id + '/link', { handled: true }); qaLoadInbox(); qaAlertLoad(); }
   catch(e){ alert('Не вышло: ' + e.message); }
 }
 
@@ -18924,6 +18991,10 @@ function qaRenderBugs(){
       + '</div>'
       + '<div class="pay-meta">Нашли: ' + (b.finders.length ? b.finders.map(function(f){ return qaEsc(f.name || '?'); }).join(', ') : '—')
       +   ' · обращений ' + b.reports.length + (b.fixed_at ? ' · починен ' + qaEsc(b.fixed_at) : '') + '</div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+      +   '<button class="action-btn" onclick="qaCopyBug(' + b.id + ',this)">Скопировать всё</button>'
+      +   '<button class="action-btn" onclick="qaZip(\'/bugs/' + b.id + '/zip\',\'баг-' + b.id + '.zip\',this)">Скачать zip</button>'
+      + '</div>'
       + '<details><summary class="pay-meta" style="cursor:pointer">Что писали</summary>'
       +   b.reports.map(function(r){ return '<div style="font-size:13px;margin-top:6px"><b>' + qaEsc(r.name) + ':</b> ' + qaEsc(r.text) + '</div>'; }).join('')
       + '</details>'
@@ -18941,7 +19012,7 @@ function qaRenderBugs(){
   }).join('');
 }
 async function qaBugSet(id, patch){
-  try { await qaAdmFetch('/bugs/' + id, patch); qaLoadBugs(); } catch(e){ alert('Не вышло: ' + e.message); }
+  try { await qaAdmFetch('/bugs/' + id, patch); qaLoadBugs(); qaAlertLoad(); } catch(e){ alert('Не вышло: ' + e.message); }
 }
 function qaBugRename(id){
   var b = QA_BUGS.find(function(x){ return x.id === id; }) || {};
@@ -19904,6 +19975,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v158</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v159</div>
 </body>
 </html>
