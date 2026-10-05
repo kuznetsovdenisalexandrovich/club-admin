@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v155 -->
+<!-- FILE_VERSION: admin-v156 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2507,26 +2507,41 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <div class="pay-meta" style="margin-bottom:6px">В зачёт идут ОПЛАТИВШИЕ приглашённые: клик ничего не стоит.</div>
       <div id="journey-inviters"><div class="pay-meta">—</div></div>
 
-      <div class="section-title" style="margin:16px 0 6px;font-size:13px">Единицы контента</div>
+      <div class="section-title" style="margin:16px 0 6px;font-size:13px">Метки — генератор и список</div>
+      <div class="pay-meta" style="margin-bottom:6px">Каждая метка — одна единица: креатив рекламы, рилс, ролик, статья, пост, дожим, рассылка. Что за ней стоит, видно в отчётах и в вечерней сводке.</div>
       <div id="attr-sources-list"></div>
+      <div class="section-title" style="margin:14px 0 6px;font-size:12px" id="attr-form-title">Новая метка</div>
       <input class="popup-input" type="hidden" id="attr-id">
-      <input class="popup-input" type="text" id="attr-code" placeholder="Код для ссылки — латиницей, напр. reel-avgust-3" style="margin-bottom:6px">
-      <input class="popup-input" type="text" id="attr-title" placeholder="Название — как ты сам её называешь" style="margin-bottom:6px">
-      <select class="popup-input" id="attr-channel" style="margin-bottom:6px">
-        <option value="reel">Рилс</option>
-        <option value="tg_post">Пост в Telegram</option>
-        <option value="dzen">Дзен</option>
-        <option value="magazine">Журнал</option>
+      <select class="popup-input" id="attr-channel" style="margin-bottom:6px" onchange="attrKindChanged()">
         <option value="vk_ads">Реклама ВК</option>
         <option value="yandex">Реклама Яндекс</option>
+        <option value="reel">Рилс (бот отвечает на комментарии)</option>
+        <option value="youtube">Ролик на YouTube</option>
+        <option value="dzen">Статья в Дзене</option>
+        <option value="tg_post">Пост в Telegram</option>
+        <option value="vk_post">Пост во ВКонтакте</option>
+        <option value="nudge">Дожимное сообщение в боте</option>
+        <option value="broadcast">Рассылка по базе</option>
+        <option value="magazine">Журнал</option>
         <option value="other">Другое</option>
       </select>
-      <div class="pay-meta" style="margin:0 2px 8px">Для рекламы можно сразу вписать UTM — пригодится, когда подключишь кабинеты:</div>
-      <input class="popup-input" type="text" id="attr-utm-source" placeholder="utm_source" style="margin-bottom:6px">
-      <input class="popup-input" type="text" id="attr-utm-medium" placeholder="utm_medium" style="margin-bottom:6px">
-      <input class="popup-input" type="text" id="attr-utm-campaign" placeholder="utm_campaign" style="margin-bottom:8px">
+      <div id="attr-kind-hint" class="pay-meta" style="margin:0 2px 8px"></div>
+      <input class="popup-input" type="text" id="attr-audience" placeholder="Аудитория — например: мамы в декрете 25–35" style="margin-bottom:6px">
+      <input class="popup-input" type="text" id="attr-creative" placeholder="Креатив — что в ролике или на картинке" style="margin-bottom:6px">
+      <textarea class="popup-input" id="attr-ad-text" rows="3" placeholder="Текст объявления или поста — чтобы потом вспомнить, что обещали" style="margin-bottom:6px;resize:vertical;font-family:inherit"></textarea>
+      <input class="popup-input" type="text" id="attr-title" placeholder="Название — как ты сам её называешь (пусто — соберётся само)" style="margin-bottom:6px">
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input class="popup-input" type="text" id="attr-code" placeholder="Код метки — латиницей" style="flex:1;margin:0">
+        <button class="action-btn" onclick="attrSuggestCode()" style="flex-shrink:0">Придумать код</button>
+      </div>
+      <details style="margin-bottom:8px"><summary class="pay-meta" style="cursor:pointer">UTM для рекламного кабинета (код сам едет в utm_content)</summary>
+        <input class="popup-input" type="text" id="attr-utm-source" placeholder="utm_source — например vk" style="margin:6px 0">
+        <input class="popup-input" type="text" id="attr-utm-medium" placeholder="utm_medium — например cpc" style="margin-bottom:6px">
+        <input class="popup-input" type="text" id="attr-utm-campaign" placeholder="utm_campaign — кампания" style="margin-bottom:6px">
+        <input class="popup-input" type="text" id="attr-utm-term" placeholder="utm_term — необязательно" style="margin-bottom:6px">
+      </details>
       <input class="popup-input" type="text" id="attr-lecture-slug" placeholder="Ключ лекции (необязательно) — после оплаты покажем именно её" style="margin-bottom:8px">
-      <button class="popup-save" onclick="saveAttrSource()">Сохранить единицу</button>
+      <button class="popup-save" onclick="saveAttrSource()">Сохранить метку</button>
       <button class="action-btn" onclick="resetAttrForm()" style="margin-top:6px">Очистить форму</button>
       <div id="attr-link-out" class="pay-meta" style="margin-top:8px"></div>
     </div>
@@ -3766,6 +3781,7 @@ const SETTINGS_META = {
   assistant_facts:          ['Помощник: факты о клубе', 'Цены, что внутри, правила паузы — то, что помощник говорит как факт. Справку он читает сам', 'area'],
   assistant_prompt:         ['Помощник: характер и правила', 'Как говорит, что делает, как ведёт себя при отмене подписки. Формат ответа добавляет сервер сам', 'area'],
   assistant_admin_prompt:   ['Помощник дашборда: правила', 'Что знает о данных клуба (таблицы, время по Москве). Описание разделов дашборда он получает сам', 'area'],
+  attr_vk_page_url:         ['Подписная страница ВК', 'Адрес страницы подписки ВК без параметров. Генератор меток допишет к нему utm, код метки — в utm_content', 'text'],
   promo_tester_on:          ['Оффер тестировщикам включён', 'Ссылка t.me/youselllikeagod_bot/app?startapp=tester1r (ВК: vk.com/app54715238#tester1r) включает режим тестера и даёт кнопку на подписку с 30-дневным пробным периодом за 1 ₽ (ссылку делает бот, блок get_referral_promo_link — тот же, что у «Пригласить друга»). Выключено — ссылка только включает режим тестера', 'bool'],
   promo_tester_until:       ['Оффер: до какого дня', 'ГГГГ-ММ-ДД включительно. Пусто — пока включён тумблер', 'text'],
   promo_tester_title:       ['Оффер: заголовок окна', 'Окно по ссылке тестировщика', 'text'],
@@ -3828,6 +3844,7 @@ const SETTINGS_GROUPS = [
   ['Фильм и окно бонусов', ['film_lecture_slug','film_duration_sec','funnel_bonus_window_min','funnel_bonus_window_back','funnel_window_last_min','guest_tour_enabled']],
   ['Что открыто участнику', ['insights_unlock_level','pdf_unlock_level','audio_preview_minutes']],
   ['ИИ-помощник', ['assistant_on','assistant_guests','assistant_limit_member','assistant_limit_guest','assistant_limit_text','assistant_fail_text','assistant_facts','assistant_prompt','assistant_admin_prompt','assistant_model']],
+  ['Метки и реклама', ['attr_vk_page_url']],
   ['Оффер тестировщикам', ['promo_tester_on','promo_tester_until','promo_tester_title','promo_tester_body','promo_tester_btn','promo_tester_off_text']],
   ['Пауза подписки', ['pause_block_trial','pause_block_repeat','pause_block_year','pause_remind_days','pause_remind_text','pause_remind_button']],
   ['Тестирование', ['tester_link_enabled','tester_check_points','tester_bug_points','tester_fixed_text','tester_fixed_text_nopoints']],
@@ -7905,7 +7922,8 @@ function setAttrPeriod(d){
 
 const ATTR_CHANNEL_LABELS = {
   reel:'рилс', tg_post:'пост в TG', dzen:'Дзен', magazine:'журнал',
-  vk_ads:'реклама ВК', yandex:'реклама Яндекс', other:'другое'
+  vk_ads:'реклама ВК', yandex:'реклама Яндекс', other:'другое',
+  youtube:'YouTube', vk_post:'пост в ВК', nudge:'дожим в боте', broadcast:'рассылка'
 };
 
 /* v154: разрез по площадке — виден и без меток в ссылках */
@@ -7930,7 +7948,8 @@ function renderAttrPlatforms(d){
     const conv = (x.conv === null || x.conv === undefined) ? '' : (' · ' + x.conv + '%');
     return '<div class="pay-item"><div style="flex:1;min-width:0">'
       + '<div class="pay-name">' + escapeHtmlAdm(x.source || 'без метки') + (x.title ? ' <span class="pay-meta">«' + escapeHtmlAdm(x.title) + '»</span>' : '') + '</div>'
-      + '<div class="pay-meta">' + escapeHtmlAdm(ATTR_PLATFORM_LABELS[x.platform] || x.platform) + ' · лидов ' + x.leads + ' → новых оплат ' + x.new + conv + '</div></div>'
+      + '<div class="pay-meta">' + escapeHtmlAdm(ATTR_PLATFORM_LABELS[x.platform] || x.platform) + ' · лидов ' + x.leads + ' → новых оплат ' + x.new + conv
+      + ([x.audience, x.creative].filter(Boolean).length ? ' · ' + escapeHtmlAdm([x.audience, x.creative].filter(Boolean).join(' · ')) : '') + '</div></div>'
       + '<div class="pay-name" style="flex-shrink:0">' + Math.round(x.sum || 0).toLocaleString('ru-RU') + ' ₽</div></div>';
   }).join('') : '<div class="pay-meta">Пока пусто.</div>';
   const pp = d.by_place || [];
@@ -8020,23 +8039,107 @@ async function loadAttrSources(){
     const r = await fetch(API + '/admin/attribution/sources?x_admin_token=' + ADMIN_TOKEN);
     const d = await r.json();
     attrSourcesCache = d.sources || [];
+    attrVkPageSet = !!d.vk_page_set;
     renderAttrSourcesList();
+    if (!document.getElementById('attr-id').value) attrKindChanged();
   }catch(e){
     document.getElementById('attr-sources-list').innerHTML =
       '<div class="pay-meta" style="color:#e8614a">Не смог прочитать: ' + (e && e.message || e) + '</div>';
   }
 }
 
+/* ── v156: ГЕНЕРАТОР МЕТОК ────────────────────────────────────────────────
+   [stated] Denis 05.10: аудитория, креатив, текст — чтобы потом легко узнать,
+   что стоит за меткой; метки для рилсов (бот отвечает на комментарии),
+   YouTube, Дзена, постов TG, дожимов в боте, рассылок по базе. */
+const ATTR_KIND = {
+  vk_ads:   { p:'vkads',  hint:'Ставь ссылку на подписную страницу ВК — весь набор utm поедет в бота, код — в utm_content.', first:'vk_page', utm:['vk','cpc'] },
+  yandex:   { p:'ya',     hint:'Ссылка на подписную страницу ВК или на бота Telegram — смотря куда ведёт объявление.', first:'vk_page', utm:['yandex','cpc'] },
+  reel:     { p:'reel',   hint:'Эту ссылку бот отдаёт в ответ на комментарий: в Telegram — ссылка на бота, во ВКонтакте — подписная страница.', first:'tg_bot', utm:['reels','organic'] },
+  youtube:  { p:'yt',     hint:'Ссылка в описание и закреп: бот Telegram или подписная страница ВК.', first:'tg_bot', utm:['youtube','organic'] },
+  dzen:     { p:'dzen',   hint:'Ссылка в конец статьи: бот Telegram или подписная страница ВК.', first:'tg_bot', utm:['dzen','organic'] },
+  tg_post:  { p:'tgpost', hint:'Ссылка на бота в посте канала.', first:'tg_bot', utm:['telegram','post'] },
+  vk_post:  { p:'vkpost', hint:'Ссылка на подписную страницу в посте группы.', first:'vk_page', utm:['vk','post'] },
+  nudge:    { p:'nudge',  hint:'Человек уже в боте — ставь ссылку в приложение: оплата засчитается этому дожиму.', first:'app', utm:['bot','nudge'] },
+  broadcast:{ p:'send',   hint:'Человек уже в боте — ссылку в приложение в кнопку рассылки.', first:'app', utm:['bot','broadcast'] },
+  magazine: { p:'mag',    hint:'Ссылка в приложение в конце выпуска.', first:'app', utm:['magazine',''] },
+  other:    { p:'x',      hint:'', first:'app', utm:['',''] }
+};
+const ATTR_LINK_LABELS = { vk_page:'Подписная страница ВК', tg_bot:'Бот в Telegram', app:'Приложение' };
+let attrVkPageSet = false;
+
+function attrTranslit(t){
+  const m = {а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'e',ж:'zh',з:'z',и:'i',й:'y',к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'h',ц:'c',ч:'ch',ш:'sh',щ:'sch',ъ:'',ы:'y',ь:'',э:'e',ю:'yu',я:'ya'};
+  return String(t || '').toLowerCase().split('').map(function(c){ return m[c] !== undefined ? m[c] : c; }).join('')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+function attrSuggestCode(){
+  const kind = document.getElementById('attr-channel').value;
+  const k = ATTR_KIND[kind] || ATTR_KIND.other;
+  // Короткие слова («в», «с», «25») в код не берём — читается хуже
+  const cut = function(x, n){ return attrTranslit(x).split('-').filter(function(w){ return w.length > 2 && !/^\d+$/.test(w); }).slice(0, 2).join('-').slice(0, n); };
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2, '0') + String(d.getMonth() + 1).padStart(2, '0');
+  const parts = [k.p, cut(document.getElementById('attr-audience').value, 14),
+                 cut(document.getElementById('attr-creative').value, 14), dd].filter(Boolean);
+  let code = parts.join('-').slice(0, 56);
+  const taken = attrSourcesCache.map(function(a){ return a.code; });
+  let n = 2, base = code;
+  while (taken.indexOf(code) >= 0){ code = base + '-' + n; n++; }
+  document.getElementById('attr-code').value = code;
+}
+function attrKindChanged(){
+  const kind = document.getElementById('attr-channel').value;
+  const k = ATTR_KIND[kind] || ATTR_KIND.other;
+  document.getElementById('attr-kind-hint').textContent = k.hint;
+  const src = document.getElementById('attr-utm-source'), med = document.getElementById('attr-utm-medium');
+  if (!document.getElementById('attr-id').value){
+    if (!src.value || src.dataset.auto) { src.value = k.utm[0]; src.dataset.auto = '1'; }
+    if (!med.value || med.dataset.auto) { med.value = k.utm[1]; med.dataset.auto = '1'; }
+  }
+}
+function attrLinksHtml(a){
+  const L = a.links || {};
+  const k = ATTR_KIND[a.channel] || ATTR_KIND.other;
+  const order = [k.first].concat(['vk_page', 'tg_bot', 'app'].filter(function(x){ return x !== k.first; }));
+  return '<div style="margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:12px">'
+    + '<div class="pay-name" style="margin-bottom:6px">Ссылки метки «' + escapeHtmlAdm(a.code) + '»</div>'
+    + order.map(function(key, i){
+        const url = L[key] || '';
+        if (!url){
+          return key === 'vk_page' ? '<div class="pay-meta" style="margin-bottom:6px">' + ATTR_LINK_LABELS[key]
+            + ': не задан адрес страницы — «Настройки клуба» → «Подписная страница ВК».</div>' : '';
+        }
+        return '<div style="margin-bottom:8px"><div class="pay-meta">' + ATTR_LINK_LABELS[key] + (i === 0 ? ' — для этого вида главная' : '') + '</div>'
+          + '<div style="display:flex;gap:6px;align-items:center"><input class="popup-input" readonly value="' + escapeHtmlAdm(url) + '" style="flex:1;margin:0;font-size:12px">'
+          + '<button class="action-btn" style="flex-shrink:0" onclick="attrCopy(this)">Копировать</button></div></div>';
+      }).join('') + '</div>';
+}
+function attrCopy(btn){
+  const inp = btn.parentNode.querySelector('input');
+  try { navigator.clipboard.writeText(inp.value); } catch(e){ inp.select(); document.execCommand('copy'); }
+  btn.textContent = 'Скопировано';
+  setTimeout(function(){ btn.textContent = 'Копировать'; }, 1500);
+}
+function showAttrLinks(id){
+  const a = attrSourcesCache.find(function(x){ return x.id === id; });
+  if (a) document.getElementById('attr-link-out').innerHTML = attrLinksHtml(a);
+}
+
 function renderAttrSourcesList(){
   const box = document.getElementById('attr-sources-list');
   if (!box) return;
   box.innerHTML = attrSourcesCache.length ? attrSourcesCache.map(function(a){
-    return '<div class="pay-item">'
+    const про = [a.audience, a.creative].filter(Boolean).join(' · ');
+    return '<div class="pay-item" style="flex-wrap:wrap">'
       + '<div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(a.title)
       + (a.active ? '' : ' <span class="badge badge-err">выключена</span>') + '</div>'
       + '<div class="pay-meta">' + (ATTR_CHANNEL_LABELS[a.channel] || a.channel) + ' · код: ' + escapeHtmlAdm(a.code)
-      + (a.lecture_slug ? ' · ведёт к лекции: ' + escapeHtmlAdm(a.lecture_slug) : '') + '</div></div>'
-      + '<button class="action-btn" onclick="copyAttrLink(\'' + a.code + '\')">Ссылка</button>'
+      + (про ? ' · ' + escapeHtmlAdm(про) : '')
+      + (a.lecture_slug ? ' · ведёт к лекции: ' + escapeHtmlAdm(a.lecture_slug) : '') + '</div>'
+      + (a.ad_text ? '<div class="pay-meta" style="opacity:.8;white-space:pre-line">«' + escapeHtmlAdm(a.ad_text.slice(0, 160)) + (a.ad_text.length > 160 ? '…' : '') + '»</div>' : '')
+      + '</div>'
+      + '<button class="action-btn" onclick="showAttrLinks(' + a.id + ')">Ссылки</button>'
       + '<button class="action-btn" onclick="editAttrSource(' + a.id + ')">Править</button>'
       + '<button class="action-btn" onclick="deleteAttrSource(' + a.id + ')">Удалить</button>'
       + '</div>';
@@ -8054,11 +8157,14 @@ function copyAttrLink(code){
 }
 
 function resetAttrForm(){
-  ['attr-id','attr-code','attr-title','attr-utm-source','attr-utm-medium','attr-utm-campaign','attr-lecture-slug'].forEach(function(id){
-    document.getElementById(id).value = '';
+  ['attr-id','attr-code','attr-title','attr-utm-source','attr-utm-medium','attr-utm-campaign','attr-utm-term',
+   'attr-lecture-slug','attr-audience','attr-creative','attr-ad-text'].forEach(function(id){
+    const el = document.getElementById(id); if (el){ el.value = ''; delete el.dataset.auto; }
   });
-  document.getElementById('attr-channel').value = 'reel';
+  document.getElementById('attr-channel').value = 'vk_ads';
+  document.getElementById('attr-form-title').textContent = 'Новая метка';
   document.getElementById('attr-link-out').textContent = '';
+  attrKindChanged();
 }
 
 function editAttrSource(id){
@@ -8071,8 +8177,14 @@ function editAttrSource(id){
   document.getElementById('attr-utm-source').value = a.utm_source;
   document.getElementById('attr-utm-medium').value = a.utm_medium;
   document.getElementById('attr-utm-campaign').value = a.utm_campaign;
+  document.getElementById('attr-utm-term').value = a.utm_term || '';
+  document.getElementById('attr-audience').value = a.audience || '';
+  document.getElementById('attr-creative').value = a.creative || '';
+  document.getElementById('attr-ad-text').value = a.ad_text || '';
   document.getElementById('attr-lecture-slug').value = a.lecture_slug || '';
-  document.getElementById('attr-link-out').textContent = attrDeeplink(a.code);
+  document.getElementById('attr-form-title').textContent = 'Правка метки «' + a.code + '»';
+  document.getElementById('attr-kind-hint').textContent = (ATTR_KIND[a.channel] || ATTR_KIND.other).hint;
+  document.getElementById('attr-link-out').innerHTML = attrLinksHtml(a);
 }
 
 async function saveAttrSource(){
@@ -8085,16 +8197,26 @@ async function saveAttrSource(){
     utm_source: document.getElementById('attr-utm-source').value,
     utm_medium: document.getElementById('attr-utm-medium').value,
     utm_campaign: document.getElementById('attr-utm-campaign').value,
+    utm_term: document.getElementById('attr-utm-term').value,
+    audience: document.getElementById('attr-audience').value,
+    creative: document.getElementById('attr-creative').value,
+    ad_text: document.getElementById('attr-ad-text').value,
     lecture_slug: document.getElementById('attr-lecture-slug').value,
     active: true
   };
+  if (!body.code.trim()){ attrSuggestCode(); body.code = document.getElementById('attr-code').value; }
+  if (!body.title.trim()){
+    body.title = [(ATTR_CHANNEL_LABELS[body.channel] || ''), body.audience, body.creative].filter(Boolean).join(' · ') || body.code;
+  }
   try{
     const r = await fetch(API + '/admin/attribution/source?x_admin_token=' + ADMIN_TOKEN, {
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
     });
     const d = await r.json();
     if (!r.ok){ alert(d.detail || 'Не получилось сохранить'); return; }
-    document.getElementById('attr-link-out').textContent = 'Готово. Ссылка: ' + d.deeplink;
+    document.getElementById('attr-id').value = d.source.id;
+    document.getElementById('attr-form-title').textContent = 'Правка метки «' + d.source.code + '»';
+    document.getElementById('attr-link-out').innerHTML = '<div class="pay-meta">Сохранено.</div>' + attrLinksHtml(d.source);
     loadAttrSources();
   }catch(e){ alert('Нет связи с бэкендом: ' + (e && e.message || e)); }
 }
@@ -19768,6 +19890,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v155</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v156</div>
 </body>
 </html>
