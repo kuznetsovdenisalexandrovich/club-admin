@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v168 -->
+<!-- FILE_VERSION: admin-v169 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -12531,6 +12531,9 @@ async function packUpAdd(fileList){
       if (STY[p]){ row.style = p; row.styleGuess = false; }
       if (knownSeries.indexOf(p) !== -1) row.series = p;
     });
+    /* admin-v169: имя `prologue-<бог>-plus` (так их называет cards-rename.py) —
+       платный пролог, даже если вид пачки забыли переключить */
+    if (!existing && /^prologue-.+-plus(-alt\d+)?$/.test(key)) row.plus = true;
     packUp.push(row);
     if (row.styleGuess) row.style = await packStyleGuess(url);
   }
@@ -12632,11 +12635,11 @@ async function packUpGo(){
     r.status = 'гружу…'; packUpRender();
     try {
       let key = r.replaceKey;
-      if (!key && plus){
+      if (!key && (plus || r.plus)){
         const pk = 'prologue-' + godSlug(r.god) + '-plus';
         if ((cardTypes || []).some(function(c){ return c.key === pk; })) key = pk;
         else {
-          await packCreate({ key: pk, god: r.god, title: r.god, rarity: r.rarity || 'uncommon',
+          await packCreate({ key: pk, god: r.god, title: r.god, rarity: r.rarityOwn ? r.rarity : 'uncommon',
                              weight: 0, card_class: 'prologue', style: r.style, series_key: '',
                              effect_points: 0, active: true });
           key = pk;
@@ -20396,6 +20399,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v168</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v169</div>
 </body>
 </html>
