@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v172 -->
+<!-- FILE_VERSION: admin-v173 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -12308,19 +12308,32 @@ function cardArtHasAlpha(img){
   for (let i = 3; i < d.length; i += 4){ if (d[i] < 250) return true; }
   return false;
 }
-function cardArtEncode(file){
+/* Настоящая прозрачность — заметная доля прозрачных пикселей (скруглённые углы,
+   фигура без фона), а не пара полупрозрачных точек на краю после генерации */
+function cardArtHasRealAlpha(img){
+  const c = cardArtCanvas(img, 200);
+  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  let n = 0;
+  for (let i = 3; i < d.length; i += 4){ if (d[i] < 200) n++; }
+  return n > (d.length / 4) * 0.01;
+}
+function cardArtEncode(file, opts){
+  opts = opts || {};
   return new Promise(function(resolve, reject){
     const img = new Image();
     const reader = new FileReader();
     reader.onload = function(){
       img.onload = function(){
         try {
+          /* admin-v173: «полегче» для повторной попытки — JPEG, если у картинки
+             нет настоящей прозрачности, и полная версия поменьше */
           const alpha = cardArtHasAlpha(img);
-          const mime = alpha ? 'image/png' : 'image/jpeg';
+          const png = alpha && !(opts.forceJpeg && !cardArtHasRealAlpha(img));
+          const mime = png ? 'image/png' : 'image/jpeg';
           resolve({
-            ext: alpha ? 'png' : 'jpg', alpha: alpha,
+            ext: png ? 'png' : 'jpg', alpha: png,
             thumb: cardArtCanvas(img, 400).toDataURL(mime, 0.82),
-            full:  cardArtCanvas(img, 2400).toDataURL(mime, 0.85),
+            full:  cardArtCanvas(img, opts.maxFull || 2400).toDataURL(mime, 0.85),
           });
         } catch(e){ reject(e); }
       };
@@ -12680,12 +12693,15 @@ async function packUpGo(){
   packUpBusy = true; packUpRender();
   let ok = 0, bad = 0;
   let ui = 0;
+  const reused = {};
   packProg('Загружаю', 0, todo.length);
   for (const r of todo){
     r.status = 'гружу…'; packUpRender();
     packProg('Загружаю', ui++, todo.length);
     try {
-      let key = r.replaceKey;
+      /* admin-v173: карта уже заведена прошлым нажатием, а арт не долетел —
+         догружаем в НЕЁ, а не заводим вторую */
+      let key = r.replaceKey || r.key || '';
       if (!key && (plus || r.plus)){
         const pk = 'prologue-' + godSlug(r.god) + '-plus';
         if ((cardTypes || []).some(function(c){ return c.key === pk; })) key = pk;
@@ -12698,13 +12714,35 @@ async function packUpGo(){
       } else if (!key){
         const s = PACK_SUGGEST[r.rarity] || PACK_SUGGEST.common;
         const ser = r.series != null ? r.series : series;
+        /* Пустая карта того же бога и сезона, оставшаяся от сорвавшейся загрузки
+           (заведена пачкой, арта нет), — берём её, иначе на полке висела бы пустышка */
+        const empty = (cardTypes || []).find(function(c){
+          return c.god === r.god && (c.series_key || '') === (ser || '') && !c.image_url
+                 && c.needs_review && (c.card_class || 'regular') === 'regular' && !reused[c.key];
+        });
+        if (empty){ key = empty.key; reused[key] = 1; }
+        else {
         key = packFreeKey((ser || 'bank') + '-' + godSlug(r.god));
         await packCreate({ key: key, god: r.god, title: r.god, rarity: r.rarity,
                            weight: packRand(s.w, 5), card_class: 'regular', style: r.style,
                            series_key: ser, effect_points: packRand(s.p, 10), active: active });
+        }
       }
-      const enc = await cardArtEncode(r.file);
-      await cardArtPost(key, enc);
+      r.key = key;
+      /* admin-v173: «Load failed» — запрос оборвался по дороге (тяжёлый PNG или
+         сеть). Три попытки: обычная, потом полегче — полная версия до 1600 px
+         и JPEG, если прозрачности нет; потом ещё легче */
+      const tries = [{}, { maxFull: 1600, forceJpeg: true }, { maxFull: 1200, forceJpeg: true }];
+      let lastErr = null, sent = false;
+      for (let t = 0; t < tries.length && !sent; t++){
+        try {
+          if (t) { r.status = 'ещё попытка ' + (t + 1) + '…'; packUpRender(); await new Promise(function(z){ setTimeout(z, 1500); }); }
+          const enc = await cardArtEncode(r.file, tries[t]);
+          await cardArtPost(key, enc);
+          sent = true;
+        } catch(e){ lastErr = e; }
+      }
+      if (!sent) throw (lastErr || new Error('не загрузилось'));
       r.done = true; r.status = '✓ ' + key; ok++;
     } catch(e){
       r.status = '✗ ' + escapeHtmlAdm(e.message || String(e)); bad++;
@@ -20451,6 +20489,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v172</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v173</div>
 </body>
 </html>
