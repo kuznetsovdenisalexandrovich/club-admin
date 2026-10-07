@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v163 -->
+<!-- FILE_VERSION: admin-v164 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3802,7 +3802,7 @@ const SETTINGS_META = {
   assistant_prompt:         ['Помощник: характер и правила', 'Как говорит, что делает, как ведёт себя при отмене подписки. Формат ответа добавляет сервер сам', 'area'],
   assistant_admin_prompt:   ['Помощник дашборда: правила', 'Что знает о данных клуба (таблицы, время по Москве). Описание разделов дашборда он получает сам', 'area'],
   attr_vk_page_url:         ['Подписная страница ВК', 'Адрес страницы подписки ВК без параметров. Генератор меток допишет к нему utm, код метки — в utm_content', 'text'],
-  promo_tester_on:          ['Оффер тестировщикам включён', 'Ссылка t.me/youselllikeagod_bot/app?startapp=tester1r (ВК: vk.com/app54715238#tester1r) включает режим тестера и даёт кнопку на подписку с 30-дневным пробным периодом за 1 ₽ (ссылку делает бот, блок get_referral_promo_link — тот же, что у «Пригласить друга»). Выключено — ссылка только включает режим тестера', 'bool'],
+  promo_tester_on:          ['Оффер тестировщикам включён', 'Ссылка t.me/youselllikeagod_bot/app?startapp=tester1r (ВК: vk.ru/app54715238#tester1r) включает режим тестера и даёт кнопку на подписку с 30-дневным пробным периодом за 1 ₽ (ссылку делает бот, блок get_referral_promo_link — тот же, что у «Пригласить друга»). Выключено — ссылка только включает режим тестера', 'bool'],
   promo_tester_until:       ['Оффер: до какого дня', 'ГГГГ-ММ-ДД включительно. Пусто — пока включён тумблер', 'text'],
   promo_tester_title:       ['Оффер: заголовок окна', 'Окно по ссылке тестировщика', 'text'],
   promo_tester_body:        ['Оффер: текст окна', 'Окно по ссылке тестировщика', 'area'],
@@ -15831,7 +15831,7 @@ var textsDrafts = {};    // ключ → что сейчас в поле, до �
 
      Telegram  https://t.me/<бот>/app?startapp=<нагрузка>
      MAX       https://max.ru/<бот>?startapp=<нагрузка>
-     ВК        https://vk.com/app<id>#<нагрузка>      ← после решётки!
+     ВК        https://vk.ru/app<id>#<нагрузка>      ← после решётки!
      Веб       https://<адрес аппа>/?u=<код>          ← только метка источника
 
    ⚠️ ИСТОЧНИК ИСТИНЫ — СЕРВЕР, А НЕ ЭТОТ ФАЙЛ. `GET /admin/link-config`
@@ -16183,7 +16183,7 @@ function lgBuild(){
 
   if (lgPlatform === 'tg')       url = 'https://t.me/' + tgBot + '/app?startapp=' + payload;
   else if (lgPlatform === 'max') url = 'https://max.ru/' + maxBot + '?startapp=' + payload;
-  else if (lgPlatform === 'vk')  url = 'https://vk.com/app' + vkApp + '#' + payload;
+  else if (lgPlatform === 'vk')  url = 'https://vk.ru/app' + vkApp + '#' + payload;
   else                           url = webApp.replace(/\/+$/, '/') + '?u=' + encodeURIComponent(value);
 
   out.textContent = url;
@@ -19166,9 +19166,9 @@ async function qaSaveItem(id){
 function qaRenderLinks(){
   var links = [
     ['Включить в Telegram', 'https://t.me/youselllikeagod_bot/app?startapp=tester'],
-    ['Включить во ВКонтакте', 'https://vk.com/app54715238#tester'],
+    ['Включить во ВКонтакте', 'https://vk.ru/app54715238#tester'],
     ['Выключить в Telegram', 'https://t.me/youselllikeagod_bot/app?startapp=testeroff'],
-    ['Выключить во ВКонтакте', 'https://vk.com/app54715238#testeroff']
+    ['Выключить во ВКонтакте', 'https://vk.ru/app54715238#testeroff']
   ];
   document.getElementById('qa-pane-links').innerHTML =
     '<div class="pay-meta" style="margin-bottom:8px">Ссылка включает режим тестера любому, кто её открыл: кнопка «Сообщить об ошибке» поверх всего и задания по одному. Выключить — ссылкой ниже или внизу окна тестера. Закрыть режим для всех — настройка «Режим тестера по ссылке» в разделе «Тестирование».</div>'
@@ -20049,6 +20049,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v163</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v164</div>
 </body>
 </html>
