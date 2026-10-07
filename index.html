@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v171 -->
+<!-- FILE_VERSION: admin-v172 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2927,6 +2927,11 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <button class="action-btn" style="width:100%" onclick="document.getElementById('pu-files').click()">Выбрать файлы</button>
       <input type="file" id="pu-files" accept="image/*" multiple style="display:none" onchange="packUpAdd(this.files); this.value=''">
       <div id="pu-note" style="font-size:11.5px;color:var(--text-faint);margin:8px 0;line-height:1.45"></div>
+      <!-- admin-v172: полоса хода — и пока читаются файлы, и пока идёт загрузка -->
+      <div id="pu-prog" style="display:none;margin:4px 0 10px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px"><span id="pu-prog-text"></span><span id="pu-prog-eta" style="color:var(--text-faint)"></span></div>
+        <div style="height:8px;border-radius:6px;background:rgba(127,127,127,.18);overflow:hidden"><div id="pu-prog-bar" style="height:100%;width:0;background:linear-gradient(90deg,#f0a070,#e0703c);transition:width .25s"></div></div>
+      </div>
       <div id="pu-rows"></div>
       <div class="action-result err" id="pu-error"></div>
       <button class="popup-save" id="pu-go" onclick="packUpGo()">Загрузить</button>
@@ -12534,7 +12539,10 @@ function closePackUpload(){
 async function packUpAdd(fileList){
   const files = Array.prototype.slice.call(fileList || []);
   const rar = document.getElementById('pu-rarity').value;
+  let fi = 0;
+  packProg('Читаю файлы', 0, files.length);
   for (const f of files){
+    packProg('Читаю файлы', fi++, files.length);
     const url = URL.createObjectURL(f);
     const key = f.name.replace(/\.[^.]+$/, '').trim().toLowerCase();
     const existing = (cardTypes || []).find(function(c){ return c.key === key; });
@@ -12560,6 +12568,7 @@ async function packUpAdd(fileList){
     row.thumb = await packThumb(url);
     if (row.thumb){ try { URL.revokeObjectURL(url); } catch(e){} row.url = row.thumb; }
   }
+  packProg(null);
   packUpRender();
 }
 /* «Другое имя…» — новая богиня или герой: имя по-русски, как оно будет на карте */
@@ -12571,6 +12580,22 @@ function packUpGod(i, v){
     packUpRender(); return;
   }
   packUpRow(i, 'god', v);
+}
+let packProgStart = 0;
+function packProg(label, done, total){
+  const box = document.getElementById('pu-prog');
+  if (!box) return;
+  if (done == null){ box.style.display = 'none'; return; }
+  if (done === 0) packProgStart = Date.now();
+  box.style.display = '';
+  document.getElementById('pu-prog-text').textContent = label + ': ' + done + ' из ' + total;
+  document.getElementById('pu-prog-bar').style.width = (total ? Math.round(done * 100 / total) : 0) + '%';
+  let eta = '';
+  if (done > 0 && done < total){
+    const sec = Math.round((Date.now() - packProgStart) / done * (total - done) / 1000);
+    eta = 'осталось ' + (sec >= 60 ? Math.floor(sec / 60) + ' мин ' : '') + (sec % 60) + ' с';
+  }
+  document.getElementById('pu-prog-eta').textContent = eta;
 }
 function packUpSetRarity(v){
   packUp.forEach(function(r){ if (!r.rarityOwn) r.rarity = v; });
@@ -12654,8 +12679,11 @@ async function packUpGo(){
   const active = document.getElementById('pu-active').checked;
   packUpBusy = true; packUpRender();
   let ok = 0, bad = 0;
+  let ui = 0;
+  packProg('Загружаю', 0, todo.length);
   for (const r of todo){
     r.status = 'гружу…'; packUpRender();
+    packProg('Загружаю', ui++, todo.length);
     try {
       let key = r.replaceKey;
       if (!key && (plus || r.plus)){
@@ -12684,6 +12712,7 @@ async function packUpGo(){
     packUpRender();
   }
   packUpBusy = false;
+  packProg('Загружено', todo.length, todo.length);
   packUpRender();
   err.textContent = 'Готово: ' + ok + (bad ? ', не вышло ' + bad + ' — причина на картинке, можно нажать ещё раз' : '');
   err.style.display = 'block';
@@ -20422,6 +20451,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v171</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v172</div>
 </body>
 </html>
