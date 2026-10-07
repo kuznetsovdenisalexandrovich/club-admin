@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v164 -->
+<!-- FILE_VERSION: admin-v165 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4778,6 +4778,14 @@ async function loadJourney(telegramId){
       + journeyRow('Дожало до оплаты', srcText(d.last_touch))
       + journeyRow('Кто привёл', ref)
       + journeyRow('Привёл сам', d.invited_total + ' <span class="journey-label">из них оплатили ' + d.invited_paid + '</span>')
+      /* admin-v165: делился ли приглашением (любое «поделиться» в аппе) и кого привёл поимённо */
+      + journeyRow('Делился приглашением', d.invite_made_at ? 'да, впервые ' + d.invite_made_at.slice(0,10) : 'ни разу')
+      + ((d.invited_list || []).length ? journeyRow('Кого привёл', d.invited_list.map(function(x){
+          const why = x.member ? 'участник' : (x.staff ? 'свой — уведомления о лиде не шлются'
+                    : (x.lead_notices.length ? 'лид, уведомлений: ' + x.lead_notices.length : 'лид, уведомлений о нём не было'));
+          return escapeHtmlAdm(x.name) + (x.telegram_id ? ' · ' + x.telegram_id : '') + ' <span class="journey-label">'
+               + (x.at ? x.at.slice(0,10) + ', ' : '') + escapeHtmlAdm(why) + (x.paid ? ', баллы начислены' : '') + '</span>';
+        }).join('<br>')) : '')
       + journeyRow('От первого следа до оплаты', humanSpan(d.hours_to_buy))
       + journeyRow('Открывал приложение', d.app_opened_at ? d.app_opened_at.slice(0,10) : 'ни разу')
       + journeyRow('Успешных платежей', d.payments_count);
@@ -20049,6 +20057,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v164</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v165</div>
 </body>
 </html>
