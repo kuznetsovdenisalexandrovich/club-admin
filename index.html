@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v159 -->
+<!-- FILE_VERSION: admin-v161 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3743,6 +3743,22 @@ async function resolveReward(id){
    сама, ещё до того как я допишу ей человеческую подпись.
    Вид поля: bool — тумблер, num — число, text — строка, area — многострочный */
 const SETTINGS_META = {
+  /* admin-v160: подписи к настройкам, заведённым на бэкенде в v379–v386 —
+     без них они показывались голым ключом «Подпись ещё не описана» */
+  invite_film_video: ['Пригласить друга: видео тизера', 'Файл в хранилище (s3:stories/…) — крутится на стенде «Чем поделиться» и уходит постом в Telegram-бота. Во ВКонтакте тизер прикреплён в самом блоке Salebot', 'text'],
+  invite_film_texts: ['Пригласить друга: тексты поста «Фильм»', 'Несколько вариантов через ПУСТУЮ строку — кнопка ↻ в приложении листает их', 'area'],
+  invite_film_cta:   ['Пригласить друга: кнопка поста «Фильм»', 'Слова, в которые вшита ссылка', 'text'],
+  invite_card_texts: ['Пригласить друга: тексты поста «Карта»', 'Варианты через пустую строку. Подстановка {бог}', 'area'],
+  invite_card_cta:   ['Пригласить друга: кнопка поста «Карта»', '', 'text'],
+  invite_game_texts: ['Пригласить друга: тексты поста «Игра»', 'Варианты через пустую строку. Подстановки {игра} и {счёт}', 'area'],
+  invite_game_cta:   ['Пригласить друга: кнопка поста «Игра»', '', 'text'],
+  invite_lecture_texts: ['Пригласить друга: тексты поста «Занятие»', 'Варианты через пустую строку. Подстановка {занятие}', 'area'],
+  invite_lecture_cta:   ['Пригласить друга: кнопка поста «Занятие»', '', 'text'],
+  legacy_bonus_note:   ['Баллы из бота: подпись в истории баллов', '', 'text'],
+  botburn_text:   ['Отписная цепочка бота: что сгорит', 'Строка для бота — метки {что}; части собираются из того, что у человека реально есть', 'area'],
+  botburn_button: ['Отписная цепочка бота: кнопка', '', 'text'],
+  stuck_digest_hour:     ['Сводка «оплатили и не вошли»: час отправки', 'Час по Москве, раз в сутки', 'num'],
+  stuck_digest_max_days: ['Сводка «оплатили и не вошли»: за сколько дней', 'Старше — в сводку не попадают', 'num'],
   /* admin-v135: ссылка в браузер и отдельный блок ВК с двумя кнопками */
   weblink_title: ['Ссылка в браузер — заголовок', 'Сообщение со ссылкой, которая открывает клуб в обычном браузере', 'text'],
   weblink_body:  ['Ссылка в браузер — текст', 'Уходит по просьбе бота и второй кнопкой в «Не открылось приложение?»', 'area'],
@@ -11150,6 +11166,7 @@ const NUDGE_KIND_LABELS = {
   live_soon: 'Напоминание об эфире за 15 минут (по кнопке «Напомнить» в окне «скоро»)',
   free_closed: 'Закрыли бесплатную часть — зовём в клуб тех, кто был на эфире',
   live_record: 'Эфир прошёл, запись готова — зовём тех, кто просил напомнить или подписан на живые занятия, но не пришёл',
+  app_invite: 'Участник ни разу не открывал приложение — зовём внутрь (первое письмо; дальше — шаги цепочки «Приглашение в приложение»)',
   pay_failed: 'Первая неудачная попытка списания — одно письмо участнику на весь цикл попыток (выключено, пока не сверишь с цепочкой Salebot)',
 };
 /* ⚠️ Общая цепочка называется пустой строкой kind — так её хранит сервер */
@@ -17035,6 +17052,23 @@ function gmEdit(key){
        + 'Подставляется кодом дословно и только не-участникам. Модели этот текст не показываем — '
        + 'она уже однажды выдумала занятие с тегом.</div>';
 
+  /* admin-v161: картинка игры — к посту «мой результат» из «Пригласить друга».
+     [stated] Denis 07.10: «может картинки игр добавить в раздел настройки игр?»
+     — раньше это была одна общая настройка на все игры в общем списке */
+  var gimg = g.image_url || '';
+  var gsrc = gimg.indexOf('s3:') === 0 ? (API + '/media/' + gimg.slice(3)) : gimg;
+  h += elLbl('Картинка игры (к посту «мой результат», когда игрок делится партией)')
+     + '<input type="hidden" id="gm-image" value="' + elEsc(gimg) + '">'
+     + '<div style="display:flex;gap:10px;align-items:center">'
+       + '<div id="gm-image-prev" style="width:96px;aspect-ratio:3/4;border-radius:10px;overflow:hidden;background:var(--stat-bg);flex:none">'
+         + (gsrc ? '<img src="' + elEsc(gsrc) + '" style="width:100%;height:100%;object-fit:cover;display:block">' : '') + '</div>'
+       + '<div style="display:flex;flex-direction:column;gap:6px">'
+         + '<button class="action-btn" onclick="document.getElementById(\'gm-image-file\').click()">' + (gimg ? 'Заменить картинку' : 'Загрузить картинку') + '</button>'
+         + (gimg ? '<button class="action-btn" onclick="gmClearImage(' + jsArg(g.key) + ')">Убрать</button>' : '')
+         + '<input type="file" id="gm-image-file" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="gmUploadImage(' + jsArg(g.key) + ', this.files[0]); this.value=\'\'">'
+         + '<div id="gm-image-say" style="font-size:11px;color:var(--text-faint);line-height:1.45">Лучше вертикальная 3:4. Нет картинки — пост уходит без неё.</div>'
+       + '</div></div>';
+
   h += elLbl('Промпт клиента — кого играет модель')
      + '<textarea id="gm-cprompt" style="min-height:150px;line-height:1.5;' + elInput() + '">' + elEsc(g.client_prompt) + '</textarea>';
   h += elLbl('Промпт судьи — правила и формат сервер добавит сам')
@@ -17097,6 +17131,37 @@ function gmParseExtra(id){
   catch(e){ alert('Настройки запроса — не JSON, оставил прежние: ' + e.message); return undefined; }
 }
 
+/* admin-v161: картинка игры — прямо в хранилище по одноразовой ссылке,
+   потом сохраняем игру целиком (тем же gmSaveGame), чтобы не нажимать второй раз */
+async function gmUploadImage(key, file){
+  if (!file) return;
+  var say = document.getElementById('gm-image-say');
+  var ext = (file.type === 'image/png') ? 'png' : (file.type === 'image/webp' ? 'webp' : 'jpg');
+  try {
+    if (say) say.textContent = 'Загружаю…';
+    var r = await fetch(API + '/admin/audio-upload-url?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug: key, kind: 'game_image', ext: ext }) });
+    var d = await r.json();
+    if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
+    var put = await fetch(d.upload_url, { method: 'PUT', headers: { 'Content-Type': d.content_type }, body: file });
+    if (!put.ok) throw new Error('хранилище ответило ' + put.status);
+    var val = 's3:game-images/' + key + '.' + ext;
+    document.getElementById('gm-image').value = val;
+    var prev = document.getElementById('gm-image-prev');
+    if (prev) prev.innerHTML = '<img src="' + URL.createObjectURL(file) + '" style="width:100%;height:100%;object-fit:cover;display:block">';
+    gmSaveGame(key);
+    if (say) say.textContent = 'Готово, игра сохранена';
+  } catch(e){
+    if (say) say.textContent = 'Не загрузилось: ' + (e.message || e);
+  }
+}
+function gmClearImage(key){
+  var el = document.getElementById('gm-image'); if (el) el.value = '';
+  var prev = document.getElementById('gm-image-prev'); if (prev) prev.innerHTML = '';
+  gmSaveGame(key);
+}
+
 function gmSaveGame(key){
   gmSave('game', {
     key: key, title: gmVal('gm-title'), description: gmVal('gm-desc'),
@@ -17109,6 +17174,7 @@ function gmSaveGame(key){
     client_prompt: gmVal('gm-cprompt'), judge_prompt: gmVal('gm-jprompt'),
     extra_params: gmParseExtra('gm-extra'), extra_member: gmParseExtra('gm-extram'),
     upsell_text: gmVal('gm-upsell'),
+    image_url: gmVal('gm-image'),
     enabled: gmChk('gm-enabled'), free_for_guests: gmChk('gm-free'),
     min_level: gmNum('gm-minlevel', 0), win_points: gmNum('gm-winpoints', 0)
   }, key);
@@ -19975,6 +20041,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v159</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v161</div>
 </body>
 </html>
