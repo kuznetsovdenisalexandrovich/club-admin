@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v169 -->
+<!-- FILE_VERSION: admin-v170 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -12453,7 +12453,9 @@ function packGodNames(){
 }
 /* Самое длинное совпадение побеждает: иначе «hera» нашлась бы в «heracles» */
 function packGodFromName(fname){
-  const low = String(fname || '').toLowerCase().replace(/\.[^.]+$/, '');
+  /* admin-v170: macOS отдаёт имена в разложенном виде (NFD) — «й» и «ё» распадаются,
+     и «Посейдон»/«Прометей» не узнавались. Собираем обратно */
+  const low = String(fname || '').normalize('NFC').toLowerCase().replace(/\.[^.]+$/, '');
   const tokens = low.split(/[^a-zа-яё0-9]+/i).filter(Boolean);
   let best = '', bestLen = 0;
   packGodNames().forEach(function(n){
@@ -20399,6 +20401,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v169</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v170</div>
 </body>
 </html>
