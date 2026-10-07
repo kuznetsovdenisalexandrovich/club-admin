@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v173 -->
+<!-- FILE_VERSION: admin-v174 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -12517,12 +12517,80 @@ function packThumb(url){
         const w = 180, h = Math.round(180 * img.height / Math.max(1, img.width));
         const c = document.createElement('canvas'); c.width = w; c.height = h;
         c.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(c.toDataURL('image/jpeg', 0.7));
-      } catch(e){ resolve(''); }
+        resolve({ thumb: c.toDataURL('image/jpeg', 0.7), hash: packDHash(img) });
+      } catch(e){ resolve({ thumb: '', hash: '' }); }
     };
-    img.onerror = function(){ resolve(''); };
+    img.onerror = function(){ resolve({ thumb: '', hash: '' }); };
     img.src = url;
   });
+}
+/* admin-v174: ОТПЕЧАТОК — картинка 32×32 в оттенках серого, как считает сервер
+   (/cards/admin/art-hashes): чёрная подложка под прозрачное, 400 px, потом
+   ужатие половинками до 32×32. Сравниваются яркости клеток, не биты: на
+   ровном чёрном фоне битовый хэш «дрожит» от любого сжатия */
+function packDHash(img){
+  const w1 = Math.min(400, img.width), h1 = Math.max(1, Math.round(img.height * w1 / img.width));
+  const a = document.createElement('canvas'); a.width = w1; a.height = h1;
+  const ga = a.getContext('2d'); ga.fillStyle = '#000'; ga.fillRect(0, 0, w1, h1); ga.drawImage(img, 0, 0, w1, h1);
+  let src = a, cw = w1, ch = h1;
+  while (cw / 2 >= 64){
+    const n = document.createElement('canvas'); n.width = Math.round(cw / 2); n.height = Math.round(ch / 2);
+    const gn = n.getContext('2d'); gn.imageSmoothingEnabled = true; gn.imageSmoothingQuality = 'high';
+    gn.drawImage(src, 0, 0, n.width, n.height); src = n; cw = n.width; ch = n.height;
+  }
+  const b = document.createElement('canvas'); b.width = 32; b.height = 32;
+  const gb = b.getContext('2d'); gb.imageSmoothingEnabled = true; gb.imageSmoothingQuality = 'high';
+  gb.drawImage(src, 0, 0, 32, 32);
+  const d = gb.getImageData(0, 0, 32, 32).data;
+  let hex = '';
+  for (let i = 0; i < d.length; i += 4){
+    const v = Math.round((d[i] * 299 + d[i+1] * 587 + d[i+2] * 114) / 1000);
+    hex += (v < 16 ? '0' : '') + v.toString(16);
+  }
+  return hex;
+}
+/* Средняя разница яркости по клеткам (0–255) ПОСЛЕ выравнивания общей
+   яркости: браузер и сервер сжимают чуть по-разному и дают сдвиг в пару единиц */
+function packHamming(a, b){
+  if (!a || !b || a.length !== b.length) return 999;
+  const n = a.length / 2, x = [], y = [];
+  let mx = 0, my = 0;
+  for (let i = 0; i < a.length; i += 2){
+    const p = parseInt(a.substr(i, 2), 16), q = parseInt(b.substr(i, 2), 16);
+    x.push(p); y.push(q); mx += p; my += q;
+  }
+  mx /= n; my /= n;
+  let sum = 0;
+  for (let k = 0; k < n; k++) sum += Math.abs((x[k] - mx) - (y[k] - my));
+  return sum / n;
+}
+/* Порог — средняя разница яркости. Один и тот же арт (файл и его превью на
+   сервере) расходится на единицы; разные арты одного бога — заметно больше.
+   Сверяем только с картами того же бога, а совпадение можно отменить в плитке */
+const PACK_DUP_BITS = 6;
+let packHashes = null;
+async function packLoadHashes(){
+  if (packHashes) return packHashes;
+  try {
+    const r = await fetch(API + '/cards/admin/art-hashes?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    packHashes = r.ok ? await r.json() : {};
+  } catch(e){ packHashes = {}; }
+  return packHashes;
+}
+function packFindDup(row){
+  if (!row.hash || row.replaceKey || !packHashes) return '';
+  let best = '', bestD = 999;
+  Object.keys(packHashes).forEach(function(k){
+    const v = packHashes[k];
+    if (row.god && v.god && v.god !== row.god) return;
+    const dd = packHamming(row.hash, v.h);
+    if (dd < bestD){ bestD = dd; best = k; }
+  });
+  return bestD <= PACK_DUP_BITS ? best : '';
+}
+function packUpForce(i){
+  const r = packUp[i]; if (!r) return;
+  r.dup = ''; r.done = false; r.status = ''; packUpRender();
 }
 
 async function openPackUpload(){
@@ -12541,7 +12609,7 @@ async function openPackUpload(){
   }).join('');
   const act = list.filter(function(x){ return x.active; })[0];
   sel.value = (typeof currentSeries !== 'undefined' && currentSeries) || (act ? act.key : '');
-  packUp = []; packUpRender();
+  packUp = []; packHashes = null; packUpRender();
   document.getElementById('pack-up-overlay').classList.add('open');
 }
 function closePackUpload(){
@@ -12578,10 +12646,25 @@ async function packUpAdd(fileList){
     if (!existing && /^prologue-.+-plus(-alt\d+)?$/.test(key)) row.plus = true;
     packUp.push(row);
     if (row.styleGuess) row.style = await packStyleGuess(url);
-    row.thumb = await packThumb(url);
+    const th = await packThumb(url);
+    row.thumb = th.thumb; row.hash = th.hash;
     if (row.thumb){ try { URL.revokeObjectURL(url); } catch(e){} row.url = row.thumb; }
   }
   packProg(null);
+  /* admin-v174: уже залитые арты — пропускаем (сверка отпечатков с сервером) */
+  await packLoadHashes();
+  let dups = 0;
+  packUp.forEach(function(r){
+    if (r.done || r.dup === '') return;
+    const k = packFindDup(r);
+    if (k){ r.dup = k; r.done = true; r.status = '= уже есть: ' + k; dups++; }
+    else r.dup = '';
+  });
+  if (dups){
+    const err = document.getElementById('pu-error');
+    err.textContent = 'Уже загружено раньше: ' + dups + ' — эти пропущу. Если ошибся, в плитке есть «загрузить всё равно».';
+    err.className = 'action-result ok'; err.style.display = 'block';
+  }
   packUpRender();
 }
 /* «Другое имя…» — новая богиня или герой: имя по-русски, как оно будет на карте */
@@ -12664,6 +12747,7 @@ function packUpRender(){
           + '<select class="popup-input" style="padding:5px;font-size:12px"' + dis + ' onchange="packUpRow(' + i + ',\'rarity\',this.value)">'
             + opt([['common','Частая'],['uncommon','Нечастая'],['rare','Редкая'],['legendary','Легендарная']], r.rarity) + '</select>'
           + (r.series ? '<div style="color:var(--text-faint)">сезон из имени: ' + escapeHtmlAdm(r.series) + '</div>' : '')
+          + (r.dup && !packUpBusy ? '<button onclick="packUpForce(' + i + ')" style="border:1px solid var(--border);background:transparent;color:var(--text);border-radius:8px;padding:4px;font-size:11px;cursor:pointer">загрузить всё равно</button>' : '')
           + (info ? '<div style="line-height:1.35">' + info + '</div>' : '')
           + '</div></div>';
       }).join('') + '</div>';
@@ -20489,6 +20573,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v173</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v174</div>
 </body>
 </html>
