@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v175 -->
+<!-- FILE_VERSION: admin-v176 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -12627,8 +12627,11 @@ async function packUpAdd(fileList){
   for (const f of files){
     packProg('Читаю файлы', fi++, files.length);
     const url = URL.createObjectURL(f);
-    const key = f.name.replace(/\.[^.]+$/, '').trim().toLowerCase();
+    const key = f.name.normalize('NFC').replace(/\.[^.]+$/, '').trim().toLowerCase();
     const existing = (cardTypes || []).find(function(c){ return c.key === key; });
+    /* admin-v176: КАРТА С ТАКИМ ИМЕНЕМ УЖЕ ЕСТЬ И АРТ В НЕЙ ЕСТЬ — это повтор,
+       пропускаем без сверки картинок. Есть, но пустая — догружаем в неё */
+    const byName = existing && existing.image_url ? existing.key : '';
     const row = { file: f, url: url, god: existing ? (existing.god || '') : packGodFromName(f.name),
                   style: 'dark', styleGuess: true, rarity: rar, rarityOwn: false, series: null,
                   replaceKey: existing ? key : '', status: '' };
@@ -12646,6 +12649,11 @@ async function packUpAdd(fileList){
     /* admin-v169: имя `prologue-<бог>-plus` (так их называет cards-rename.py) —
        платный пролог, даже если вид пачки забыли переключить */
     if (!existing && /^prologue-.+-plus(-alt\d+)?$/.test(key)) row.plus = true;
+    /* admin-v176: ключ новой карты = имя файла (s2-zeus-rare-light-01), если
+       оно латиницей. Тогда повторная загрузка той же папки узнаёт карту по
+       имени — и пустую догрузит, и полную пропустит */
+    if (!existing && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(key) && key.length <= 60) row.nameKey = key;
+    if (byName){ row.dup = byName; row.done = true; row.status = '= уже есть: ' + byName; row.byName = true; }
     packUp.push(row);
     if (row.styleGuess) row.style = await packStyleGuess(url);
     const th = await packThumb(url);
@@ -12655,16 +12663,38 @@ async function packUpAdd(fileList){
   packProg(null);
   /* admin-v174: уже залитые арты — пропускаем (сверка отпечатков с сервером) */
   await packLoadHashes();
-  let dups = 0;
+  let dups = 0, byName = 0;
   packUp.forEach(function(r){
+    if (r.byName){ if (r.done) byName++; return; }
     if (r.done || r.dup === '') return;
     const k = packFindDup(r);
     if (k){ r.dup = k; r.done = true; r.status = '= уже есть: ' + k; dups++; }
     else r.dup = '';
   });
-  if (dups){
+  /* admin-v176: пустые карты, оставшиеся от оборвавшейся загрузки, — сколько
+     из них заполнит эта пачка. Новых карт под них не заводим */
+  const plusMode = document.getElementById('pu-kind').value === 'plus';
+  const serSel = plusMode ? '' : document.getElementById('pu-series').value;
+  const emptyPool = {};
+  (cardTypes || []).forEach(function(c){
+    if (c.image_url || !c.needs_review || (c.card_class || 'regular') !== 'regular') return;
+    const k = (c.god || '') + '|' + (c.series_key || '');
+    emptyPool[k] = (emptyPool[k] || 0) + 1;
+  });
+  let fill = 0;
+  packUp.forEach(function(r){
+    if (r.done || r.replaceKey || r.plus || plusMode) return;
+    const k = (r.god || '') + '|' + ((r.series != null ? r.series : serSel) || '');
+    if (emptyPool[k] > 0){ emptyPool[k]--; fill++; }
+  });
+  const msg = [];
+  if (byName + dups) msg.push('Уже загружено раньше: ' + (byName + dups)
+    + (byName && dups ? ' (по имени ' + byName + ', по картинке ' + dups + ')' : '') + ' — эти пропущу.');
+  if (fill) msg.push('Пустых карт без картинки от прошлой загрузки: ' + fill + ' — заполню их, а не заведу новые.');
+  if (dups) msg.push('Если где-то ошибся, в плитке есть «загрузить всё равно».');
+  if (msg.length){
     const err = document.getElementById('pu-error');
-    err.textContent = 'Уже загружено раньше: ' + dups + ' — эти пропущу. Если ошибся, в плитке есть «загрузить всё равно».';
+    err.textContent = msg.join(' ');
     err.className = 'action-result ok'; err.style.display = 'block';
   }
   packUpRender();
@@ -12802,13 +12832,27 @@ async function packUpGo(){
         const ser = r.series != null ? r.series : series;
         /* Пустая карта того же бога и сезона, оставшаяся от сорвавшейся загрузки
            (заведена пачкой, арта нет), — берём её, иначе на полке висела бы пустышка */
-        const empty = (cardTypes || []).find(function(c){
+        const emptyAll = (cardTypes || []).filter(function(c){
           return c.god === r.god && (c.series_key || '') === (ser || '') && !c.image_url
                  && c.needs_review && (c.card_class || 'regular') === 'regular' && !reused[c.key];
         });
-        if (empty){ key = empty.key; reused[key] = 1; }
+        /* admin-v176: сначала пустая карта с той же редкостью и стилем; если
+           подходит только другая — переписываем ей редкость, стиль, вес и баллы
+           под эту картинку, иначе пачка «редких» легла бы в «частые» */
+        const empty = emptyAll.find(function(c){ return c.rarity === r.rarity && (c.style || 'dark') === r.style; })
+                   || emptyAll.find(function(c){ return c.key === r.nameKey; }) || emptyAll[0];
+        if (empty){
+          key = empty.key; reused[key] = 1;
+          if (empty.rarity !== r.rarity || (empty.style || 'dark') !== r.style){
+            await packCreate({ key: key, god: r.god, title: empty.title || r.god, rarity: r.rarity,
+                               weight: packRand(s.w, 5), card_class: 'regular', style: r.style,
+                               series_key: ser, effect_points: packRand(s.p, 10), active: active,
+                               create_only: false });
+          }
+        }
         else {
-        key = packFreeKey((ser || 'bank') + '-' + godSlug(r.god));
+        key = (r.nameKey && !(cardTypes || []).some(function(c){ return c.key === r.nameKey; }))
+              ? r.nameKey : packFreeKey((ser || 'bank') + '-' + godSlug(r.god));
         await packCreate({ key: key, god: r.god, title: r.god, rarity: r.rarity,
                            weight: packRand(s.w, 5), card_class: 'regular', style: r.style,
                            series_key: ser, effect_points: packRand(s.p, 10), active: active });
@@ -12856,7 +12900,8 @@ async function packCreate(fields){
     const d = await r.json().catch(function(){ return {}; });
     throw new Error('карта не заведена: ' + (d.detail || ('HTTP ' + r.status)));
   }
-  (cardTypes = cardTypes || []).push({ key: body.key, god: body.god });
+  cardTypes = cardTypes || [];
+  if (!cardTypes.some(function(c){ return c.key === body.key; })) cardTypes.push({ key: body.key, god: body.god });
 }
 
 /* «Не проверена» → проверена, без пересохранения всей карты */
@@ -20575,6 +20620,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v175</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v176</div>
 </body>
 </html>
