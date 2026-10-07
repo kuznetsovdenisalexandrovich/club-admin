@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v162 -->
+<!-- FILE_VERSION: admin-v163 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -11166,6 +11166,7 @@ const NUDGE_KIND_LABELS = {
   live_soon: 'Напоминание об эфире за 15 минут (по кнопке «Напомнить» в окне «скоро»)',
   free_closed: 'Закрыли бесплатную часть — зовём в клуб тех, кто был на эфире',
   live_record: 'Эфир прошёл, запись готова — зовём тех, кто просил напомнить или подписан на живые занятия, но не пришёл',
+  left: 'Ушёл из клуба (участие закончилось) — первое письмо через сутки, дальше своя цепочка. Пишем только ушедшим за последние две недели',
   cancel_ending: 'Отменил подписку, но оплаченный срок ещё идёт — письмо за пару дней до конца: вернуть подписку',
   app_invite: 'Участник ни разу не открывал приложение — зовём внутрь (первое письмо; дальше — шаги цепочки «Приглашение в приложение»)',
   pay_failed: 'Первая неудачная попытка списания — одно письмо участнику на весь цикл попыток (выключено, пока не сверишь с цепочкой Salebot)',
@@ -11502,7 +11503,12 @@ function nudgeChainStepEditorHtml(c){
       + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
         + fld('Порядковый номер','order',c.order,'number')
         + fld('Через сколько минут после прошлого сообщения','delay_minutes',c.delay_minutes==null?1440:c.delay_minutes,'number')
+        /* admin-v163: шаг только тем, кто принёс клубу от N ₽ (0 — всем).
+           [stated] Denis 07.10: личная диагностика ушедшим — «только тем, кто хотя
+           бы 2800 рублей клубу принёс» */
+        + fld('Только принёсшим клубу от, ₽ (0 — всем)','min_revenue',c.min_revenue||0,'number')
       + '</div>'
+      + '<div style="font-size:11px;color:var(--text-faint);line-height:1.45">В заголовке и тексте можно писать <code>{ближайшее_занятие}</code> — подставится название и дата ближайшего занятия из расписания.</div>'
       + '<div style="display:flex;gap:16px;flex-wrap:wrap">'
         + '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">'
           + '<input type="checkbox" id="nc-active-' + c.id + '" ' + (c.active?'checked':'') + '> Активен</label>'
@@ -11549,6 +11555,7 @@ async function saveNudgeChainStep(id){
     body: v('body'),
     cta_label: v('cta_label').trim() || 'Открыть приложение',
     cta_target: v('cta_target').trim(),
+    min_revenue: Math.max(0, parseInt(v('min_revenue'),10) || 0),
   };
   try {
     const r = await fetch(API+'/admin/nudge-chain?x_admin_token='+ADMIN_TOKEN, {
@@ -20042,6 +20049,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v162</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v163</div>
 </body>
 </html>
