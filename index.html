@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v166 -->
+<!-- FILE_VERSION: admin-v167 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -12494,6 +12494,7 @@ async function openPackUpload(){
     try {
       const d = await fetch(API + '/cards/admin/series?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN)).then(function(r){ return r.json(); });
       list = d.series || [];
+      if (typeof seriesList !== 'undefined' && !seriesList.length) seriesList = list;
     } catch(e){}
   }
   sel.innerHTML = '<option value="">Без сезона</option>' + list.map(function(x){
@@ -12517,10 +12518,21 @@ async function packUpAdd(fileList){
     const key = f.name.replace(/\.[^.]+$/, '').trim().toLowerCase();
     const existing = (cardTypes || []).find(function(c){ return c.key === key; });
     const row = { file: f, url: url, god: existing ? (existing.god || '') : packGodFromName(f.name),
-                  style: 'dark', styleGuess: true, rarity: rar, rarityOwn: false,
+                  style: 'dark', styleGuess: true, rarity: rar, rarityOwn: false, series: null,
                   replaceKey: existing ? key : '', status: '' };
+    /* admin-v167: имя по схеме ветки Е `<сезон>-<бог>-<редкость>-<стиль>-<NN>`
+       (s2-zeus-rare-light-01) — всё, что узнали из имени, главнее догадок.
+       Части можно опускать: `zeus-light-03`, `s2-demeter-02` тоже поймутся */
+    const parts = key.split(/[^a-zа-яё0-9]+/i).filter(Boolean);
+    const RAR = { common:1, uncommon:1, rare:1, legendary:1 }, STY = { light:1, dark:1, special:1 };
+    const knownSeries = ((typeof seriesList !== 'undefined' && seriesList) || []).map(function(x){ return x.key; });
+    parts.forEach(function(p){
+      if (RAR[p]){ row.rarity = p; row.rarityOwn = true; }
+      if (STY[p]){ row.style = p; row.styleGuess = false; }
+      if (knownSeries.indexOf(p) !== -1) row.series = p;
+    });
     packUp.push(row);
-    row.style = await packStyleGuess(url);
+    if (row.styleGuess) row.style = await packStyleGuess(url);
   }
   packUpRender();
 }
@@ -12576,6 +12588,7 @@ function packUpRender(){
           + (r.styleGuess && !r.replaceKey ? '<div style="color:var(--text-faint);margin-top:-2px">тему угадал по яркости</div>' : '')
           + '<select class="popup-input" style="padding:5px;font-size:12px"' + dis + ' onchange="packUpRow(' + i + ',\'rarity\',this.value)">'
             + opt([['common','Частая'],['uncommon','Нечастая'],['rare','Редкая'],['legendary','Легендарная']], r.rarity) + '</select>'
+          + (r.series ? '<div style="color:var(--text-faint)">сезон из имени: ' + escapeHtmlAdm(r.series) + '</div>' : '')
           + (info ? '<div style="line-height:1.35">' + info + '</div>' : '')
           + '</div></div>';
       }).join('') + '</div>';
@@ -12619,10 +12632,11 @@ async function packUpGo(){
         }
       } else if (!key){
         const s = PACK_SUGGEST[r.rarity] || PACK_SUGGEST.common;
-        key = packFreeKey((series || 'bank') + '-' + godSlug(r.god));
+        const ser = r.series != null ? r.series : series;
+        key = packFreeKey((ser || 'bank') + '-' + godSlug(r.god));
         await packCreate({ key: key, god: r.god, title: r.god, rarity: r.rarity,
                            weight: packRand(s.w, 5), card_class: 'regular', style: r.style,
-                           series_key: series, effect_points: packRand(s.p, 10), active: active });
+                           series_key: ser, effect_points: packRand(s.p, 10), active: active });
       }
       const enc = await cardArtEncode(r.file);
       await cardArtPost(key, enc);
@@ -20358,6 +20372,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v166</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v167</div>
 </body>
 </html>
