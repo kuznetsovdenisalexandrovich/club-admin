@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v176 -->
+<!-- FILE_VERSION: admin-v177 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2927,14 +2927,16 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <button class="action-btn" style="width:100%" onclick="document.getElementById('pu-files').click()">Выбрать файлы</button>
       <input type="file" id="pu-files" accept="image/*" multiple style="display:none" onchange="packUpAdd(this.files); this.value=''">
       <div id="pu-note" style="font-size:11.5px;color:var(--text-faint);margin:8px 0;line-height:1.45"></div>
-      <!-- admin-v172: полоса хода — и пока читаются файлы, и пока идёт загрузка -->
-      <div id="pu-prog" style="display:none;margin:4px 0 10px">
+      <div id="pu-rows"></div>
+      <div class="action-result err" id="pu-error"></div>
+      <div style="position:sticky;bottom:calc(-24px - env(safe-area-inset-bottom));background:var(--popup-bg);padding:10px 0 calc(24px + env(safe-area-inset-bottom));margin:6px 0 calc(-24px - env(safe-area-inset-bottom));z-index:2">
+      <!-- admin-v177: полоса хода внизу, у кнопки, и вместе с ней прилипает к низу окна -->
+      <div id="pu-prog" style="display:none;margin:0 0 8px">
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px"><span id="pu-prog-text"></span><span id="pu-prog-eta" style="color:var(--text-faint)"></span></div>
         <div style="height:8px;border-radius:6px;background:rgba(127,127,127,.18);overflow:hidden"><div id="pu-prog-bar" style="height:100%;width:0;background:linear-gradient(90deg,#f0a070,#e0703c);transition:width .25s"></div></div>
       </div>
-      <div id="pu-rows"></div>
-      <div class="action-result err" id="pu-error"></div>
-      <button class="popup-save" id="pu-go" onclick="packUpGo()">Загрузить</button>
+        <button class="popup-save" id="pu-go" style="margin-top:0" onclick="packUpGoOrClose()">Загрузить</button>
+      </div>
     </div>
   </div>
 </div>
@@ -12785,8 +12787,10 @@ function packUpRender(){
       }).join('') + '</div>';
   if (go){
     const todo = packUp.filter(function(r){ return !r.done; }).length;
-    go.disabled = packUpBusy || !todo;
-    go.textContent = packUpBusy ? 'Загружаю…' : (todo ? 'Загрузить: ' + todo + ' шт.' : 'Загрузить');
+    /* admin-v177: всё загружено — кнопка становится «Готово» и закрывает окно */
+    const allDone = !packUpBusy && packUp.length && !todo;
+    go.disabled = packUpBusy || (!todo && !allDone);
+    go.textContent = packUpBusy ? 'Загружаю…' : (todo ? 'Загрузить: ' + todo + ' шт.' : (allDone ? 'Готово' : 'Загрузить'));
   }
 }
 function packFreeKey(base){
@@ -12794,6 +12798,11 @@ function packFreeKey(base){
   const taken = function(k){ return (cardTypes || []).some(function(c){ return c.key === k; }); };
   while (taken(key)){ n += 1; key = base + '-' + (n < 10 ? '0' : '') + n; }
   return key;
+}
+function packUpGoOrClose(){
+  const todo = packUp.filter(function(r){ return !r.done; }).length;
+  if (!packUpBusy && packUp.length && !todo){ closePackUpload(); return; }
+  packUpGo();
 }
 async function packUpGo(){
   const err = document.getElementById('pu-error');
@@ -20620,6 +20629,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v176</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v177</div>
 </body>
 </html>
