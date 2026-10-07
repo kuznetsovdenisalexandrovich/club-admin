@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v167 -->
+<!-- FILE_VERSION: admin-v168 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -12446,7 +12446,7 @@ function packRand(range, step){
   return Math.round((a + Math.random() * (b - a)) / step) * step;
 }
 function packGodNames(){
-  const names = new Set(Object.keys(GOD_SLUGS));
+  const names = new Set(Object.keys(GOD_SLUGS).concat(Object.keys(GOD_EXTRA_SLUGS)));
   (godsList || []).forEach(function(g){ if (g && g.name) names.add(g.name); });
   (cardTypes || []).forEach(function(c){ if (c.god && !c.unique_card) names.add(c.god); });
   return Array.from(names).sort(function(a,b){ return a.localeCompare(b, 'ru'); });
@@ -12457,7 +12457,7 @@ function packGodFromName(fname){
   const tokens = low.split(/[^a-zа-яё0-9]+/i).filter(Boolean);
   let best = '', bestLen = 0;
   packGodNames().forEach(function(n){
-    [GOD_SLUGS[n] || '', ruSlug(n), n.toLowerCase()].forEach(function(sl){
+    [GOD_SLUGS[n] || GOD_EXTRA_SLUGS[n] || '', ruSlug(n), n.toLowerCase()].forEach(function(sl){
       if (!sl || sl.length < 3) return;
       const hit = tokens.some(function(t){ return t === sl || t.indexOf(sl) === 0; });
       if (hit && sl.length > bestLen){ best = n; bestLen = sl.length; }
@@ -12536,6 +12536,16 @@ async function packUpAdd(fileList){
   }
   packUpRender();
 }
+/* «Другое имя…» — новая богиня или герой: имя по-русски, как оно будет на карте */
+function packUpGod(i, v){
+  if (v === '__other__'){
+    const name = (prompt('Имя персонажа — так, как его увидят участники (например, Персефона):') || '').trim();
+    if (!name){ packUpRender(); return; }
+    packUp.forEach(function(r, j){ if (j === i || (!r.god && !r.replaceKey && packUp[i] && r.file.name === packUp[i].file.name)) r.god = name; });
+    packUpRender(); return;
+  }
+  packUpRow(i, 'god', v);
+}
 function packUpSetRarity(v){
   packUp.forEach(function(r){ if (!r.rarityOwn) r.rarity = v; });
   packUpRender();
@@ -12581,8 +12591,9 @@ function packUpRender(){
           + (r.status ? '<div style="position:absolute;left:0;right:0;bottom:0;padding:4px 6px;background:#000b;color:#fff">' + r.status + '</div>' : '')
           + '</div><div style="padding:6px;display:flex;flex-direction:column;gap:4px">'
           + '<div style="color:var(--text-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlAdm(r.file.name) + '">' + escapeHtmlAdm(r.file.name) + '</div>'
-          + '<select class="popup-input" style="padding:5px;font-size:12px"' + dis + ' onchange="packUpRow(' + i + ',\'god\',this.value)">'
-            + '<option value="">— бог —</option>' + opt(gods.map(function(g){ return [g, g]; }), r.god) + '</select>'
+          + '<select class="popup-input" style="padding:5px;font-size:12px"' + dis + ' onchange="packUpGod(' + i + ',this.value)">'
+            + '<option value="">— бог —</option>' + opt(gods.concat(r.god && gods.indexOf(r.god) === -1 ? [r.god] : []).map(function(g){ return [g, g]; }), r.god)
+            + '<option value="__other__">Другое имя…</option></select>'
           + '<select class="popup-input" style="padding:5px;font-size:12px"' + dis + ' onchange="packUpRow(' + i + ',\'style\',this.value)">'
             + opt([['dark','Тёмная'],['light','Светлая'],['special','Особая']], r.style) + '</select>'
           + (r.styleGuess && !r.replaceKey ? '<div style="color:var(--text-faint);margin-top:-2px">тему угадал по яркости</div>' : '')
@@ -13568,6 +13579,16 @@ async function loadShelf(key){
 /* Ключ карточки должен быть латинским, а боги названы по-русски. Держим явную
    таблицу вместо общей транслитерации: имён всего два десятка, зато ключи
    получаются читаемыми (s2-athena-01), а не «s2-afina-01» или мешаниной */
+/* admin-v168: [stated] Denis 07.10 — богинь в пантеоне мало, он дорисовывает
+   Персефон и других. Таблица ниже — только чтобы УЗНАВАТЬ их в именах файлов
+   (англ. и рус.) и давать читаемый ключ. В пантеон они попадают сами, как только
+   у них появляется карта; новых можно вписать в окне пачки («Другое имя…») */
+var GOD_EXTRA_SLUGS = {
+  'Персефона':'persephone','Гестия':'hestia','Геката':'hecate','Ника':'nike','Ирида':'iris',
+  'Эос':'eos','Селена':'selene','Фемида':'themis','Мнемозина':'mnemosyne','Немезида':'nemesis',
+  'Тюхе':'tyche','Психея':'psyche','Эрида':'eris','Гея':'gaia','Рея':'rhea','Гармония':'harmonia',
+  'Пейто':'peitho','Каллиопа':'calliope','Эрато':'erato','Медуза':'medusa','Цирцея':'circe','Ариадна':'ariadne'
+};
 var GOD_SLUGS = {
   'Зевс':'zeus','Гера':'hera','Посейдон':'poseidon','Аид':'hades','Афина':'athena',
   'Аполлон':'apollo','Артемида':'artemis','Афродита':'aphrodite','Арес':'ares',
@@ -13578,7 +13599,10 @@ var GOD_SLUGS = {
 
 function godSlug(name){
   if (GOD_SLUGS[name]) return GOD_SLUGS[name];
-  var s = String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  if (GOD_EXTRA_SLUGS[name]) return GOD_EXTRA_SLUGS[name];
+  /* admin-v168: ⚠️ РАНЬШЕ кириллица выбрасывалась целиком, и «Персефона»
+     получала СЛУЧАЙНЫЙ ключ `god-457` — у каждой карты свой. Теперь транслит */
+  var s = ruSlug(name);
   return s || ('god-' + Math.floor(Math.random() * 900 + 100));
 }
 
@@ -20372,6 +20396,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v167</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v168</div>
 </body>
 </html>
