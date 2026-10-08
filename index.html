@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v177 -->
+<!-- FILE_VERSION: admin-v178 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -287,6 +287,11 @@ header{padding:calc(max(env(safe-area-inset-top), 8px) + 20px) 0 16px;display:fl
 .popup-row-val{font-weight:600;text-align:right;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .popup-section-title{font-size:11px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:.07em;margin:16px 0 10px}
 .popup-input{width:100%;font-size:13px;font-family:var(--body);padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);margin-bottom:8px}
+.sp-lbl{font-size:11.5px;color:var(--text-faint);margin-bottom:4px}
+.sp-bubble{background:var(--input-bg);border:1px solid var(--line);border-radius:14px;padding:10px 12px;white-space:pre-wrap;word-wrap:break-word;font-size:13px;line-height:1.45;max-height:340px;overflow:auto;color:var(--text)}
+.sp-pvbtn{margin-top:6px;border:1px solid var(--line);border-radius:10px;padding:7px;text-align:center;font-size:12.5px;font-weight:600;color:var(--text)}
+.sp-pvbtn small{display:block;font-weight:400;color:var(--text-faint);font-size:10.5px;word-break:break-all;margin-top:2px;font-family:ui-monospace,Menlo,monospace}
+@media (max-width:560px){.sp-pvs{grid-template-columns:minmax(0,1fr)!important}}
 .popup-input::placeholder{color:var(--text-faint)}
 .popup-save{width:100%;padding:12px;border-radius:14px;background:var(--accent);color:white;font-family:var(--disp);font-weight:700;font-size:13px;border:none;cursor:pointer;margin-top:4px;transition:opacity .15s}
 .popup-save:active{opacity:.8}
@@ -1557,12 +1562,58 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <button class="action-btn" id="nudges-tab-chain-btn" onclick="switchNudgesTab('chain')" style="flex:1">Цепочка</button>
         <button class="action-btn" id="nudges-tab-stats-btn" onclick="switchNudgesTab('stats')" style="flex:1">Работает ли</button>
         <button class="action-btn" id="nudges-tab-common-btn" onclick="switchNudgesTab('common')" style="flex:1">Общее</button>
+        <button class="action-btn" id="nudges-tab-salepost-btn" onclick="switchNudgesTab('salepost')" style="flex:1">Пост продажнику</button>
       </div>
 
       <div id="nudges-tab-scenarios"><div class="loading">Загрузка...</div></div>
       <div id="nudges-tab-chain" style="display:none"></div>
       <div id="nudges-tab-stats" style="display:none"></div>
       <div id="nudges-tab-common" style="display:none"></div>
+      <div id="nudges-tab-salepost" style="display:none">
+        <div style="font-size:11.5px;color:var(--text-faint);margin-bottom:10px;line-height:1.5">
+          Пишешь пост один раз — ниже готовый блок для калькулятора бота-продажника: версия для Telegram с разметкой,
+          для ВК без ссылок в тексте, кнопка и отправка на обе площадки. <b>**жирный**</b> · <i>__курсив__</i> ·
+          [текст](ссылка) · переменные Salebot <code>#{имя}</code> пишутся как есть. Прямые кавычки сами станут «ёлочками».
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div style="flex:0 0 90px"><div class="sp-lbl">Номер дожима</div><input class="popup-input" id="sp-num" type="number" min="0" value="3" inputmode="numeric"></div>
+          <div style="flex:1 1 180px;min-width:0"><div class="sp-lbl">Надпись на кнопке</div><input class="popup-input" id="sp-btn" type="text" value="Продолжить чтение..."></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div style="flex:1 1 220px;min-width:0"><div class="sp-lbl">Куда ведёт кнопка</div>
+            <select class="popup-input" id="sp-mode">
+              <option value="access">В клуб — экран доступа (как сейчас)</option>
+              <option value="app">В приложение — с отметкой бота и шага</option>
+            </select></div>
+          <div style="flex:1 1 180px;min-width:0" id="sp-tail-wrap" hidden><div class="sp-lbl">Что открыть в приложении</div>
+            <input class="popup-input" id="sp-tail" type="text" placeholder="пусто — главная; film; l_слаг" autocapitalize="off" autocomplete="off" spellcheck="false"></div>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <button type="button" class="scroll-btn" onclick="spWrap('**','**')"><b>Ж</b></button>
+          <button type="button" class="scroll-btn" onclick="spWrap('__','__')"><i>К</i></button>
+          <button type="button" class="scroll-btn" onclick="spWrap('[','](https://)')">Ссылка</button>
+        </div>
+        <textarea class="popup-input" id="sp-body" style="min-height:240px;line-height:1.5;resize:vertical"></textarea>
+        <div id="sp-count" style="font-size:11.5px;color:var(--text-faint);margin-bottom:12px"></div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:12px" class="sp-pvs">
+          <div style="min-width:0"><div class="sp-lbl">Telegram</div><div class="sp-bubble" id="sp-pv-tg"></div><div class="sp-pvbtn" id="sp-pv-tgbtn"></div></div>
+          <div style="min-width:0"><div class="sp-lbl">ВКонтакте (примерно)</div><div class="sp-bubble" id="sp-pv-vk"></div><div class="sp-pvbtn" id="sp-pv-vkbtn"></div></div>
+        </div>
+        <div class="sp-lbl">Калькулятор</div>
+        <textarea class="popup-input" id="sp-out" readonly spellcheck="false" style="min-height:200px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px;white-space:pre;overflow:auto"></textarea>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
+          <button type="button" class="action-btn" style="flex:1" onclick="spCopy()">Скопировать калькулятор</button>
+          <span id="sp-copy-st" style="font-size:12px;color:var(--text-faint)"></span>
+        </div>
+        <details>
+          <summary style="cursor:pointer;font-size:12.5px;color:var(--text-faint)">Разобрать готовый калькулятор, чтобы поправить старый пост</summary>
+          <textarea class="popup-input" id="sp-imp" style="min-height:110px;margin-top:8px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px" placeholder="Вставь сюда содержимое калькулятора старого дожима"></textarea>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button type="button" class="action-btn" onclick="spImport()">Разобрать</button>
+            <span id="sp-imp-st" style="font-size:12px;color:var(--text-faint)"></span>
+          </div>
+        </details>
+      </div>
     </div>
   </div>
 </div>
@@ -11304,7 +11355,7 @@ function closeNudgesPopup(){
 }
 
 function switchNudgesTab(tab){
-  ['scenarios','chain','stats','common'].forEach(function(t){
+  ['scenarios','chain','stats','common','salepost'].forEach(function(t){
     document.getElementById('nudges-tab-'+t).style.display = (t===tab) ? 'block' : 'none';
     const b = document.getElementById('nudges-tab-'+t+'-btn');
     if (b) b.style.opacity = (t===tab) ? '1' : '.55';
@@ -11313,6 +11364,109 @@ function switchNudgesTab(tab){
   if (tab === 'chain') loadNudgeChain();
   if (tab === 'stats') loadNudgeStats();
   if (tab === 'common') loadNudgeCommon();
+  if (tab === 'salepost') spInit();
+}
+
+/* ── v178 · ПОСТ ДЛЯ КАЛЬКУЛЯТОРА БОТА-ПРОДАЖНИКА ───────────────────────────
+   [stated] Denis 08.10: цепочку продажника он пишет в калькуляторе Salebot
+   html-строками отдельно под ТГ и ВК. Здесь пишет текст один раз, страница
+   собирает калькулятор целиком (сверено с его третьим дожимом посимвольно).
+   Режим «В приложение» — обёртка `sb-#{group}-s<номер>[-хвост]` (main-v407):
+   сервер по ней узнаёт продажника и шаг и стопает его дожимные. Черновик —
+   в браузере, сервер не нужен. */
+var SP_BOT = 'youselllikeagod_bot', SP_VK_APP = '54715238', spReady = false;
+function spEl(id){ return document.getElementById(id); }
+function spQuotes(s){ var o = true; return s.replace(/"/g, function(){ var q = o ? '«' : '»'; o = !o; return q; }); }
+function spEsc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function spHtml(src, forVk){
+  var s = spEsc(spQuotes(src));
+  s = s.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, function(m, t, u){
+    return forVk ? t : "<a href='" + u.replace(/&amp;/g,'&').replace(/'/g,'%27').replace(/"/g,'%22').trim() + "'>" + t + "</a>";
+  });
+  return s.replace(/\*\*([\s\S]+?)\*\*/g, '<strong>$1</strong>').replace(/__([\s\S]+?)__/g, '<em>$1</em>');
+}
+function spConcat(html){
+  var lines = html.split('\n'), parts = [];
+  for (var i = 0; i < lines.length; i++){ if (i > 0) parts.push('"\\n"'); if (lines[i] !== '') parts.push('"' + lines[i] + '"'); }
+  return parts.length ? parts.join(' + ') : '""';
+}
+function spBuild(){
+  var n = parseInt(spEl('sp-num').value, 10); if (isNaN(n) || n < 0) n = 0;
+  var src = spEl('sp-body').value, tg = spHtml(src, false), vk = spHtml(src, true);
+  var b = spQuotes(spEl('sp-btn').value.trim() || 'Продолжить чтение...');
+  var app = spEl('sp-mode').value === 'app', L = ['post = ' + n, 'text' + n + 'tg = ' + spConcat(tg), 'text' + n + 'vk = ' + spConcat(vk)];
+  var tgUrl, vkShow;
+  if (app){
+    var t = spEl('sp-tail').value.trim().replace(/[^A-Za-z0-9_-]/g,'');
+    var param = 'sb-#{group}-s' + n + (t ? '-' + t : '');
+    tgUrl = 'https://t.me/' + SP_BOT + '/app?startapp=' + param;
+    vkShow = 'https://vk.ru/app' + SP_VK_APP + '#' + param;
+    L.push('link_tg = [{"line":0,"index_in_line":0,"text":"' + b + '","type":"inline","url":"' + tgUrl + '","callback_link":false}]');
+    L.push('link_vk = [{"line":0,"index_in_line":0,"text":"' + b + '","type":"inline","url":"' + vkShow + '","callback_link":false}]');
+  } else {
+    tgUrl = 'https://t.me/' + SP_BOT + '?start=dostup';
+    vkShow = 'экран доступа (подписная ВК)';
+    L.push('link_tg = [{"line":0,"index_in_line":0,"text":"' + b + '","type":"inline","url":"' + tgUrl + '","callback_link":false}]');
+    L.push('dostup_link="https://vk.ru/app7062840#480f7eb0e97891cffafca489812c5255&force=1&followup=#{followup}&test_available=#{test_available}&prev_group=#{group}&post=#{post}"');
+    L.push('dostup_cb="dostup"');
+    L.push('dostup_fx=if(group==232119632,dostup_cb,dostup_link)');
+    L.push('vk_button_type = if(group==232119632,"callback","url")');
+    L.push('link_vk = [{"line":0,"index_in_line":0,"text":"' + b + '","type":"inline","#{vk_button_type}":"#{dostup_fx}"}]');
+  }
+  L.push("tg_send_message(platform_id, text" + n + "tg,'',link_tg,'html',1)");
+  L.push("vk_send_message(platform_id,text" + n + "vk,link_vk,'','','','','','','','html')");
+  spEl('sp-out').value = L.join('\n');
+  spEl('sp-pv-tg').innerHTML = tg || '<span style="color:var(--text-faint)">Текст поста появится здесь</span>';
+  spEl('sp-pv-vk').innerHTML = vk || '<span style="color:var(--text-faint)">Текст поста появится здесь</span>';
+  spEl('sp-pv-tgbtn').innerHTML = spEsc(b) + '<small>' + spEsc(tgUrl) + '</small>';
+  spEl('sp-pv-vkbtn').innerHTML = spEsc(b) + '<small>' + spEsc(vkShow) + '</small>';
+  var len = tg.replace(/<[^>]+>/g,'').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').length;
+  var c = spEl('sp-count');
+  c.textContent = 'Знаков в сообщении: ' + len + ' из 4096' + (len > 4096 ? ' — длиннее, чем пропустит Telegram, раздели на два дожима' : '');
+  c.style.color = len > 4096 ? 'var(--accent)' : 'var(--text-faint)';
+  spEl('sp-tail-wrap').hidden = !app;
+  try { localStorage.setItem('admin_salepost_draft', JSON.stringify({ n: spEl('sp-num').value, b: spEl('sp-btn').value,
+    m: spEl('sp-mode').value, t: spEl('sp-tail').value, body: src })); } catch(e){}
+}
+function spInit(){
+  if (spReady) return;
+  spReady = true;
+  try {
+    var d = JSON.parse(localStorage.getItem('admin_salepost_draft') || 'null');
+    if (d){ spEl('sp-num').value = d.n; spEl('sp-btn').value = d.b; spEl('sp-mode').value = d.m || 'access'; spEl('sp-tail').value = d.t || ''; spEl('sp-body').value = d.body || ''; }
+  } catch(e){}
+  ['sp-num','sp-btn','sp-mode','sp-tail','sp-body'].forEach(function(id){ spEl(id).addEventListener('input', spBuild); });
+  spBuild();
+}
+function spWrap(before, after){
+  var ta = spEl('sp-body'), a = ta.selectionStart, z = ta.selectionEnd, v = ta.value, mid = v.slice(a, z) || 'текст';
+  ta.value = v.slice(0, a) + before + mid + after + v.slice(z);
+  ta.focus(); ta.selectionStart = a + before.length; ta.selectionEnd = a + before.length + mid.length;
+  spBuild();
+}
+function spCopy(){
+  var st = spEl('sp-copy-st'), out = spEl('sp-out');
+  function fallback(){ out.focus(); out.select(); st.textContent = 'Текст выделен — скопируй его'; }
+  try { navigator.clipboard.writeText(out.value).then(function(){ st.textContent = 'Скопировано'; }, fallback); }
+  catch(e){ fallback(); }
+}
+function spImport(){
+  var st = spEl('sp-imp-st'), raw = spEl('sp-imp').value;
+  var m = raw.match(/^\s*text(\d+)tg\s*=\s*(.+)$/m);
+  if (!m){ st.textContent = 'Не нашёл строку вида text3tg = … — вставь калькулятор целиком'; return; }
+  var txt = '', re = /"((?:[^"\\]|\\.)*)"/g, q;
+  while ((q = re.exec(m[2]))){ txt += (q[1] === '\\n') ? '\n' : q[1].replace(/\\n/g, '\n'); }
+  spEl('sp-num').value = m[1];
+  spEl('sp-body').value = txt
+    .replace(/<a\s+href=['"]([^'"]+)['"]\s*>([\s\S]*?)<\/a>/gi, '[$2]($1)')
+    .replace(/<\/?(strong|b)>/gi, '**').replace(/<\/?(em|i)>/gi, '__')
+    .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
+  var links = raw.match(/link_tg\s*=\s*\[[^\n]*/g), last = links ? links[links.length - 1] : '';
+  var bt = last.match(/"text"\s*:\s*"([^"]*)"/); if (bt) spEl('sp-btn').value = bt[1];
+  var sb = last.match(/startapp=sb-#\{group\}-s\d+-?([A-Za-z0-9_-]*)/);
+  spEl('sp-mode').value = sb ? 'app' : 'access'; spEl('sp-tail').value = sb ? sb[1] : '';
+  spBuild();
+  st.textContent = 'Разобрал дожим №' + m[1];
 }
 
 /* ── Общее: тексты сообщений бота и пределы ───────────────────────────────
@@ -20629,6 +20783,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v177</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v178</div>
 </body>
 </html>
