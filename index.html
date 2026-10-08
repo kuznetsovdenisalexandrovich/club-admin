@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v182 -->
+<!-- FILE_VERSION: admin-v183 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3951,7 +3951,7 @@ const SETTINGS_META = {
 
   app_usage_days:           ['«Остыл» — через сколько дней без захода', 'Метка «Приложение» в списке участников и серверный список «давно не заходили»', 'num'],
   membership_audit_auto:    ['Сторож подписок закрывает сам', 'Каждое утро ищет тех, у кого дата списания прошла больше шести дней назад и оплаты нет. Выключено — только докладывает в админский чат', 'bool'],
-  seller_bots:              ['Боты-продажники в Telegram', 'Имена ботов, как в «Каналах» Salebot, через запятую (без @). Нужны, чтобы находить участников клуба, которым продажник всё ещё шлёт продающие цепочки', 'text'],
+  seller_bots:              ['Боты-продажники (Telegram и группа ВК)', 'Через запятую, как в «Каналах» Salebot: имена Telegram-ботов без @ и номер открытой группы ВК (215841843). По ним сервер находит, из какого продажника пришёл человек, останавливает ему продающие дожимы и возвращает к продажнику после ухода из клуба. Новые боты — в конец списка', 'text'],
   client_type_vk_value:     ['Какое число client_type означает ВК', '⚠️ ошибка дорогая: ВК-номера снова полетят в поле telegram_id. Пусто — числа не разбираем вовсе, только текст и подпись', 'text'],
 };
 
@@ -20919,6 +20919,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v182</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v183</div>
 </body>
 </html>
