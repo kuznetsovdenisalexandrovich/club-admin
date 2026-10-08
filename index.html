@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v179 -->
+<!-- FILE_VERSION: admin-v180 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -7714,7 +7714,7 @@ async function evMeetCall(){
       body: JSON.stringify({ url: url, label: label, text: text, target_ids: ids, show_button: true }) });
     if (liveAdminState && d.session) { liveAdminState.session = d.session; renderPracticeAdmin(d.session); }
     if (out) out.innerHTML = '<div class="pay-name">Кнопка показана' + (ids.length ? ' · ушло: ' + d.sent + ', не ушло: ' + d.failed : '') + '</div>'
-      + (d.report || []).map(function(x){ return '<div class="pay-meta"' + (x.ok ? '' : ' style="color:#e8614a"') + '>' + escapeHtmlAdm(x.name) + ' — ' + (x.ok ? ('ок' + (x.note ? ', ' + escapeHtmlAdm(x.note) : '')) : escapeHtmlAdm(x.error || 'ошибка')) + '</div>'; }).join('');
+      + (d.report || []).map(function(x){ return '<div class="pay-meta"' + (x.ok ? '' : ' style="color:#e8614a"') + '>' + escapeHtmlAdm(x.name) + ' — ' + (x.ok ? ('ок' + (x.note ? ', ' + admLinkify(x.note) : '')) : escapeHtmlAdm(x.error || 'ошибка')) + '</div>'; }).join('');
     loadLiveAdminState();
   }catch(e){ if (out) out.textContent = 'Не получилось: ' + (e.message || e); }
 }
@@ -8548,7 +8548,7 @@ function announceRenderReport(d){
     '<div class="pay-name">Ушло: ' + d.sent + ' · не ушло: ' + d.failed + '</div>'
     + (d.report || []).map(function(x){
         return '<div class="pay-meta"' + (x.ok ? '' : ' style="color:#e8614a"') + '>'
-          + escapeHtmlAdm(x.name) + ' — ' + (x.ok ? ('ок' + (x.note ? ', ' + escapeHtmlAdm(x.note) : ''))
+          + escapeHtmlAdm(x.name) + ' — ' + (x.ok ? ('ок' + (x.note ? ', ' + admLinkify(x.note) : ''))
                                                      : escapeHtmlAdm(x.error || 'ошибка')) + '</div>';
       }).join('');
 }
@@ -8939,6 +8939,13 @@ function stopChatAdminPoll(){
   if (chatAdminTimer){ clearInterval(chatAdminTimer); chatAdminTimer = null; }
 }
 
+/* v180: ссылка на пост ВК в отчёте рассылки нажимается (main-v412 кладёт её
+   в пометку площадки) */
+function admLinkify(v){
+  return escapeHtmlAdm(v).replace(/https?:\/\/[^\s<]+/g, function(u){
+    return '<a href="' + u + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">' + u + '</a>';
+  });
+}
 function escapeHtmlAdm(v){
   return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
@@ -20805,6 +20812,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v179</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v180</div>
 </body>
 </html>
