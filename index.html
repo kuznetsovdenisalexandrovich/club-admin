@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v181 -->
+<!-- FILE_VERSION: admin-v182 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -11777,11 +11777,101 @@ function nudgeChainStepEditorHtml(c){
         + '<textarea id="nc-body-' + c.id + '" style="min-height:54px;padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">' + escapeHtmlAdm(c.body||'') + '</textarea></label>'
       + fld('Подпись кнопки','cta_label',c.cta_label)
       + nudgeTargetFieldHtml('nc', c.id, c.cta_target)
+      + ncMediaHtml(c)
+      + '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">'
+        + '<input type="checkbox" id="nc-via_service-' + c.id + '" ' + (c.via_service?'checked':'') + '> Из сервисного бота, даже если человек пришёл из продажника</label>'
+      + '<div style="font-size:11px;color:var(--text-faint);line-height:1.45;margin-top:-6px">Без галочки гостю, пришедшему из бота-продажника, письмо уходит от лица этого продажника (блоки <code>srv_post</code>, <code>srv_post_video</code>, <code>srv_post_photo</code>). Участникам — всегда из сервисного.</div>'
       + '<div style="display:flex;gap:8px">'
         + '<button onclick="saveNudgeChainStep(' + c.id + ')" style="flex:1;padding:9px;border-radius:9px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:600">Сохранить</button>'
         + '<button onclick="deleteNudgeChainStep(' + c.id + ')" style="padding:9px 14px;border-radius:9px;border:1px solid #ef4444;background:transparent;color:#ef4444;cursor:pointer;font-size:13px">Удалить</button>'
       + '</div>'
     + '</div></div>';
+}
+
+/* admin-v182 · МЕДИА У ШАГА. Видео (mp4 до 20 МБ) или картинка (до 5 МБ) уходят
+   вложением блока продажника. Проверяем дважды: здесь до заливки (вес и форма
+   кадра — сразу, без ожидания), и на сервере после (он меряет сам файл и не
+   даёт сохранить негодное). [stated] Denis: «не въёбываться с размерами медиа» */
+function ncFmtMb(b){ return (b / 1048576).toFixed(1).replace('.0', '') + ' МБ'; }
+function ncShape(w, h){ if (!w || !h) return ''; const r = w / h; return r < 0.9 ? 'вертикальное' : (r <= 1.1 ? 'квадрат' : 'горизонтальное'); }
+function ncMediaHtml(c){
+  if (!c.id || c.id < 0){
+    return '<div style="font-size:12px;color:var(--text-faint)">Видео или картинку можно добавить после первого сохранения шага.</div>';
+  }
+  let cur = '';
+  if (c.media_kind){
+    const info = (c.media_kind === 'video' ? 'Видео' : 'Картинка') + ' · ' + c.media_w + '×' + c.media_h
+      + ' · ' + ncShape(c.media_w, c.media_h) + (c.media_sec ? ' · ' + c.media_sec + ' с' : '') + ' · ' + ncFmtMb(c.media_bytes || 0);
+    const prev = c.media_kind === 'video'
+      ? '<video src="' + c.media_preview + '" controls playsinline preload="metadata" style="max-width:220px;max-height:260px;border-radius:10px;background:#000;display:block"></video>'
+      : '<img src="' + c.media_preview + '" style="max-width:220px;max-height:260px;border-radius:10px;display:block">';
+    cur = '<div style="display:flex;flex-direction:column;gap:6px">' + prev
+      + '<div style="font-size:12px;color:var(--text-faint)">' + escapeHtmlAdm(info) + '</div>'
+      + '<button type="button" onclick="ncMediaDrop(' + c.id + ')" style="align-self:flex-start;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--text);cursor:pointer;font-size:12px">Убрать медиа</button></div>';
+  }
+  return '<div style="display:flex;flex-direction:column;gap:6px">'
+    + '<span style="font-size:11px;color:var(--text-faint)">Видео или картинка к сообщению (уходит одним сообщением с текстом и кнопкой)</span>'
+    + cur
+    + '<input type="file" accept="video/mp4,image/jpeg,image/png,image/webp" onchange="ncMediaPick(' + c.id + ', this.files[0])" style="font-size:12px">'
+    + '<div id="nc-media-say-' + c.id + '" style="font-size:12px;color:var(--text-faint)">Видео — mp4 до 20 МБ, картинка — jpg, png или webp до 5 МБ.</div>'
+    + '</div>';
+}
+function ncVideoMeta(file){
+  return new Promise(function(resolve){
+    const v = document.createElement('video'); v.preload = 'metadata'; v.muted = true;
+    v.onloadedmetadata = function(){ resolve({ w: v.videoWidth, h: v.videoHeight, sec: Math.round(v.duration || 0) }); URL.revokeObjectURL(v.src); };
+    v.onerror = function(){ resolve(null); };
+    v.src = URL.createObjectURL(file);
+  });
+}
+async function ncMediaPick(id, file){
+  if (!file) return;
+  const say = document.getElementById('nc-media-say-' + id);
+  const isVideo = file.type === 'video/mp4';
+  const isImage = /^image\/(jpeg|png|webp)$/.test(file.type);
+  if (!isVideo && !isImage){ say.textContent = 'Подходит только mp4, jpg, png или webp.'; return; }
+  const limit = (isVideo ? 20 : 5) * 1048576;
+  if (file.size > limit){ say.textContent = 'Файл весит ' + ncFmtMb(file.size) + ', а можно до ' + ncFmtMb(limit) + (isVideo ? ' — сожми видео.' : ' — уменьши картинку.'); return; }
+  if (isVideo){
+    const m = await ncVideoMeta(file);
+    /* браузер может не уметь кодек — тогда не держим: размеры кадра всё
+       равно проверит сервер по самому файлу */
+    say.textContent = (m && m.w)
+      ? m.w + '×' + m.h + ' · ' + ncShape(m.w, m.h) + ' · ' + m.sec + ' с · ' + ncFmtMb(file.size) + ' — загружаю…'
+      : ncFmtMb(file.size) + ' — загружаю, размеры проверит сервер…';
+  } else {
+    say.textContent = ncFmtMb(file.size) + ' — загружаю…';
+  }
+  const ext = isVideo ? 'mp4' : (file.type === 'image/png' ? 'png' : (file.type === 'image/webp' ? 'webp' : 'jpg'));
+  try {
+    const r = await fetch(API + '/admin/audio-upload-url?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug: 'step' + id + '-' + Date.now().toString(36), kind: isVideo ? 'nudge_video' : 'nudge_image', ext: ext }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
+    const put = await fetch(d.upload_url, { method: 'PUT', headers: { 'Content-Type': d.content_type }, body: file });
+    if (!put.ok) throw new Error('хранилище ответило ' + put.status);
+    const r2 = await fetch(API + '/admin/nudge-chain/' + id + '/media?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: d.key, kind: isVideo ? 'video' : 'image' }) });
+    const d2 = await r2.json();
+    if (!r2.ok) throw new Error(d2.detail || ('HTTP ' + r2.status));
+    const row = nudgeChain.find(function(x){ return x.id === id; });
+    if (row) Object.assign(row, d2);
+    renderNudgeChain();
+  } catch(e){
+    say.textContent = 'Не загрузилось: ' + (e.message || e);
+  }
+}
+async function ncMediaDrop(id){
+  if (!confirm('Убрать медиа у этого шага?')) return;
+  try {
+    const r = await fetch(API + '/admin/nudge-chain/' + id + '/media?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), { method: 'DELETE' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const row = nudgeChain.find(function(x){ return x.id === id; });
+    if (row) Object.assign(row, { media_kind: '', media_preview: '' });
+    renderNudgeChain();
+  } catch(e){ alert('Не получилось: ' + (e.message || e)); }
 }
 
 function addNudgeChainStep(){
@@ -11812,6 +11902,7 @@ async function saveNudgeChainStep(id){
     cta_label: v('cta_label').trim() || 'Открыть приложение',
     cta_target: v('cta_target').trim(),
     min_revenue: Math.max(0, parseInt(v('min_revenue'),10) || 0),
+    via_service: !!(document.getElementById('nc-via_service-'+id) || {}).checked,
   };
   try {
     const r = await fetch(API+'/admin/nudge-chain?x_admin_token='+ADMIN_TOKEN, {
@@ -20828,6 +20919,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v181</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v182</div>
 </body>
 </html>
