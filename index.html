@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v180 -->
+<!-- FILE_VERSION: admin-v181 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2499,6 +2499,10 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <div class="section-title" style="margin:8px 0 6px;font-size:13px">Ступени и отвалы</div>
       <div class="pay-meta" style="margin-bottom:6px">Процент — сколько дошло с предыдущей ступени. Дата под ступенью — с какого числа этот шаг вообще пишется: у части шагов за плечами дни, а не весь период.</div>
       <div id="funnel-steps"><div class="pay-meta">—</div></div>
+
+      <div class="section-title" style="margin:16px 0 6px;font-size:13px">Что ведёт к оплате</div>
+      <div class="pay-meta" style="margin-bottom:6px">Что из бесплатного трогали гости и сколько из них дошли до оплаты и оплатили. Человек считается в каждой строке, которую трогал. Сверху — то, что лучше всего превращается в оплату.</div>
+      <div id="funnel-touches"><div class="pay-meta">—</div></div>
 
       <div class="section-title" style="margin:16px 0 6px;font-size:13px">Последние лиды</div>
       <div id="funnel-leads"><div class="pay-meta">—</div></div>
@@ -7983,13 +7987,25 @@ async function loadFunnelReport(){
         + '</div>';
     }).join('') || '<div class="pay-meta">Пока пусто.</div>';
 
+    /* v181: приманки демо-режима → доступ → оплата (main-v416) */
+    const tb = document.getElementById('funnel-touches');
+    if (tb){
+      tb.innerHTML = (d.touches || []).map(function(x){
+        return '<div class="pay-item">'
+          + '<div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(x.label) + '</div>'
+          + '<div class="pay-meta">трогали ' + x.people + ' · до оплаты ' + x.access + ' · оплатили ' + x.paid + '</div></div>'
+          + '<div class="pay-name" style="flex-shrink:0;font-variant-numeric:tabular-nums">' + x.paid_pct + '%</div>'
+          + '</div>';
+      }).join('') || '<div class="pay-meta">' + (d.touches ? 'Пока пусто.' : 'Нужен бэкенд main-v416.') + '</div>';
+    }
+
     leads.innerHTML = (d.leads || []).map(function(x){
       const nick = x.username ? ('@' + escapeHtmlAdm(x.username)) : '';
       const who2 = escapeHtmlAdm(x.name) || nick || (x.vk ? 'гость ВК' : 'без имени');
       const link = (x.username && !x.vk)
         ? '<a href="https://t.me/' + encodeURIComponent(x.username) + '" target="_blank" rel="noopener">написать</a>'
         : '';
-      const mark = x.confused ? ' · запутался' : '';
+      const mark = (x.paid ? ' · оплатил' : '') + (x.confused ? ' · запутался' : '');
       /* ⚠️ НЕДОСТИЖИМОГО НАДО ВИДЕТЬ. Бот не может писать первым тому, кто ему
          не разрешал: дожим до такого человека не доедет вовсе, и без метки
          конверсия дожимов считалась бы по людям, не получавшим сообщений.
@@ -20812,6 +20828,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v180</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v181</div>
 </body>
 </html>
