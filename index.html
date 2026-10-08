@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v178 -->
+<!-- FILE_VERSION: admin-v179 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -315,12 +315,18 @@ header{padding:calc(max(env(safe-area-inset-top), 8px) + 20px) 0 16px;display:fl
    Прижатие делает `margin-top:auto` у первого элемента, а НЕ
    `justify-content:flex-end` — второе в прокручиваемом блоке обрезает верх,
    когда сообщений становится больше высоты окна */
-.chat-box{max-height:260px;overflow-y:auto;margin-bottom:8px;display:flex;flex-direction:column;
+.chat-box{max-height:420px;overflow-y:auto;margin-bottom:8px;display:flex;flex-direction:column;
   gap:2px;border-radius:12px;background:var(--stat-bg);border:1px solid var(--border);padding:8px 10px}
 .chat-box > *:first-child{margin-top:auto}
-.chat-line{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12.5px;line-height:1.35}
-.chat-name{flex:none;font-weight:700}
-.chat-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-dim)}
+.chat-line{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;padding:5px 0;font-size:12.5px;line-height:1.4}
+.chat-name{flex:0 1 auto;min-width:0;margin-right:auto;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* v179: [stated] Denis 09.10 — на эфире сообщения обрезались многоточием и
+   прочитать их целиком было нельзя. Текст переносится строками целиком */
+.chat-text{order:10;flex:1 1 100%;min-width:0;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--text-dim)}
+.chat-line + .chat-line{border-top:1px solid var(--line)}
+.chat-reacts{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px;font-size:13px}
+.chat-reacts .r{padding:3px 9px;border-radius:999px;background:var(--stat-bg);border:1px solid var(--border);font-variant-numeric:tabular-nums}
+.chat-reacts .who{font-size:11.5px;color:var(--text-faint)}
 .chat-lvl{flex:none;min-width:16px;height:16px;line-height:16px;text-align:center;padding:0 4px;
   border-radius:999px;background:var(--lav-deep);color:#fff;font-size:9.5px;font-weight:700}
 .chat-ico{flex:none;width:24px;height:24px;display:flex;align-items:center;justify-content:center;
@@ -2346,6 +2352,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <div class="pay-meta" style="margin:4px 2px 12px">Отметь ОТКРЫТЫЕ площадки — их погасит кнопка ниже. Закрытые продолжат идти.</div>
         
           <div class="section-title" style="margin:14px 0 6px;font-size:13px">Чат эфира</div>
+        <div id="live-chat-reacts" class="chat-reacts"></div>
         <div id="live-chat-admin" class="chat-box"></div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
           <button class="action-btn" onclick="chatSetSlow()">Медленный режим</button>
@@ -8875,10 +8882,12 @@ async function loadChatAdmin(incremental){
     chatAdminState = d;
     if (!d.active){
       box.innerHTML = '<div class="pay-meta">Эфир не идёт</div>';
+      renderChatReacts(null, 0);
       chatAdminLastId = 0;
       return;
     }
     chatAdminMuted = d.muted || [];
+    renderChatReacts(d.reactions, d.reactors);
     const msgs = d.messages || [];
     // Прокручиваем вниз, только если и так стояли внизу — иначе выдёргивали бы
     // Denis'а из чтения старых сообщений каждым новым
@@ -8903,6 +8912,19 @@ async function loadChatAdmin(incremental){
     }
     // при автообновлении молчим: сеть моргнула, следующий круг через несколько секунд
   }
+}
+
+/* v179: реакции эфира в пульте — числа по смайлам и сколько людей жали.
+   Едут тем же опросом, что чат (main-v411); старый бэкенд их не шлёт — тогда
+   строка просто пустая */
+function renderChatReacts(counts, people){
+  const el = document.getElementById('live-chat-reacts');
+  if (!el) return;
+  const items = Object.keys(counts || {}).map(function(k){ return [k, counts[k]]; })
+    .sort(function(a, b){ return b[1] - a[1]; });
+  if (!items.length){ el.innerHTML = counts ? '<span class="who">Реакций пока нет</span>' : ''; return; }
+  el.innerHTML = items.map(function(x){ return '<span class="r">' + escapeHtmlAdm(x[0]) + ' ' + x[1] + '</span>'; }).join('')
+    + (people ? '<span class="who">жали ' + people + ' чел.</span>' : '');
 }
 
 /* Автообновление живёт ТОЛЬКО пока открыт пульт: закрыли — таймер снят.
@@ -20783,6 +20805,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v178</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v179</div>
 </body>
 </html>
