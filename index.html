@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v183 -->
+<!-- FILE_VERSION: admin-v184 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1247,6 +1247,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <button class="action-btn" onclick="openHelpDocsPopup()">Справка клуба</button>
           <button class="action-btn" onclick="openGamesPopup()">Конструктор игр</button>
           <button class="action-btn" onclick="openRefPostsPopup()">Посты для приглашений</button>
+          <button class="action-btn" onclick="openWavesPopup()">Волны приглашений</button>
           <button class="action-btn" onclick="openLinkGenPopup()">Генератор ссылок</button>
         </div>
       </div>
@@ -1535,6 +1536,33 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       </div>
       <div id="refposts-list"><div class="loading">Загрузка...</div></div>
       <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closeRefPostsPopup()">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- admin-v184 · ВОЛНЫ ПРИГЛАШЕНИЙ (pw102) -->
+<div class="popup-overlay popup-centered" id="waves-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeWavesPopup()">
+  <div class="popup" style="max-width:560px">
+    <button class="popup-close-x" onclick="closeWavesPopup()" title="Закрыть">✕</button>
+    <div class="popup-body" style="padding-top:20px">
+      <div class="popup-section-title" style="margin-top:0">Волны приглашений</div>
+      <div style="font-size:11.5px;color:var(--text-faint);margin-bottom:10px;line-height:1.5" id="wv-help">
+        На дни волны награда за вступившего друга удваивается. В начале волны сервер сам разошлёт первый текст,
+        за сутки до конца — второй (если он написан). Кнопка в сообщении — «Позвать друга», ведёт на экран приглашения.
+        В тексте можно писать <b>{баллы}</b> и <b>{до}</b> — подставятся сами. В приложении участники видят плашку на главной.
+      </div>
+      <div id="wv-list"><div class="loading">Загрузка...</div></div>
+      <div class="popup-section-title" id="wv-form-title" style="margin-top:16px">Новая волна</div>
+      <input type="hidden" id="wv-id">
+      <input class="popup-input" id="wv-title" placeholder="Название, например «Неделя друзей»" style="margin-bottom:6px">
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input class="popup-input" id="wv-start" placeholder="Начало по Москве: 12.10.2026 10:00" style="flex:2">
+        <input class="popup-input" id="wv-days" type="number" min="1" max="30" value="3" title="Сколько дней" style="flex:1">
+      </div>
+      <textarea class="popup-input" id="wv-start-text" rows="5" placeholder="Текст в начале волны (HTML как в рассылках)" style="margin-bottom:6px"></textarea>
+      <textarea class="popup-input" id="wv-last-text" rows="3" placeholder="Текст за сутки до конца — можно не писать" style="margin-bottom:6px"></textarea>
+      <button class="popup-save" onclick="wvSave()">Сохранить волну</button>
+      <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:8px" onclick="wvReset()">Очистить форму</button>
     </div>
   </div>
 </div>
@@ -16538,6 +16566,94 @@ async function deleteBonus(key){
 
 /* ── Заготовки постов для приглашений ─────────────────────────────────────── */
 
+/* ══ admin-v184 · ВОЛНЫ ПРИГЛАШЕНИЙ (main-v421) ════════════════════════════
+   Волна — даты и два текста. Удвоение — постоянная на сервере, не поле. */
+var wvItems = [];
+function wvUrl(p){ return API + p + (p.indexOf('?') < 0 ? '?' : '&') + 'x_admin_token=' + encodeURIComponent(ADMIN_TOKEN); }
+function openWavesPopup(){ document.getElementById('waves-popup-overlay').classList.add('open'); wvReset(); wvLoad(); }
+function closeWavesPopup(){ document.getElementById('waves-popup-overlay').classList.remove('open'); }
+async function wvLoad(){
+  var box = document.getElementById('wv-list');
+  try {
+    var r = await fetch(wvUrl('/admin/invite-waves')); var d = await r.json();
+    if (!r.ok) throw new Error(d.detail || r.status);
+    wvItems = d.waves || [];
+    var aud = (d.audiences || []).join(' + ');
+    document.getElementById('wv-help').title = 'Рассылка уходит спискам: ' + aud;
+    if (!wvItems.length){ box.innerHTML = '<div class="pay-meta">Волн пока не было. Кому уйдёт рассылка: ' + elEsc(aud) + '.</div>'; return; }
+    var st = { running: '🟢 идёт', planned: '🕓 впереди', over: 'закончилась' };
+    box.innerHTML = wvItems.map(function(w){
+      var sent = [];
+      if (w.start_sent_at) sent.push('старт разослан');
+      if (w.last_sent_at) sent.push('«последний день» разослан');
+      var rep = w.report && w.report.start ? wvReport(w.report.start) : '';
+      return '<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px">'
+        + '<div style="font-size:13px;font-weight:600">' + elEsc(w.title || 'Без названия') + ' · ' + (st[w.state] || '') + '</div>'
+        + '<div style="font-size:11.5px;color:var(--text-faint);margin-top:2px">' + elEsc(w.starts_msk) + ' → ' + elEsc(w.ends_msk)
+          + ' · ×' + w.multiplier + ' = ' + w.points + ' баллов за друга' + (sent.length ? ' · ' + sent.join(', ') : '') + '</div>'
+        + (rep ? '<div style="font-size:11px;color:var(--text-faint);margin-top:2px">' + rep + '</div>' : '')
+        + '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">'
+          + (w.state !== 'over' ? '<button class="action-btn" onclick="wvEdit(' + w.id + ')">Править</button>' : '')
+          + '<button class="action-btn" onclick="wvTest(' + w.id + ',\'start\')">Прислать себе старт</button>'
+          + (w.last_text ? '<button class="action-btn" onclick="wvTest(' + w.id + ',\'last\')">…последний день</button>' : '')
+          + '<button class="action-btn" onclick="wvDel(' + w.id + ')">Удалить</button>'
+        + '</div></div>';
+    }).join('');
+  } catch(e){ box.innerHTML = '<div class="pay-meta">Не загрузилось: ' + elEsc(e.message) + '</div>'; }
+}
+function wvReport(r){
+  var n = 0, bad = 0;
+  Object.keys(r || {}).forEach(function(k){ var x = r[k] || {};
+    n += (x.via_salebot || 0) + (x.via_direct || 0) + (x.via_vk || 0); bad += (x.failed || 0) + (x.unreachable || 0); });
+  return 'ушло: ' + n + (bad ? ', не дошло: ' + bad : '');
+}
+function wvReset(){
+  ['wv-id','wv-title','wv-start','wv-start-text','wv-last-text'].forEach(function(id){ document.getElementById(id).value = ''; });
+  document.getElementById('wv-days').value = 3;
+  document.getElementById('wv-form-title').textContent = 'Новая волна';
+}
+function wvEdit(id){
+  var w = wvItems.find(function(x){ return x.id === id; }); if (!w) return;
+  document.getElementById('wv-id').value = w.id;
+  document.getElementById('wv-title').value = w.title;
+  document.getElementById('wv-start').value = w.starts_msk;
+  var days = Math.max(1, Math.round((Date.parse(w.ends_at) - Date.parse(w.starts_at)) / 864e5));
+  document.getElementById('wv-days').value = days;
+  document.getElementById('wv-start-text').value = w.start_text;
+  document.getElementById('wv-last-text').value = w.last_text;
+  document.getElementById('wv-form-title').textContent = 'Правка волны' + (w.start_sent_at ? ' (уже разослана — начало не сдвинется)' : '');
+}
+async function wvSave(){
+  var id = document.getElementById('wv-id').value;
+  var body = { title: document.getElementById('wv-title').value.trim(),
+    starts_msk: document.getElementById('wv-start').value.trim(),
+    days: parseInt(document.getElementById('wv-days').value, 10) || 3,
+    start_text: document.getElementById('wv-start-text').value,
+    last_text: document.getElementById('wv-last-text').value };
+  if (!body.starts_msk){ alert('Впиши начало: 12.10.2026 10:00'); return; }
+  if (!body.start_text.trim() && !confirm('Без стартового текста рассылки не будет — только удвоение и плашка в приложении. Сохранить?')) return;
+  var r = await fetch(wvUrl(id ? '/admin/invite-waves/' + id : '/admin/invite-waves'), {
+    method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  var d = await r.json().catch(function(){ return {}; });
+  if (!r.ok){ alert('Не сохранилось: ' + (d.detail || r.status)); return; }
+  wvReset(); wvLoad();
+}
+async function wvDel(id){
+  if (!confirm('Удалить волну? Если она идёт — двойная награда кончится сразу.')) return;
+  await fetch(wvUrl('/admin/invite-waves/' + id), { method: 'DELETE' });
+  wvLoad();
+}
+async function wvTest(id, which){
+  var ph = ''; try { ph = localStorage.getItem('wv_test_phone') || ''; } catch(e){}
+  ph = prompt('Телефон, на который прислать (как в карточке Salebot):', ph || '');
+  if (!ph) return;
+  try { localStorage.setItem('wv_test_phone', ph); } catch(e){}
+  var r = await fetch(wvUrl('/admin/invite-waves/' + id + '/test'), { method: 'POST',
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ which: which, phone: ph }) });
+  var d = await r.json().catch(function(){ return {}; });
+  alert(r.ok ? (d.skipped ? 'Пропущено: ' + d.skipped : (d.error ? 'Ошибка: ' + d.error : 'Отправлено, ответ Salebot: ' + d.salebot_status)) : ('Не получилось: ' + (d.detail || r.status)));
+}
+
 var refPosts = [];
 
 /* ══ ОПЛАТИВШИЕ ПЕРЕВОДОМ ═══════════════════════════════════════════════ */
@@ -20919,6 +21035,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v183</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v184</div>
 </body>
 </html>
