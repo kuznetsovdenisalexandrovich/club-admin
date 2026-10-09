@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v186 -->
+<!-- FILE_VERSION: admin-v187 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2383,9 +2383,10 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         </div>
         <div id="live-announce-out" class="pay-meta" style="margin:0 2px 12px"></div>
         <div id="ev-meetup-box" style="display:none">
-          <div class="pay-meta" style="margin:0 2px 8px">Событие без эфира: одна кнопка создаёт встречу и рассылает подписчикам ссылку на телемост с кнопкой. С этого момента вечная ссылка «на встречу» в аппе ведёт на телемост и начисляет баллы.</div>
+          <div class="pay-meta" style="margin:0 2px 8px">Событие без эфира: одна кнопка создаёт встречу и рассылает ссылку на телемост — подписчикам бота и в площадки, отмеченные галочками выше. С этого момента вечная ссылка «на встречу» в аппе ведёт на телемост и начисляет баллы.</div>
           <button class="popup-save" onclick="evSendMeetup()">Разослать ссылку на встречу</button>
-          <div id="ev-meetup-out" class="pay-meta" style="margin:6px 2px 12px"></div>
+          <div id="ev-meetup-out" class="pay-meta" style="margin:6px 2px 12px;white-space:pre-line"></div>
+          <button class="popup-save" id="ev-meetup-finish" style="display:none;background:transparent;border:1px solid var(--border);color:var(--text)" onclick="evFinishMeetup()">Встреча завершена</button>
         </div>
       </div>
 
@@ -7615,8 +7616,13 @@ function evRenderAnnounceHint(){
   const meetOnly = ((document.getElementById('ev-kind') || {}).value) === 'meet_only';
   const btn = document.getElementById('ev-announce-btn');
   if (meetOnly){
-    el.textContent = 'Событие без эфира — площадки анонса не нужны, ссылка уходит подписчикам кнопкой ниже.';
+    /* admin-v187: [stated] Denis 09.10 — выбрал площадки, а ушло только в ботов.
+       Площадки здесь теперь работают: ссылка на телемост уходит в отмеченные
+       кнопкой «Разослать ссылку на встречу» ниже. Кнопка анонса эфира спит */
+    el.textContent = 'Событие без эфира — отметь площадки: ссылка на телемост уйдёт в них и подписчикам бота кнопкой «Разослать ссылку на встречу» ниже.';
     if (btn) btn.disabled = true;
+    renderAnnounceTargets();
+    evMeetupCheck();
     return;
   }
   if (btn) btn.disabled = false;
@@ -7644,9 +7650,47 @@ async function evSendMeetup(){
     const r2 = await fetch(API + '/campaigns/' + id + '/send-meetup?x_admin_token=' + ADMIN_TOKEN, { method:'POST' });
     const d2 = await r2.json();
     if (!r2.ok) throw new Error(d2.detail || ('сервер ответил ' + r2.status));
-    if (out) out.textContent = 'Ушло. Встреча идёт — вечная ссылка ведёт на телемост. Не забудь отметить встречу завершённой в кампаниях.';
+    let rep = 'Бот: ушло подписчикам списка.';
+    /* admin-v187: и в отмеченные площадки (кроме бота — ему ушло кампанией) */
+    const ids = Array.prototype.map.call(document.querySelectorAll('.ann-t:checked'), function(x){ return parseInt(x.value, 10); });
+    if (ids.length){
+      try{
+        const r3 = await fetch(API + '/admin/meetup/announce?x_admin_token=' + ADMIN_TOKEN, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ url: d.meet_link, title: d.title || '', text: d.desc || '', label: d.meet_label || '', target_ids: ids }) });
+        const d3 = await r3.json();
+        if (!r3.ok) throw new Error(d3.detail || r3.status);
+        rep += '\n' + (d3.report || []).map(function(x){ return (x.ok ? '✓ ' : '✗ ') + x.name + (x.ok ? (x.note && /^https?:/.test(x.note) ? ' · ' + x.note : '') : ' — ' + x.error); }).join('\n');
+      }catch(e){ rep += '\nПлощадки: не ушло — ' + (e.message || e); }
+    }
+    if (out) out.textContent = rep + '\nВстреча идёт — вечная ссылка ведёт на телемост. Когда закончишь — «Встреча завершена» ниже (иначе погаснет сама через 6 часов).';
+    evMeetupCheck();
     loadCampaigns && loadCampaigns();
   }catch(e){ if (out) out.textContent = 'Не ушло: ' + (e.message || e); }
+}
+/* admin-v187: «Встреча завершена» прямо здесь, а не в кампаниях */
+let evMeetupLive = null;
+async function evMeetupCheck(){
+  const b = document.getElementById('ev-meetup-finish'); if (!b) return;
+  try{
+    const r = await fetch(API + '/admin/meetup/current?x_admin_token=' + ADMIN_TOKEN);
+    const d = await r.json();
+    evMeetupLive = (d && d.meeting) || null;
+  }catch(e){ evMeetupLive = null; }
+  b.style.display = evMeetupLive ? '' : 'none';
+  if (evMeetupLive) b.textContent = 'Встреча завершена · «' + (evMeetupLive.title || 'встреча') + '»';
+}
+async function evFinishMeetup(){
+  if (!evMeetupLive) return;
+  if (!confirm('Отметить встречу «' + (evMeetupLive.title || '') + '» завершённой? Вечная ссылка перестанет вести на телемост.')) return;
+  try{
+    const r = await fetch(API + '/campaigns/' + evMeetupLive.id + '/finish-meeting?x_admin_token=' + ADMIN_TOKEN, { method:'POST' });
+    const d = await r.json().catch(function(){ return {}; });
+    if (!r.ok) throw new Error(d.detail || r.status);
+    const out = document.getElementById('ev-meetup-out'); if (out) out.textContent = 'Встреча завершена.';
+  }catch(e){ alert('Не получилось: ' + (e.message || e)); }
+  evMeetupCheck();
+  loadCampaigns && loadCampaigns();
 }
 /* ── реакции: наборы и порог уровня ── */
 async function evLoadReactions(){
@@ -21152,6 +21196,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v186</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v187</div>
 </body>
 </html>
