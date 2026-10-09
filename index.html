@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v184 -->
+<!-- FILE_VERSION: admin-v185 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4831,6 +4831,8 @@ function openPopup(uid){
     ['Telegram', idCell(u.telegram_id, u.username ? 'https://t.me/'+encodeURIComponent(String(u.username).replace(/^@/,'')) : '',
                         u.username ? '@'+escapeHtmlAdm(String(u.username).replace(/^@/,'')) : '')],
     ['ВКонтакте', idCell(u.vk_id, u.vk_id ? 'https://vk.ru/id'+u.vk_id : '', u.vk_id ? 'профиль' : '')],
+    /* admin-v185: MAX — из указателей; вписать руками, если человек прислал айди */
+    ['MAX', idCell(u.max_id, '', '') + ' <a class="id-link" href="#" onclick="admSetMaxId('+u.id+');return false">'+(u.max_id?'добавить ещё':'вписать')+'</a>'],
     ['Тариф',u.sub_name||'—'],
     ['Баллы',`<b>${u.points||0}</b>`],
     ['Следующий платёж',u.next_payment_date||'—'],
@@ -9104,6 +9106,17 @@ async function liveStart(){
 /* Ячейка идентификатора: сам номер копируется одним нажатием, рядом — ссылка
    на профиль. Denis попросил, чтобы можно было быстро выйти на человека, а не
    выделять цифры мышью в попапе. */
+async function admSetMaxId(uid){
+  const v = prompt('MAX-айди человека (число):', '');
+  if (!v) return;
+  try {
+    const r = await fetch(API + '/admin/users/' + uid + '/max-id?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ max_id: v }) });
+    const d = await r.json().catch(function(){ return {}; });
+    if (!r.ok){ alert('Не записалось: ' + (d.detail || r.status)); return; }
+    alert(d.result === 'known' ? 'Этот айди уже был у карточки' : 'Записано. Обнови список, чтобы увидеть в карточке');
+  } catch(e){ alert('Сеть: ' + e.message); }
+}
 function idCell(id, link, linkLabel){
   const parts = [];
   if (id){
@@ -21035,6 +21048,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v184</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v185</div>
 </body>
 </html>
