@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v187 -->
+<!-- FILE_VERSION: admin-v188 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1250,6 +1250,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <button class="action-btn" onclick="openWavesPopup()">Волны приглашений</button>
           <button class="action-btn" onclick="openPxPopup()">Экспорт для Design</button>
           <button class="action-btn" onclick="openLinkGenPopup()">Генератор ссылок</button>
+          <button class="action-btn" onclick="openClPopup('')">Ссылки на занятия</button>
         </div>
       </div>
     </div>
@@ -1537,6 +1538,30 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       </div>
       <div id="refposts-list"><div class="loading">Загрузка...</div></div>
       <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closeRefPostsPopup()">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- admin-v188 · ССЫЛКИ НА ЗАНЯТИЯ ДЛЯ ПОСТОВ (main-v429) -->
+<div class="popup-overlay popup-centered" id="cl-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeClPopup()">
+  <div class="popup" style="max-width:620px">
+    <button class="popup-close-x" onclick="closeClPopup()" title="Закрыть">✕</button>
+    <div class="popup-body" style="padding-top:20px">
+      <div class="popup-section-title" style="margin-top:0">Ссылки на занятия для постов</div>
+      <div style="font-size:11.5px;color:var(--text-faint);margin-bottom:10px;line-height:1.5">
+        Выбери занятие и что открыть — получишь ссылки для Telegram, ВК и MAX. Подпись («пост ТГ 12.10») — чтобы потом
+        видеть, какой пост привёл людей: у каждой ссылки считаются открытия и оплаты после. Гость без подписки получит то,
+        что у занятия открыто: кусочек видео, начало аудио или главные мысли.
+      </div>
+      <input class="popup-input" id="cl-q" placeholder="Поиск занятия: название или адрес" oninput="clSearchSoon()" style="margin-bottom:6px">
+      <div id="cl-lecs" style="max-height:170px;overflow:auto;margin-bottom:8px"></div>
+      <div id="cl-pick" class="pay-meta" style="margin-bottom:6px"></div>
+      <div id="cl-modes" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"></div>
+      <input class="popup-input" id="cl-label" placeholder="Подпись: где опубликуешь (пост ТГ 12.10)" style="margin-bottom:6px">
+      <button class="popup-save" onclick="clCreate()">Создать ссылки</button>
+      <div id="cl-new" style="margin-top:10px"></div>
+      <div class="popup-section-title" style="margin-top:16px">Сохранённые <span id="cl-list-for" style="font-weight:400;color:var(--text-faint)"></span></div>
+      <div id="cl-list"><div class="loading">Загрузка...</div></div>
     </div>
   </div>
 </div>
@@ -16647,6 +16672,111 @@ async function deleteBonus(key){
 
 /* ── Заготовки постов для приглашений ─────────────────────────────────────── */
 
+/* ══ admin-v188 · ССЫЛКИ НА ЗАНЯТИЯ ДЛЯ ПОСТОВ (main-v429) ═══════════════════
+   [stated] Denis 10.10: в посты ТГ и ВК — ссылки на аудио, выжимку и карточку
+   занятия. Генератор живёт на сервере (/admin/content-links), анализатор и
+   учёт зовут те же ручки — здесь только окно */
+var clSel = { slug: '', title: '', mode: '', avail: {} }, clTimer = null;
+function clUrl(p){ return API + p + (p.indexOf('?') < 0 ? '?' : '&') + 'x_admin_token=' + encodeURIComponent(ADMIN_TOKEN); }
+function openClPopup(slug){
+  document.getElementById('cl-popup-overlay').classList.add('open');
+  document.getElementById('cl-new').innerHTML = '';
+  clSel = { slug: slug || '', title: '', mode: '', avail: {} };
+  clSearch(); clLoadList(); clRenderPick();
+}
+function closeClPopup(){ document.getElementById('cl-popup-overlay').classList.remove('open'); }
+function clSearchSoon(){ clearTimeout(clTimer); clTimer = setTimeout(clSearch, 300); }
+async function clSearch(){
+  var box = document.getElementById('cl-lecs');
+  try {
+    var q = document.getElementById('cl-q').value.trim();
+    var d = await (await fetch(clUrl('/admin/content-links/lectures?q=' + encodeURIComponent(q)))).json();
+    window._clLecs = d.lectures || [];
+    if (clSel.slug && !clSel.title){
+      var f = _clLecs.find(function(l){ return l.slug === clSel.slug; });
+      if (f) clChoose(clSel.slug);
+    }
+    box.innerHTML = _clLecs.map(function(l){
+      return '<div class="pay-item" style="cursor:pointer;' + (l.slug === clSel.slug ? 'outline:2px solid var(--warm,#e8614a);' : '') + '" onclick="clChoose(' + jsArg(l.slug) + ')">'
+        + '<div style="flex:1;min-width:0"><div class="pay-name">' + elEsc(l.title || l.slug) + '</div>'
+        + '<div class="pay-meta">' + [l.audio ? 'аудио' : '', l.insights ? 'выжимка' : '', l.free_piece ? 'кусочек видео' : ''].filter(Boolean).join(' · ')
+        + ' · гость увидит: ' + elEsc(l.guest_sees) + '</div></div></div>';
+    }).join('') || '<div class="pay-meta">Ничего не нашлось</div>';
+  } catch(e){ box.innerHTML = '<div class="pay-meta">Не загрузилось: ' + elEsc(e.message) + '</div>'; }
+}
+function clChoose(slug){
+  var l = (window._clLecs || []).find(function(x){ return x.slug === slug; }) || { slug: slug, title: slug };
+  clSel.slug = l.slug; clSel.title = l.title || l.slug; clSel.avail = l;
+  if (clSel.mode === 'audio' && !l.audio) clSel.mode = '';
+  if (clSel.mode === 'insights' && !l.insights) clSel.mode = '';
+  clRenderPick(); clSearchRedraw(); clLoadList();
+}
+function clSearchRedraw(){ var q = document.getElementById('cl-q'); if (q) clSearch(); }
+function clRenderPick(){
+  document.getElementById('cl-pick').innerHTML = clSel.slug ? 'Занятие: <b>' + elEsc(clSel.title || clSel.slug) + '</b>' : 'Выбери занятие в списке';
+  var a = clSel.avail || {};
+  var modes = [['', 'Карточка занятия', true], ['audio', 'Аудиоверсия', !!a.audio], ['insights', 'Выжимка', !!a.insights]];
+  document.getElementById('cl-modes').innerHTML = modes.map(function(m){
+    var on = clSel.mode === m[0];
+    return '<button class="action-btn" ' + (m[2] ? '' : 'disabled title="У занятия этого нет" ') + 'style="' + (on ? 'outline:2px solid var(--warm,#e8614a);' : '') + (m[2] ? '' : 'opacity:.4;') + '" onclick="clSel.mode=' + jsArg(m[0]) + ';clRenderPick()">' + m[1] + '</button>';
+  }).join('');
+  document.getElementById('cl-list-for').textContent = clSel.slug ? '— этого занятия' : '— все';
+}
+function clUrlsHtml(u){
+  var rows = [['Telegram', u.tg], ['ВКонтакте', u.vk], ['MAX', u.max]].filter(function(r){ return r[1]; });
+  return rows.map(function(r){
+    return '<div style="display:flex;gap:6px;align-items:center;margin-top:4px"><span class="pay-meta" style="width:74px;flex-shrink:0">' + r[0] + '</span>'
+      + '<input class="popup-input" style="flex:1;margin:0;font-size:11.5px" readonly value="' + elEsc(r[1]) + '" onclick="this.select()">'
+      + '<button class="action-btn" onclick="clCopy(this,' + jsArg(r[1]) + ')">Копировать</button></div>';
+  }).join('');
+}
+async function clCopy(btn, text){
+  try { await navigator.clipboard.writeText(text); btn.textContent = 'Скопировано'; setTimeout(function(){ btn.textContent = 'Копировать'; }, 1400); }
+  catch(e){ prompt('Скопируй:', text); }
+}
+async function clCreate(){
+  if (!clSel.slug){ alert('Выбери занятие'); return; }
+  var r = await fetch(clUrl('/admin/content-links'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slug: clSel.slug, mode: clSel.mode, label: document.getElementById('cl-label').value.trim(), source: 'admin' }) });
+  var d = await r.json().catch(function(){ return {}; });
+  if (!r.ok){ alert('Не создалось: ' + (d.detail || r.status)); return; }
+  document.getElementById('cl-new').innerHTML = '<div style="border:1px solid var(--line);border-radius:10px;padding:10px">'
+    + '<div class="pay-name">' + elEsc(d.link.mode_label) + (d.link.label ? ' · ' + elEsc(d.link.label) : '') + '</div>'
+    + '<div class="pay-meta">Гость без подписки увидит: ' + elEsc((d.link.available || {}).guest_sees || '') + '</div>'
+    + clUrlsHtml(d.link.urls) + '</div>';
+  document.getElementById('cl-label').value = '';
+  clLoadList();
+}
+async function clLoadList(){
+  var box = document.getElementById('cl-list');
+  try {
+    var d = await (await fetch(clUrl('/admin/content-links' + (clSel.slug ? '?slug=' + encodeURIComponent(clSel.slug) : '')))).json();
+    window._clLinks = d.links || [];
+    box.innerHTML = _clLinks.map(function(l){
+      return '<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px">'
+        + '<div class="pay-name">' + elEsc(l.title || l.slug) + ' · ' + elEsc(l.mode_label) + '</div>'
+        + '<div class="pay-meta">' + elEsc(l.label || 'без подписи') + ' · ' + elEsc(l.created_msk)
+        + ' · открыли: <b>' + l.opens + '</b> · оплатили после: <b>' + l.paid + '</b>' + (l.source && l.source !== 'admin' ? ' · завёл: ' + elEsc(l.source) : '') + '</div>'
+        + clUrlsHtml(l.urls)
+        + '<div style="display:flex;gap:6px;margin-top:6px"><button class="action-btn" onclick="clEdit(' + l.id + ')">Подпись</button>'
+        + '<button class="action-btn" onclick="clDel(' + l.id + ')">Удалить</button></div></div>';
+    }).join('') || '<div class="pay-meta">Ссылок пока нет</div>';
+  } catch(e){ box.innerHTML = '<div class="pay-meta">Не загрузилось: ' + elEsc(e.message) + '</div>'; }
+}
+async function clEdit(id){
+  var l = (window._clLinks || []).find(function(x){ return x.id === id; }); if (!l) return;
+  var v = prompt('Подпись ссылки:', l.label || ''); if (v === null) return;
+  var r = await fetch(clUrl('/admin/content-links/' + id), { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slug: l.slug, mode: l.mode, label: v, source: l.source || 'admin' }) });
+  if (!r.ok){ var d = await r.json().catch(function(){ return {}; }); alert('Не сохранилось: ' + (d.detail || r.status)); }
+  clLoadList();
+}
+async function clDel(id){
+  if (!confirm('Удалить запись? Уже опубликованная ссылка продолжит открывать занятие, просто перестанет считаться.')) return;
+  await fetch(clUrl('/admin/content-links/' + id), { method: 'DELETE' });
+  clLoadList();
+}
+
 /* ══ admin-v186 · ЭКСПОРТ ДЛЯ DESIGN (main-v424) ═══════════════════════════
    [stated] Denis 09.10: промо-видео и сториз через Claude Design — нужен
    настоящий кусок приложения, а не скриншот, который Design перерисует на
@@ -21196,6 +21326,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v187</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v188</div>
 </body>
 </html>
