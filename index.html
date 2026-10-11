@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v189 -->
+<!-- FILE_VERSION: admin-v190 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -10624,6 +10624,43 @@ async function frDeleteFrame(key){
     frLoad();
   } catch (e){ frSay('Не вышло: ' + e.message); }
 }
+
+/* ══ v190 · ПОЛОСА ЗАПАСНОГО СЕРВЕРА ══════════════════════════════════════
+   [stated] Denis 11.10.2026: «очень важно, чтобы я знал, что приложение
+   переключилось на рейлвей». Главный сигнал — сообщение в админский чат от
+   самого Railway; эта полоса — второй. Спрашиваем запасной напрямую (его
+   адрес не зависит от Timeweb), раз в 2 минуты. Всё спокойно — полосы нет. */
+const SB_URL = 'https://club-backend-production-fc7f.up.railway.app';
+async function sbBarCheck(){
+  let v = null;
+  try {
+    const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 8000);
+    const r = await fetch(SB_URL + '/standby/verdict', { signal: ctl.signal, cache: 'no-store' });
+    clearTimeout(tm);
+    if (r.ok) v = await r.json();
+  } catch (e) {}
+  let bar = document.getElementById('sb-bar');
+  let text = '';
+  if (v && v.primary_down){
+    text = '🔴 Timeweb молчит ' + (v.down_min || 0) + ' мин. ' +
+      (v.accept ? 'Приложения участников уходят на запасной (Railway).' : 'Запасной приложения НЕ принимает — копия базы старая.');
+  } else if (v && v.frozen){
+    text = '⏸ Копия базы на запасном на паузе: там есть свои записи после сбоя. Что с ними делать — спроси Claude.';
+  }
+  if (!text){ if (bar) bar.remove(); return; }
+  if (!bar){
+    bar = document.createElement('div');
+    bar.id = 'sb-bar';
+    bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#b3261e;color:#fff;' +
+      'font:600 13px/1.4 system-ui,sans-serif;text-align:center;padding:8px 14px';
+    document.body.appendChild(bar);
+  }
+  bar.textContent = text;
+}
+document.addEventListener('DOMContentLoaded', function(){
+  sbBarCheck();
+  setInterval(sbBarCheck, 120000);
+});
 
 /* ── Загрузка рамок: замер, посадка, ручная доводка ─────────────────────── */
 document.addEventListener('DOMContentLoaded', function(){
@@ -21334,6 +21371,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v189</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v190</div>
 </body>
 </html>
