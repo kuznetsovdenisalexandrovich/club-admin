@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v188 -->
+<!-- FILE_VERSION: admin-v189 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1553,8 +1553,9 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         видеть, какой пост привёл людей: у каждой ссылки считаются открытия и оплаты после. Гость без подписки получит то,
         что у занятия открыто: кусочек видео, начало аудио или главные мысли.
       </div>
+      <div id="cl-streams" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px"></div>
       <input class="popup-input" id="cl-q" placeholder="Поиск занятия: название или адрес" oninput="clSearchSoon()" style="margin-bottom:6px">
-      <div id="cl-lecs" style="max-height:170px;overflow:auto;margin-bottom:8px"></div>
+      <div id="cl-lecs" style="max-height:260px;overflow:auto;margin-bottom:8px"></div>
       <div id="cl-pick" class="pay-meta" style="margin-bottom:6px"></div>
       <div id="cl-modes" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"></div>
       <input class="popup-input" id="cl-label" placeholder="Подпись: где опубликуешь (пост ТГ 12.10)" style="margin-bottom:6px">
@@ -16676,7 +16677,7 @@ async function deleteBonus(key){
    [stated] Denis 10.10: в посты ТГ и ВК — ссылки на аудио, выжимку и карточку
    занятия. Генератор живёт на сервере (/admin/content-links), анализатор и
    учёт зовут те же ручки — здесь только окно */
-var clSel = { slug: '', title: '', mode: '', avail: {} }, clTimer = null;
+var clSel = { slug: '', title: '', mode: '', avail: {} }, clTimer = null, clStream = '';
 function clUrl(p){ return API + p + (p.indexOf('?') < 0 ? '?' : '&') + 'x_admin_token=' + encodeURIComponent(ADMIN_TOKEN); }
 function openClPopup(slug){
   document.getElementById('cl-popup-overlay').classList.add('open');
@@ -16690,8 +16691,15 @@ async function clSearch(){
   var box = document.getElementById('cl-lecs');
   try {
     var q = document.getElementById('cl-q').value.trim();
-    var d = await (await fetch(clUrl('/admin/content-links/lectures?q=' + encodeURIComponent(q)))).json();
+    var d = await (await fetch(clUrl('/admin/content-links/lectures?q=' + encodeURIComponent(q) + '&stream=' + encodeURIComponent(clStream)))).json();
     window._clLecs = d.lectures || [];
+    /* admin-v189: вкладки потоков — занятий много, листать один список неудобно */
+    var sb = document.getElementById('cl-streams');
+    if (sb) sb.innerHTML = [{ key: '', title: 'Свежие', count: 0 }].concat(d.streams || []).map(function(st){
+      var on = st.key === clStream;
+      return '<button class="action-btn" style="flex-shrink:0;white-space:nowrap;' + (on ? 'outline:2px solid var(--warm,#e8614a);' : '') + '" onclick="clStream=' + jsArg(st.key) + ';clSearch()">'
+        + elEsc(st.title) + (st.count ? ' · ' + st.count : '') + '</button>';
+    }).join('');
     if (clSel.slug && !clSel.title){
       var f = _clLecs.find(function(l){ return l.slug === clSel.slug; });
       if (f) clChoose(clSel.slug);
@@ -21326,6 +21334,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v188</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v189</div>
 </body>
 </html>
