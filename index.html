@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v195 -->
+<!-- FILE_VERSION: admin-v196 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -439,6 +439,18 @@ header{padding:calc(max(env(safe-area-inset-top), 8px) + 20px) 0 16px;display:fl
 
 /* Тумблер (не чекбокс браузера) — тёплый оранжевый стиль по референсу Denis'а,
    с мягким свечением вокруг дорожки во включённом состоянии */
+/* admin-v196: ОКНО ДАЙДЖЕСТА НА ТЕЛЕФОНЕ. 13.10 Denis: окно «горизонтально
+   плывёт за пальцем», поля выходят за рамки, выпадающие списки тоньше кнопок.
+   Причина плыва — содержимое шире окна (поле даты, строки с четырьмя кнопками):
+   появлялась горизонтальная прокрутка. Режем её и держим поля в ширине окна */
+#digest-overlay .popup, #digest-overlay .popup-body{overflow-x:hidden;touch-action:pan-y}
+#digest-overlay input, #digest-overlay select, #digest-overlay textarea{max-width:100%;box-sizing:border-box}
+#digest-overlay select{min-height:46px;padding:10px 36px 10px 14px;border-radius:14px;font-size:14px;line-height:1.3}
+#digest-overlay input[type="date"]{width:100%;min-height:46px;padding:10px 14px;border-radius:14px;font-size:15px;
+  border:1px solid var(--line);background:var(--stat-bg);color:var(--text);font-family:inherit;-webkit-appearance:none;appearance:none}
+.dg-chip{display:inline-block;padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:var(--stat-bg);
+  font-size:13px;cursor:pointer;margin:0 6px 6px 0}
+.dg-chip.on{background:#e8834a;color:#fff;border-color:transparent}
 .dg-ed-link{display:inline-block;margin-top:4px;font-size:12px;color:var(--accent,#e8834a);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .toggle-switch{display:inline-flex;align-items:center;gap:9px;cursor:pointer;user-select:none}
 .toggle-switch input{position:absolute;opacity:0;width:0;height:0}
@@ -19567,19 +19579,22 @@ function dgRenderFeed(){
   box.innerHTML = rows.map(function(e){
     /* ⚠️ Скрытая запись НЕ удаляется, а гаснет: снятая с показа мелочь часто
        нужна в следующем, более длинном выпуске. */
-    return '<div class="pay-item" style="align-items:flex-start;opacity:'+(e.visible?'1':'.45')+'">'
-      + '<div style="flex:1;min-width:0">'
+    /* admin-v196: карточка вместо строки — четыре кнопки справа сжимали текст
+       до слова в строке на телефоне */
+    return '<div style="border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px;background:var(--stat-bg);opacity:'+(e.visible?'1':'.5')+'">'
+      + '<div>'
       +   '<div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)">'
       +     escapeHtmlAdm(dgDate(e.date)) + ' · ' + escapeHtmlAdm(dgTypeTitle(e.type))
       +     (e.edited ? ' · правлено руками' : '') + (e.visible ? '' : ' · в выпуски не идёт') + '</div>'
       +   '<div class="pay-name" style="margin-top:2px">' + escapeHtmlAdm(e.title || '(без заголовка)') + '</div>'
       +   (e.text ? '<div style="font-size:12px;opacity:.65;margin-top:2px">' + escapeHtmlAdm(e.text.slice(0,140)) + (e.text.length>140?'…':'') + '</div>' : '')
       + '</div>'
-      + '<button class="action-btn" style="flex-shrink:0" onclick="dgEditEvent('+e.id+')">Править</button>'
-      + (e.type !== 'news' ? '<button class="action-btn" style="flex-shrink:0" title="Сделать из записи новость в приложении" onclick="dgEventToNews('+e.id+')">'+((e.meta && e.meta.news_id) ? 'В новостях' : 'В новости')+'</button>' : '')
-      + '<button class="action-btn" style="flex-shrink:0" title="Запись остаётся, но в выпуски не попадает" onclick="dgToggleEvent('+e.id+')">'+(e.visible?'Не брать в выпуски':'Брать в выпуски')+'</button>'
-      + '<button class="action-btn danger" style="flex-shrink:0" onclick="dgDeleteEvent('+e.id+')">Удалить</button>'
-      + '</div>';
+      + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">'
+      + '<button class="action-btn" style="margin:0" onclick="dgEditEvent('+e.id+')">Править</button>'
+      + (e.type !== 'news' ? '<button class="action-btn" style="margin:0" title="Сделать из записи новость в приложении" onclick="dgEventToNews('+e.id+')">'+((e.meta && e.meta.news_id) ? 'В новостях' : 'В новости')+'</button>' : '')
+      + '<button class="action-btn" style="margin:0" title="Запись остаётся, но в выпуски не попадает" onclick="dgToggleEvent('+e.id+')">'+(e.visible?'Не брать в выпуски':'Брать в выпуски')+'</button>'
+      + '<button class="action-btn danger" style="margin:0" onclick="dgDeleteEvent('+e.id+')">Удалить</button>'
+      + '</div></div>';
   }).join('');
 }
 
@@ -19618,7 +19633,9 @@ function dgShowEventForm(e){
     + '<input id="dg-f-title" class="popup-input" placeholder="Заголовок" value="'+escapeHtmlAdm(e ? e.title : '')+'">'
     + '<textarea id="dg-f-text" class="popup-input" rows="3" placeholder="Текст">'+escapeHtmlAdm(e ? e.text : '')+'</textarea>'
     + '<textarea id="dg-f-links" class="popup-input" rows="2" placeholder="Ссылки, по одной в строке: подпись | адрес">'+escapeHtmlAdm(ссылки)+'</textarea>'
-    + '<input id="dg-f-weight" class="popup-input" type="number" min="0" max="3" placeholder="Вес 1-3 (0 — брать у рода)" value="'+(e ? e.weight : 0)+'">'
+    /* admin-v196: вес спрятан — безымянное «0» в форме только путало; значение
+       по-прежнему уходит на сервер, правка записи его не теряет */
+    + '<input id="dg-f-weight" type="hidden" value="'+(e ? e.weight : 0)+'">'
     + '<label style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px"><span style="font-size:11px;color:var(--text-faint)">Кнопка «Открыть» внутри приложения — куда ведёт</span>'
     +   '<select id="dg-f-route" class="popup-input" style="margin:0">' + dgRouteOptions(e && e.meta ? e.meta.route : '') + '</select></label>'
     + '<div style="display:flex;gap:8px">'
@@ -19897,7 +19914,7 @@ async function dgLoadIssues(){
     sel.innerHTML = '<option value="">Без выпуска (просто период)</option>' + rows.map(function(r){
       return '<option value="'+r.id+'">'+escapeHtmlAdm(r.title||r.slug)+'</option>';
     }).join('');
-    if(!rows.length){ box.innerHTML = '<div style="opacity:.6;font-size:13px">Выпусков ещё нет. Заведи черновик — период возьмётся из пульта.</div>'; return; }
+    if(!rows.length){ box.innerHTML = '<div style="opacity:.6;font-size:13px">Выпусков ещё нет — заведи первый номер кнопкой выше.</div>'; return; }
     /* admin-v193: КАРТОЧКА НОМЕРА ВМЕСТО СТРОКИ. Двенадцать кнопок в одну строку
        на телефоне выдавливали описание в столбик по слову (13.10, Denis: «всё
        плохо и непонятно»). Теперь: название и статус, период словами, потом
@@ -20633,59 +20650,84 @@ function qaCopy(text){
   } else prompt('Скопируй:', text);
 }
 
+/* admin-v196: НОВЫЙ НОМЕР — КАЛЕНДАРЁМ И ГОТОВЫМИ ПЕРИОДАМИ. [stated] Denis
+   13.10: «выбор дат надо сделать юзер френдли, не текстовым вводом». Два поля
+   даты (на телефоне открывают системный календарь) и кнопки частых периодов.
+   Даты — московские, включительно; конец не позже сегодняшнего дня */
+function dgYmd(d){ return d.toISOString().slice(0,10); }
+function dgMskToday(){ return new Date(Date.now() + 3*3600000); }
+function dgNewIssueForm(){
+  const box = document.getElementById('dg-new-issue');
+  if (box.style.display === 'block'){ box.style.display = 'none'; return; }
+  const сег = dgMskToday();
+  const нач = new Date(Date.UTC(сег.getUTCFullYear(), сег.getUTCMonth() - 1, 1));
+  box.style.display = 'block';
+  box.innerHTML = '<div style="border:1px solid var(--line);border-radius:16px;padding:14px;background:var(--stat-bg)">'
+    + '<div style="font-weight:700;margin-bottom:8px">За какой период номер</div>'
+    + '<div id="dg-ni-chips">'
+    +   '<span class="dg-chip" onclick="dgNiPreset(\'prev\')">Прошлый месяц</span>'
+    +   '<span class="dg-chip" onclick="dgNiPreset(\'cur\')">Этот месяц</span>'
+    +   '<span class="dg-chip on" onclick="dgNiPreset(\'two\')">Прошлый и этот</span>'
+    + '</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">'
+    +   '<label style="font-size:12px;opacity:.75">С какого дня<input type="date" id="dg-ni-from" value="'+dgYmd(нач)+'" max="'+dgYmd(сег)+'" onchange="dgNiChips()"></label>'
+    +   '<label style="font-size:12px;opacity:.75">По какой<input type="date" id="dg-ni-to" value="'+dgYmd(сег)+'" max="'+dgYmd(сег)+'" onchange="dgNiChips()"></label>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">'
+    +   '<button class="action-btn" style="margin:0;background:#e8834a !important;color:#fff !important;border-color:transparent !important" onclick="dgCreateIssue()">Завести номер</button>'
+    +   '<button class="action-btn" style="margin:0" onclick="document.getElementById(\'dg-new-issue\').style.display=\'none\'">Отмена</button>'
+    + '</div></div>';
+}
+function dgNiChips(){
+  document.querySelectorAll('#dg-ni-chips .dg-chip').forEach(function(c){ c.classList.remove('on'); });
+}
+function dgNiPreset(вид){
+  const сег = dgMskToday();
+  const г = сег.getUTCFullYear(), м = сег.getUTCMonth();
+  let от, до;
+  if (вид === 'prev'){ от = new Date(Date.UTC(г, м - 1, 1)); до = new Date(Date.UTC(г, м, 0)); }
+  else if (вид === 'cur'){ от = new Date(Date.UTC(г, м, 1)); до = сег; }
+  else { от = new Date(Date.UTC(г, м - 1, 1)); до = сег; }
+  document.getElementById('dg-ni-from').value = dgYmd(от);
+  document.getElementById('dg-ni-to').value = dgYmd(до);
+  dgNiChips();
+  const i = {prev:0, cur:1, two:2}[вид];
+  const c = document.querySelectorAll('#dg-ni-chips .dg-chip')[i];
+  if (c) c.classList.add('on');
+}
 async function dgCreateIssue(){
-  /* admin-v194: НОМЕР НА ЛЮБОЙ ПЕРИОД, А НЕ ТОЛЬКО НА МЕСЯЦ. [stated] Denis
-     13.10: первый выпуск — «один общий за полтора месяца». Месяц (2026-09)
-     по-прежнему даёт ровно календарный месяц по Москве; две даты через пробел
-     — период с первой по вторую включительно. Подсказка по умолчанию — с
-     первого числа прошлого месяца по сегодня */
-  var сегодня = new Date(Date.now() + 3*3600000);           // московская дата
-  var пр = new Date(Date.UTC(сегодня.getUTCFullYear(), сегодня.getUTCMonth() - 1, 1));
-  var подсказка = пр.toISOString().slice(0,10) + ' ' + сегодня.toISOString().slice(0,10);
-  var ввод = prompt('Период номера.\nМесяц — например 2026-09.\nИли с какого по какое число — две даты через пробел:', подсказка);
-  if(!ввод) return;
-  ввод = ввод.trim();
-  var до = new Date();
-  var дней = Number(document.getElementById('dg-days').value || 35);
-  var от = new Date(до.getTime() - дней*86400000);
-  var месяц = '', ключ = '';
-  var мм = /^(\d{4})-(\d{2})$/.exec(ввод);
-  var дд = /^(\d{4})-(\d{2})-(\d{2})\s*(?:—|-|–|\s)\s*(\d{4})-(\d{2})-(\d{2})$/.exec(ввод);
-  if (мм){
-    /* v136: выпуск за месяц — РОВНО этот месяц по Москве. Текущий — по сегодня */
-    var г = Number(мм[1]), м = Number(мм[2]);
-    var начало = new Date(Date.UTC(г, м - 1, 1) - 3*3600000);
-    var конец  = new Date(Date.UTC(г, м, 1) - 3*3600000 - 1000);
-    if (начало < до){
-      от = начало;
-      до = конец < до ? конец : до;
-    }
-    месяц = ключ = ввод;
-  } else if (дд){
-    от = new Date(Date.UTC(+дд[1], +дд[2]-1, +дд[3]) - 3*3600000);
-    var конец2 = new Date(Date.UTC(+дд[4], +дд[5]-1, +дд[6] + 1) - 3*3600000 - 1000);
-    до = конец2 < до ? конец2 : до;
-    if (от >= до){ alert('Начало периода позже конца — проверь даты'); return; }
-    /* Ключ номера — месяцы, которые он накрывает: 2026-09-10 */
-    месяц = дд[4] + '-' + дд[5];
-    ключ = (дд[1] === дд[4] && дд[2] === дд[5]) ? месяц
-         : (дд[1] === дд[4] ? дд[1] + '-' + дд[2] + '-' + дд[5] : дд[1] + '-' + дд[2] + '-' + дд[4] + '-' + дд[5]);
-  } else {
-    alert('Не понял период. Пример: 2026-09 или 2026-09-01 2026-10-13');
-    return;
-  }
-  дней = Math.max(1, Math.round((до - от) / 86400000));
-  var выпуск = {slug:ключ, month:месяц};
+  const a = document.getElementById('dg-ni-from').value, b = document.getElementById('dg-ni-to').value;
+  if (!a || !b){ alert('Выбери обе даты'); return; }
+  if (a > b){ alert('Начало периода позже конца — поменяй даты местами'); return; }
+  const x = a.split('-').map(Number), y = b.split('-').map(Number);
+  /* Начало дня и конец дня по Москве — в UTC для сервера */
+  let от = new Date(Date.UTC(x[0], x[1]-1, x[2]) - 3*3600000);
+  let до = new Date(Date.UTC(y[0], y[1]-1, y[2] + 1) - 3*3600000 - 1000);
+  const сейчас = new Date();
+  if (до > сейчас) до = сейчас;
+  /* Ключ номера: целый календарный месяц — «2026-09», иначе месяцы периода — «2026-09-10» */
+  const конецМесяца = new Date(Date.UTC(y[0], y[1], 0)).getUTCDate();
+  const весьМесяц = x[0] === y[0] && x[1] === y[1] && x[2] === 1 && y[2] === конецМесяца;
+  const мм = function(v){ return String(v).padStart(2,'0'); };
+  let ключ;
+  if (x[0] === y[0] && x[1] === y[1]) ключ = весьМесяц ? x[0]+'-'+мм(x[1]) : a + '_' + мм(y[2]);
+  else if (x[0] === y[0]) ключ = x[0]+'-'+мм(x[1])+'-'+мм(y[1]);
+  else ключ = x[0]+'-'+мм(x[1])+'-'+y[0]+'-'+мм(y[1]);
+  const дней = Math.max(1, Math.round((до - от) / 86400000));
   try{
-    var r = await fetch(API+'/admin/digest/issues?x_admin_token='+ADMIN_TOKEN, {method:'POST',
+    const r = await fetch(API+'/admin/digest/issues?x_admin_token='+ADMIN_TOKEN, {method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({slug:выпуск.slug, month:выпуск.month, title:'',
+      body: JSON.stringify({slug:ключ, month:y[0]+'-'+мм(y[1]), title:'',
         period_from: от.toISOString().slice(0,19), period_to: до.toISOString().slice(0,19),
         column_title:'От ведущего', column_text:'', cover_url:'',
         settings:{days:дней}})});
-    if(!r.ok) throw new Error('сервер ответил '+r.status);
-    dgLoadIssues();
-  }catch(e){ alert('Не завёлся: '+e.message); }
+    const d = await r.json().catch(function(){ return {}; });
+    if (r.status === 409) throw new Error('номер с таким периодом уже есть — открой его в списке');
+    if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
+    document.getElementById('dg-new-issue').style.display = 'none';
+    await dgLoadIssues();
+    if (d.id) dgEditorOpen(d.id);
+  }catch(e){ alert('Номер не завёлся: ' + e.message); }
 }
 
 /* ⚠️ КОЛОНКА — ЕДИНСТВЕННОЕ, ЧЕГО МАШИНА НЕ СОБИРАЕТ. Из-за неё публикация
@@ -21077,6 +21119,8 @@ async function dgDownloadHtml(id){
 
 async function dgOpenPdf(id){
   const w = window.open('', '_blank');
+  /* admin-v196: пустое окно about:blank пугало — пишем, что идёт сборка */
+  try { if (w) w.document.write('<meta name="viewport" content="width=device-width,initial-scale=1"><body style="font-family:-apple-system,system-ui,sans-serif;padding:40px 24px;color:#555">Собираю PDF номера — до минуты…</body>'); } catch(_){}
   try {
     const r = await fetch(API+'/admin/digest/issues/'+id+'/pdf?x_admin_token='+encodeURIComponent(ADMIN_TOKEN));
     if (!r.ok){ const d = await r.json().catch(function(){ return {}; }); throw new Error(d.detail || ('сервер ответил ' + r.status)); }
@@ -21297,7 +21341,8 @@ async function dgOpenPdf(id){
         <div id="dg-editor" style="display:none"></div>
         <div id="dg-issues-home">
         <div style="font-size:12.5px;opacity:.7;line-height:1.5;margin-bottom:10px">Номер собирается сам из жизни клуба за период. «Править номер» — открыть его полосами и дописать слово от себя, поменять картинки, убрать или переставить полосы.</div>
-        <button class="action-btn" onclick="dgCreateIssue()" style="margin-bottom:10px">Завести новый номер</button>
+        <button class="action-btn" onclick="dgNewIssueForm()" style="margin-bottom:10px">Завести новый номер</button>
+        <div id="dg-new-issue" style="display:none;margin-bottom:12px"></div>
         <div id="dg-issues"><div class="loading">Загрузка...</div></div>
         <details style="margin-top:14px"><summary style="cursor:pointer;font-size:13px;opacity:.75;padding:6px 0">Доступ и темы PDF</summary>
         <div class="card" style="padding:12px;margin:10px 0 12px">
@@ -21693,6 +21738,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v195</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v196</div>
 </body>
 </html>
