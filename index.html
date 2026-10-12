@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v191 -->
+<!-- FILE_VERSION: admin-v192 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3957,6 +3957,13 @@ const SETTINGS_META = {
   weblink_title: ['Ссылка в браузер — заголовок', 'Сообщение со ссылкой, которая открывает клуб в обычном браузере', 'text'],
   weblink_body:  ['Ссылка в браузер — текст', 'Уходит по просьбе бота и второй кнопкой в «Не открылось приложение?»', 'area'],
   weblink_btn:   ['Ссылка в браузер — кнопка', '', 'text'],
+  /* admin-v192: что сервер шлёт ботом в MAX — по тумблеру на вид (правила MAX, п. 1.5) */
+  max_send_admin:     ['Уведомления мне', 'Копия всех админских уведомлений в MAX. Приходят, когда ты хоть раз открыл приложение внутри MAX', 'bool'],
+  max_send_support:   ['Ответы поддержки', 'Ответ на обращение уходит в MAX, если Telegram не достал', 'bool'],
+  max_send_weblink:   ['Ссылка «Открыть в браузере»', 'Разовая ссылка входа в браузер — в MAX, если ни Telegram, ни ВК не достали', 'bool'],
+  max_send_nudges:    ['Дожимы', 'Письма ситуаций и цепочек — в MAX, если Telegram и ВК не достали (до пуша)', 'bool'],
+  max_send_logincode: ['Код входа', 'Код для входа в клуб приходит и в MAX. По правилам MAX это «авторизационное сообщение» — включать, если договор позволяет', 'bool'],
+  max_login_code_text: ['Текст кода входа в MAX', 'Вместо {код} подставится сам код', 'area'],
   vk_nudge2_block: ['ВК: блок с двумя кнопками заведён', 'Включи, когда в Salebot есть блок с условием ^nudge2_ — тогда «Не открылось приложение?» во ВКонтакте придёт с кнопкой «Открыть в браузере». Выключено — одной кнопкой, как раньше', 'bool'],
   nudge_later_label:        ['Подпись кнопки «напомнить позже»', 'Вторая кнопка в каждом дожиме', 'text'],
   card_change_remind_text:  ['Смена карты: напоминание', 'Уходит через 2 часа, если оплата новой картой так и не прошла', 'area'],
@@ -4069,6 +4076,7 @@ const SETTINGS_GROUPS = [
   ['Детектор растерянности', ['funnel_confuse_enabled','funnel_confuse_pay_n','funnel_confuse_pay_min','funnel_confuse_open_n','funnel_confuse_open_min','funnel_confuse_wall_n','funnel_confuse_wall_min']],
   ['Участники', ['app_usage_days','membership_audit_auto']],
   ['Боты-продажники', ['seller_bots']],
+  ['Бот в MAX — что можно слать', ['max_send_admin','max_send_support','max_send_weblink','max_send_nudges','max_send_logincode','max_login_code_text']],
   ['Служебное', ['client_type_vk_value']],
 ];
 
@@ -21443,6 +21451,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v191</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v192</div>
 </body>
 </html>
