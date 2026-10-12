@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v193 -->
+<!-- FILE_VERSION: admin-v194 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -19905,7 +19905,7 @@ async function dgLoadIssues(){
         : '<span style="font-size:11px;padding:3px 9px;border-radius:999px;background:rgba(255,255,255,.08);opacity:.8;white-space:nowrap">черновик</span>';
       return '<div style="border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px;background:var(--stat-bg)">'
         + '<div style="display:flex;align-items:center;gap:10px;justify-content:space-between">'
-        +   '<div style="font-weight:700;font-size:15px;min-width:0">'+escapeHtmlAdm(r.title||dgMonthWords(r.month||r.slug))+'</div>' + статус
+        +   '<div style="font-weight:700;font-size:15px;min-width:0">'+escapeHtmlAdm(r.title||dgMonthWords(r.slug))+'</div>' + статус
         + '</div>'
         + '<div style="font-size:12px;opacity:.65;margin:4px 0 12px">'+dgPeriodWords(r.from, r.to)
         +   (опубликован ? ' · полос '+r.pages : '')
@@ -20630,29 +20630,52 @@ function qaCopy(text){
 }
 
 async function dgCreateIssue(){
-  var месяц = prompt('Месяц выпуска в виде 2026-08:', new Date().toISOString().slice(0,7));
-  if(!месяц) return;
-  var дней = Number(document.getElementById('dg-days').value || 35);
+  /* admin-v194: НОМЕР НА ЛЮБОЙ ПЕРИОД, А НЕ ТОЛЬКО НА МЕСЯЦ. [stated] Denis
+     13.10: первый выпуск — «один общий за полтора месяца». Месяц (2026-09)
+     по-прежнему даёт ровно календарный месяц по Москве; две даты через пробел
+     — период с первой по вторую включительно. Подсказка по умолчанию — с
+     первого числа прошлого месяца по сегодня */
+  var сегодня = new Date(Date.now() + 3*3600000);           // московская дата
+  var пр = new Date(Date.UTC(сегодня.getUTCFullYear(), сегодня.getUTCMonth() - 1, 1));
+  var подсказка = пр.toISOString().slice(0,10) + ' ' + сегодня.toISOString().slice(0,10);
+  var ввод = prompt('Период номера.\nМесяц — например 2026-09.\nИли с какого по какое число — две даты через пробел:', подсказка);
+  if(!ввод) return;
+  ввод = ввод.trim();
   var до = new Date();
+  var дней = Number(document.getElementById('dg-days').value || 35);
   var от = new Date(до.getTime() - дней*86400000);
-  /* v136: выпуск за месяц — период РОВНО этот месяц по Москве, а не «последние
-     N дней от сегодня». Заведённый 3 октября «Сентябрь» иначе захватывал бы
-     конец августа и начало октября. Текущий месяц — по сегодня */
-  var мм = /^(\d{4})-(\d{2})$/.exec(месяц.trim());
+  var месяц = '', ключ = '';
+  var мм = /^(\d{4})-(\d{2})$/.exec(ввод);
+  var дд = /^(\d{4})-(\d{2})-(\d{2})\s*(?:—|-|–|\s)\s*(\d{4})-(\d{2})-(\d{2})$/.exec(ввод);
   if (мм){
+    /* v136: выпуск за месяц — РОВНО этот месяц по Москве. Текущий — по сегодня */
     var г = Number(мм[1]), м = Number(мм[2]);
     var начало = new Date(Date.UTC(г, м - 1, 1) - 3*3600000);
     var конец  = new Date(Date.UTC(г, м, 1) - 3*3600000 - 1000);
     if (начало < до){
       от = начало;
       до = конец < до ? конец : до;
-      дней = Math.max(1, Math.round((до - от) / 86400000));
     }
+    месяц = ключ = ввод;
+  } else if (дд){
+    от = new Date(Date.UTC(+дд[1], +дд[2]-1, +дд[3]) - 3*3600000);
+    var конец2 = new Date(Date.UTC(+дд[4], +дд[5]-1, +дд[6] + 1) - 3*3600000 - 1000);
+    до = конец2 < до ? конец2 : до;
+    if (от >= до){ alert('Начало периода позже конца — проверь даты'); return; }
+    /* Ключ номера — месяцы, которые он накрывает: 2026-09-10 */
+    месяц = дд[4] + '-' + дд[5];
+    ключ = (дд[1] === дд[4] && дд[2] === дд[5]) ? месяц
+         : (дд[1] === дд[4] ? дд[1] + '-' + дд[2] + '-' + дд[5] : дд[1] + '-' + дд[2] + '-' + дд[4] + '-' + дд[5]);
+  } else {
+    alert('Не понял период. Пример: 2026-09 или 2026-09-01 2026-10-13');
+    return;
   }
+  дней = Math.max(1, Math.round((до - от) / 86400000));
+  var выпуск = {slug:ключ, month:месяц};
   try{
     var r = await fetch(API+'/admin/digest/issues?x_admin_token='+ADMIN_TOKEN, {method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({slug:месяц, month:месяц, title:'',
+      body: JSON.stringify({slug:выпуск.slug, month:выпуск.month, title:'',
         period_from: от.toISOString().slice(0,19), period_to: до.toISOString().slice(0,19),
         column_title:'От ведущего', column_text:'', cover_url:'',
         settings:{days:дней}})});
@@ -21492,6 +21515,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v193</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v194</div>
 </body>
 </html>
