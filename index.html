@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v194 -->
+<!-- FILE_VERSION: admin-v195 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -439,6 +439,7 @@ header{padding:calc(max(env(safe-area-inset-top), 8px) + 20px) 0 16px;display:fl
 
 /* Тумблер (не чекбокс браузера) — тёплый оранжевый стиль по референсу Denis'а,
    с мягким свечением вокруг дорожки во включённом состоянии */
+.dg-ed-link{display:inline-block;margin-top:4px;font-size:12px;color:var(--accent,#e8834a);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .toggle-switch{display:inline-flex;align-items:center;gap:9px;cursor:pointer;user-select:none}
 .toggle-switch input{position:absolute;opacity:0;width:0;height:0}
 .toggle-switch .toggle-track{
@@ -19511,7 +19512,8 @@ let dgEditingId = null;
 
 function openDigestPopup(){
   document.getElementById('digest-overlay').classList.add('open');
-  dgTab('feed');
+  /* admin-v195: открываемся на выпусках — с них начинается работа над номером */
+  dgTab('issues');
   dgLoadTypes().then(dgLoadFeed);
   dgLoadThemes().then(dgLoadIssues);
   dgLoadAccess();
@@ -19557,8 +19559,11 @@ async function dgLoadFeed(){
 function dgRenderFeed(){
   var box = document.getElementById('dg-feed');
   var фильтр = document.getElementById('dg-filter').value;
-  var rows = dgEvents.filter(function(e){ return !фильтр || e.type === фильтр; });
-  if(!rows.length){ box.innerHTML = '<div style="opacity:.6;font-size:13px">За этот период в ленте пусто. Нажми «Собрать» — сборщик поднимет занятия, новости и пополнения библиотеки.</div>'; return; }
+  /* admin-v195: БЛИЖАЙШИЕ ВСТРЕЧИ СЕРВЕР КЛАДЁТ САМ на неделю вперёд, править в
+     них нечего, а в общем списке они забивали всё остальное. Видны, только если
+     выбрать этот род в фильтре */
+  var rows = dgEvents.filter(function(e){ return фильтр ? e.type === фильтр : e.type !== 'schedule'; });
+  if(!rows.length){ box.innerHTML = '<div style="opacity:.6;font-size:13px">За этот период записей нет. Сервер подтягивает занятия, мысли и новости сам каждое утро; свою новость можно написать кнопкой выше.</div>'; return; }
   box.innerHTML = rows.map(function(e){
     /* ⚠️ Скрытая запись НЕ удаляется, а гаснет: снятая с показа мелочь часто
        нужна в следующем, более длинном выпуске. */
@@ -19566,14 +19571,14 @@ function dgRenderFeed(){
       + '<div style="flex:1;min-width:0">'
       +   '<div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)">'
       +     escapeHtmlAdm(dgDate(e.date)) + ' · ' + escapeHtmlAdm(dgTypeTitle(e.type))
-      +     ' · вес ' + e.weight + (e.edited ? ' · правлено' : '') + '</div>'
+      +     (e.edited ? ' · правлено руками' : '') + (e.visible ? '' : ' · в выпуски не идёт') + '</div>'
       +   '<div class="pay-name" style="margin-top:2px">' + escapeHtmlAdm(e.title || '(без заголовка)') + '</div>'
       +   (e.text ? '<div style="font-size:12px;opacity:.65;margin-top:2px">' + escapeHtmlAdm(e.text.slice(0,140)) + (e.text.length>140?'…':'') + '</div>' : '')
       + '</div>'
-      + '<button class="action-btn" style="flex-shrink:0" onclick="dgEditEvent('+e.id+')">Изм.</button>'
+      + '<button class="action-btn" style="flex-shrink:0" onclick="dgEditEvent('+e.id+')">Править</button>'
       + (e.type !== 'news' ? '<button class="action-btn" style="flex-shrink:0" title="Сделать из записи новость в приложении" onclick="dgEventToNews('+e.id+')">'+((e.meta && e.meta.news_id) ? 'В новостях' : 'В новости')+'</button>' : '')
-      + '<button class="action-btn" style="flex-shrink:0" onclick="dgToggleEvent('+e.id+')">'+(e.visible?'Скрыть':'Вернуть')+'</button>'
-      + '<button class="action-btn danger" style="flex-shrink:0" onclick="dgDeleteEvent('+e.id+')">Удл.</button>'
+      + '<button class="action-btn" style="flex-shrink:0" title="Запись остаётся, но в выпуски не попадает" onclick="dgToggleEvent('+e.id+')">'+(e.visible?'Не брать в выпуски':'Брать в выпуски')+'</button>'
+      + '<button class="action-btn danger" style="flex-shrink:0" onclick="dgDeleteEvent('+e.id+')">Удалить</button>'
       + '</div>';
   }).join('');
 }
@@ -19742,7 +19747,7 @@ async function dgLoadTypes(){
   }catch(e){ dgTypes = []; }
   dgRenderTypes();
   var f = document.getElementById('dg-filter');
-  f.innerHTML = '<option value="">Все роды</option>' + dgTypes.map(function(t){
+  f.innerHTML = '<option value="">Все, кроме расписания</option>' + dgTypes.map(function(t){
     return '<option value="'+escapeHtmlAdm(t.code)+'">'+escapeHtmlAdm(t.title||t.code)+'</option>';
   }).join('');
 }
@@ -19911,9 +19916,8 @@ async function dgLoadIssues(){
         +   (опубликован ? ' · полос '+r.pages : '')
         +   (r.has_column ? ' · колонка есть' : ' · колонки нет') + '</div>'
         + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">'
-        +   '<button '+кн+' onclick="dgPreviewIssue('+r.id+')">Состав</button>'
+        +   '<button class="action-btn" style="margin:0;background:#e8834a !important;color:#fff !important;border-color:transparent !important" onclick="dgEditorOpen('+r.id+')">Править номер</button>'
         +   '<button '+кн+' onclick="dgEditColumn('+r.id+')">Колонка</button>'
-        +   '<button '+кн+' onclick="dgDecorOpen('+r.id+')">Оформление'+(r.decor_count ? ' · '+r.decor_count : '')+'</button>'
         +   '<button '+кн+' onclick="dgPublish('+r.id+','+(опубликован?'false':'true')+')">'+(опубликован?'Снять с публикации':'Выпустить')+'</button>'
         +   '<button '+кн+' onclick="dgAnnounceOpen('+r.id+')">Анонс</button>'
         + '</div>'
@@ -20767,6 +20771,172 @@ async function dgLoadThemes(){
    Список полос берём из превью номера — ровно тот состав, что уйдёт в выпуск.
    Картинка льётся в хранилище напрямую по подписанной ссылке, как видео сториз */
 let dgDecorIssue = null, dgDecorSlot = '';
+
+/* ══ admin-v195: РЕДАКТОР НОМЕРА ══════════════════════════════════════════
+   [stated] Denis 13.10: номер должен уметь собрать человек без кода (жена), и в
+   нём нужен живой голос — вводное слово, комментарии к мыслям, закрывающее
+   слово, «не принудительно». Номер показывается полосами по порядку; у каждой:
+   слово от себя, картинка, убрать, выше/ниже, правка текста записей.
+   Расположение внутри полосы задаёт вёрстка — слово встаёт в своё место. */
+var dgEdId = null, dgEdPages = [], dgEdHidden = [];
+
+const DG_ED_NAMES = {cover:'Обложка', toc:'Что внутри', column:'Колонка', final:'Финал',
+                     idea:'Мысль', lesson:'Выжимка занятия'};
+const DG_ED_HINTS = {
+  cover:  'Вводное слово — встанет на обложку под заголовком. Например: «Полтора месяца, которые…»',
+  final:  'Закрывающее слово — последние строки номера.',
+  idea:   'Комментарий к мысли — почему она важна, как её применить.',
+  lesson: 'Пара слов о занятии — встанет над пересказом.',
+  column: 'Ещё пара слов под колонкой.',
+  toc:    'Пара слов перед содержанием.'
+};
+function dgEdQ(x){ return JSON.stringify(x).replace(/"/g,'&quot;'); }
+
+async function dgEditorOpen(id){
+  dgEdId = id; dgDecorIssue = id;
+  document.getElementById('dg-issues-home').style.display = 'none';
+  const box = document.getElementById('dg-editor');
+  box.style.display = 'block';
+  if (!dgEdPages.length) box.innerHTML = '<div class="loading">Собираю номер…</div>';
+  try{
+    const d = await fetch(API+'/admin/digest/preview?issue_id='+id+'&x_admin_token='+ADMIN_TOKEN).then(function(r){return r.json();});
+    dgEdPages = d.pages || [];
+    dgEdHidden = d.hidden_pages || [];
+    dgEditorRender();
+  }catch(e){ box.innerHTML = '<div style="opacity:.6">Номер не собрался: '+escapeHtmlAdm(e.message||String(e))+'</div>'; }
+}
+function dgEditorClose(){
+  dgEdId = null; dgEdPages = []; dgEdHidden = [];
+  document.getElementById('dg-editor').style.display = 'none';
+  document.getElementById('dg-issues-home').style.display = '';
+  dgLoadIssues();
+}
+function dgEdSummary(p){
+  if (p.layout === 'cover') return escapeHtmlAdm(p.title || '');
+  if (p.layout === 'idea') return '<div style="font-family:Georgia,serif;font-size:14px;line-height:1.45">'+escapeHtmlAdm(p.text || p.title || '')+'</div>'
+      + (p.lecture ? '<div class="pay-meta" style="margin-top:4px">из занятия «'+escapeHtmlAdm(p.lecture)+'»</div>' : '')
+      + (p.event_id ? '<div><span class="dg-ed-link" onclick="dgEdItemEdit('+p.event_id+')">править текст мысли</span></div><div id="dg-ed-it-'+p.event_id+'"></div>' : '');
+  if (p.layout === 'lesson') return escapeHtmlAdm(p.title || '') + ' · ' + ((p.items||[]).length) + ' мысл.';
+  if (p.layout === 'toc') return (p.items||[]).map(function(r){ return escapeHtmlAdm(r.rubric); }).join(' · ');
+  if (p.layout === 'final') return escapeHtmlAdm(p.title || '');
+  if (p.layout === 'column') return escapeHtmlAdm(String(p.text||'').slice(0,160)) + ' <span class="dg-ed-link" onclick="dgEditColumn('+dgEdId+')">править колонку</span>';
+  return (p.items||[]).map(function(it){
+    return '<div style="padding:6px 0;border-top:1px solid var(--line)">'
+      + '<div style="font-weight:600;font-size:13px">'+escapeHtmlAdm(it.title || '(без заголовка)')+'</div>'
+      + (it.text ? '<div class="pay-meta">'+escapeHtmlAdm(String(it.text).slice(0,140))+(String(it.text).length>140?'…':'')+'</div>' : '')
+      + (it.id && it.type !== 'schedule' ? '<span class="dg-ed-link" onclick="dgEdItemEdit('+it.id+')">править</span>' : '')
+      + '<div id="dg-ed-it-'+it.id+'"></div></div>';
+  }).join('');
+}
+function dgEditorRender(){
+  const box = document.getElementById('dg-editor');
+  const r = (DG_LAST_ISSUES || []).find(function(x){ return x.id === dgEdId; }) || {};
+  const decor = r.decor || {};
+  const кн = 'class="action-btn" style="margin:0;padding:6px 10px;font-size:12px"';
+  let html = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">'
+    + '<button class="action-btn" style="margin:0" onclick="dgEditorClose()">← Все выпуски</button>'
+    + '<div style="font-weight:700;font-size:15px;min-width:0">'+escapeHtmlAdm(r.title || dgMonthWords(r.slug) || '')+'</div></div>'
+    + '<div style="font-size:12.5px;opacity:.7;line-height:1.5;margin:6px 0 12px">Номер полосами, сверху вниз — как его будут листать. '
+    + 'У любой полосы можно написать слово от себя: оно встанет в её вёрстку. Не написал — полоса останется как есть. '
+    + 'Посмотреть, как выглядит, — кнопка «PDF».</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">'
+    +   '<button '+кн+' onclick="dgOpenPdf('+dgEdId+')">PDF</button>'
+    +   '<button '+кн+' onclick="dgEdRename()">Название</button>'
+    +   '<button '+кн+' onclick="dgEditColumn('+dgEdId+')">Колонка</button>'
+    +   '<button '+кн+' title="Если переставлял полосы — вернуть, как собрал сервер" onclick="dgEdPage(\'\',\'reset_order\')">Исходный порядок</button>'
+    + '</div>';
+  html += dgEdPages.map(function(p, i){
+    const slot = p.slot || '';
+    const имя = DG_ED_NAMES[p.layout] || p.rubric || p.layout;
+    const подвижна = p.layout !== 'cover' && p.layout !== 'toc';
+    const url = decor[slot] || '';
+    return '<div style="border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin-bottom:10px;background:var(--stat-bg)">'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+      +   '<div style="font-weight:700;opacity:.5;width:26px">'+String(p.num||i+1).padStart(2,'0')+'</div>'
+      +   '<div style="font-weight:700;flex:1;min-width:0">'+escapeHtmlAdm(имя)+'</div>'
+      +   (подвижна ? '<button '+кн+' title="Выше" onclick="dgEdPage('+dgEdQ(slot)+',\'up\')">↑</button>'
+                     + '<button '+кн+' title="Ниже" onclick="dgEdPage('+dgEdQ(slot)+',\'down\')">↓</button>' : '')
+      + '</div>'
+      + '<div style="font-size:13px;opacity:.85;margin-bottom:8px">'+dgEdSummary(p)+'</div>'
+      + '<textarea rows="'+(p.note ? setRows(p.note) : 2)+'" placeholder="'+escapeHtmlAdm(DG_ED_HINTS[p.layout] || 'Слово от себя к этой полосе — необязательно')+'" '
+      +   'style="width:100%;box-sizing:border-box;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--input-bg,transparent);color:var(--text);font-family:inherit;font-size:13px;line-height:1.5;resize:vertical" '
+      +   'oninput="setGrow(this)" onchange="dgEdPage('+dgEdQ(slot)+',\'note\',this.value,this)">'+escapeHtmlAdm(p.note || '')+'</textarea>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px">'
+      +   (url ? '<img src="'+escapeHtmlAdm(url)+'" style="width:54px;height:40px;object-fit:cover;border-radius:8px">' : '')
+      +   '<button '+кн+' onclick="dgDecorPick('+dgEdQ(slot)+')">'+(url ? 'Заменить картинку' : 'Своя картинка')+'</button>'
+      +   (url ? '<button '+кн+' onclick="dgDecorSet('+dgEdQ(slot)+',\'\')">Убрать картинку</button>' : '')
+      +   (p.layout !== 'cover' ? '<button '+кн+' onclick="dgEdPage('+dgEdQ(slot)+',\'hide\')">Убрать полосу из номера</button>' : '')
+      +   '<span class="set-ok" id="dg-ed-ok-'+i+'" style="font-size:12px;opacity:.7"></span>'
+      + '</div></div>';
+  }).join('');
+  if (dgEdHidden.length){
+    html += '<div style="font-weight:700;font-size:13px;margin:16px 0 6px;opacity:.75">Убранные полосы</div>'
+      + dgEdHidden.map(function(h){
+          return '<div class="pay-item" style="align-items:center"><div style="flex:1">'+escapeHtmlAdm(h.label || h.slot)+'</div>'
+            + '<button class="action-btn" style="margin:0" onclick="dgEdPage('+dgEdQ(h.slot)+',\'show\')">Вернуть</button></div>';
+        }).join('');
+  }
+  html += '<div id="dg-decor-state" class="pay-meta" style="margin-top:6px"></div>';
+  box.innerHTML = html;
+}
+async function dgEdRename(){
+  const r = (DG_LAST_ISSUES || []).find(function(x){ return x.id === dgEdId; }) || {};
+  const имя = prompt('Название номера — так он подписан на обложке и в списке:', r.title || '');
+  if (имя === null || !имя.trim()) return;
+  try{
+    const resp = await fetch(API+'/admin/digest/issues/'+dgEdId+'?x_admin_token='+ADMIN_TOKEN, {
+      method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({title: имя.trim()})});
+    if (!resp.ok) throw new Error('сервер ответил ' + resp.status);
+    await dgLoadIssues();
+    dgEditorOpen(dgEdId);
+  }catch(e){ alert('Не сохранилось: ' + (e.message || e)); }
+}
+async function dgEdPage(slot, action, text, el){
+  try{
+    const r = await fetch(API+'/admin/digest/issues/'+dgEdId+'/page?x_admin_token='+ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({slot: slot, action: action, text: text || ''})});
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
+    if (action === 'note'){
+      /* слово сохраняем без перерисовки — иначе курсор прыгает, пока пишешь дальше */
+      const p = dgEdPages.find(function(x){ return x.slot === slot; });
+      if (p) p.note = (text || '').trim();
+      if (el){ el.style.borderColor = '#6fbf87'; setTimeout(function(){ el.style.borderColor = ''; }, 1200); }
+      return;
+    }
+    dgEditorOpen(dgEdId);
+  }catch(e){ alert('Не сохранилось: ' + (e.message || e)); }
+}
+function dgEdFindItem(id){
+  for (const p of dgEdPages){
+    if (p.layout === 'idea' && p.event_id === id) return {title: p.title || '', text: p.text || ''};
+    for (const it of (p.items || [])) if (it.id === id) return {title: it.title || '', text: it.text || ''};
+  }
+  return {title:'', text:''};
+}
+function dgEdItemEdit(id){
+  const box = document.getElementById('dg-ed-it-' + id);
+  if (!box) return;
+  if (box.innerHTML){ box.innerHTML = ''; return; }
+  const it = dgEdFindItem(id);
+  const поле = 'width:100%;box-sizing:border-box;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--input-bg,transparent);color:var(--text);font-family:inherit;font-size:13px;margin-top:6px';
+  box.innerHTML = '<input id="dg-ed-t-'+id+'" style="'+поле+'" value="'+escapeHtmlAdm(it.title)+'" placeholder="Заголовок">'
+    + '<textarea id="dg-ed-x-'+id+'" rows="'+setRows(it.text)+'" style="'+поле+';resize:vertical;line-height:1.5" placeholder="Текст">'+escapeHtmlAdm(it.text)+'</textarea>'
+    + '<div style="font-size:11.5px;opacity:.6;margin-top:4px">Правка меняет саму запись — она так же будет выглядеть и в других выпусках.</div>'
+    + '<button class="action-btn" style="margin-top:6px" onclick="dgEdItemSave('+id+')">Сохранить</button>';
+}
+async function dgEdItemSave(id){
+  try{
+    const r = await fetch(API+'/admin/digest/events/'+id+'/text?x_admin_token='+ADMIN_TOKEN, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({title: document.getElementById('dg-ed-t-'+id).value,
+                            text: document.getElementById('dg-ed-x-'+id).value})});
+    if (!r.ok) throw new Error('сервер ответил ' + r.status);
+    dgEditorOpen(dgEdId);
+  }catch(e){ alert('Не сохранилось: ' + (e.message || e)); }
+}
+
 async function dgDecorOpen(id){
   dgDecorIssue = id;
   const box = document.getElementById('dg-decor');
@@ -20822,7 +20992,7 @@ async function dgDecorSet(slot, url){
     if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
     const id = dgDecorIssue;
     await dgLoadIssues();
-    dgDecorOpen(id);
+    if (dgEdId) dgEditorOpen(id); else dgDecorOpen(id);
   }catch(e){ alert('Не сохранилось: ' + (e.message || e)); }
 }
 
@@ -21070,9 +21240,9 @@ async function dgOpenPdf(id){
       <div class="popup-section-title" style="margin-top:0">Дайджест</div>
 
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-        <button class="scroll-btn on" id="dg-tab-feed" onclick="dgTab('feed')">Лента</button>
-        <button class="scroll-btn" id="dg-tab-build" onclick="dgTab('build')">Сборка</button>
-        <button class="scroll-btn" id="dg-tab-issues" onclick="dgTab('issues')">Выпуски</button>
+        <button class="scroll-btn on" id="dg-tab-issues" onclick="dgTab('issues')">Выпуски</button>
+        <button class="scroll-btn" id="dg-tab-feed" onclick="dgTab('feed')">Все записи</button>
+        <button class="scroll-btn" id="dg-tab-build" onclick="dgTab('build')">Пульт сборки</button>
         <button class="scroll-btn" id="dg-tab-types" onclick="dgTab('types')">Роды записей</button>
         <select id="dg-days" onchange="dgLoadFeed()" style="max-width:130px">
           <option value="35">35 дней</option>
@@ -21083,10 +21253,11 @@ async function dgOpenPdf(id){
       </div>
 
       <div id="dg-pane-feed">
+        <div style="font-size:12.5px;opacity:.7;line-height:1.5;margin-bottom:10px">Склад, из которого собираются выпуски: занятия, мысли из выжимок, новости, пополнения библиотеки. Большую часть сервер кладёт сам. Здесь пишутся <b>свои новости</b> — «Написать новость» — и правятся формулировки. Сам номер собирается и правится на вкладке «Выпуски».</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-          <button class="action-btn" onclick="dgCollect()">Собрать из клуба</button>
-          <button class="action-btn" onclick="dgNewEvent()">Своя запись</button>
-          <select id="dg-filter" onchange="dgRenderFeed()" style="max-width:180px"><option value="">Все роды</option></select>
+          <button class="action-btn" onclick="dgNewEvent()">Написать новость</button>
+          <button class="action-btn" title="Сервер и так делает это каждое утро и при открытии номера" onclick="dgCollect()">Подтянуть свежее из клуба</button>
+          <select id="dg-filter" onchange="dgRenderFeed()" style="max-width:220px"><option value="">Все, кроме расписания</option></select>
         </div>
         <div id="dg-collect-out" style="font-size:12px;opacity:.7;margin-bottom:8px"></div>
         <div id="dg-event-form" style="display:none;margin-bottom:12px"></div>
@@ -21122,7 +21293,14 @@ async function dgOpenPdf(id){
         <!-- ⚠️ ЗАСЛОНКА СЕРВЕРНАЯ. Пока выключено, публичные ручки выпуска
              отдают пустоту всем, кроме перечисленных айди: спрятать блок в
              приложении было бы недостаточно — ссылка расходится по чатам сама. -->
-        <div class="card" style="padding:12px;margin-bottom:12px">
+        <!-- admin-v195: РЕДАКТОР НОМЕРА открывается вместо списка -->
+        <div id="dg-editor" style="display:none"></div>
+        <div id="dg-issues-home">
+        <div style="font-size:12.5px;opacity:.7;line-height:1.5;margin-bottom:10px">Номер собирается сам из жизни клуба за период. «Править номер» — открыть его полосами и дописать слово от себя, поменять картинки, убрать или переставить полосы.</div>
+        <button class="action-btn" onclick="dgCreateIssue()" style="margin-bottom:10px">Завести новый номер</button>
+        <div id="dg-issues"><div class="loading">Загрузка...</div></div>
+        <details style="margin-top:14px"><summary style="cursor:pointer;font-size:13px;opacity:.75;padding:6px 0">Доступ и темы PDF</summary>
+        <div class="card" style="padding:12px;margin:10px 0 12px">
           <label style="font-size:13px;display:flex;align-items:center;gap:8px">
             <input type="checkbox" id="dg-public"> Выпуск виден участникам
           </label>
@@ -21137,8 +21315,8 @@ async function dgOpenPdf(id){
           <div id="dg-theme-rules"><div class="loading">Загрузка...</div></div>
           <button class="action-btn" onclick="dgThemeRulesSave()">Сохранить темы</button>
         </div>
-        <button class="action-btn" onclick="dgCreateIssue()" style="margin-bottom:10px">Завести черновик номера</button>
-        <div id="dg-issues"><div class="loading">Загрузка...</div></div>
+        </details>
+        </div>
         <!-- v129: ОФОРМЛЕНИЕ НОМЕРА — картинка в слот каждой полосы -->
         <div id="dg-decor" style="display:none;margin-top:14px"></div>
         <div id="dg-announce" style="display:none;margin-top:14px"></div>
@@ -21515,6 +21693,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v194</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v195</div>
 </body>
 </html>
