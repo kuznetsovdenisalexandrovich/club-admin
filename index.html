@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v190 -->
+<!-- FILE_VERSION: admin-v191 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3394,7 +3394,17 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const API        = 'https://api.youselllikeagod-magazine.ru';
+const API_PRIMARY = 'https://api.youselllikeagod-magazine.ru';
+const API_RAILWAY = 'https://club-backend-production-fc7f.up.railway.app';
+/* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
+   зоны домена — «съезжать временно на технические адреса Railway», как уже
+   умеет приложение. Решение запоминается в этом браузере; адрес фиксируется
+   один раз при загрузке (половина страницы уже разобрала его в запросы),
+   поэтому переход и возврат — через перезагрузку. Переходим, только если И
+   сами не достучались до Timeweb дважды, И Railway подтверждает его сбой */
+let admFailover = false;
+try { admFailover = localStorage.getItem('adm_failover') === '1'; } catch (e) {}
+const API        = admFailover ? API_RAILWAY : API_PRIMARY;
 // Стенд экрана открытия в приложении — им же показывается превью в конструкторе
 const APP_LAB_URL = 'https://kuznetsovdenisalexandrovich.github.io/club-app/pack-lab.html';
 // Заполняется ТОЛЬКО после входа по пину — в файле секрета нет.
@@ -10660,7 +10670,69 @@ async function sbBarCheck(){
 document.addEventListener('DOMContentLoaded', function(){
   sbBarCheck();
   setInterval(sbBarCheck, 120000);
+  admFoStart();
 });
+
+/* v191 · переход дашборда на запасной и обратно (см. API вверху) */
+const ADM_FO = { checking: false, ok: 0, timer: null };
+const admRawFetch = window.fetch.bind(window);
+window.fetch = function(input, init){
+  const p = admRawFetch(input, init);
+  try {
+    const url = typeof input === 'string' ? input : ((input && input.url) || '');
+    if (!admFailover && url.indexOf(API_PRIMARY) === 0){
+      p.then(function(r){ if (r && (r.status === 502 || r.status === 503 || r.status === 504)) admFoSuspect(); },
+             function(){ admFoSuspect(); });
+    }
+  } catch (e) {}
+  return p;
+};
+async function admFoGet(url){
+  const ctl = new AbortController(); const tm = setTimeout(function(){ ctl.abort(); }, 8000);
+  try { const r = await admRawFetch(url, { signal: ctl.signal, cache: 'no-store' }); return r.ok ? await r.json() : null; }
+  catch (e) { return null; } finally { clearTimeout(tm); }
+}
+async function admPrimaryAlive(){ const d = await admFoGet(API_PRIMARY + '/'); return !!(d && d.status === 'ok'); }
+async function admFoSuspect(){
+  if (ADM_FO.checking || admFailover) return;
+  ADM_FO.checking = true;
+  try {
+    if (await admPrimaryAlive()) return;
+    await new Promise(function(r){ setTimeout(r, 10000); });
+    if (await admPrimaryAlive()) return;
+    const v = await admFoGet(API_RAILWAY + '/standby/verdict');
+    if (v && v.primary_down){
+      try { localStorage.setItem('adm_failover', '1'); } catch (e) { return; }
+      alert('Timeweb не отвечает, Railway это подтверждает. Дашборд переходит на запасной сервер (Railway).');
+      location.reload();
+    }
+  } finally { ADM_FO.checking = false; }
+}
+function admFoBar(text, color, onclick){
+  let bar = document.getElementById('adm-fo-bar');
+  if (!bar){
+    bar = document.createElement('div'); bar.id = 'adm-fo-bar';
+    bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99998;color:#fff;' +
+      'font:600 13px/1.4 system-ui,sans-serif;text-align:center;padding:8px 14px;cursor:default';
+    document.body.appendChild(bar);
+  }
+  bar.style.background = color; bar.textContent = text;
+  bar.onclick = onclick || null; if (onclick) bar.style.cursor = 'pointer';
+}
+function admFoStart(){
+  if (!admFailover) return;
+  admFoBar('Дашборд работает через ЗАПАСНОЙ сервер (Railway) — Timeweb недоступен', '#8a5a12');
+  ADM_FO.timer = setInterval(async function(){
+    if (await admPrimaryAlive()){
+      ADM_FO.ok++;
+      if (ADM_FO.ok >= 3){
+        clearInterval(ADM_FO.timer);
+        try { localStorage.removeItem('adm_failover'); } catch (e) {}
+        admFoBar('Timeweb снова работает — нажми, чтобы вернуться на основной', '#2e7d4f', function(){ location.reload(); });
+      }
+    } else { ADM_FO.ok = 0; }
+  }, 60000);
+}
 
 /* ── Загрузка рамок: замер, посадка, ручная доводка ─────────────────────── */
 document.addEventListener('DOMContentLoaded', function(){
@@ -21371,6 +21443,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v190</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v191</div>
 </body>
 </html>
