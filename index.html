@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v201 -->
+<!-- FILE_VERSION: admin-v202 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3775,7 +3775,7 @@ async function loadRegistrationReport(){
       const steps = `канал ${p.channel_joined?'✓':'✗'} · чат ${p.chat_joined?'✓':'✗'} · апп ${p.app_opened?'✓':'✗'}`;
       return `<div class="pay-item" onclick="closeRegistrationReport();openPopup(${p.user_id})" style="cursor:pointer">
         <div class="pay-info">
-          <div class="pay-name">${p.name||'—'} ${badge}</div>
+          <div class="pay-name">${escapeHtmlAdm(p.name||'—')} ${badge}</div>
           <div class="pay-meta">${p.hours_since_activation} ч. с оплаты · ${steps}</div>
         </div>
       </div>`;
@@ -4451,8 +4451,8 @@ function renderPaymentsList(){
     return `<div class="pay-item"${clickable ? ` onclick="openPopup(${p.user_id})" style="cursor:pointer"` : ''}>
       <div class="pay-icon ${ok?'pay-icon-ok':'pay-icon-err'}">${ok?'✓':'✗'}</div>
       <div class="pay-info">
-        <div class="pay-name">${p.sub_name||'Платёж'}</div>
-        <div class="pay-meta">${date} · ${p.client_name||('id '+p.telegram_id)}</div>
+        <div class="pay-name">${escapeHtmlAdm(p.sub_name||'Платёж')}</div>
+        <div class="pay-meta">${date} · ${escapeHtmlAdm(p.client_name||('id '+p.telegram_id))}</div>
       </div>
       <div style='display:flex;align-items:center;gap:8px'><div class="pay-amount" style="color:${ok?'var(--lav-deep)':'var(--red)'}">${fmt(parseFloat(p.actual_amount||0))}</div><button onclick="event.stopPropagation();deletePayment(${p.id},event)" style='background:none;border:none;cursor:pointer;color:var(--text-faint);font-size:14px;padding:2px 4px;border-radius:4px' title='Удалить'>✕</button></div>
     </div>`;
@@ -6818,7 +6818,7 @@ async function loadViewLog(){
         ? ` · отклонено записей ${s.blocked_writes}` : '';
       return `<div class="pay-item">
         <div class="pay-info">
-          <div class="pay-name">${s.name || s.telegram_id} ${badge}</div>
+          <div class="pay-name">${escapeHtmlAdm(s.name || s.telegram_id)} ${badge}</div>
           <div class="pay-meta">${diagDate(s.created_at)} · запросов ${s.requests}${blocked}</div>
         </div>
         ${s.alive ? `<button class="action-btn danger" style="flex:none;padding:6px 10px" onclick="revokeView(${s.id})">Стоп</button>` : ''}
@@ -6862,7 +6862,7 @@ function renderPopupPayments(u){
     return `<div class="pay-item">
       <div class="pay-icon ${ok?'pay-icon-ok':'pay-icon-err'}">${ok?'✓':'✗'}</div>
       <div class="pay-info">
-        <div class="pay-name">${p.sub_name||'Платёж'}</div>
+        <div class="pay-name">${escapeHtmlAdm(p.sub_name||'Платёж')}</div>
         <div class="pay-meta">${date}</div>
       </div>
       <div class="pay-amount" style="color:${ok?'var(--lav-deep)':'var(--red)'}">${fmt(parseFloat(p.actual_amount||0))}</div>
@@ -13921,7 +13921,7 @@ function searchGrantCandidates(){
 
   el.innerHTML = matches.map(function(u){
     return '<div class="pay-item" style="cursor:pointer" onclick="chooseGrantTarget(' + u.id + ')">'
-      + '<div class="pay-info"><div class="pay-name">' + (u.full_name||u.name||'—') + '</div>'
+      + '<div class="pay-info"><div class="pay-name">' + escapeHtmlAdm(u.full_name||u.name||'—') + '</div>'
       + '<div class="pay-meta">' + (u.phone||u.username||u.telegram_id) + '</div></div></div>';
   }).join('') || '<div class="empty" style="padding:10px">Никого не нашлось</div>';
 }
@@ -21876,6 +21876,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v201</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v202</div>
 </body>
 </html>
