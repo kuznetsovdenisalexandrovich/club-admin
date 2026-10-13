@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v197 -->
+<!-- FILE_VERSION: admin-v198 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -20849,6 +20849,7 @@ async function dgEditorOpen(id){
   }catch(e){ box.innerHTML = '<div style="opacity:.6">Номер не собрался: '+escapeHtmlAdm(e.message||String(e))+'</div>'; }
 }
 function dgEditorClose(){
+  dgUpResult = '';
   dgEdId = null; dgEdPages = []; dgEdHidden = [];
   document.getElementById('dg-editor').style.display = 'none';
   document.getElementById('dg-issues-home').style.display = '';
@@ -20891,7 +20892,7 @@ function dgEditorRender(){
     +   '<button '+кн+' onclick="dgEditColumn('+dgEdId+')">Колонка</button>'
     +   '<button '+кн+' title="Если переставлял полосы — вернуть, как собрал сервер" onclick="dgEdPage(\'\',\'reset_order\')">Исходный порядок</button>'
     + '</div>'
-    + '<div id="dg-decor-state" class="pay-meta" style="margin:-6px 0 10px"></div>';
+    + '<div id="dg-decor-state" class="pay-meta" style="margin:-6px 0 10px;color:#4f9a68;font-weight:600">'+escapeHtmlAdm(dgUpResult)+'</div>';
   html += dgEdPages.map(function(p, i){
     const slot = p.slot || '';
     const имя = DG_ED_NAMES[p.layout] || p.rubric || p.layout;
@@ -21023,6 +21024,10 @@ async function dgDecorOpen(id){
    Режимы: decor — картинка полосы, photo_add — новая фото-полоса после полосы,
    photo_url — заменить фото у фото-полосы */
 var dgUpMode = 'decor';
+/* admin-v198: итог последней загрузки переживает перерисовку редактора —
+   раньше строка «заливаю…» пропадала вместе с перерисовкой, и было не понять,
+   загрузилось ли и сжалось ли [stated Denis 13.10] */
+var dgUpResult = '';
 function dgDecorPick(slot, mode){
   dgDecorSlot = slot;
   dgUpMode = mode || 'decor';
@@ -21058,7 +21063,7 @@ async function dgDecorFile(input){
   const file = input.files && input.files[0];
   if (!file || !dgDecorIssue) return;
   const state = document.getElementById('dg-decor-state');
-  const скажи = function(t){ if (state) state.textContent = t; };
+  const скажи = function(t){ const el = document.getElementById('dg-decor-state'); if (el) el.textContent = t; };
   try{
     скажи('уменьшаю…');
     const сжатый = await dgShrinkImage(file);
@@ -21066,12 +21071,14 @@ async function dgDecorFile(input){
     const meta = await retPost('/admin/audio-upload-url', { slug: 'dg' + dgDecorIssue + '-' + Date.now().toString(36), kind: 'digest_decor', ext: сжатый.ext });
     const put = await fetch(meta.upload_url, { method:'PUT', headers:{ 'Content-Type': meta.content_type }, body: сжатый.blob });
     if (!put.ok) throw new Error('хранилище ответило ' + put.status);
+    dgUpResult = 'Загружено: ' + dgKb(сжатый.blob.size)
+      + (сжатый.blob !== file ? ' — сжато из ' + dgKb(file.size) : ' — файл и так лёгкий, не пересжимали');
     if (dgUpMode === 'photo_add' || dgUpMode === 'photo_url'){
       await dgEdPhoto(dgDecorSlot, dgUpMode === 'photo_add' ? 'add_photo' : 'photo_url', meta.public_url);
     } else {
       await dgDecorSet(dgDecorSlot, meta.public_url);
     }
-  }catch(e){ скажи('не залилось: ' + (e.message || e)); alert('Картинка не залилась: ' + (e.message || e)); }
+  }catch(e){ dgUpResult = ''; скажи('не залилось: ' + (e.message || e)); alert('Картинка не залилась: ' + (e.message || e)); }
 }
 async function dgEdPhoto(slot, action, url){
   const r = await fetch(API+'/admin/digest/issues/'+dgEdId+'/page?x_admin_token='+ADMIN_TOKEN, {
@@ -21793,6 +21800,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v197</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v198</div>
 </body>
 </html>
