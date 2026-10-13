@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v200 -->
+<!-- FILE_VERSION: admin-v201 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -95,9 +95,14 @@ body{
   transition:background .3s,color .3s;
 }
 .blob{position:fixed;border-radius:50%;filter:blur(70px);pointer-events:none;z-index:0;transition:opacity .35s}
-.blob-1{width:300px;height:300px;top:-100px;right:-80px;background:var(--lav);opacity:var(--blob1-op);animation:blobFloat1 12s ease-in-out infinite}
-.blob-2{width:250px;height:250px;bottom:15%;left:-100px;background:var(--peach);opacity:var(--blob2-op);animation:blobFloat2 9s ease-in-out infinite}
-.blob-3{width:200px;height:200px;top:40%;right:-60px;background:var(--mint);opacity:var(--blob2-op);animation:blobFloat2 15s ease-in-out infinite reverse}
+/* admin-v201: КАПЛИ ФОНА НЕПОДВИЖНЫ. [stated] Denis 13.10: телефон «в кипяток»
+   в дашборде, а в энергосбережении (айфон там глушит анимации) — нет. Капли
+   размыты фильтром 70–92 px и бесконечно плавали, а поверх лежат карточки с
+   матовым стеклом: каждый кадр телефон заново размывал капли и фон под каждой
+   карточкой — ради сдвига на полтора десятка пикселей. Вид тот же, движения нет */
+.blob-1{width:300px;height:300px;top:-100px;right:-80px;background:var(--lav);opacity:var(--blob1-op)}
+.blob-2{width:250px;height:250px;bottom:15%;left:-100px;background:var(--peach);opacity:var(--blob2-op)}
+.blob-3{width:200px;height:200px;top:40%;right:-60px;background:var(--mint);opacity:var(--blob2-op)}
 
 @keyframes blobFloat1{
   0%,100%{transform:translate(0,0) scale(1)}
@@ -115,7 +120,8 @@ body{
   0%,100%{box-shadow:0 6px 16px -4px rgba(155,140,242,0.45)}
   50%{box-shadow:0 6px 26px -4px rgba(155,140,242,0.72),0 0 34px rgba(232,97,74,0.2)}
 }
-[data-theme="dark"] .mark{animation:markGlow 4s ease-in-out infinite}
+/* admin-v201: свечение значка постоянное, без бесконечной пульсации (та же причина) */
+[data-theme="dark"] .mark{box-shadow:0 6px 22px -4px rgba(155,140,242,0.6),0 0 24px rgba(232,97,74,0.12)}
 
 /* ── Тёмная тема: glass-рецепт на карточковидные поверхности ── */
 [data-theme="dark"] .card,[data-theme="dark"] .kpi,[data-theme="dark"] .popup-stat,
@@ -21870,6 +21876,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v200</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v201</div>
 </body>
 </html>
