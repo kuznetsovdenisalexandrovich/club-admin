@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v196 -->
+<!-- FILE_VERSION: admin-v197 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -20823,14 +20823,15 @@ let dgDecorIssue = null, dgDecorSlot = '';
 var dgEdId = null, dgEdPages = [], dgEdHidden = [];
 
 const DG_ED_NAMES = {cover:'Обложка', toc:'Что внутри', column:'Колонка', final:'Финал',
-                     idea:'Мысль', lesson:'Выжимка занятия'};
+                     idea:'Мысль', lesson:'Выжимка занятия', photo:'Фото-полоса'};
 const DG_ED_HINTS = {
   cover:  'Вводное слово — встанет на обложку под заголовком. Например: «Полтора месяца, которые…»',
   final:  'Закрывающее слово — последние строки номера.',
   idea:   'Комментарий к мысли — почему она важна, как её применить.',
   lesson: 'Пара слов о занятии — встанет над пересказом.',
   column: 'Ещё пара слов под колонкой.',
-  toc:    'Пара слов перед содержанием.'
+  toc:    'Пара слов перед содержанием.',
+  photo:  'Подпись к фото — встанет поверх снимка внизу. Необязательно.'
 };
 function dgEdQ(x){ return JSON.stringify(x).replace(/"/g,'&quot;'); }
 
@@ -20854,6 +20855,8 @@ function dgEditorClose(){
   dgLoadIssues();
 }
 function dgEdSummary(p){
+  if (p.layout === 'photo') return p.image_url
+      ? '<img src="'+escapeHtmlAdm(p.image_url)+'" style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;display:block">' : '';
   if (p.layout === 'cover') return escapeHtmlAdm(p.title || '');
   if (p.layout === 'idea') return '<div style="font-family:Georgia,serif;font-size:14px;line-height:1.45">'+escapeHtmlAdm(p.text || p.title || '')+'</div>'
       + (p.lecture ? '<div class="pay-meta" style="margin-top:4px">из занятия «'+escapeHtmlAdm(p.lecture)+'»</div>' : '')
@@ -20880,13 +20883,15 @@ function dgEditorRender(){
     + '<div style="font-weight:700;font-size:15px;min-width:0">'+escapeHtmlAdm(r.title || dgMonthWords(r.slug) || '')+'</div></div>'
     + '<div style="font-size:12.5px;opacity:.7;line-height:1.5;margin:6px 0 12px">Номер полосами, сверху вниз — как его будут листать. '
     + 'У любой полосы можно написать слово от себя: оно встанет в её вёрстку. Не написал — полоса останется как есть. '
+    + 'Свой лист с фото — «+ Фото-полоса после» у нужной полосы. Картинки можно грузить любые: телефон сам уменьшит их перед загрузкой. '
     + 'Посмотреть, как выглядит, — кнопка «PDF».</div>'
     + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">'
     +   '<button '+кн+' onclick="dgOpenPdf('+dgEdId+')">PDF</button>'
     +   '<button '+кн+' onclick="dgEdRename()">Название</button>'
     +   '<button '+кн+' onclick="dgEditColumn('+dgEdId+')">Колонка</button>'
     +   '<button '+кн+' title="Если переставлял полосы — вернуть, как собрал сервер" onclick="dgEdPage(\'\',\'reset_order\')">Исходный порядок</button>'
-    + '</div>';
+    + '</div>'
+    + '<div id="dg-decor-state" class="pay-meta" style="margin:-6px 0 10px"></div>';
   html += dgEdPages.map(function(p, i){
     const slot = p.slot || '';
     const имя = DG_ED_NAMES[p.layout] || p.rubric || p.layout;
@@ -20904,10 +20909,14 @@ function dgEditorRender(){
       +   'style="width:100%;box-sizing:border-box;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--input-bg,transparent);color:var(--text);font-family:inherit;font-size:13px;line-height:1.5;resize:vertical" '
       +   'oninput="setGrow(this)" onchange="dgEdPage('+dgEdQ(slot)+',\'note\',this.value,this)">'+escapeHtmlAdm(p.note || '')+'</textarea>'
       + '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px">'
-      +   (url ? '<img src="'+escapeHtmlAdm(url)+'" style="width:54px;height:40px;object-fit:cover;border-radius:8px">' : '')
-      +   '<button '+кн+' onclick="dgDecorPick('+dgEdQ(slot)+')">'+(url ? 'Заменить картинку' : 'Своя картинка')+'</button>'
-      +   (url ? '<button '+кн+' onclick="dgDecorSet('+dgEdQ(slot)+',\'\')">Убрать картинку</button>' : '')
-      +   (p.layout !== 'cover' ? '<button '+кн+' onclick="dgEdPage('+dgEdQ(slot)+',\'hide\')">Убрать полосу из номера</button>' : '')
+      +   (p.layout === 'photo'
+            ? '<button '+кн+' onclick="dgDecorPick('+dgEdQ(slot)+',\'photo_url\')">Заменить фото</button>'
+              + '<button '+кн+' onclick="if(confirm(\'Удалить фото-полосу из номера?\')) dgEdPage('+dgEdQ(slot)+',\'hide\')">Удалить фото-полосу</button>'
+            : (url ? '<img src="'+escapeHtmlAdm(url)+'" style="width:54px;height:40px;object-fit:cover;border-radius:8px">' : '')
+              + '<button '+кн+' onclick="dgDecorPick('+dgEdQ(slot)+')">'+(url ? 'Заменить картинку' : 'Своя картинка')+'</button>'
+              + (url ? '<button '+кн+' onclick="dgDecorSet('+dgEdQ(slot)+',\'\')">Убрать картинку</button>' : '')
+              + (p.layout !== 'cover' ? '<button '+кн+' onclick="dgEdPage('+dgEdQ(slot)+',\'hide\')">Убрать полосу из номера</button>' : ''))
+      +   (p.layout !== 'final' ? '<button '+кн+' title="Вставить лист с одним фото сразу после этой полосы" onclick="dgDecorPick('+dgEdQ(slot)+',\'photo_add\')">+ Фото-полоса после</button>' : '')
       +   '<span class="set-ok" id="dg-ed-ok-'+i+'" style="font-size:12px;opacity:.7"></span>'
       + '</div></div>';
   }).join('');
@@ -20918,7 +20927,6 @@ function dgEditorRender(){
             + '<button class="action-btn" style="margin:0" onclick="dgEdPage('+dgEdQ(h.slot)+',\'show\')">Вернуть</button></div>';
         }).join('');
   }
-  html += '<div id="dg-decor-state" class="pay-meta" style="margin-top:6px"></div>';
   box.innerHTML = html;
 }
 async function dgEdRename(){
@@ -21007,24 +21015,71 @@ async function dgDecorOpen(id){
       + '<button class="action-btn" style="margin-top:8px" onclick="document.getElementById(\'dg-decor\').style.display=\'none\'">Свернуть</button>';
   }catch(e){ box.innerHTML = '<div style="opacity:.6">Не собралось: '+escapeHtmlAdm(e.message||String(e))+'</div>'; }
 }
-function dgDecorPick(slot){
+/* admin-v197: ЗАГРУЗКА КАРТИНОК НОМЕРА — СО СЖАТИЕМ В БРАУЗЕРЕ. [stated]
+   Denis 13.10: «png на 3.9 мб, сервер не сожмёт?» — не сжимал: файл уходил в
+   хранилище как есть, и участник качал мегабайты на полосу. Теперь телефон сам
+   уменьшает до 1600 px по ширине (полосе больше не нужно) и сохраняет JPG;
+   картинка с прозрачностью (орнамент) остаётся PNG. Сервер не тратит ни секунды.
+   Режимы: decor — картинка полосы, photo_add — новая фото-полоса после полосы,
+   photo_url — заменить фото у фото-полосы */
+var dgUpMode = 'decor';
+function dgDecorPick(slot, mode){
   dgDecorSlot = slot;
+  dgUpMode = mode || 'decor';
   const f = document.getElementById('dg-decor-file');
   f.value = '';
   f.click();
 }
+async function dgShrinkImage(file){
+  const исходный = {blob: file, ext: ((file.name || '').split('.').pop() || 'jpg').toLowerCase().replace('jpeg', 'jpg')};
+  const адрес = URL.createObjectURL(file);
+  try{
+    const img = await new Promise(function(ok, no){
+      const i = new Image(); i.onload = function(){ ok(i); }; i.onerror = function(){ no(new Error('файл не читается как картинка')); }; i.src = адрес;
+    });
+    const k = Math.min(1, 1600 / (img.naturalWidth || 1600));
+    const w = Math.max(1, Math.round(img.naturalWidth * k)), h = Math.max(1, Math.round(img.naturalHeight * k));
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0, w, h);
+    let прозрачная = false;
+    if (/png|webp|gif/i.test(file.type || '')){
+      const d = ctx.getImageData(0, 0, w, h).data;
+      for (let i = 3; i < d.length; i += 4 * 7){ if (d[i] < 250){ прозрачная = true; break; } }
+    }
+    const blob = await new Promise(function(ok){ c.toBlob(ok, прозрачная ? 'image/png' : 'image/jpeg', 0.86); });
+    if (!blob) return исходный;
+    /* уже лёгкий файл не раздуваем пересжатием */
+    if (blob.size >= file.size && /^(jpg|png|webp)$/.test(исходный.ext)) return исходный;
+    return {blob: blob, ext: прозрачная ? 'png' : 'jpg'};
+  } finally { URL.revokeObjectURL(адрес); }
+}
+function dgKb(n){ return n > 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' МБ' : Math.round(n / 1024) + ' КБ'; }
 async function dgDecorFile(input){
   const file = input.files && input.files[0];
   if (!file || !dgDecorIssue) return;
   const state = document.getElementById('dg-decor-state');
-  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace('jpeg','jpg');
-  if (state) state.textContent = 'заливаю…';
+  const скажи = function(t){ if (state) state.textContent = t; };
   try{
-    const meta = await retPost('/admin/audio-upload-url', { slug: 'dg' + dgDecorIssue + '-' + Date.now().toString(36), kind: 'digest_decor', ext: ext });
-    const put = await fetch(meta.upload_url, { method:'PUT', headers:{ 'Content-Type': meta.content_type }, body: file });
+    скажи('уменьшаю…');
+    const сжатый = await dgShrinkImage(file);
+    скажи('заливаю ' + dgKb(сжатый.blob.size) + (сжатый.blob !== file ? ' (было ' + dgKb(file.size) + ')' : '') + '…');
+    const meta = await retPost('/admin/audio-upload-url', { slug: 'dg' + dgDecorIssue + '-' + Date.now().toString(36), kind: 'digest_decor', ext: сжатый.ext });
+    const put = await fetch(meta.upload_url, { method:'PUT', headers:{ 'Content-Type': meta.content_type }, body: сжатый.blob });
     if (!put.ok) throw new Error('хранилище ответило ' + put.status);
-    await dgDecorSet(dgDecorSlot, meta.public_url);
-  }catch(e){ if (state) state.textContent = 'не залилось: ' + (e.message || e); }
+    if (dgUpMode === 'photo_add' || dgUpMode === 'photo_url'){
+      await dgEdPhoto(dgDecorSlot, dgUpMode === 'photo_add' ? 'add_photo' : 'photo_url', meta.public_url);
+    } else {
+      await dgDecorSet(dgDecorSlot, meta.public_url);
+    }
+  }catch(e){ скажи('не залилось: ' + (e.message || e)); alert('Картинка не залилась: ' + (e.message || e)); }
+}
+async function dgEdPhoto(slot, action, url){
+  const r = await fetch(API+'/admin/digest/issues/'+dgEdId+'/page?x_admin_token='+ADMIN_TOKEN, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({slot: slot, action: action, url: url})});
+  const d = await r.json().catch(function(){ return {}; });
+  if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
+  dgEditorOpen(dgEdId);
 }
 async function dgDecorSet(slot, url){
   try{
@@ -21365,7 +21420,7 @@ async function dgOpenPdf(id){
         <!-- v129: ОФОРМЛЕНИЕ НОМЕРА — картинка в слот каждой полосы -->
         <div id="dg-decor" style="display:none;margin-top:14px"></div>
         <div id="dg-announce" style="display:none;margin-top:14px"></div>
-        <input type="file" id="dg-decor-file" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="dgDecorFile(this)">
+        <input type="file" id="dg-decor-file" accept="image/*" style="display:none" onchange="dgDecorFile(this)">
       </div>
 
       <div id="dg-pane-types" style="display:none">
@@ -21738,6 +21793,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v196</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v197</div>
 </body>
 </html>
