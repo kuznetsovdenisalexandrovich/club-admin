@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v205 -->
+<!-- FILE_VERSION: admin-v206 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3428,9 +3428,17 @@ const API_RAILWAY = 'https://club-backend-production-fc7f.up.railway.app';
    один раз при загрузке (половина страницы уже разобрала его в запросы),
    поэтому переход и возврат — через перезагрузку. Переходим, только если И
    сами не достучались до Timeweb дважды, И Railway подтверждает его сбой */
-let admFailover = false;
+/* admin-v206 · ТЕХНИЧЕСКИЙ АДРЕС TIMEWEB. [stated] Denis 15.10: «когда не надо,
+   дашборд жил на рейлвей, а как понадобилось — сижу смотрю на ошибку». В тот
+   вечер сервер был жив, у Timeweb слетел сертификат домена api. Технический
+   адрес — ТОТ ЖЕ сервер и та же база, со своим сертификатом Timeweb: ни копии,
+   ни паузы, ни переноса. Поэтому порядок: домен → технический адрес (сразу,
+   без ожидания) → Railway (только если молчат оба и Railway подтверждает) */
+const API_TECH = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
+let admFailover = false, admTech = false;
 try { admFailover = localStorage.getItem('adm_failover') === '1'; } catch (e) {}
-const API        = admFailover ? API_RAILWAY : API_PRIMARY;
+try { admTech = !admFailover && localStorage.getItem('adm_tech') === '1'; } catch (e) {}
+const API        = admFailover ? API_RAILWAY : (admTech ? API_TECH : API_PRIMARY);
 // Стенд экрана открытия в приложении — им же показывается превью в конструкторе
 const APP_LAB_URL = 'https://kuznetsovdenisalexandrovich.github.io/club-app/pack-lab.html';
 // Заполняется ТОЛЬКО после входа по пину — в файле секрета нет.
@@ -10126,7 +10134,11 @@ async function submitPin(){
     adminRetryPending();                 // v114: сначала довершаем то, на чём споткнулись
     if (!былОтложенный) loadAll();       // а при повторном входе с нуля — обычная загрузка
   } catch (e) {
-    err.textContent = e.message;
+    /* v206: вместо голого «Load failed» — что происходит. Сеть оборвалась —
+       значит сервер не ответил; обход ищет admFoSuspect, страница переключится сама */
+    err.textContent = (e instanceof TypeError)
+      ? 'Сервер не ответил. Ищу обходной путь — страница переключится сама, PIN введи ещё раз'
+      : e.message;
   } finally {
     pinBusy = false;
     pinEntered = '';
@@ -10708,6 +10720,10 @@ document.addEventListener('DOMContentLoaded', function(){
   sbBarCheck();
   setInterval(sbBarCheck, 120000);
   admFoStart();
+  admTechStart();
+  /* v206: проверка сразу при открытии — экран PIN сам ничего не грузит, и
+     раньше при лежащем домене никто не начинал искать обход */
+  if (!admFailover) admFoGet(API + '/').then(function(d){ if (!(d && d.status === 'ok')) admFoSuspect(); });
 });
 
 /* v191 · переход дашборда на запасной и обратно (см. API вверху) */
@@ -10717,7 +10733,7 @@ window.fetch = function(input, init){
   const p = admRawFetch(input, init);
   try {
     const url = typeof input === 'string' ? input : ((input && input.url) || '');
-    if (!admFailover && url.indexOf(API_PRIMARY) === 0){
+    if (!admFailover && url.indexOf(API) === 0){
       p.then(function(r){ if (r && (r.status === 502 || r.status === 503 || r.status === 504)) admFoSuspect(); },
              function(){ admFoSuspect(); });
     }
@@ -10730,20 +10746,55 @@ async function admFoGet(url){
   catch (e) { return null; } finally { clearTimeout(tm); }
 }
 async function admPrimaryAlive(){ const d = await admFoGet(API_PRIMARY + '/'); return !!(d && d.status === 'ok'); }
+async function admAlive(base){ const d = await admFoGet(base + '/'); return !!(d && d.status === 'ok'); }
+function admSleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+/* v206: не один раз, а пока не найдём рабочий путь — каждые 30 секунд.
+   Раньше одна проверка в первые 5 минут сбоя получала от Railway «ещё не
+   сбой», и дашборд сдавался навсегда */
 async function admFoSuspect(){
   if (ADM_FO.checking || admFailover) return;
   ADM_FO.checking = true;
   try {
-    if (await admPrimaryAlive()) return;
-    await new Promise(function(r){ setTimeout(r, 10000); });
-    if (await admPrimaryAlive()) return;
-    const v = await admFoGet(API_RAILWAY + '/standby/verdict');
-    if (v && v.primary_down){
-      try { localStorage.setItem('adm_failover', '1'); } catch (e) { return; }
-      alert('Timeweb не отвечает, Railway это подтверждает. Дашборд переходит на запасной сервер (Railway).');
-      location.reload();
+    while (true){
+      if (await admPrimaryAlive()){
+        if (admTech) admTechBack();
+        return;
+      }
+      await admSleep(3000);
+      if (await admPrimaryAlive()){ if (admTech) admTechBack(); return; }
+      if (await admAlive(API_TECH)){
+        if (admTech) return;                     // уже на техническом — работаем
+        try { localStorage.setItem('adm_tech', '1'); } catch (e) { return; }
+        admFoBar('Домен api не открывается, сервер жив — переключаюсь на технический адрес Timeweb…', '#5a4a8a');
+        setTimeout(function(){ location.reload(); }, 1200);
+        return;
+      }
+      const v = await admFoGet(API_RAILWAY + '/standby/verdict');
+      if (v && v.primary_down){
+        try { localStorage.removeItem('adm_tech'); localStorage.setItem('adm_failover', '1'); } catch (e) { return; }
+        alert('Timeweb не отвечает ни по домену, ни по техническому адресу, Railway это подтверждает. Дашборд переходит на запасной сервер (Railway).');
+        location.reload();
+        return;
+      }
+      admFoBar('Timeweb не отвечает ни по домену, ни по техническому адресу. Жду подтверждения запасного — проверяю каждые 30 секунд, страница переключится сама', '#8a5a12');
+      await admSleep(30000);
     }
   } finally { ADM_FO.checking = false; }
+}
+/* Работаем через технический адрес: полоса внизу; домен ожил дважды подряд —
+   предлагаем вернуться (перезагрузка), при следующем открытии — домен сам */
+function admTechStart(){
+  if (!admTech) return;
+  admFoBar('Дашборд работает через технический адрес Timeweb — домен api сейчас не открывается. Сервер и база те же, всё сохраняется как обычно', '#5a4a8a');
+  let ok = 0;
+  const tm = setInterval(async function(){
+    if (await admPrimaryAlive()){ ok++; if (ok >= 2){ clearInterval(tm); admTechBack(); } }
+    else ok = 0;
+  }, 20000);
+}
+function admTechBack(){
+  try { localStorage.removeItem('adm_tech'); } catch (e) {}
+  admFoBar('Домен api снова работает — нажми, чтобы вернуться на него', '#2e7d4f', function(){ location.reload(); });
 }
 function admFoBar(text, color, onclick){
   let bar = document.getElementById('adm-fo-bar');
@@ -10768,13 +10819,20 @@ async function admFoStart(){
       return;
     }
   }
+  // v206: домен лежит, а технический адрес отвечает — это тот же живой сервер,
+  // уходим на него с запасного (копия базы не нужна и не встанет на паузу)
+  if (await admAlive(API_TECH)){
+    try { localStorage.removeItem('adm_failover'); localStorage.setItem('adm_tech', '1'); } catch (e) {}
+    location.reload();
+    return;
+  }
   admFoBar('Дашборд работает через ЗАПАСНОЙ сервер (Railway) — Timeweb недоступен', '#8a5a12');
   ADM_FO.timer = setInterval(async function(){
     if (await admPrimaryAlive()){
       ADM_FO.ok++;
       if (ADM_FO.ok >= 2){
         clearInterval(ADM_FO.timer);
-        try { localStorage.removeItem('adm_failover'); } catch (e) {}
+        try { localStorage.removeItem('adm_failover'); localStorage.removeItem('adm_tech'); } catch (e) {}
         admFoBar('Timeweb снова работает — нажми, чтобы вернуться на основной', '#2e7d4f', function(){ location.reload(); });
       }
     } else { ADM_FO.ok = 0; }
@@ -21967,6 +22025,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v205</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v206</div>
 </body>
 </html>
