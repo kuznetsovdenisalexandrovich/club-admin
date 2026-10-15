@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v210 -->
+<!-- FILE_VERSION: admin-v211 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -434,6 +434,26 @@ header{padding:calc(max(env(safe-area-inset-top), 8px) + 20px) 0 16px;display:fl
   box-shadow:0 20px 60px rgba(20,18,30,.45);
   position:relative;
 }
+/* admin-v211: конструктор перелива серии — превью карточки слева, пульт справа */
+.hfe-wrap{display:grid;grid-template-columns:minmax(0,280px) minmax(0,1fr);gap:20px;padding:20px 20px 4px}
+@media (max-width:760px){.hfe-wrap{grid-template-columns:minmax(0,1fr)}}
+.hfe-prev{display:flex;flex-direction:column;align-items:center;gap:10px;position:sticky;top:0;align-self:start;background:var(--popup-bg);padding-bottom:8px;z-index:2}
+.hfe-scene{perspective:900px;width:min(240px,62vw)}
+.hfe-card{position:relative;aspect-ratio:7/10;width:100%;border-radius:16px;overflow:hidden;background:#171722;touch-action:none;box-shadow:0 18px 40px rgba(0,0,0,.35)}
+.hfe-card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 24%;display:block;pointer-events:none}
+.hfe-nav{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--text-faint)}
+.hfe-pats{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:6px}
+.hfe-pat{border:1px solid var(--line);background:var(--input-bg);color:var(--text);border-radius:10px;padding:6px 3px;display:flex;flex-direction:column;align-items:center;gap:4px;font:inherit;font-size:10.5px;line-height:1.2;text-align:center;cursor:pointer}
+.hfe-pat canvas{width:34px;height:34px;border-radius:7px;display:block}
+.hfe-pat[aria-pressed="true"]{border-color:var(--lav-deep);box-shadow:0 0 0 1px var(--lav-deep) inset}
+.hfe-h{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin:14px 0 6px;font-weight:600}
+.hfe-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 8px;align-items:center;margin-bottom:6px}
+.hfe-row label{font-size:12.5px;color:var(--text)}
+.hfe-row output{font-size:11.5px;color:var(--text-dim);font-variant-numeric:tabular-nums}
+.hfe-row input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--lav-deep);margin:0}
+.hfe-row select{grid-column:1/-1}
+.hfe-on{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;cursor:pointer}
+.hfe-on input{width:18px;height:18px;accent-color:var(--lav-deep)}
 .popup-close-x{
   position:absolute;top:10px;right:12px;
   width:30px;height:30px;border-radius:50%;
@@ -1777,6 +1797,13 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
   </div>
 </div>
 
+<!-- admin-v211: конструктор перелива серии -->
+<div class="popup-overlay popup-centered" id="holo-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeHoloEditor()">
+  <div class="popup" style="max-width:980px">
+    <button class="popup-close-x" onclick="closeHoloEditor()" title="Закрыть">✕</button>
+    <div id="holo-editor-body"></div>
+  </div>
+</div>
 <div class="popup-overlay popup-centered" id="raffle-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeRafflePopup()">
   <div class="popup" style="max-width:600px">
     <button class="popup-close-x" onclick="closeRafflePopup()" title="Закрыть">✕</button>
@@ -14405,6 +14432,8 @@ function seriesEditorHtml(key){
     + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
       + '<button class="action-btn" onclick="saveSeries()">Сохранить</button>'
       + '<button class="action-btn" onclick="seriesExpanded=null;renderSeriesList(0)">Отмена</button>'
+      + (isNew ? '' : '<button class="action-btn" onclick="openHoloEditor(' + jsArg(s.key) + ')">Перелив карточек'
+          + (s.holo && s.holo.on ? ' · вкл' : '') + '</button>')
       + (isNew ? '' : '<button class="action-btn" style="margin-left:auto" onclick="deleteSeries(' + jsArg(s.key) + ')">Удалить</button>')
     + '</div><div id="sf-status" style="font-size:11px;color:var(--text-faint)"></div></div>';
 }
@@ -14434,6 +14463,172 @@ async function deleteSeries(key){
   seriesExpanded = null;
   if (currentSeries === key) currentSeries = '';
   loadSeries();
+}
+
+/* ── admin-v211 · КОНСТРУКТОР ПЕРЕЛИВА СЕРИИ ─────────────────────────────────
+   Тот же движок HoloFX, что в песочнице и в приложении: что видно здесь, то
+   участник увидит на открытой карте этой серии. Превью — арты самой серии,
+   их можно листать. Набор хранится у серии; выключенный не теряется */
+var holoEd = { key:'', title:'', S:null, on:true, fx:null, arts:[], artIdx:0 };
+var HOLO_GROUPS = [
+  ['Узор подробнее', [['scale','Размер узора','px'],['density','Плотность','%'],['angle','Поворот узора','deg']]],
+  ['Полоса света',   [['band','Ширина полосы','pc'],['bandAngle','Наклон полосы','deg'],['soft','Мягкость края','%'],['travel','Скорость пробега','x']]],
+  ['Сила эффекта',   [['intensity','Яркость перелива','%'],['glare','Блик','%'],['sat','Насыщенность цвета','%'],['shift','Ширина радуги','pc']]],
+  ['Отклик',         [['range','Угол полного перелива','deg'],['smooth','Скорость реакции','%']]]
+];
+var HOLO_STEP = {scale:1, density:.01, angle:1, band:1, bandAngle:1, soft:.01, travel:.05, intensity:.01, glare:.01, sat:.05, shift:1, range:1, smooth:.01};
+var HOLO_BLEND_NAMES = [['color-dodge','Фольга (осветление)'],['overlay','Мягкая (перекрытие)'],['screen','Светлая (экран)'],['soft-light','Тонкая (мягкий свет)'],['hard-light','Резкая (жёсткий свет)']];
+
+function holoFmt(kind, v){
+  v = +v;
+  if (kind === '%') return Math.round(v*100) + '%';
+  if (kind === 'px') return v + ' пикс.';
+  if (kind === 'deg') return v + '°';
+  if (kind === 'x') return '×' + v.toFixed(2);
+  return v + '%';
+}
+
+async function openHoloEditor(key){
+  var s = null; seriesList.forEach(function(x){ if (x.key === key) s = x; });
+  holoEd.key = key;
+  holoEd.title = s ? (s.title || s.key) : key;
+  holoEd.S = HoloFX.normalize((s && s.holo) || HoloFX.defaults('lines'));
+  holoEd.on = s && s.holo ? !!s.holo.on : true;
+  holoEd.arts = []; holoEd.artIdx = 0;
+  document.getElementById('holo-popup-overlay').classList.add('open');
+  renderHoloEditor();
+  try {
+    var d = await fetch(API + '/cards/admin/shelf?series_key=' + encodeURIComponent(key)
+      + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN)).then(function(r){ return r.json(); });
+    var arts = [];
+    (d.slots || []).forEach(function(sl){ (sl.cards || []).forEach(function(c){ if (c.image_url) arts.push({url:c.image_url, title:c.title || c.god || c.key}); }); });
+    (d.outside || []).forEach(function(c){ if (c.image_url) arts.push({url:c.image_url, title:c.title || c.key}); });
+    holoEd.arts = arts;
+  } catch(e){}
+  holoShowArt(0);
+}
+
+function closeHoloEditor(){
+  if (holoEd.fx){ holoEd.fx.destroy(); holoEd.fx = null; }
+  document.getElementById('holo-popup-overlay').classList.remove('open');
+}
+
+function renderHoloEditor(){
+  if (holoEd.fx){ holoEd.fx.destroy(); holoEd.fx = null; }
+  var S = holoEd.S, h = '';
+  h += '<div class="hfe-wrap"><div class="hfe-prev">'
+    +  '<div style="font-size:13px;font-weight:700;text-align:center;padding-right:30px">Перелив серии «' + elEsc(holoEd.title) + '»</div>'
+    +  '<div class="hfe-scene"><div class="hfe-card" id="hfe-card"><img id="hfe-art" alt=""></div></div>'
+    +  '<div class="hfe-nav"><button class="action-btn" style="padding:6px 10px" onclick="holoShowArt(holoEd.artIdx-1)">‹</button>'
+    +  '<span id="hfe-art-name">Загружаю арты…</span>'
+    +  '<button class="action-btn" style="padding:6px 10px" onclick="holoShowArt(holoEd.artIdx+1)">›</button></div>'
+    +  '<div style="font-size:11px;color:var(--text-faint);text-align:center;max-width:240px;line-height:1.45">Веди мышкой по карточке. Так участник увидит открытую карту этой серии; в коллекции карточки стоят без перелива.</div>'
+    +  '</div><div style="min-width:0">'
+    +  '<label class="hfe-on"><input type="checkbox" id="hfe-on"' + (holoEd.on ? ' checked' : '') + ' onchange="holoEd.on=this.checked"> Перелив включён у этой серии</label>'
+    +  '<div class="hfe-h">Узор</div><div class="hfe-pats" id="hfe-pats"></div>';
+  HOLO_GROUPS.forEach(function(g){
+    h += '<div class="hfe-h">' + g[0] + '</div>';
+    g[1].forEach(function(f){
+      var k = f[0], r = HoloFX.RANGES[k];
+      h += '<div class="hfe-row"><label for="hfe-' + k + '">' + f[1] + '</label><output id="hfe-' + k + '-out">' + holoFmt(f[2], S[k]) + '</output>'
+        + '<input type="range" id="hfe-' + k + '" min="' + r[1] + '" max="' + r[2] + '" step="' + HOLO_STEP[k] + '" value="' + S[k] + '"'
+        + ' oninput="holoSlide(' + jsArg(k) + ',' + jsArg(f[2]) + ',this.value)"></div>';
+      if (k === 'shift') h += '<div class="hfe-row"><label for="hfe-blend">Способ наложения</label><output></output>'
+        + '<select id="hfe-blend" style="' + elInput() + '" onchange="holoEd.S.blend=this.value;holoApply(false)">'
+        + HOLO_BLEND_NAMES.map(function(o){ return '<option value="' + o[0] + '"' + (S.blend === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('')
+        + '</select></div>';
+    });
+  });
+  h += '<div class="hfe-h">Готовые настройки</div>'
+    +  '<textarea id="hfe-json" spellcheck="false" style="' + elInput() + 'width:100%;min-height:90px;font-family:ui-monospace,Menlo,monospace;font-size:11px;box-sizing:border-box"></textarea>'
+    +  '<div style="font-size:11px;color:var(--text-faint);margin:4px 0 10px">Можно вставить текст из песочницы «Голо-лаборатория» и нажать «Применить текст».</div>'
+    +  '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    +  '<button class="action-btn" onclick="holoSave()">Сохранить для серии</button>'
+    +  '<button class="action-btn" onclick="holoPaste()">Применить текст</button>'
+    +  '<button class="action-btn" onclick="holoReset()">Сбросить</button>'
+    +  '</div><div id="hfe-status" style="font-size:11.5px;color:var(--text-faint);margin-top:8px;min-height:1.4em"></div>'
+    +  '</div></div>';
+  document.getElementById('holo-editor-body').innerHTML = h;
+
+  var box = document.getElementById('hfe-pats');
+  HoloFX.PATTERNS.forEach(function(p){
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'hfe-pat'; b.dataset.p = p.id;
+    b.setAttribute('aria-pressed', p.id === S.pattern ? 'true' : 'false');
+    var c = document.createElement('canvas'); c.width = 68; c.height = 68; b.appendChild(c);
+    var t = document.createElement('span'); t.textContent = p.name; b.appendChild(t);
+    b.onclick = function(){
+      holoEd.S.pattern = p.id; holoEd.S.scale = p.def.scale; holoEd.S.density = p.def.density; holoEd.S.angle = p.def.angle;
+      holoApply(true);
+    };
+    box.appendChild(b); HoloFX.thumb(c, p.id);
+  });
+  var card = document.getElementById('hfe-card');
+  holoEd.fx = HoloFX.mount(card, holoEd.S, { z: 4 });
+  holoSyncJson();
+}
+
+function holoShowArt(i){
+  var img = document.getElementById('hfe-art'), nm = document.getElementById('hfe-art-name');
+  if (!img) return;
+  var n = holoEd.arts.length;
+  if (!n){ img.removeAttribute('src'); if (nm) nm.textContent = 'В серии пока нет артов'; return; }
+  holoEd.artIdx = ((i % n) + n) % n;
+  var a = holoEd.arts[holoEd.artIdx];
+  img.src = a.url;
+  if (nm) nm.textContent = (holoEd.artIdx + 1) + ' / ' + n + ' · ' + a.title;
+}
+
+function holoSlide(k, kind, v){
+  holoEd.S[k] = +v;
+  var o = document.getElementById('hfe-' + k + '-out'); if (o) o.textContent = holoFmt(kind, v);
+  if (holoEd.fx) holoEd.fx.set(holoEd.S);
+  holoSyncJson();
+}
+
+function holoApply(rerenderSliders){
+  if (holoEd.fx){ holoEd.fx.set(holoEd.S); holoEd.S = holoEd.fx.get(); }
+  if (rerenderSliders){
+    HOLO_GROUPS.forEach(function(g){ g[1].forEach(function(f){
+      var el = document.getElementById('hfe-' + f[0]); if (el) el.value = holoEd.S[f[0]];
+      var o = document.getElementById('hfe-' + f[0] + '-out'); if (o) o.textContent = holoFmt(f[2], holoEd.S[f[0]]);
+    }); });
+    var bl = document.getElementById('hfe-blend'); if (bl) bl.value = holoEd.S.blend;
+    document.querySelectorAll('.hfe-pat').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.p === holoEd.S.pattern ? 'true' : 'false'); });
+  }
+  holoSyncJson();
+}
+
+function holoSyncJson(){
+  var ta = document.getElementById('hfe-json'); if (ta) ta.value = JSON.stringify(holoEd.S, null, 2);
+}
+
+function holoReset(){
+  holoEd.S = HoloFX.defaults(holoEd.S.pattern);
+  holoApply(true);
+}
+
+function holoPaste(){
+  var st = document.getElementById('hfe-status'), v;
+  try { v = JSON.parse(document.getElementById('hfe-json').value); }
+  catch(e){ st.textContent = 'Текст не похож на настройки — проверь, что скопирован целиком'; return; }
+  holoEd.S = HoloFX.normalize(v);
+  holoApply(true);
+  st.textContent = 'Применено — сохрани для серии, чтобы участники увидели';
+}
+
+async function holoSave(){
+  var st = document.getElementById('hfe-status');
+  var body = Object.assign({}, holoEd.S, { on: !!holoEd.on });
+  st.textContent = 'Сохраняю…';
+  try {
+    var r = await fetch(API + '/cards/admin/series/holo?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ key: holoEd.key, holo: body }) });
+    var d = await r.json().catch(function(){ return {}; });
+    if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
+    seriesList.forEach(function(x){ if (x.key === holoEd.key) x.holo = d.holo; });
+    st.textContent = holoEd.on ? 'Сохранено. Участники увидят перелив на открытых картах серии.' : 'Сохранено. Перелив у серии выключен, настройки остались.';
+    if (seriesExpanded !== null) renderSeriesList(0);
+  } catch(e){ st.textContent = 'Не сохранилось: ' + e.message; }
 }
 
 function openShelf(key){ currentSeries = key || ''; renderSeriesList(0); loadShelf(currentSeries); }
@@ -22072,6 +22267,372 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v210</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v211</div>
+<script>
+/* ═══ HoloFX · голографический перелив поверх карточки ══════════════════════
+   ОДИН И ТОТ ЖЕ КОД в трёх местах: песочница holo-lab, дашборд (конструктор
+   перелива серии), приложение (открытая карточка). Правишь здесь — копируешь
+   во все три, иначе дашборд покажет одно, а участник увидит другое.
+
+   Устройство: внутрь карточки кладётся слой .hfx. В нём «полоса света»
+   (.hfx-light) — маска, которая бежит по карточке навстречу наклону и на
+   крайних углах уходит за край; внутри неё узор (.hfx-pat) — радуга, видимая
+   только сквозь плитку узора. Сверху мягкий блик. Плитки узора и маска
+   рисуются ОДИН РАЗ при смене настроек; на каждом кадре меняются только
+   CSS-переменные и положение маски. Нет движения — нет кадров. */
+(function(root){
+  "use strict";
+  if (root.HoloFX) return;
+
+  var CSS = ''
+    + '.hfx{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:inherit;z-index:var(--hfx-z,5)}'
+    + '.hfx-light{position:absolute;inset:0;mix-blend-mode:var(--hfx-blend,color-dodge);opacity:var(--hfx-intensity,.5);'
+    +   '-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}'
+    + '.hfx-pat{position:absolute;inset:-35%;transform:rotate(var(--hfx-angle,45deg));'
+    +   'background-image:linear-gradient(90deg,hsl(0 100% 62%) 0%,hsl(40 100% 60%) 8%,hsl(80 100% 58%) 16%,hsl(150 100% 58%) 24%,'
+    +   'hsl(195 100% 60%) 32%,hsl(240 100% 66%) 40%,hsl(290 100% 64%) 48%,hsl(340 100% 62%) 56%,hsl(20 100% 60%) 64%,'
+    +   'hsl(70 100% 58%) 72%,hsl(140 100% 58%) 80%,hsl(200 100% 60%) 88%,hsl(260 100% 66%) 96%,hsl(300 100% 64%) 100%);'
+    +   'background-size:300% 100%;background-position:calc(50% + var(--hfx-x,0) * var(--hfx-shift,45%)) 50%;'
+    +   'filter:saturate(var(--hfx-sat,1));-webkit-mask-repeat:repeat;mask-repeat:repeat}'
+    + '.hfx-glare{position:absolute;inset:0;mix-blend-mode:overlay;background:radial-gradient(circle at var(--hfx-gx,50%) var(--hfx-gy,40%),'
+    +   'rgba(255,255,255,var(--hfx-glare,.45)) 0%,rgba(255,255,255,calc(var(--hfx-glare,.45) * .35)) 22%,rgba(255,255,255,0) 55%)}';
+
+  function injectCss(){
+    if (document.getElementById('hfx-style')) return;
+    var st = document.createElement('style'); st.id = 'hfx-style'; st.textContent = CSS;
+    (document.head || document.documentElement).appendChild(st);
+  }
+
+  /* Библиотека узоров: у каждого своя геометрия по умолчанию */
+  var PATTERNS = [
+    {id:"foil",     name:"Гладкая",        def:{scale:20, density:0.5,  angle:110}},
+    {id:"lines",    name:"Диагональ",      def:{scale:8,  density:0.45, angle:45}},
+    {id:"hatch",    name:"Сетка",          def:{scale:10, density:0.35, angle:45}},
+    {id:"waves",    name:"Волны",          def:{scale:12, density:0.35, angle:0}},
+    {id:"zigzag",   name:"Зигзаг",         def:{scale:12, density:0.3,  angle:0}},
+    {id:"squares",  name:"Квадраты",       def:{scale:14, density:0.6,  angle:45}},
+    {id:"checker",  name:"Шахматка",       def:{scale:10, density:0.9,  angle:0}},
+    {id:"triangles",name:"Треугольники",   def:{scale:14, density:0.6,  angle:0}},
+    {id:"hex",      name:"Соты",           def:{scale:9,  density:0.35, angle:0}},
+    {id:"scales",   name:"Чешуя",          def:{scale:14, density:0.35, angle:0}},
+    {id:"dots",     name:"Точки",          def:{scale:10, density:0.55, angle:30}},
+    {id:"dots2",    name:"Точки вразбег",  def:{scale:9,  density:0.6,  angle:0}},
+    {id:"circles",  name:"Колечки",        def:{scale:12, density:0.35, angle:0}},
+    {id:"circles2", name:"Колечки вразбег",def:{scale:10, density:0.35, angle:0}},
+    {id:"rings",    name:"Круги",          def:{scale:10, density:0.45, angle:0}},
+    {id:"sunburst", name:"Лучи",           def:{scale:12, density:0.5,  angle:0}},
+    {id:"stars",    name:"Звёздочки",      def:{scale:14, density:0.6,  angle:0}},
+    {id:"hearts",   name:"Сердечки",       def:{scale:16, density:0.6,  angle:0}},
+    {id:"dollars",  name:"Доллары",        def:{scale:18, density:0.6,  angle:0}},
+    {id:"bolts",    name:"Молнии",         def:{scale:18, density:0.6,  angle:15}},
+    {id:"sparks",   name:"Искры",          def:{scale:10, density:0.35, angle:0}},
+    {id:"glitter",  name:"Блёстки",        def:{scale:9,  density:0.35, angle:0}}
+  ];
+  var BY_ID = {}; PATTERNS.forEach(function(p){ BY_ID[p.id] = p; });
+
+  /* Умолчания всего набора. Ключ → [по умолчанию, мин, макс] */
+  var RANGES = {
+    scale:[8,3,60], density:[0.45,0.05,0.95], angle:[45,0,180],
+    intensity:[0.5,0,1], glare:[0.45,0,1], sat:[1.1,0,2], shift:[45,5,100],
+    band:[16,4,45], bandAngle:[115,0,180], soft:[0.18,0.02,0.5], travel:[1.2,0.2,3],
+    range:[18,4,45], smooth:[0.18,0.03,1], tilt:[8,0,20]
+  };
+  var BLENDS = ["color-dodge","overlay","screen","soft-light","hard-light"];
+
+  function defaults(patternId){
+    var out = {pattern: BY_ID[patternId] ? patternId : "lines", blend:"color-dodge"};
+    Object.keys(RANGES).forEach(function(k){ out[k] = RANGES[k][0]; });
+    var d = BY_ID[out.pattern].def; out.scale = d.scale; out.density = d.density; out.angle = d.angle;
+    return out;
+  }
+  /* Чистка набора: неизвестное выбрасываем, числа зажимаем в границы.
+     Тот же разбор делает сервер — набор из дашборда и из песочницы один */
+  function normalize(s){
+    s = s || {};
+    var out = defaults(BY_ID[s.pattern] ? s.pattern : "lines");
+    Object.keys(RANGES).forEach(function(k){
+      var v = Number(s[k]); if (!isFinite(v)) return;
+      out[k] = Math.min(RANGES[k][2], Math.max(RANGES[k][1], v));
+    });
+    if (BLENDS.indexOf(s.blend) >= 0) out.blend = s.blend;
+    return out;
+  }
+
+  function rndGen(seed){ return function(){ seed = (seed*16807) % 2147483647; return seed/2147483647; }; }
+
+  /* Плитка узора. Чёрное = узор виден, прозрачное = нет */
+  function tileCanvas(p, S0, d, dpr){
+    var w = S0, h = S0, r3 = Math.sqrt(3);
+    if (p === "waves" || p === "zigzag") { w = S0*2; h = S0; }
+    if (p === "checker" || p === "dots2" || p === "circles2") { w = h = S0*2; }
+    if (p === "triangles") { w = S0; h = S0*r3; }
+    if (p === "hex") { w = S0*r3; h = S0*3; }
+    if (p === "glitter" || p === "sparks") { w = h = 220; }
+    var c = document.createElement("canvas");
+    c.width = Math.max(2, Math.round(w*dpr)); c.height = Math.max(2, Math.round(h*dpr));
+    var g = c.getContext("2d"); g.scale(dpr,dpr); g.fillStyle = "#000"; g.strokeStyle = "#000";
+    var lw = function(k){ g.lineWidth = Math.max(.6, S0*d*k); };
+    var size = S0*(.3+.6*d);   // размер значка для фигурных узоров
+    if (p === "lines")   g.fillRect(0,0,Math.max(.5,w*d),h);
+    if (p === "hatch")   { var t = Math.max(.5,S0*d/2); g.fillRect(0,0,t,h); g.fillRect(0,0,w,t); }
+    if (p === "waves")   { lw(.6); g.beginPath(); for (var x=-1;x<=w+1;x+=1){ var y = h/2 + h*.28*Math.sin(x/w*Math.PI*2); if (x<0) g.moveTo(x,y); else g.lineTo(x,y); } g.stroke(); }
+    if (p === "zigzag")  { lw(.6); g.lineJoin = "miter"; g.beginPath(); g.moveTo(-w/4,h*.8); g.lineTo(0,h*.2); g.lineTo(w/2,h*.8); g.lineTo(w,h*.2); g.lineTo(w*1.25,h*.8); g.stroke(); }
+    if (p === "squares") { var s1 = S0*d; g.fillRect((w-s1)/2,(h-s1)/2,s1,s1); }
+    if (p === "checker") { var s2 = S0*(.3+.7*d); g.fillRect((S0-s2)/2,(S0-s2)/2,s2,s2); g.fillRect(S0+(S0-s2)/2,S0+(S0-s2)/2,s2,s2); }
+    if (p === "triangles") {
+      var side = S0*(.3+.7*d), th = side*r3/2;
+      [[w/2, h/4],[0, h*3/4],[w, h*3/4]].forEach(function(q){
+        g.beginPath(); g.moveTo(q[0], q[1]-th/2); g.lineTo(q[0]+side/2, q[1]+th/2); g.lineTo(q[0]-side/2, q[1]+th/2); g.closePath(); g.fill(); });
+    }
+    if (p === "hex") {
+      lw(.5); var R = S0;
+      [[0,0],[w,0],[w/2,1.5*R],[0,3*R],[w,3*R]].forEach(function(q){ g.beginPath();
+        for (var k=0;k<6;k++){ var a = Math.PI/3*k + Math.PI/6, px = q[0]+R*Math.cos(a), py = q[1]+R*Math.sin(a); if (k) g.lineTo(px,py); else g.moveTo(px,py); }
+        g.closePath(); g.stroke(); });
+    }
+    if (p === "scales") { lw(.35); [[0,0],[w,0],[w/2,h/2],[0,h],[w,h]].forEach(function(q){ g.beginPath(); g.arc(q[0],q[1],w/2,0,Math.PI); g.stroke(); }); }
+    if (p === "dots")    { g.beginPath(); g.arc(w/2,h/2,Math.max(.4,S0*d/2),0,Math.PI*2); g.fill(); }
+    if (p === "dots2")   { var rr = Math.max(.4,S0*d/2); [[S0/2,S0/2],[S0*1.5,S0*1.5]].forEach(function(q){ g.beginPath(); g.arc(q[0],q[1],rr,0,Math.PI*2); g.fill(); }); }
+    if (p === "circles") { lw(.3); g.beginPath(); g.arc(w/2,h/2,S0*.33,0,Math.PI*2); g.stroke(); }
+    if (p === "circles2"){ lw(.3); [[S0/2,S0/2],[S0*1.5,S0*1.5]].forEach(function(q){ g.beginPath(); g.arc(q[0],q[1],S0*.36,0,Math.PI*2); g.stroke(); }); }
+    if (p === "stars") {
+      var ro = S0*(.15+.35*d), ri = ro*.28; g.beginPath();
+      for (var k2=0;k2<8;k2++){ var a2 = Math.PI/4*k2 - Math.PI/2, rad = k2%2 ? ri : ro; var px2 = w/2+rad*Math.cos(a2), py2 = h/2+rad*Math.sin(a2); if (k2) g.lineTo(px2,py2); else g.moveTo(px2,py2); }
+      g.closePath(); g.fill();
+    }
+    if (p === "hearts") {
+      // Сердце в квадрате size: две дуги сверху, острие снизу
+      var hs = size, cx = w/2, cy = h/2 - hs*.05;
+      g.beginPath();
+      g.moveTo(cx, cy + hs*.42);
+      g.bezierCurveTo(cx - hs*.62, cy + hs*.02, cx - hs*.42, cy - hs*.48, cx, cy - hs*.18);
+      g.bezierCurveTo(cx + hs*.42, cy - hs*.48, cx + hs*.62, cy + hs*.02, cx, cy + hs*.42);
+      g.closePath(); g.fill();
+    }
+    if (p === "dollars") {
+      g.textAlign = "center"; g.textBaseline = "middle";
+      g.font = "700 " + Math.max(4, size).toFixed(1) + "px Georgia, 'Times New Roman', serif";
+      g.fillText("$", w/2, h/2 + size*.04);
+    }
+    if (p === "bolts") {
+      // Молния: зигзаг-многоугольник, вписанный в size по высоте
+      var bh = size, bw = size*.55, bx = w/2 - bw/2, by = h/2 - bh/2;
+      var P = [[.62,0],[.05,.56],[.42,.56],[.25,1],[.95,.38],[.56,.38],[.8,0]];
+      g.beginPath(); P.forEach(function(q,i){ var px3 = bx + q[0]*bw, py3 = by + q[1]*bh; if (i) g.lineTo(px3,py3); else g.moveTo(px3,py3); });
+      g.closePath(); g.fill();
+    }
+    if (p === "glitter") {
+      var rnd = rndGen(7), n = Math.round(d * w*h / (S0*S0) * 3), r = Math.max(.6, S0*.12);
+      for (var i=0;i<n;i++){ g.globalAlpha = .35 + rnd()*.65; g.beginPath(); g.arc(rnd()*w, rnd()*h, r*(.5+rnd()), 0, Math.PI*2); g.fill(); }
+    }
+    if (p === "sparks") {
+      var rnd2 = rndGen(5), n2 = Math.round(d * w*h / (S0*S0) * 1.2);
+      for (var j=0;j<n2;j++){ var x0 = rnd2()*w, y0 = rnd2()*h, L = S0*(.25+rnd2()*.5), t2 = Math.max(.6, L*.12);
+        g.globalAlpha = .5 + rnd2()*.5; g.fillRect(x0-L, y0-t2/2, L*2, t2); g.fillRect(x0-t2/2, y0-L, t2, L*2); }
+    }
+    c._w = w; c._h = h;
+    return c;
+  }
+  function cssPattern(p, S0, d){
+    if (p === "rings") { var rw = S0*d; return "repeating-radial-gradient(circle at 50% 50%, #000 0 " + rw.toFixed(2) + "px, transparent " + rw.toFixed(2) + "px " + S0 + "px)"; }
+    if (p === "sunburst") { var step = Math.max(2, S0/2), f = step*d; return "repeating-conic-gradient(from 0deg at 50% 50%, #000 0deg " + f.toFixed(2) + "deg, transparent " + f.toFixed(2) + "deg " + step.toFixed(2) + "deg)"; }
+    return "";
+  }
+  function setMask(el, img, size, repeat){
+    var st = el.style;
+    st.webkitMaskImage = img; st.maskImage = img;
+    st.webkitMaskSize = size; st.maskSize = size;
+    st.webkitMaskRepeat = repeat; st.maskRepeat = repeat;
+  }
+
+  /* Миниатюра узора для кнопок выбора: радуга сквозь узор на тёмном */
+  function thumb(c, id){
+    var p = BY_ID[id]; if (!p) return;
+    var g = c.getContext("2d"), d = p.def, N = c.width;
+    g.fillStyle = "#2a201d"; g.fillRect(0,0,N,N);
+    var m = document.createElement("canvas"); m.width = m.height = N; var mg = m.getContext("2d");
+    mg.fillStyle = "#000"; mg.strokeStyle = "#000";
+    if (id === "foil") mg.fillRect(0,0,N,N);
+    else if (id === "rings") { mg.lineWidth = N/30; for (var r=N/22;r<N*.75;r+=N/11){ mg.beginPath(); mg.arc(N/2,N/2,r,0,Math.PI*2); mg.stroke(); } }
+    else if (id === "sunburst") { for (var k=0;k<24;k++){ var a = k/24*Math.PI*2; mg.beginPath(); mg.moveTo(N/2,N/2); mg.arc(N/2,N/2,N*.8,a,a+Math.PI/24); mg.closePath(); mg.fill(); } }
+    else {
+      var sc = (id === "glitter" || id === "sparks" ? d.scale*1.4 : d.scale*1.15) * N/88;
+      var t = tileCanvas(id, sc, d.density, 1), pat = mg.createPattern(t, "repeat");
+      mg.save(); mg.translate(N/2,N/2); mg.rotate(d.angle*Math.PI/180); mg.fillStyle = pat; mg.fillRect(-N,-N,N*2,N*2); mg.restore();
+    }
+    var rb = document.createElement("canvas"); rb.width = rb.height = N; var rg = rb.getContext("2d");
+    var gr = rg.createLinearGradient(0,0,N,N);
+    ["#ff5a5a","#ffc94a","#6dff8a","#4ad2ff","#9a6bff","#ff5ad1"].forEach(function(col,i,arr){ gr.addColorStop(i/(arr.length-1), col); });
+    rg.fillStyle = gr; rg.fillRect(0,0,N,N);
+    rg.globalCompositeOperation = "destination-in"; rg.drawImage(m,0,0);
+    if (id === "foil") g.globalAlpha = .8;
+    g.drawImage(rb,0,0); g.globalAlpha = 1;
+  }
+
+  function clamp(v){ return v < -1 ? -1 : v > 1 ? 1 : v; }
+
+  /* Подключить перелив к карточке.
+     host   — элемент карточки (позиционированный); слой кладётся внутрь
+     opts.z        — z-index слоя (по умолчанию 5)
+     opts.input    — элемент, на котором ловим мышь и палец (по умолчанию host)
+     opts.tiltEl   — элемент, который наклонять (по умолчанию не наклоняем)
+     opts.gyro     — включить наклон телефона сразу, где он даётся без вопроса
+     opts.touch    — вести перелив пальцем (по умолчанию да). В приложении
+                     false: палец там листает карточки, перелив ведёт наклон
+     opts.onInput  — сообщить, откуда сейчас ввод ("pointer" / "gyro" / "tg")
+     opts.onFps    — сообщать кадры в секунду (null — покой) */
+  function mount(host, settings, opts){
+    injectCss(); opts = opts || {};
+    var S = normalize(settings);
+    var root = document.createElement("div"); root.className = "hfx"; root.setAttribute("aria-hidden", "true");
+    if (opts.z != null) root.style.setProperty("--hfx-z", opts.z);
+    var light = document.createElement("div"); light.className = "hfx-light";
+    var pat = document.createElement("div"); pat.className = "hfx-pat";
+    var glare = document.createElement("div"); glare.className = "hfx-glare";
+    light.appendChild(pat); root.appendChild(light); root.appendChild(glare); host.appendChild(root);
+
+    var input = opts.input || host, tiltEl = opts.tiltEl || null;
+    var target = {x:0, y:0}, cur = {x:0, y:0}, mode = "pointer", running = false, dead = false;
+    var frames = 0, fpsT = 0, cw = 300, ch = 420, moved = 0, base = null;
+    var offs = [];
+
+    function applyPattern(){
+      var css = cssPattern(S.pattern, S.scale, S.density);
+      if (S.pattern === "foil") setMask(pat, "none", "auto", "repeat");
+      else if (css) setMask(pat, css, "100% 100%", "no-repeat");
+      else { var t = tileCanvas(S.pattern, S.scale, S.density, 2); setMask(pat, "url(" + t.toDataURL("image/png") + ")", t._w + "px " + t._h + "px", "repeat"); }
+      pat.style.webkitMaskPosition = "center"; pat.style.maskPosition = "center";
+    }
+    function applyLight(){
+      var w = S.band/2, s = S.soft*40;
+      setMask(light, "linear-gradient(" + S.bandAngle + "deg, transparent " + (50-w-s) + "%, #000 " + (50-w) + "%, #000 " + (50+w) + "%, transparent " + (50+w+s) + "%)", "1px 1px", "no-repeat");
+      measure();
+    }
+    function applyLook(){
+      var st = root.style;
+      st.setProperty("--hfx-intensity", S.intensity); st.setProperty("--hfx-glare", S.glare);
+      st.setProperty("--hfx-sat", S.sat); st.setProperty("--hfx-shift", S.shift + "%");
+      st.setProperty("--hfx-angle", S.angle + "deg"); st.setProperty("--hfx-blend", S.blend);
+    }
+    function measure(){
+      var r = root.getBoundingClientRect(); cw = r.width || cw; ch = r.height || ch;
+      light.style.webkitMaskSize = light.style.maskSize = (cw*3) + "px " + (ch*3) + "px";
+      render();
+    }
+    function render(){
+      var st = root.style;
+      st.setProperty("--hfx-x", cur.x.toFixed(4));
+      st.setProperty("--hfx-gx", (50 + cur.x*45).toFixed(2) + "%"); st.setProperty("--hfx-gy", (45 + cur.y*45).toFixed(2) + "%");
+      // Полоса бежит НАВСТРЕЧУ наклону — как отражение лампы в настоящей карточке
+      var pos = (-cw - cur.x*S.travel*cw).toFixed(1) + "px " + (-ch - cur.y*S.travel*ch).toFixed(1) + "px";
+      light.style.webkitMaskPosition = pos; light.style.maskPosition = pos;
+      if (tiltEl && S.tilt) tiltEl.style.transform = "rotateX(" + (-cur.y*S.tilt).toFixed(2) + "deg) rotateY(" + (cur.x*S.tilt).toFixed(2) + "deg)";
+    }
+    function frame(now){
+      if (dead) return;
+      var k = S.smooth;
+      cur.x += (target.x - cur.x) * k; cur.y += (target.y - cur.y) * k;
+      render(); frames++;
+      if (!fpsT) fpsT = now;
+      if (now - fpsT >= 1000){ if (opts.onFps) opts.onFps(Math.round(frames*1000/(now-fpsT))); frames = 0; fpsT = now; }
+      if (Math.abs(target.x-cur.x) < .0008 && Math.abs(target.y-cur.y) < .0008 && mode === "pointer"){
+        running = false; if (opts.onFps) opts.onFps(null); return;
+      }
+      requestAnimationFrame(frame);
+    }
+    function kick(){ if (!running && !dead){ running = true; frames = 0; fpsT = 0; requestAnimationFrame(frame); } }
+
+    function on(el, ev, fn, o){ el.addEventListener(ev, fn, o); offs.push(function(){ el.removeEventListener(ev, fn, o); }); }
+    function fromPointer(e){
+      var r = input.getBoundingClientRect();
+      target.x = clamp(((e.clientX - r.left)/r.width - .5) * 2);
+      target.y = clamp(((e.clientY - r.top)/r.height - .5) * 2);
+      kick();
+    }
+    var downAt = null, allowTouch = opts.touch !== false;
+    var mine = function(e){ return allowTouch || e.pointerType === "mouse"; };
+    on(input, "pointermove", function(e){
+      if (mode !== "pointer" || !mine(e)) return;
+      if (e.pointerType === "mouse" || e.buttons){
+        if (downAt) moved = Math.max(moved, Math.abs(e.clientX-downAt[0]) + Math.abs(e.clientY-downAt[1]));
+        fromPointer(e);
+      }
+    });
+    on(input, "pointerdown", function(e){ if (!mine(e)) return; downAt = [e.clientX, e.clientY]; moved = 0; if (mode === "pointer") fromPointer(e); });
+    on(input, "pointerleave", function(e){ if (mode === "pointer" && e.pointerType === "mouse"){ target.x = 0; target.y = 0; kick(); } });
+    on(input, "pointerup", function(e){ if (!mine(e)) return; downAt = null; if (mode === "pointer"){ target.x = 0; target.y = 0; kick(); } });
+    // Провели пальцем по карточке — это не нажатие: не открываем увеличение
+    on(input, "click", function(e){ if (moved > 10){ e.stopPropagation(); e.preventDefault(); } moved = 0; }, true);
+
+    function fromAngles(beta, gamma){
+      if (beta == null || gamma == null) return;
+      if (!base) base = {b:beta, g:gamma};
+      target.x = clamp((gamma - base.g) / S.range);
+      target.y = clamp((beta - base.b) / S.range);
+    }
+    function useGyro(name){ mode = "gyro"; base = null; if (opts.onInput) opts.onInput(name); kick(); }
+    var tgHandler = null, domHandler = null;
+    /* Наклон телефона. Telegram 8.0+ — свой гироскоп без вопроса; иначе событие
+       браузера. На iPhone вне Telegram браузер спрашивает разрешение — это
+       только по нажатию (ask=true из обработчика клика) */
+    function startGyro(ask, cb){
+      cb = cb || function(){};
+      var TG = root.ownerDocument.defaultView.Telegram && root.ownerDocument.defaultView.Telegram.WebApp;
+      if (TG && TG.DeviceOrientation && TG.isVersionAtLeast && TG.isVersionAtLeast("8.0")) {
+        tgHandler = function(){ var o = TG.DeviceOrientation; fromAngles(o.beta*180/Math.PI, o.gamma*180/Math.PI); };
+        TG.onEvent("deviceOrientationChanged", tgHandler);
+        TG.DeviceOrientation.start({refresh_rate:20, need_absolute:false}, function(ok){
+          if (ok) { useGyro("tg"); cb(true, "tg"); } else cb(false, "tg_denied");
+        });
+        return;
+      }
+      if (typeof DeviceOrientationEvent === "undefined") { cb(false, "no_sensor"); return; }
+      var go = function(){
+        var got = false;
+        domHandler = function(e){ if (e.beta == null) return; if (!got){ got = true; useGyro("gyro"); cb(true, "gyro"); } fromAngles(e.beta, e.gamma); };
+        window.addEventListener("deviceorientation", domHandler);
+        setTimeout(function(){ if (!got && !dead) cb(false, "silent"); }, 1500);
+      };
+      if (typeof DeviceOrientationEvent.requestPermission === "function") {
+        if (!ask) { cb(false, "needs_tap"); return; }
+        DeviceOrientationEvent.requestPermission().then(function(r){ if (r === "granted") go(); else cb(false, "denied"); })
+          .catch(function(){ cb(false, "denied"); });
+      } else go();
+    }
+    function stopGyro(){
+      var TG = root.ownerDocument.defaultView.Telegram && root.ownerDocument.defaultView.Telegram.WebApp;
+      if (tgHandler && TG){ try { TG.offEvent("deviceOrientationChanged", tgHandler); TG.DeviceOrientation.stop(); } catch(e) {} tgHandler = null; }
+      if (domHandler){ window.removeEventListener("deviceorientation", domHandler); domHandler = null; }
+      mode = "pointer"; target.x = 0; target.y = 0; kick();
+    }
+
+    var ro = null;
+    if (root.ownerDocument.defaultView.ResizeObserver) { ro = new ResizeObserver(measure); ro.observe(root); }
+
+    applyPattern(); applyLight(); applyLook(); render();
+    if (opts.gyro) startGyro(false);
+
+    return {
+      set: function(next){
+        var prev = S; S = normalize(next);
+        if (prev.pattern !== S.pattern || prev.scale !== S.scale || prev.density !== S.density) applyPattern();
+        if (prev.band !== S.band || prev.bandAngle !== S.bandAngle || prev.soft !== S.soft) applyLight();
+        applyLook(); render(); kick();
+      },
+      get: function(){ return Object.assign({}, S); },
+      startGyro: startGyro,
+      recenter: function(){ base = null; },
+      destroy: function(){
+        dead = true; stopGyro(); offs.forEach(function(f){ f(); }); offs = [];
+        if (ro) ro.disconnect();
+        if (tiltEl) tiltEl.style.transform = "";
+        if (root.parentNode) root.parentNode.removeChild(root);
+      }
+    };
+  }
+
+  root.HoloFX = {PATTERNS: PATTERNS, RANGES: RANGES, BLENDS: BLENDS, defaults: defaults, normalize: normalize, thumb: thumb, mount: mount};
+})(window);
+</script>
 </body>
 </html>
