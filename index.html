@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v202 -->
+<!-- FILE_VERSION: admin-v203 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2687,6 +2687,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <option value="reel">Рилс (бот отвечает на комментарии)</option>
         <option value="youtube">Ролик на YouTube</option>
         <option value="dzen">Статья в Дзене</option>
+        <option value="stories">Сториз (TG / ВК / Instagram)</option>
         <option value="tg_post">Пост в Telegram</option>
         <option value="vk_post">Пост во ВКонтакте</option>
         <option value="nudge">Дожимное сообщение в боте</option>
@@ -8251,7 +8252,8 @@ function setAttrPeriod(d){
 const ATTR_CHANNEL_LABELS = {
   reel:'рилс', tg_post:'пост в TG', dzen:'Дзен', magazine:'журнал',
   vk_ads:'реклама ВК', yandex:'реклама Яндекс', other:'другое',
-  youtube:'YouTube', vk_post:'пост в ВК', nudge:'дожим в боте', broadcast:'рассылка'
+  youtube:'YouTube', vk_post:'пост в ВК', nudge:'дожим в боте', broadcast:'рассылка',
+  stories:'сториз'
 };
 
 /* v154: разрез по площадке — виден и без меток в ссылках */
@@ -8387,6 +8389,8 @@ const ATTR_KIND = {
   youtube:  { p:'yt',     hint:'Ссылка в описание и закреп: бот Telegram или подписная страница ВК.', first:'tg_bot', utm:['youtube','organic'] },
   dzen:     { p:'dzen',   hint:'Ссылка в конец статьи: бот Telegram или подписная страница ВК.', first:'tg_bot', utm:['dzen','organic'] },
   tg_post:  { p:'tgpost', hint:'Ссылка на бота в посте канала.', first:'tg_bot', utm:['telegram','post'] },
+  // v203: [stated] Denis 15.10 — «запостил сториз и хотел уникальную ссылку на апп»
+  stories:  { p:'story',  hint:'Ссылка в сториз ведёт сразу в приложение: касание запишется, купит человек сразу или через неделю — оплата засчитается этой сториз.', first:'app', utm:['stories','organic'] },
   vk_post:  { p:'vkpost', hint:'Ссылка на подписную страницу в посте группы.', first:'vk_page', utm:['vk','post'] },
   nudge:    { p:'nudge',  hint:'Человек уже в боте — ставь ссылку в приложение: оплата засчитается этому дожиму.', first:'app', utm:['bot','nudge'] },
   broadcast:{ p:'send',   hint:'Человек уже в боте — ссылку в приложение в кнопку рассылки.', first:'app', utm:['bot','broadcast'] },
@@ -10752,19 +10756,29 @@ function admFoBar(text, color, onclick){
   bar.style.background = color; bar.textContent = text;
   bar.onclick = onclick || null; if (onclick) bar.style.cursor = 'pointer';
 }
-function admFoStart(){
+async function admFoStart(){
   if (!admFailover) return;
+  // v203: [stated] Denis 15.10 — предупреждение висело при живом Timeweb. Сначала
+  // спрашиваем основной: ответил дважды подряд — тихо возвращаемся на него
+  if (await admPrimaryAlive()){
+    await new Promise(function(r){ setTimeout(r, 1500); });
+    if (await admPrimaryAlive()){
+      try { localStorage.removeItem('adm_failover'); } catch (e) {}
+      location.reload();
+      return;
+    }
+  }
   admFoBar('Дашборд работает через ЗАПАСНОЙ сервер (Railway) — Timeweb недоступен', '#8a5a12');
   ADM_FO.timer = setInterval(async function(){
     if (await admPrimaryAlive()){
       ADM_FO.ok++;
-      if (ADM_FO.ok >= 3){
+      if (ADM_FO.ok >= 2){
         clearInterval(ADM_FO.timer);
         try { localStorage.removeItem('adm_failover'); } catch (e) {}
         admFoBar('Timeweb снова работает — нажми, чтобы вернуться на основной', '#2e7d4f', function(){ location.reload(); });
       }
     } else { ADM_FO.ok = 0; }
-  }, 60000);
+  }, 20000);
 }
 
 /* ── Загрузка рамок: замер, посадка, ручная доводка ─────────────────────── */
@@ -17520,8 +17534,11 @@ function lgRenderParam(force){
           return '<option value="' + u.code + '">' + (u.title || u.code) + ' · ' + u.code + '</option>';
         }).join('')
       : '<option value="">Единиц пока нет — заведи их в отчёте по источникам</option>';
+    /* v203: метку раньше можно было только выбрать — заводилась она в «Источниках
+       продаж», и Denis её не нашёл (15.10, сториз). Кнопка ведёт прямо в форму */
     slot.innerHTML = '<div class="pay-meta" style="margin-bottom:6px">' + head + '</div>' +
-      '<select id="lg-param" class="popup-input" onchange="lgBuild()">' + empty + opts + '</select>';
+      '<select id="lg-param" class="popup-input" onchange="lgBuild()">' + empty + opts + '</select>' +
+      '<button class="action-btn" style="margin-top:6px" onclick="lgNewUnit()">+ Завести новую метку</button>';
   } else if (kind === 'free'){
     /* Свободный ввод для ссылок из PARAM_LINKS. Подпись приходит из приложения
        — там же и знание, что подставляется: ключ занятия, выпуска, игры */
@@ -17539,6 +17556,15 @@ function lgRenderParam(force){
     slot.innerHTML = '<div class="pay-meta" style="margin-bottom:6px">' + head + '</div>' +
       '<input id="lg-param" class="popup-input" placeholder="magazine_pilot" oninput="lgBuild()">';
   }
+}
+
+function lgNewUnit(){
+  closeLinkGenPopup();
+  openAttributionPopup();
+  setTimeout(function(){
+    const el = document.getElementById('attr-form-title');
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, 300);
 }
 
 function lgParamValue(){
@@ -21876,6 +21902,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v202</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v203</div>
 </body>
 </html>
