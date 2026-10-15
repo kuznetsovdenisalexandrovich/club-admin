@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v211 -->
+<!-- FILE_VERSION: admin-v212 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -14472,11 +14472,11 @@ async function deleteSeries(key){
 var holoEd = { key:'', title:'', S:null, on:true, fx:null, arts:[], artIdx:0 };
 var HOLO_GROUPS = [
   ['Узор подробнее', [['scale','Размер узора','px'],['density','Плотность','%'],['angle','Поворот узора','deg']]],
-  ['Полоса света',   [['band','Ширина полосы','pc'],['bandAngle','Наклон полосы','deg'],['soft','Мягкость края','%'],['travel','Скорость пробега','x']]],
+  ['Полоса света',   [['band','Ширина полосы','pc'],['bandAngle','Наклон полосы','deg'],['bandRest','Полоса в покое','rest'],['soft','Мягкость края','%'],['travel','Скорость пробега','x']]],
   ['Сила эффекта',   [['intensity','Яркость перелива','%'],['glare','Блик','%'],['sat','Насыщенность цвета','%'],['shift','Ширина радуги','pc']]],
   ['Отклик',         [['range','Угол полного перелива','deg'],['smooth','Скорость реакции','%']]]
 ];
-var HOLO_STEP = {scale:1, density:.01, angle:1, band:1, bandAngle:1, soft:.01, travel:.05, intensity:.01, glare:.01, sat:.05, shift:1, range:1, smooth:.01};
+var HOLO_STEP = {scale:1, density:.01, angle:1, band:1, bandAngle:1, bandRest:.05, soft:.01, travel:.05, intensity:.01, glare:.01, sat:.05, shift:1, range:1, smooth:.01};
 var HOLO_BLEND_NAMES = [['color-dodge','Фольга (осветление)'],['overlay','Мягкая (перекрытие)'],['screen','Светлая (экран)'],['soft-light','Тонкая (мягкий свет)'],['hard-light','Резкая (жёсткий свет)']];
 
 function holoFmt(kind, v){
@@ -14485,6 +14485,7 @@ function holoFmt(kind, v){
   if (kind === 'px') return v + ' пикс.';
   if (kind === 'deg') return v + '°';
   if (kind === 'x') return '×' + v.toFixed(2);
+  if (kind === 'rest') return v >= 0.75 ? 'за краем' : v <= -0.75 ? 'за левым краем' : (v === 0 ? 'по центру' : (v > 0 ? 'правее на ' : 'левее на ') + Math.round(Math.abs(v)*100) + '%');
   return v + '%';
 }
 
@@ -22267,7 +22268,7 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v211</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v212</div>
 <script>
 /* ═══ HoloFX · голографический перелив поверх карточки ══════════════════════
    ОДИН И ТОТ ЖЕ КОД в трёх местах: песочница holo-lab, дашборд (конструктор
@@ -22285,7 +22286,7 @@ async function onbxSaveTexts(btn){
   if (root.HoloFX) return;
 
   var CSS = ''
-    + '.hfx{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:inherit;z-index:var(--hfx-z,5)}'
+    + '.hfx{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:inherit}'
     + '.hfx-light{position:absolute;inset:0;mix-blend-mode:var(--hfx-blend,color-dodge);opacity:var(--hfx-intensity,.5);'
     +   '-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}'
     + '.hfx-pat{position:absolute;inset:-35%;transform:rotate(var(--hfx-angle,45deg));'
@@ -22334,7 +22335,7 @@ async function onbxSaveTexts(btn){
   var RANGES = {
     scale:[8,3,60], density:[0.45,0.05,0.95], angle:[45,0,180],
     intensity:[0.5,0,1], glare:[0.45,0,1], sat:[1.1,0,2], shift:[45,5,100],
-    band:[16,4,45], bandAngle:[115,0,180], soft:[0.18,0.02,0.5], travel:[1.2,0.2,3],
+    band:[16,4,45], bandAngle:[115,0,180], bandRest:[1,-1.5,1.5], soft:[0.18,0.02,0.5], travel:[1.2,0.2,3],
     range:[18,4,45], smooth:[0.18,0.03,1], tilt:[8,0,20]
   };
   var BLENDS = ["color-dodge","overlay","screen","soft-light","hard-light"];
@@ -22485,7 +22486,11 @@ async function onbxSaveTexts(btn){
     injectCss(); opts = opts || {};
     var S = normalize(settings);
     var root = document.createElement("div"); root.className = "hfx"; root.setAttribute("aria-hidden", "true");
-    if (opts.z != null) root.style.setProperty("--hfx-z", opts.z);
+    /* ⚠️ У СЛОЯ НЕТ z-index И НЕ ДОЛЖНО БЫТЬ. z-index делает его отдельной
+       «группой наложения», и режимы смешивания (осветление, перекрытие)
+       смешивают радугу с ПУСТОТОЙ этой группы, а не с картинкой карты: узор
+       ложится тёмной радугой поверх арта ([stated] Denis 16.10, v4). Слой
+       кладётся последним в карточку — выше картинки он и так по порядку */
     var light = document.createElement("div"); light.className = "hfx-light";
     var pat = document.createElement("div"); pat.className = "hfx-pat";
     var glare = document.createElement("div"); glare.className = "hfx-glare";
@@ -22524,7 +22529,9 @@ async function onbxSaveTexts(btn){
       st.setProperty("--hfx-x", cur.x.toFixed(4));
       st.setProperty("--hfx-gx", (50 + cur.x*45).toFixed(2) + "%"); st.setProperty("--hfx-gy", (45 + cur.y*45).toFixed(2) + "%");
       // Полоса бежит НАВСТРЕЧУ наклону — как отражение лампы в настоящей карточке
-      var pos = (-cw - cur.x*S.travel*cw).toFixed(1) + "px " + (-ch - cur.y*S.travel*ch).toFixed(1) + "px";
+      // bandRest — где полоса, когда карточку не наклоняют (в ширинах карты от
+      // центра): 0 — через середину, 1 — за правым краем, карта в покое чистая
+      var pos = (-cw + (S.bandRest - cur.x*S.travel)*cw).toFixed(1) + "px " + (-ch - cur.y*S.travel*ch).toFixed(1) + "px";
       light.style.webkitMaskPosition = pos; light.style.maskPosition = pos;
       if (tiltEl && S.tilt) tiltEl.style.transform = "rotateX(" + (-cur.y*S.tilt).toFixed(2) + "deg) rotateY(" + (cur.x*S.tilt).toFixed(2) + "deg)";
     }
