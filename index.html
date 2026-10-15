@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v209 -->
+<!-- FILE_VERSION: admin-v210 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -4914,7 +4914,10 @@ function openPopup(uid){
   const name=u.full_name||u.name||'—';
   document.getElementById('popup-avatar').textContent=initials(name);
   document.getElementById('popup-name').textContent=name;
-  document.getElementById('popup-handle').textContent=u.username||u.email||'—';
+  /* admin-v210: в username лежит фраза Salebot «ТГ: Имя, ник: @nick, id: …» —
+     в шапке и строке Telegram показываем только сам ник, по нему можно нажать */
+  const tgNick=admTgNick(u.username);
+  document.getElementById('popup-handle').textContent=tgNick?('@'+tgNick):(u.email||'—');
   let months='—';
   if(u.autopayments_num) months=u.autopayments_num+'м';
   else if(u.first_payment_date){
@@ -4931,8 +4934,8 @@ function openPopup(uid){
   document.getElementById('popup-rows').innerHTML=[
     ['Телефон',u.phone||'—'],
     ['Email',u.email||'—'],
-    ['Telegram', idCell(u.telegram_id, u.username ? 'https://t.me/'+encodeURIComponent(String(u.username).replace(/^@/,'')) : '',
-                        u.username ? '@'+escapeHtmlAdm(String(u.username).replace(/^@/,'')) : '')],
+    ['Telegram', idCell(u.telegram_id, tgNick ? 'https://t.me/'+encodeURIComponent(tgNick) : '',
+                        tgNick ? '@'+escapeHtmlAdm(tgNick) : '')],
     ['ВКонтакте', idCell(u.vk_id, u.vk_id ? 'https://vk.ru/id'+u.vk_id : '', u.vk_id ? 'профиль' : '')],
     /* admin-v185: MAX — из указателей; вписать руками, если человек прислал айди */
     ['MAX', idCell(u.max_id, '', '') + ' <a class="id-link" href="#" onclick="admSetMaxId('+u.id+');return false">'+(u.max_id?'добавить ещё':'вписать')+'</a>'],
@@ -9140,6 +9143,20 @@ function admLinkify(v){
   return escapeHtmlAdm(v).replace(/https?:\/\/[^\s<]+/g, function(u){
     return '<a href="' + u + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">' + u + '</a>';
   });
+}
+/* admin-v210: настоящий ник Telegram из свободной строки — как clean_username
+   на сервере. «ТГ: Екатерина, ник: @katerina_workpage, id: 842…» → katerina_workpage.
+   Чистый ник без «@» тоже ник. Пометки площадок (@TG, @VK, @MAX) — не ник */
+function admTgNick(raw){
+  if(!raw) return '';
+  raw=String(raw).trim();
+  if(/^[A-Za-z0-9_]{4,32}$/.test(raw)) return raw;
+  const found=raw.match(/@([A-Za-z0-9_]{4,32})/g)||[];
+  for(let i=found.length-1;i>=0;i--){
+    const n=found[i].slice(1);
+    if(['TG','VK','MAX'].indexOf(n.toUpperCase())<0) return n;
+  }
+  return '';
 }
 function escapeHtmlAdm(v){
   return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -22055,6 +22072,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v209</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v210</div>
 </body>
 </html>
