@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v203 -->
+<!-- FILE_VERSION: admin-v204 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -20020,6 +20020,54 @@ function dgCopyLink(slug){
    приложении, площадки эфиров (каналы, группы, чаты). Сначала «Проверить»:
    тот же код соберёт тексты и посчитает людей, ничего не отправив. */
 var dgAnnIssue = null;
+/* admin-v204: КАРТИНКА К АНОНСУ. [stated] Denis 15.10: «к новости о выходе
+   дайджеста добавить возможность картинку прикрепить — обложку хочу
+   показывать». По умолчанию — обложка номера; можно загрузить другую или
+   слать без картинки. Выбор сервер запоминает за номером */
+var dgAnnImg = {value: '', view: '', cover: '', coverView: ''};
+function dgAnnImgDraw(){
+  var box = document.getElementById('dg-ann-img');
+  if (!box) return;
+  var v = dgAnnImg;
+  var взятьОбложку = v.cover && v.cover !== v.value;
+  box.innerHTML = '<div class="pay-item" style="align-items:center">'
+    + (v.view ? '<img src="'+escapeHtmlAdm(v.view)+'" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:10px;flex-shrink:0">'
+              : '<div style="width:64px;height:64px;border-radius:10px;border:1px dashed var(--border);flex-shrink:0"></div>')
+    + '<div style="flex:1;min-width:0"><div class="pay-name">Картинка</div>'
+    + '<div class="pay-meta">'+(v.value ? (v.value === v.cover ? 'обложка номера' : 'своя картинка') : 'без картинки')
+    + ' · в каналах и чатах ТГ и ВК, бывшим в Telegram. В бот через Salebot уйдёт текстом</div></div>'
+    + '<button class="action-btn" style="flex-shrink:0" onclick="dgAnnImgPick()">'+(v.value ? 'Заменить' : 'Загрузить')+'</button>'
+    + (взятьОбложку ? '<button class="action-btn" style="flex-shrink:0" onclick="dgAnnImgSet(dgAnnImg.cover, dgAnnImg.coverView)">Обложка</button>' : '')
+    + (v.value ? '<button class="action-btn" style="flex-shrink:0" onclick="dgAnnImgSet(\'\', \'\')">Убрать</button>' : '')
+    + '</div>';
+}
+function dgAnnImgSet(value, view){ dgAnnImg.value = value || ''; dgAnnImg.view = view || ''; dgAnnImgDraw(); }
+function dgAnnImgPick(){
+  var f = document.getElementById('dg-ann-file');
+  if (!f){
+    f = document.createElement('input');
+    f.type = 'file'; f.accept = 'image/*'; f.id = 'dg-ann-file'; f.style.display = 'none';
+    f.onchange = function(){ dgAnnImgFile(f); };
+    document.body.appendChild(f);
+  }
+  f.value = '';
+  f.click();
+}
+async function dgAnnImgFile(input){
+  var file = input.files && input.files[0];
+  if (!file || !dgAnnIssue) return;
+  try{
+    dgToast('уменьшаю…');
+    var сжатый = await dgShrinkImage(file);
+    dgToast('заливаю ' + dgKb(сжатый.blob.size) + '…');
+    var meta = await retPost('/admin/audio-upload-url', { slug: 'dgann' + dgAnnIssue + '-' + Date.now().toString(36), kind: 'digest_decor', ext: сжатый.ext });
+    var put = await fetch(meta.upload_url, { method:'PUT', headers:{ 'Content-Type': meta.content_type }, body: сжатый.blob });
+    if (!put.ok) throw new Error('хранилище ответило ' + put.status);
+    /* хранилище закрыто для прямых ссылок — показываем через раздатчик сервера */
+    dgAnnImgSet('s3:' + meta.key, API + '/media/' + meta.key);
+    dgToast('Картинка загружена: ' + dgKb(сжатый.blob.size), 'ok');
+  }catch(e){ dgToast('Не залилось: ' + (e.message || e), 'bad'); }
+}
 async function dgAnnounceOpen(id){
   dgAnnIssue = id;
   var box = document.getElementById('dg-announce');
@@ -20032,6 +20080,7 @@ async function dgAnnounceOpen(id){
     var T = await fetch(API+'/admin/broadcast/targets'+q).then(function(r){ return r.ok ? r.json() : {targets:[]}; }).catch(function(){ return {targets:[]}; });
     var площадки = (T.targets || []).filter(function(t){ return String(t.method||'').indexOf('salebot') !== 0; });
     var опубликован = issue.status === 'published';
+    dgAnnImg = {value: L.image || '', view: L.image_view || '', cover: L.cover || '', coverView: L.cover_view || ''};
     var линк = function(name, url){
       return '<div class="pay-item" style="align-items:center">'
         + '<div style="width:90px;font-weight:700;flex-shrink:0">'+name+'</div>'
@@ -20050,6 +20099,7 @@ async function dgAnnounceOpen(id){
       + (опубликован ? '' : '<div class="pay-meta" style="color:var(--danger,#c33)">Номер ещё черновик — рассылка откроется после «Выпустить». Ссылки выше уже можно копировать.</div>')
       + '<textarea id="dg-ann-text" class="popup-input" rows="4" style="width:100%">'+escapeHtmlAdm(L.text||'')+'</textarea>'
       + '<input id="dg-ann-btn" class="popup-input" placeholder="Надпись на кнопке" value="'+escapeHtmlAdm(L.button||'')+'">'
+      + '<div id="dg-ann-img"></div>'
       + '<label class="pay-item" style="gap:8px;cursor:pointer"><input type="checkbox" id="dg-ann-bot" checked> <span><b>Бот</b> — список «Дайджест на месяц». Каждому ссылка его площадки; кто выбрал «только приложение», в бот не получит</span></label>'
       + '<label class="pay-item" style="gap:8px;cursor:pointer"><input type="checkbox" id="dg-ann-push" checked> <span><b>Push в приложении</b> — участникам из того же списка, кто разрешил уведомления. Нажатие открывает номер</span></label>'
       /* v140 (g48): бывшим участникам — своим текстом, кнопка ведёт на экран «С возвращением» */
@@ -20068,6 +20118,7 @@ async function dgAnnounceOpen(id){
       + '</div>'
       + '<div id="dg-ann-state" style="margin-top:10px;font-size:13px"></div>'
       + (журнал ? '<div class="section-title" style="margin:14px 0 4px;font-size:13px">Уже отправляли</div>' + журнал : '');
+    dgAnnImgDraw();
   }catch(e){ box.innerHTML = '<div style="opacity:.6">Не открылось: '+escapeHtmlAdm(e.message||String(e))+'</div>'; }
 }
 function dgCopyText(text){
@@ -20087,7 +20138,8 @@ async function dgAnnounceGo(preview){
     preview: !!preview,
     former: document.getElementById('dg-ann-former').checked,
     former_text: document.getElementById('dg-ann-former-text').value,
-    former_button: document.getElementById('dg-ann-former-btn').value
+    former_button: document.getElementById('dg-ann-former-btn').value,
+    image_url: dgAnnImg.value || ''
   };
   if (!preview){
     if (!body.bot && !body.push && !body.former && !body.target_ids.length){ alert('Не выбрано, куда слать'); return; }
@@ -20101,7 +20153,9 @@ async function dgAnnounceGo(preview){
     if (!r.ok) throw new Error(d.detail || ('HTTP '+r.status));
     if (preview){
       var b = d.bot || {};
-      st.innerHTML = '<div class="pay-meta" style="white-space:pre-wrap;border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:6px">'+escapeHtmlAdm(d.text)+'\n\n[ '+escapeHtmlAdm(d.button)+' ]</div>'
+      st.innerHTML = '<div class="pay-meta" style="white-space:pre-wrap;border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:6px">'
+        + (dgAnnImg.view ? '<img src="'+escapeHtmlAdm(dgAnnImg.view)+'" alt="" style="display:block;width:100%;max-width:320px;border-radius:8px;margin-bottom:8px">' : '')
+        + escapeHtmlAdm(d.text)+'\n\n[ '+escapeHtmlAdm(d.button)+' ]</div>'
         + (body.bot ? '<div>Бот: '+(b.total||0)+' чел. — Telegram '+(b.tg||0)+', ВК '+(b.vk||0)+(b.unknown ? ', площадка не ясна '+b.unknown+' (им придут обе кнопки)' : '')+'</div>' : '')
         + (body.push ? '<div>Push: '+(d.push||0)+' чел.</div>' : '')
         + (d.targets||[]).map(function(t){ return '<div>'+escapeHtmlAdm(t.name)+' → '+escapeHtmlAdm(t.link)+'</div>'; }).join('')
@@ -21902,6 +21956,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v203</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v204</div>
 </body>
 </html>
