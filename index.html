@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v207 -->
+<!-- FILE_VERSION: admin-v208 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -10769,13 +10769,16 @@ async function admFoSuspect(){
         setTimeout(function(){ location.reload(); }, 1200);
         return;
       }
+      /* v208: сообщаем запасному, что не достучались ни по домену, ни по
+         техническому адресу — вместе с его своей проверкой это ускоряет признание сбоя */
+      try { await admRawFetch(API_RAILWAY + '/standby/unreachable', { method: 'POST' }); } catch (e) {}
       const v = await admFoGet(API_RAILWAY + '/standby/verdict');
       /* v207: как приложение — только если запасной ПРИНИМАЕТ (сбой подтверждён
          И копия базы свежая). 15.10 дашборд ушёл на копию двухдневной давности:
          смотреть старое и, хуже, править его — хуже, чем подождать */
       if (v && v.primary_down && !v.accept){
-        admFoBar('Timeweb не отвечает, а копия базы на запасном старая — туда не перехожу, чтобы ты не работал со старыми данными. Проверяю каждые 30 секунд', '#8a5a12');
-        await admSleep(30000);
+        admFoBar('Timeweb не отвечает, а копия базы на запасном старая — туда не перехожу, чтобы ты не работал со старыми данными. Проверяю каждые 20 секунд', '#8a5a12');
+        await admSleep(20000);
         continue;
       }
       if (v && v.primary_down){
@@ -10784,8 +10787,8 @@ async function admFoSuspect(){
         location.reload();
         return;
       }
-      admFoBar('Timeweb не отвечает ни по домену, ни по техническому адресу. Жду подтверждения запасного — проверяю каждые 30 секунд, страница переключится сама', '#8a5a12');
-      await admSleep(30000);
+      admFoBar('Timeweb не отвечает ни по домену, ни по техническому адресу. Жду подтверждения запасного — проверяю каждые 20 секунд, страница переключится сама', '#8a5a12');
+      await admSleep(20000);
     }
   } finally { ADM_FO.checking = false; }
 }
@@ -22041,6 +22044,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v207</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v208</div>
 </body>
 </html>
