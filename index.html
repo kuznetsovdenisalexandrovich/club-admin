@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v206 -->
+<!-- FILE_VERSION: admin-v207 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -10770,6 +10770,14 @@ async function admFoSuspect(){
         return;
       }
       const v = await admFoGet(API_RAILWAY + '/standby/verdict');
+      /* v207: как приложение — только если запасной ПРИНИМАЕТ (сбой подтверждён
+         И копия базы свежая). 15.10 дашборд ушёл на копию двухдневной давности:
+         смотреть старое и, хуже, править его — хуже, чем подождать */
+      if (v && v.primary_down && !v.accept){
+        admFoBar('Timeweb не отвечает, а копия базы на запасном старая — туда не перехожу, чтобы ты не работал со старыми данными. Проверяю каждые 30 секунд', '#8a5a12');
+        await admSleep(30000);
+        continue;
+      }
       if (v && v.primary_down){
         try { localStorage.removeItem('adm_tech'); localStorage.setItem('adm_failover', '1'); } catch (e) { return; }
         alert('Timeweb не отвечает ни по домену, ни по техническому адресу, Railway это подтверждает. Дашборд переходит на запасной сервер (Railway).');
@@ -10828,6 +10836,14 @@ async function admFoStart(){
   }
   admFoBar('Дашборд работает через ЗАПАСНОЙ сервер (Railway) — Timeweb недоступен', '#8a5a12');
   ADM_FO.timer = setInterval(async function(){
+    // v207: и на запасном каждый раз смотрим технический адрес — ожил он
+    // раньше домена, значит живой сервер уже доступен, уходим на него
+    if (!(await admPrimaryAlive()) && await admAlive(API_TECH)){
+      clearInterval(ADM_FO.timer);
+      try { localStorage.removeItem('adm_failover'); localStorage.setItem('adm_tech', '1'); } catch (e) {}
+      location.reload();
+      return;
+    }
     if (await admPrimaryAlive()){
       ADM_FO.ok++;
       if (ADM_FO.ok >= 2){
@@ -22025,6 +22041,6 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v206</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v207</div>
 </body>
 </html>
