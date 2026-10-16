@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v212 -->
+<!-- FILE_VERSION: admin-v213 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -439,8 +439,13 @@ header{padding:calc(max(env(safe-area-inset-top), 8px) + 20px) 0 16px;display:fl
 @media (max-width:760px){.hfe-wrap{grid-template-columns:minmax(0,1fr)}}
 .hfe-prev{display:flex;flex-direction:column;align-items:center;gap:10px;position:sticky;top:0;align-self:start;background:var(--popup-bg);padding-bottom:8px;z-index:2}
 .hfe-scene{perspective:900px;width:min(240px,62vw)}
-.hfe-card{position:relative;aspect-ratio:7/10;width:100%;border-radius:16px;overflow:hidden;background:#171722;touch-action:none;box-shadow:0 18px 40px rgba(0,0,0,.35)}
-.hfe-card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 24%;display:block;pointer-events:none}
+/* admin-v213: превью как в приложении — холст рамки 1080×1440, окно под арт
+   844×1202 в точке (118,118): те же доли, что у .qr-card-art в аппе */
+.hfe-card{position:relative;aspect-ratio:3/4;width:100%;touch-action:none;transform-style:preserve-3d}
+.hfe-win{position:absolute;left:10.93%;top:8.19%;width:78.15%;height:83.47%;overflow:hidden;border-radius:14px;background:#171722;box-shadow:0 18px 40px rgba(0,0,0,.35)}
+.hfe-card.is-bare .hfe-win{left:0;top:0;width:100%;height:100%;border-radius:16px}
+.hfe-win img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 24%;display:block;pointer-events:none}
+.hfe-frame{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none}
 .hfe-nav{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--text-faint)}
 .hfe-pats{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:6px}
 .hfe-pat{border:1px solid var(--line);background:var(--input-bg);color:var(--text);border-radius:10px;padding:6px 3px;display:flex;flex-direction:column;align-items:center;gap:4px;font:inherit;font-size:10.5px;line-height:1.2;text-align:center;cursor:pointer}
@@ -1962,6 +1967,8 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
            собираются из справочника богов, поэтому пустая ячейка это и есть
            «здесь ещё не нарисовано» -->
       <div id="cards-tab-series" style="display:none">
+        <div id="sets-block"></div>
+        <div class="hfe-h">Сезоны</div>
         <div id="series-list"><div class="loading">Загрузка...</div></div>
         <div id="series-shelf" style="margin-top:14px"></div>
       </div>
@@ -3105,6 +3112,8 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
             <option value="regular">Банк колоды — обычные карты</option>
             <option value="plus">Платный пролог — версия для участников</option>
           </select></label>
+        <label style="font-size:11px;color:var(--text-faint)">Серия (папка от GPT)
+          <select class="popup-input" id="pu-set" onchange="packUpSetChanged(this.value)"></select></label>
         <label style="font-size:11px;color:var(--text-faint)">Сезон
           <select class="popup-input" id="pu-series"></select></label>
         <label style="font-size:11px;color:var(--text-faint)">Редкость всей пачки
@@ -12663,6 +12672,7 @@ function cardEditorHtml(c, idx){
         // заведённых до новой модели.
         + sel('Стиль','style', c.style || 'dark', CARD_STYLE_LABELS)
         + f('Сезон','series_key', c.series_key || '', 'text', 'list="series-datalist"')
+        + cardSetSelect(c.set_key || '', idx)
       + f('Вес в колоде','weight',c.weight,'number','min="0"')
         + f('Лимит выдач','monthly_limit',c.monthly_limit,'number','min="0"')
         + f('за сколько мес','limit_period_months',c.limit_period_months||1,'number','min="1"')
@@ -12674,6 +12684,9 @@ function cardEditorHtml(c, idx){
       + '</div>'
       + f('Ссылка на видео','media_url',c.media_url)
       + cardArtField(c, idx)
+      + (c._unsaved ? '' : '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+          + '<button class="action-btn" onclick="openHoloForCard(' + jsArg(c.key) + ')">Перелив этой карты' + (c.holo ? (c.holo.on ? ' · своя' : ' · выключен') : '') + '</button>'
+          + '<span style="font-size:11px;color:var(--text-faint)">' + (c.holo ? 'у карты своя настройка' : 'берётся у серии') + '</span></div>')
       + '<div style="display:flex;gap:16px;flex-wrap:wrap;padding-top:2px">'
         + '<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer"><input type="checkbox" id="cf-personal-' + idx + '" ' + (c.personal?'checked':'') + '> Требует моего личного участия</label>'
         + '<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer"><input type="checkbox" id="cf-active-' + idx + '" ' + (c.active?'checked':'') + '> В колоде</label>'
@@ -12686,6 +12699,21 @@ function cardEditorHtml(c, idx){
       + '</div>'
     + '</div></div>';
 }
+
+/* admin-v213: выбор серии в окне карты. Список серий грузится вкладкой
+   «Сезон»; если его ещё нет — в списке только текущая серия карты */
+function cardSetSelect(cur, idx){
+  if (!cardSetsList.length && !cardSetsLoading){ cardSetsLoading = true; loadCardSets().then(function(){ cardSetsLoading = false; }); }
+  var opts = '<option value="">Без серии</option>';
+  var seen = false;
+  cardSetsList.forEach(function(x){ if (x.key === cur) seen = true;
+    opts += '<option value="' + elEsc(x.key) + '"' + (x.key === cur ? ' selected' : '') + '>' + elEsc(x.title || x.key) + '</option>'; });
+  if (cur && !seen) opts += '<option value="' + elEsc(cur) + '" selected>' + elEsc(cur) + '</option>';
+  return '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:120px">'
+    + '<span style="font-size:11px;color:var(--text-faint)">Серия</span>'
+    + '<select id="cf-set_key-' + idx + '" style="padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">' + opts + '</select></label>';
+}
+var cardSetsLoading = false;
 
 function addCardType(){
   const key = 'card_' + Date.now().toString(36);
@@ -12728,6 +12756,8 @@ async function saveCardType(idx){
     style: v('style') || 'dark',
     series_key: v('series_key').trim(),
     unique_card: cb('unique_card'),
+    // admin-v213: серия карты. Сезон у карты из серии сервер берёт от серии
+    set_key: v('set_key'),
   };
   if (!payload.key){ alert('Нужен ключ карточки'); return; }
 
@@ -13326,8 +13356,50 @@ async function openPackUpload(){
   }).join('');
   const act = list.filter(function(x){ return x.active; })[0];
   sel.value = (typeof currentSeries !== 'undefined' && currentSeries) || (act ? act.key : '');
+  /* admin-v213: СЕРИЯ ПАЧКИ. Выбирается ДО файлов: имя файла `01-zeus` в
+     каждой папке GPT одинаковое, поэтому ключ новой карты = <серия>-<имя>,
+     иначе вторая серия приняла бы свои файлы за «уже загруженные» */
+  if (!cardSetsList.length){ try { await loadCardSets(); } catch(e){} }
+  packUpFillSets('');
   packUp = []; packHashes = null; packUpRender();
   document.getElementById('pack-up-overlay').classList.add('open');
+}
+function packUpFillSets(cur){
+  const sel = document.getElementById('pu-set');
+  sel.innerHTML = '<option value="">Без серии</option>' + cardSetsList.map(function(x){
+    return '<option value="' + escapeHtmlAdm(x.key) + '">' + escapeHtmlAdm(x.title || x.key) + ' · ' + escapeHtmlAdm(x.key) + '</option>';
+  }).join('') + '<option value="__new__">+ новая серия…</option>';
+  sel.value = cur || '';
+}
+async function packUpSetChanged(v){
+  if (v === '__new__'){
+    const key = ((prompt('Ключ новой серии латиницей — как GPT назвал папку (например, marble-gods):') || '').trim().toLowerCase());
+    if (!key){ packUpFillSets(''); return; }
+    const title = (prompt('Название серии по-русски (можно оставить пустым):') || '').trim();
+    const season = document.getElementById('pu-series').value || '';
+    const rarity = document.getElementById('pu-rarity').value || '';
+    try {
+      const r = await fetch(API + '/cards/admin/sets?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ key: key, title: title, season_key: season, rarity: rarity }) });
+      const d = await r.json().catch(function(){ return {}; });
+      if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
+      await loadCardSets();
+      packUpFillSets(d.key);
+    } catch(e){ alert('Серия не заведена: ' + e.message); packUpFillSets(''); }
+    return;
+  }
+  // Серия знает свой сезон и редкость — подставляем их в пачку
+  const st = cardSetByKey(v);
+  if (st){
+    if (st.season_key) document.getElementById('pu-series').value = st.season_key;
+    if (st.rarity){ document.getElementById('pu-rarity').value = st.rarity; packUpSetRarity(st.rarity); }
+  }
+}
+function packUpSetKey(){
+  const el = document.getElementById('pu-set');
+  const v = el ? el.value : '';
+  return (v && v !== '__new__') ? v : '';
 }
 function closePackUpload(){
   if (packUpBusy && !confirm('Загрузка ещё идёт. Закрыть окно? Уже загруженное останется.')) return;
@@ -13342,7 +13414,10 @@ async function packUpAdd(fileList){
   for (const f of files){
     packProg('Читаю файлы', fi++, files.length);
     const url = URL.createObjectURL(f);
-    const key = f.name.normalize('NFC').replace(/\.[^.]+$/, '').trim().toLowerCase();
+    const base = f.name.normalize('NFC').replace(/\.[^.]+$/, '').trim().toLowerCase();
+    /* admin-v213: в серии ключ карты — <серия>-<имя файла> (если имя уже не начинается с серии) */
+    const pset = packUpSetKey();
+    const key = (pset && base.indexOf(pset + '-') !== 0 && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(base)) ? (pset + '-' + base) : base;
     const existing = (cardTypes || []).find(function(c){ return c.key === key; });
     /* admin-v176: КАРТА С ТАКИМ ИМЕНЕМ УЖЕ ЕСТЬ И АРТ В НЕЙ ЕСТЬ — это повтор,
        пропускаем без сверки картинок. Есть, но пустая — догружаем в неё */
@@ -13456,6 +13531,8 @@ function packUpDrop(i){
   packUp.splice(i, 1); packUpRender();
 }
 function packUpRender(){
+  const psel = document.getElementById('pu-set');
+  if (psel) psel.disabled = packUp.length > 0;   // серия решает ключи карт — менять её посреди пачки нельзя
   const box = document.getElementById('pu-rows');
   const note = document.getElementById('pu-note');
   const go = document.getElementById('pu-go');
@@ -13556,6 +13633,7 @@ async function packUpGo(){
            (заведена пачкой, арта нет), — берём её, иначе на полке висела бы пустышка */
         const emptyAll = (cardTypes || []).filter(function(c){
           return c.god === r.god && (c.series_key || '') === (ser || '') && !c.image_url
+                 && (c.set_key || '') === packUpSetKey()   // admin-v213: пустышку чужой серии не занимаем
                  && c.needs_review && (c.card_class || 'regular') === 'regular' && !reused[c.key];
         });
         /* admin-v176: сначала пустая карта с той же редкостью и стилем; если
@@ -13569,15 +13647,16 @@ async function packUpGo(){
             await packCreate({ key: key, god: r.god, title: empty.title || r.god, rarity: r.rarity,
                                weight: packRand(s.w, 5), card_class: 'regular', style: r.style,
                                series_key: ser, effect_points: packRand(s.p, 10), active: active,
-                               create_only: false });
+                               create_only: false, set_key: packUpSetKey() || null });
           }
         }
         else {
         key = (r.nameKey && !(cardTypes || []).some(function(c){ return c.key === r.nameKey; }))
-              ? r.nameKey : packFreeKey((ser || 'bank') + '-' + godSlug(r.god));
+              ? r.nameKey : packFreeKey((packUpSetKey() || ser || 'bank') + '-' + godSlug(r.god));
         await packCreate({ key: key, god: r.god, title: r.god, rarity: r.rarity,
                            weight: packRand(s.w, 5), card_class: 'regular', style: r.style,
-                           series_key: ser, effect_points: packRand(s.p, 10), active: active });
+                           series_key: ser, effect_points: packRand(s.p, 10), active: active,
+                           set_key: packUpSetKey() || null });
         }
       }
       r.key = key;
@@ -14379,6 +14458,7 @@ async function loadSeries(){
     }
     renderSeriesList(d.unassigned || 0);
     if (currentSeries) loadShelf(currentSeries);
+    loadCardSets();   // admin-v213: серии карт — над сезонами, на той же вкладке
   } catch(e){
     box.innerHTML = '<div style="color:var(--text-faint);font-size:12px">Не загрузилось: ' + elEsc(e.message) + '</div>';
   }
@@ -14432,8 +14512,6 @@ function seriesEditorHtml(key){
     + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
       + '<button class="action-btn" onclick="saveSeries()">Сохранить</button>'
       + '<button class="action-btn" onclick="seriesExpanded=null;renderSeriesList(0)">Отмена</button>'
-      + (isNew ? '' : '<button class="action-btn" onclick="openHoloEditor(' + jsArg(s.key) + ')">Перелив карточек'
-          + (s.holo && s.holo.on ? ' · вкл' : '') + '</button>')
       + (isNew ? '' : '<button class="action-btn" style="margin-left:auto" onclick="deleteSeries(' + jsArg(s.key) + ')">Удалить</button>')
     + '</div><div id="sf-status" style="font-size:11px;color:var(--text-faint)"></div></div>';
 }
@@ -14465,11 +14543,125 @@ async function deleteSeries(key){
   loadSeries();
 }
 
-/* ── admin-v211 · КОНСТРУКТОР ПЕРЕЛИВА СЕРИИ ─────────────────────────────────
-   Тот же движок HoloFX, что в песочнице и в приложении: что видно здесь, то
-   участник увидит на открытой карте этой серии. Превью — арты самой серии,
-   их можно листать. Набор хранится у серии; выключенный не теряется */
-var holoEd = { key:'', title:'', S:null, on:true, fx:null, arts:[], artIdx:0 };
+/* ── admin-v213 · СЕРИИ КАРТ И КОНСТРУКТОР ПЕРЕЛИВА ──────────────────────────
+   Серия — набор артов одного стиля (папка от GPT с латинским именем). На ней
+   висят сезон, редкость и перелив. Сезон — надстройка: раз в год закрывается,
+   и карты его серий перестают выпадать.
+   Перелив карты: своя настройка карты → перелив её серии → (запасной) сезона.
+   Конструктор один, тот же движок HoloFX, что в приложении: что видно здесь,
+   то увидит участник на открытой карте. В превью можно примерить рамку из тех,
+   что выдача даст карте такой редкости, сезона и стиля */
+var cardSetsList = [], cardSetsUnassigned = 0, cardSetExpanded = null;
+
+async function loadCardSets(){
+  try {
+    var d = await fetch(API + '/cards/admin/sets?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN)).then(function(r){ return r.json(); });
+    cardSetsList = d.sets || []; cardSetsUnassigned = d.unassigned || 0;
+  } catch(e){}
+  renderCardSets();
+}
+function cardSetByKey(k){ return cardSetsList.filter(function(x){ return x.key === k; })[0] || null; }
+
+function renderCardSets(){
+  var box = document.getElementById('sets-block'); if (!box) return;
+  var h = '<div class="hfe-h" style="margin-top:0">Серии карт</div>'
+    + '<div style="font-size:11px;color:var(--text-faint);margin-bottom:8px;line-height:1.5">Серия — папка артов от GPT со своим латинским именем. На серии — сезон, редкость и перелив. Сезон над сериями: закрыл сезон — его серии перестали выпадать.</div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">';
+  cardSetsList.forEach(function(s){
+    h += '<button class="action-btn" onclick="openCardSetEditor(' + jsArg(s.key) + ')" style="opacity:' + (cardSetExpanded === s.key ? '1' : '.75') + '">'
+      + elEsc(s.title || s.key) + ' · ' + s.cards_count
+      + (s.rarity ? ' · ' + elEsc(RARITY_LABELS[s.rarity] || s.rarity) : '')
+      + (s.holo && s.holo.on ? ' · перелив' : '') + '</button>';
+  });
+  h += '<button class="action-btn" onclick="openCardSetEditor(&quot;&quot;)">+ серия</button></div>';
+  if (cardSetsUnassigned) h += '<div style="font-size:11px;color:var(--text-faint);margin-bottom:8px">Карт без серии: ' + cardSetsUnassigned + '. Привязать их можно в окне серии — по началу ключа.</div>';
+  h += '<div id="set-editor-slot">' + (cardSetExpanded !== null ? cardSetEditorHtml(cardSetExpanded) : '') + '</div>';
+  box.innerHTML = h;
+}
+
+function openCardSetEditor(key){ cardSetExpanded = key || ''; renderCardSets(); }
+
+function cardSetEditorHtml(key){
+  var s = cardSetByKey(key) || { key:'', title:'', season_key:'', rarity:'', cards_count:0 };
+  var isNew = !key;
+  var seasons = '<option value="">Без сезона</option>' + (seriesList || []).map(function(x){
+    return '<option value="' + elEsc(x.key) + '"' + (x.key === s.season_key ? ' selected' : '') + '>' + elEsc(x.title || x.key) + '</option>'; }).join('');
+  var rar = '<option value="">У каждой карты своя</option>' + Object.keys(RARITY_LABELS).map(function(k){
+    return '<option value="' + k + '"' + (k === s.rarity ? ' selected' : '') + '>' + RARITY_LABELS[k] + '</option>'; }).join('');
+  return '<div style="border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;margin-bottom:14px">'
+    + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Ключ серии (латиницей, как назвал GPT)')
+      + '<input id="cs-key" value="' + elEsc(s.key) + '" ' + (isNew ? 'placeholder="marble-gods"' : 'readonly') + ' style="' + elInput() + '"></label>'
+    + '<label style="display:flex;flex-direction:column;gap:3px">' + elLbl('Название')
+      + '<input id="cs-title" value="' + elEsc(s.title) + '" placeholder="Мраморные боги" style="' + elInput() + '"></label>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:140px">' + elLbl('Сезон') + '<select id="cs-season" style="' + elInput() + '">' + seasons + '</select></label>'
+      + '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:140px">' + elLbl('Редкость серии') + '<select id="cs-rarity" style="' + elInput() + '">' + rar + '</select></label>'
+    + '</div>'
+    + (isNew ? '' : '<label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="cs-apply"> Разнести редкость по всем картам серии (' + s.cards_count + ') — с весом и баллами по редкости</label>')
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + '<button class="action-btn" onclick="saveCardSet()">Сохранить</button>'
+      + (isNew ? '' : '<button class="action-btn" onclick="openHoloForSet(' + jsArg(s.key) + ')">Перелив серии' + (s.holo && s.holo.on ? ' · вкл' : '') + '</button>')
+      + '<button class="action-btn" onclick="cardSetExpanded=null;renderCardSets()">Закрыть</button>'
+      + (isNew ? '' : '<button class="action-btn" style="margin-left:auto" onclick="deleteCardSet(' + jsArg(s.key) + ')">Удалить серию</button>')
+    + '</div>'
+    + (isNew ? '' : '<div style="border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:6px">'
+        + elLbl('Привязать уже заведённые карты: все, чей ключ начинается так')
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap"><input id="cs-prefix" placeholder="' + elEsc(s.key) + '-" style="' + elInput() + 'flex:1;min-width:160px">'
+        + '<button class="action-btn" onclick="assignCardSet(' + jsArg(s.key) + ',true)">Посчитать</button>'
+        + '<button class="action-btn" onclick="assignCardSet(' + jsArg(s.key) + ',false)">Привязать</button></div></div>')
+    + '<div id="cs-status" style="font-size:11.5px;color:var(--text-faint);min-height:1.4em"></div></div>';
+}
+
+async function saveCardSet(){
+  var v = function(id){ var e = document.getElementById(id); return e ? e.value : ''; };
+  var st = document.getElementById('cs-status');
+  var apply = !!(document.getElementById('cs-apply') && document.getElementById('cs-apply').checked);
+  var body = { key: v('cs-key').trim().toLowerCase(), title: v('cs-title').trim(), season_key: v('cs-season'),
+               rarity: v('cs-rarity'), apply_rarity: apply };
+  if (!body.key){ st.textContent = 'Нужен ключ серии'; return; }
+  if (apply && !body.rarity){ st.textContent = 'Чтобы разнести редкость, выбери её'; return; }
+  if (apply && !confirm('У всех карт серии станет редкость «' + (RARITY_LABELS[body.rarity] || body.rarity) + '», а вес и баллы — по этой редкости. Продолжить?')) return;
+  st.textContent = 'Сохраняю…';
+  try {
+    var r = await fetch(API + '/cards/admin/sets?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    var d = await r.json().catch(function(){ return {}; });
+    if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
+    cardSetExpanded = d.key;
+    await loadCardSets();
+    var st2 = document.getElementById('cs-status');
+    if (st2) st2.textContent = 'Сохранено' + (apply ? ', редкость у карт: ' + d.rarity_changed + ' изменено' : '');
+    if (apply || body.season_key) { try { await loadCardTypes(); } catch(e){} }
+  } catch(e){ st.textContent = 'Не сохранилось: ' + e.message; }
+}
+
+async function deleteCardSet(key){
+  if (!confirm('Удалить серию «' + key + '»? Карты останутся в колоде, просто без серии.')) return;
+  await fetch(API + '/cards/admin/sets?key=' + encodeURIComponent(key) + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), { method:'DELETE' });
+  cardSetExpanded = null;
+  loadCardSets();
+}
+
+async function assignCardSet(key, dry){
+  var st = document.getElementById('cs-status');
+  var prefix = (document.getElementById('cs-prefix').value || '').trim();
+  if (!prefix){ st.textContent = 'Впиши начало ключа карт'; return; }
+  st.textContent = dry ? 'Считаю…' : 'Привязываю…';
+  try {
+    var r = await fetch(API + '/cards/admin/sets/assign?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ set_key: key, prefix: prefix, dry_run: !!dry }) });
+    var d = await r.json().catch(function(){ return {}; });
+    if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
+    if (dry){ st.textContent = 'Под это начало попадает карт: ' + d.count + (d.count ? ' — ' + d.keys.slice(0, 8).join(', ') + (d.count > 8 ? '…' : '') : ''); return; }
+    await loadCardSets();
+    var st2 = document.getElementById('cs-status'); if (st2) st2.textContent = 'Привязано карт: ' + d.count;
+    try { await loadCardTypes(); } catch(e){}
+  } catch(e){ st.textContent = 'Не получилось: ' + e.message; }
+}
+
+/* ── конструктор перелива: серия или одна карта ── */
+var holoEd = { mode:'set', key:'', title:'', S:null, on:true, own:false, fx:null, arts:[], artIdx:0,
+               frames:[], frameIdx:-1, rarity:'common', season:'', style:'dark' };
 var HOLO_GROUPS = [
   ['Узор подробнее', [['scale','Размер узора','px'],['density','Плотность','%'],['angle','Поворот узора','deg']]],
   ['Полоса света',   [['band','Ширина полосы','pc'],['bandAngle','Наклон полосы','deg'],['bandRest','Полоса в покое','rest'],['soft','Мягкость края','%'],['travel','Скорость пробега','x']]],
@@ -14489,24 +14681,43 @@ function holoFmt(kind, v){
   return v + '%';
 }
 
-async function openHoloEditor(key){
-  var s = null; seriesList.forEach(function(x){ if (x.key === key) s = x; });
-  holoEd.key = key;
-  holoEd.title = s ? (s.title || s.key) : key;
-  holoEd.S = HoloFX.normalize((s && s.holo) || HoloFX.defaults('lines'));
-  holoEd.on = s && s.holo ? !!s.holo.on : true;
-  holoEd.arts = []; holoEd.artIdx = 0;
+function openHoloForSet(key){
+  var s = cardSetByKey(key); if (!s) return;
+  var cards = (cardTypes || []).filter(function(c){ return c.set_key === key && c.image_url; });
+  holoEd.mode = 'set'; holoEd.key = key; holoEd.title = 'серии «' + (s.title || s.key) + '»';
+  holoEd.S = HoloFX.normalize(s.holo || HoloFX.defaults('lines'));
+  holoEd.on = s.holo ? !!s.holo.on : true; holoEd.own = !!s.holo;
+  holoEd.arts = cards.map(function(c){ return { url: c.image_url, title: c.title || c.god || c.key, style: c.style || 'dark' }; });
+  holoEd.rarity = s.rarity || (cards[0] && cards[0].rarity) || 'common';
+  holoEd.season = s.season_key || ''; holoEd.style = (cards[0] && cards[0].style) || 'dark';
+  holoOpen();
+}
+
+function openHoloForCard(cardKey){
+  var c = (cardTypes || []).filter(function(x){ return x.key === cardKey; })[0]; if (!c) return;
+  var s = c.set_key ? cardSetByKey(c.set_key) : null;
+  holoEd.mode = 'card'; holoEd.key = cardKey; holoEd.title = 'карты «' + (c.title || c.key) + '»';
+  holoEd.own = !!c.holo;
+  var base = c.holo || (s && s.holo) || null;
+  holoEd.S = HoloFX.normalize(base || HoloFX.defaults('lines'));
+  holoEd.on = base ? !!base.on : true;
+  holoEd.arts = c.image_url ? [{ url: c.image_url, title: c.title || c.key, style: c.style || 'dark' }] : [];
+  holoEd.rarity = c.rarity || 'common'; holoEd.season = c.series_key || ''; holoEd.style = c.style || 'dark';
+  holoOpen();
+}
+
+async function holoOpen(){
+  holoEd.artIdx = 0; holoEd.frames = []; holoEd.frameIdx = -1;
   document.getElementById('holo-popup-overlay').classList.add('open');
   renderHoloEditor();
-  try {
-    var d = await fetch(API + '/cards/admin/shelf?series_key=' + encodeURIComponent(key)
-      + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN)).then(function(r){ return r.json(); });
-    var arts = [];
-    (d.slots || []).forEach(function(sl){ (sl.cards || []).forEach(function(c){ if (c.image_url) arts.push({url:c.image_url, title:c.title || c.god || c.key}); }); });
-    (d.outside || []).forEach(function(c){ if (c.image_url) arts.push({url:c.image_url, title:c.title || c.key}); });
-    holoEd.arts = arts;
-  } catch(e){}
   holoShowArt(0);
+  try {
+    var d = await fetch(API + '/cards/admin/frame-candidates?rarity=' + encodeURIComponent(holoEd.rarity)
+      + '&season_key=' + encodeURIComponent(holoEd.season) + '&style=' + encodeURIComponent(holoEd.style)
+      + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN)).then(function(r){ return r.json(); });
+    holoEd.frames = d.frames || [];
+  } catch(e){ holoEd.frames = []; }
+  holoShowFrame(holoEd.frames.length ? 0 : -1);
 }
 
 function closeHoloEditor(){
@@ -14517,15 +14728,19 @@ function closeHoloEditor(){
 function renderHoloEditor(){
   if (holoEd.fx){ holoEd.fx.destroy(); holoEd.fx = null; }
   var S = holoEd.S, h = '';
+  var cardMode = holoEd.mode === 'card';
   h += '<div class="hfe-wrap"><div class="hfe-prev">'
-    +  '<div style="font-size:13px;font-weight:700;text-align:center;padding-right:30px">Перелив серии «' + elEsc(holoEd.title) + '»</div>'
-    +  '<div class="hfe-scene"><div class="hfe-card" id="hfe-card"><img id="hfe-art" alt=""></div></div>'
+    +  '<div style="font-size:13px;font-weight:700;text-align:center;padding-right:30px">Перелив ' + elEsc(holoEd.title) + '</div>'
+    +  '<div class="hfe-scene"><div class="hfe-card is-bare" id="hfe-card"><div class="hfe-win" id="hfe-win"><img id="hfe-art" alt=""></div><img class="hfe-frame" id="hfe-frame" alt="" hidden></div></div>'
     +  '<div class="hfe-nav"><button class="action-btn" style="padding:6px 10px" onclick="holoShowArt(holoEd.artIdx-1)">‹</button>'
-    +  '<span id="hfe-art-name">Загружаю арты…</span>'
-    +  '<button class="action-btn" style="padding:6px 10px" onclick="holoShowArt(holoEd.artIdx+1)">›</button></div>'
-    +  '<div style="font-size:11px;color:var(--text-faint);text-align:center;max-width:240px;line-height:1.45">Веди мышкой по карточке. Так участник увидит открытую карту этой серии; в коллекции карточки стоят без перелива.</div>'
+    +  '<span id="hfe-art-name">Арт</span><button class="action-btn" style="padding:6px 10px" onclick="holoShowArt(holoEd.artIdx+1)">›</button></div>'
+    +  '<div class="hfe-nav"><button class="action-btn" style="padding:6px 10px" onclick="holoShowFrame(holoEd.frameIdx-1)">‹</button>'
+    +  '<span id="hfe-frame-name">Рамка</span><button class="action-btn" style="padding:6px 10px" onclick="holoShowFrame(holoEd.frameIdx+1)">›</button></div>'
+    +  '<div style="font-size:11px;color:var(--text-faint);text-align:center;max-width:250px;line-height:1.45">Веди мышкой по карточке — она наклоняется, как на телефоне. Рамки — те, что выдача даст карте этой редкости, сезона и стиля; перелив ложится под рамку.</div>'
     +  '</div><div style="min-width:0">'
-    +  '<label class="hfe-on"><input type="checkbox" id="hfe-on"' + (holoEd.on ? ' checked' : '') + ' onchange="holoEd.on=this.checked"> Перелив включён у этой серии</label>'
+    +  '<label class="hfe-on"><input type="checkbox" id="hfe-on"' + (holoEd.on ? ' checked' : '') + ' onchange="holoEd.on=this.checked"> '
+    +  (cardMode ? 'Перелив у этой карты включён' : 'Перелив включён у этой серии') + '</label>'
+    +  (cardMode ? '<div style="font-size:11px;color:var(--text-faint);margin-top:6px">' + (holoEd.own ? 'У карты своя настройка — серия её не меняет.' : 'Сейчас карта берёт перелив у серии. Сохранишь — у неё станет своя настройка.') + '</div>' : '')
     +  '<div class="hfe-h">Узор</div><div class="hfe-pats" id="hfe-pats"></div>';
   HOLO_GROUPS.forEach(function(g){
     h += '<div class="hfe-h">' + g[0] + '</div>';
@@ -14542,11 +14757,12 @@ function renderHoloEditor(){
   });
   h += '<div class="hfe-h">Готовые настройки</div>'
     +  '<textarea id="hfe-json" spellcheck="false" style="' + elInput() + 'width:100%;min-height:90px;font-family:ui-monospace,Menlo,monospace;font-size:11px;box-sizing:border-box"></textarea>'
-    +  '<div style="font-size:11px;color:var(--text-faint);margin:4px 0 10px">Можно вставить текст из песочницы «Голо-лаборатория» и нажать «Применить текст».</div>'
+    +  '<div style="font-size:11px;color:var(--text-faint);margin:4px 0 10px">Можно вставить текст из песочницы «Голо-лаборатория» или из другой серии и нажать «Применить текст».</div>'
     +  '<div style="display:flex;gap:8px;flex-wrap:wrap">'
-    +  '<button class="action-btn" onclick="holoSave()">Сохранить для серии</button>'
+    +  '<button class="action-btn" onclick="holoSave()">' + (cardMode ? 'Сохранить для карты' : 'Сохранить для серии') + '</button>'
     +  '<button class="action-btn" onclick="holoPaste()">Применить текст</button>'
     +  '<button class="action-btn" onclick="holoReset()">Сбросить</button>'
+    +  (cardMode && holoEd.own ? '<button class="action-btn" onclick="holoDropOwn()">Как у серии</button>' : '')
     +  '</div><div id="hfe-status" style="font-size:11.5px;color:var(--text-faint);margin-top:8px;min-height:1.4em"></div>'
     +  '</div></div>';
   document.getElementById('holo-editor-body').innerHTML = h;
@@ -14564,7 +14780,8 @@ function renderHoloEditor(){
     box.appendChild(b); HoloFX.thumb(c, p.id);
   });
   var card = document.getElementById('hfe-card');
-  holoEd.fx = HoloFX.mount(card, holoEd.S, { z: 4 });
+  // Перелив — в окне под арт, рамка сверху; наклоняется вся карта
+  holoEd.fx = HoloFX.mount(document.getElementById('hfe-win'), holoEd.S, { input: card, tiltEl: card });
   holoSyncJson();
 }
 
@@ -14572,11 +14789,28 @@ function holoShowArt(i){
   var img = document.getElementById('hfe-art'), nm = document.getElementById('hfe-art-name');
   if (!img) return;
   var n = holoEd.arts.length;
-  if (!n){ img.removeAttribute('src'); if (nm) nm.textContent = 'В серии пока нет артов'; return; }
+  if (!n){ img.removeAttribute('src'); if (nm) nm.textContent = 'Артов пока нет'; return; }
   holoEd.artIdx = ((i % n) + n) % n;
   var a = holoEd.arts[holoEd.artIdx];
   img.src = a.url;
-  if (nm) nm.textContent = (holoEd.artIdx + 1) + ' / ' + n + ' · ' + a.title;
+  if (nm) nm.textContent = (n > 1 ? (holoEd.artIdx + 1) + ' / ' + n + ' · ' : '') + a.title;
+}
+
+/* -1 — без рамки. Листается по кругу: рамки…, без рамки */
+function holoShowFrame(i){
+  var fr = document.getElementById('hfe-frame'), card = document.getElementById('hfe-card'), nm = document.getElementById('hfe-frame-name');
+  if (!fr || !card) return;
+  var n = holoEd.frames.length;
+  if (!n){ holoEd.frameIdx = -1; }
+  else { var m = n + 1; holoEd.frameIdx = ((((i + 1) % m) + m) % m) - 1; }
+  if (holoEd.frameIdx < 0){
+    fr.hidden = true; fr.removeAttribute('src'); card.classList.add('is-bare');
+    if (nm) nm.textContent = n ? 'Без рамки' : 'Рамок под эту карту нет';
+  } else {
+    var f = holoEd.frames[holoEd.frameIdx];
+    fr.src = f.url; fr.hidden = false; card.classList.remove('is-bare');
+    if (nm) nm.textContent = 'Рамка ' + (holoEd.frameIdx + 1) + ' / ' + n;
+  }
 }
 
 function holoSlide(k, kind, v){
@@ -14614,22 +14848,40 @@ function holoPaste(){
   catch(e){ st.textContent = 'Текст не похож на настройки — проверь, что скопирован целиком'; return; }
   holoEd.S = HoloFX.normalize(v);
   holoApply(true);
-  st.textContent = 'Применено — сохрани для серии, чтобы участники увидели';
+  st.textContent = 'Применено — сохрани, чтобы участники увидели';
+}
+
+async function holoPost(holo){
+  var url = holoEd.mode === 'card' ? '/cards/admin/card-holo' : '/cards/admin/sets/holo';
+  var r = await fetch(API + url + '?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ key: holoEd.key, holo: holo }) });
+  var d = await r.json().catch(function(){ return {}; });
+  if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
+  if (holoEd.mode === 'card') (cardTypes || []).forEach(function(c){ if (c.key === holoEd.key) c.holo = d.holo; });
+  else cardSetsList.forEach(function(x){ if (x.key === holoEd.key) x.holo = d.holo; });
+  return d;
 }
 
 async function holoSave(){
   var st = document.getElementById('hfe-status');
-  var body = Object.assign({}, holoEd.S, { on: !!holoEd.on });
   st.textContent = 'Сохраняю…';
   try {
-    var r = await fetch(API + '/cards/admin/series/holo?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
-      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ key: holoEd.key, holo: body }) });
-    var d = await r.json().catch(function(){ return {}; });
-    if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
-    seriesList.forEach(function(x){ if (x.key === holoEd.key) x.holo = d.holo; });
-    st.textContent = holoEd.on ? 'Сохранено. Участники увидят перелив на открытых картах серии.' : 'Сохранено. Перелив у серии выключен, настройки остались.';
-    if (seriesExpanded !== null) renderSeriesList(0);
+    await holoPost(Object.assign({}, holoEd.S, { on: !!holoEd.on }));
+    holoEd.own = true;
+    st.textContent = holoEd.mode === 'card'
+      ? (holoEd.on ? 'Сохранено. У этой карты свой перелив.' : 'Сохранено. У этой карты перелива нет, даже если он есть у серии.')
+      : (holoEd.on ? 'Сохранено. Участники увидят перелив на открытых картах серии.' : 'Сохранено. Перелив у серии выключен, настройки остались.');
+    if (holoEd.mode === 'set') renderCardSets();
   } catch(e){ st.textContent = 'Не сохранилось: ' + e.message; }
+}
+
+async function holoDropOwn(){
+  var st = document.getElementById('hfe-status');
+  try {
+    await holoPost(null);
+    holoEd.own = false;
+    st.textContent = 'Своя настройка убрана — карта снова берёт перелив у серии.';
+  } catch(e){ st.textContent = 'Не получилось: ' + e.message; }
 }
 
 function openShelf(key){ currentSeries = key || ''; renderSeriesList(0); loadShelf(currentSeries); }
@@ -22268,7 +22520,7 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v212</div>
+<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v213</div>
 <script>
 /* ═══ HoloFX · голографический перелив поверх карточки ══════════════════════
    ОДИН И ТОТ ЖЕ КОД в трёх местах: песочница holo-lab, дашборд (конструктор
