@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v213 -->
+<!-- FILE_VERSION: admin-v214 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1803,7 +1803,8 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 </div>
 
 <!-- admin-v211: конструктор перелива серии -->
-<div class="popup-overlay popup-centered" id="holo-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeHoloEditor()">
+<!-- admin-v214: поверх окна карточек пантеона (у него z-index 140), иначе перелив карты открывался под ним -->
+<div class="popup-overlay popup-centered" id="holo-popup-overlay" style="z-index:160" onclick="if(overlayShouldClose(event,this)) closeHoloEditor()">
   <div class="popup" style="max-width:980px">
     <button class="popup-close-x" onclick="closeHoloEditor()" title="Закрыть">✕</button>
     <div id="holo-editor-body"></div>
