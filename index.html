@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v215 -->
+<!-- FILE_VERSION: admin-v216 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1300,6 +1300,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <button class="action-btn" onclick="openWavesPopup()">Волны приглашений</button>
           <button class="action-btn" onclick="openPxPopup()">Экспорт для Design</button>
           <button class="action-btn" onclick="openLinkGenPopup()">Генератор ссылок</button>
+          <button class="action-btn" onclick="openPromoPopup()">Промо-акции</button>
           <button class="action-btn" onclick="openClPopup('')">Ссылки на занятия</button>
         </div>
       </div>
@@ -1798,6 +1799,24 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       </div>
 
       <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:14px" onclick="closeLinkGenPopup()">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- admin-v216: промо-акции «месяц за 1 ₽» со ссылками promo_<код> -->
+<div class="popup-overlay popup-centered" id="promo-popup-overlay" onclick="if(overlayShouldClose(event,this)) closePromoPopup()">
+  <div class="popup" style="max-width:600px">
+    <button class="popup-close-x" onclick="closePromoPopup()" title="Закрыть">&#10005;</button>
+    <div class="popup-body" style="padding-top:20px">
+      <div class="popup-section-title" style="margin-top:0">Промо-акции</div>
+      <div style="font-size:11.5px;color:var(--text-faint);margin-bottom:10px;line-height:1.5">
+        Месяц в клубе за 1 ₽, дальше 990 ₽ в месяц. Работает для любого, кто сейчас не участник,
+        одна промо-оплата на человека. Ссылка ведёт в приложение на окно акции; ссылку на оплату
+        сначала просим у Salebot, если он молчит — делает сервер. Нажми на ссылку, чтобы скопировать.
+      </div>
+      <div id="promo-list"><div class="loading">Загрузка...</div></div>
+      <button class="popup-save" style="margin-top:14px" onclick="newPromo()">Новая акция</button>
+      <button class="popup-save" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-top:8px" onclick="closePromoPopup()">Закрыть</button>
     </div>
   </div>
 </div>
@@ -3457,7 +3476,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v215';
+const BUILD_VERSION = 'admin-v216';
 const API_PRIMARY = 'https://api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://club-backend-production-fc7f.up.railway.app';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -12393,6 +12412,145 @@ async function loadNudgeStats(){
 
 let raffleRows = [];
 let raffleExpanded = null;
+
+/* ══ admin-v216: ПРОМО-АКЦИИ «МЕСЯЦ ЗА 1 ₽» ═══════════════════════════════════
+   [stated] Denis 19.10: промо с прямой ссылкой-диплинком, заводить из дашборда
+   и помощницей. Сервер: /admin/promo/campaigns, /admin/promo/campaign — та же
+   функция, что у помощницы. Ссылки собирает сервер (promo_<код>), этот же
+   маршрут есть в генераторе ссылок («Промо-акция — месяц за 1 ₽»). */
+let promoRows = [];
+let promoExpanded = null;
+let promoDefaults = {};
+
+function openPromoPopup(){
+  document.getElementById('promo-popup-overlay').classList.add('open');
+  loadPromos();
+}
+function closePromoPopup(){
+  document.getElementById('promo-popup-overlay').classList.remove('open');
+}
+async function loadPromos(){
+  try {
+    const r = await fetch(API + '/admin/promo/campaigns?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN));
+    const d = r.ok ? await r.json() : {};
+    promoRows = d.items || [];
+    promoDefaults = d.defaults || {};
+  } catch(e){ promoRows = []; }
+  renderPromos();
+}
+function promoKey(p){ return p.id ? String(p.id) : 'new'; }
+function renderPromos(){
+  const el = document.getElementById('promo-list');
+  if (!promoRows.length){
+    el.innerHTML = '<div class="empty">Акций пока нет</div>';
+    return;
+  }
+  el.innerHTML = promoRows.map(function(p){
+    const key = promoKey(p);
+    const isOpen = promoExpanded === key;
+    const st = p.stats || {};
+    const line = p.id
+      ? ('открыли ' + (st.opened||0) + ' · взяли ссылку ' + (st.links||0) + ' · оплатили ' + (st.paid||0))
+      : 'не сохранена';
+    const badge = !p.id ? 'новая' : (p.open ? 'действует' : (p.active ? 'срок вышел' : 'выключена'));
+    return '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:8px">'
+      + '<div onclick="togglePromo(' + jsArg(key) + ')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer">'
+        + '<div style="flex:1;min-width:0">'
+          + '<div style="font-size:14px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis">'
+            + escapeHtmlText(p.title || p.code || 'Новая акция') + '</div>'
+          + '<div style="font-size:12px;color:var(--text-faint);margin-top:3px">'
+            + (p.code ? escapeHtmlText(p.code) + ' · ' : '') + line + '</div>'
+        + '</div>'
+        + '<span style="flex-shrink:0;font-size:11px;padding:2px 8px;border-radius:20px;background:rgba(139,92,246,.15);color:#a78bfa">'
+          + badge + '</span>'
+        + '<span style="flex-shrink:0;color:var(--text-faint);font-size:16px">' + (isOpen ? '▲' : '▼') + '</span>'
+      + '</div>'
+      + (isOpen ? promoEditorHtml(p) : '')
+    + '</div>';
+  }).join('');
+}
+function togglePromo(key){
+  promoExpanded = (promoExpanded === key) ? null : key;
+  renderPromos();
+}
+function promoEditorHtml(p){
+  const st = p.stats || {};
+  const locked = !!(p.id && st.opened);
+  const inp = 'padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px';
+  const fld = function(label, id, value, type, extra){
+    return '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:150px">'
+      + '<span style="font-size:11px;color:var(--text-faint)">' + label + '</span>'
+      + '<input type="' + type + '" id="pm-' + id + '" value="' + escapeHtmlText(value == null ? '' : value) + '" '
+      + (extra || '') + ' style="' + inp + '"></label>';
+  };
+  let links = '';
+  if (p.id && p.links){
+    const rows = [['Telegram', p.links.tg], ['ВКонтакте', p.links.vk], ['MAX', p.links.max]];
+    links = '<div style="display:flex;flex-direction:column;gap:6px">'
+      + '<span style="font-size:11px;color:var(--text-faint)">Ссылки — нажми, чтобы скопировать</span>'
+      + rows.filter(function(x){ return !!x[1]; }).map(function(x){
+          return '<div><div style="font-size:11px;color:var(--text-faint);margin-bottom:3px">' + x[0] + '</div>'
+            + '<div class="lg-result" onclick="lgCopy(this)">' + escapeHtmlText(x[1]) + '</div></div>';
+        }).join('')
+      + '<div style="font-size:11px;color:var(--text-faint);line-height:1.5">Оплатили по ссылке Salebot: '
+        + (st.via_salebot||0) + ', по ссылке сервера: ' + (st.via_server||0) + '.</div>'
+      + '</div>';
+  }
+  return '<div style="padding:0 16px 16px;border-top:1px solid var(--border)">'
+    + '<div style="padding-top:12px;display:flex;flex-direction:column;gap:10px">'
+      + '<div style="display:flex;align-items:center;gap:10px">'
+        + '<label class="switch"><input type="checkbox" id="pm-active" ' + (p.active !== false ? 'checked' : '') + '>'
+        + '<span class="switch-track"></span></label>'
+        + '<span style="font-size:13px;color:var(--text)">Акция действует</span></div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+        + fld('Название для себя', 'title', p.title, 'text')
+        + fld('Код в ссылке (латиница)', 'code', p.code, 'text', locked ? 'disabled title="По акции уже переходили — код не меняется"' : 'placeholder="osen26"')
+      + '</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+        + fld('Действует до (включительно)', 'until', p.until, 'date')
+      + '</div>'
+      + fld('Заголовок окна', 'headline', p.headline, 'text')
+      + '<label style="display:flex;flex-direction:column;gap:3px">'
+        + '<span style="font-size:11px;color:var(--text-faint)">Текст окна</span>'
+        + '<textarea id="pm-body" style="min-height:70px;' + inp + '">' + escapeHtmlText(p.body || '') + '</textarea></label>'
+      + fld('Надпись на кнопке', 'button', p.button, 'text')
+      + '<button onclick="savePromo(' + jsArg(promoKey(p)) + ')" style="padding:9px;border-radius:9px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:600">Сохранить</button>'
+      + links
+    + '</div></div>';
+}
+function newPromo(){
+  if (promoRows.some(function(p){ return !p.id; })){ promoExpanded = 'new'; renderPromos(); return; }
+  promoRows.unshift({ id:null, code:'', title:'', active:true, until:'',
+                      headline: promoDefaults.headline || '', body: promoDefaults.body || '',
+                      button: promoDefaults.button || '', stats:{}, links:null });
+  promoExpanded = 'new';
+  renderPromos();
+}
+async function savePromo(key){
+  const val = function(id){ const el = document.getElementById('pm-' + id); return el ? el.value : ''; };
+  const row = promoRows.find(function(p){ return promoKey(p) === key; }) || {};
+  const payload = {
+    id: row.id || null,
+    title: val('title').trim(),
+    until: val('until'),
+    headline: val('headline'),
+    body: val('body'),
+    button: val('button'),
+    active: !!(document.getElementById('pm-active') || {}).checked
+  };
+  const codeEl = document.getElementById('pm-code');
+  if (codeEl && !codeEl.disabled) payload.code = codeEl.value.trim().toLowerCase();
+  if (!row.id && !payload.code){ alert('Впиши код латиницей — он будет в ссылке'); return; }
+  try {
+    const r = await fetch(API + '/admin/promo/campaign?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    });
+    const d = await r.json().catch(function(){ return {}; });
+    if (!r.ok){ alert(d.detail || 'Ошибка сохранения'); return; }
+    promoExpanded = String(d.id);
+    await loadPromos();
+  } catch(e){ alert('Ошибка соединения'); }
+}
 
 function openRafflePopup(){
   document.getElementById('raffle-popup-overlay').classList.add('open');
