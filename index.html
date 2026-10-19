@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v214 -->
+<!-- FILE_VERSION: admin-v215 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3457,6 +3457,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
+const BUILD_VERSION = 'admin-v215';
 const API_PRIMARY = 'https://api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://club-backend-production-fc7f.up.railway.app';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -3471,7 +3472,8 @@ const API_RAILWAY = 'https://club-backend-production-fc7f.up.railway.app';
    адрес — ТОТ ЖЕ сервер и та же база, со своим сертификатом Timeweb: ни копии,
    ни паузы, ни переноса. Поэтому порядок: домен → технический адрес (сразу,
    без ожидания) → Railway (только если молчат оба и Railway подтверждает) */
-const API_TECH = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
+const API_TECH = API_PRIMARY; // Selectel: отдельного технического пути на Timeweb больше нет.
+try { localStorage.removeItem('adm_tech'); } catch (e) {}
 let admFailover = false, admTech = false;
 try { admFailover = localStorage.getItem('adm_failover') === '1'; } catch (e) {}
 try { admTech = !admFailover && localStorage.getItem('adm_tech') === '1'; } catch (e) {}
@@ -10755,7 +10757,7 @@ async function sbBarCheck(){
   let bar = document.getElementById('sb-bar');
   let text = '';
   if (v && v.primary_down){
-    text = '🔴 Timeweb молчит ' + (v.down_min || 0) + ' мин. ' +
+    text = '🔴 Selectel молчит ' + (v.down_min || 0) + ' мин. ' +
       (v.accept ? 'Приложения участников уходят на запасной (Railway).' : 'Запасной приложения НЕ принимает — копия базы старая.');
   } else if (v && v.frozen){
     text = '⏸ Копия базы на запасном на паузе: там есть свои записи после сбоя. Что с ними делать — спроси Claude.';
@@ -10819,7 +10821,7 @@ async function admFoSuspect(){
       if (await admAlive(API_TECH)){
         if (admTech) return;                     // уже на техническом — работаем
         try { localStorage.setItem('adm_tech', '1'); } catch (e) { return; }
-        admFoBar('Домен api не открывается, сервер жив — переключаюсь на технический адрес Timeweb…', '#5a4a8a');
+        admFoBar('Домен api не открывается, сервер жив — переключаюсь на основной адрес Selectel…', '#5a4a8a');
         setTimeout(function(){ location.reload(); }, 1200);
         return;
       }
@@ -10831,22 +10833,22 @@ async function admFoSuspect(){
          И копия базы свежая). 15.10 дашборд ушёл на копию двухдневной давности:
          смотреть старое и, хуже, править его — хуже, чем подождать */
       if (v && v.primary_down && v.preparing){
-        admFoBar('Timeweb недоступен. Запасной готовит свежую копию базы — переключусь, как только он будет готов', '#8a5a12');
+        admFoBar('Selectel недоступен. Запасной готовит свежую копию базы — переключусь, как только он будет готов', '#8a5a12');
         await admSleep(10000);
         continue;
       }
       if (v && v.primary_down && !v.accept){
-        admFoBar('Timeweb не отвечает, а копия базы на запасном старая — туда не перехожу, чтобы ты не работал со старыми данными. Проверяю каждые 20 секунд', '#8a5a12');
+        admFoBar('Selectel не отвечает, а копия базы на запасном старая — туда не перехожу, чтобы ты не работал со старыми данными. Проверяю каждые 20 секунд', '#8a5a12');
         await admSleep(20000);
         continue;
       }
       if (v && v.primary_down){
         try { localStorage.removeItem('adm_tech'); localStorage.setItem('adm_failover', '1'); } catch (e) { return; }
-        alert('Timeweb не отвечает ни по домену, ни по техническому адресу, Railway это подтверждает. Дашборд переходит на запасной сервер (Railway).');
+        alert('Selectel не отвечает ни по домену, ни по техническому адресу, Railway это подтверждает. Дашборд переходит на запасной сервер (Railway).');
         location.reload();
         return;
       }
-      admFoBar('Timeweb не отвечает ни по домену, ни по техническому адресу. Жду подтверждения запасного — проверяю каждые 20 секунд, страница переключится сама', '#8a5a12');
+      admFoBar('Selectel не отвечает ни по домену, ни по техническому адресу. Жду подтверждения запасного — проверяю каждые 20 секунд, страница переключится сама', '#8a5a12');
       await admSleep(20000);
     }
   } finally { ADM_FO.checking = false; }
@@ -10896,7 +10898,7 @@ async function admFoStart(){
     location.reload();
     return;
   }
-  admFoBar('Дашборд работает через ЗАПАСНОЙ сервер (Railway) — Timeweb недоступен', '#8a5a12');
+  admFoBar('Дашборд работает через ЗАПАСНОЙ сервер (Railway) — Selectel недоступен', '#8a5a12');
   ADM_FO.timer = setInterval(async function(){
     // v207: и на запасном каждый раз смотрим технический адрес — ожил он
     // раньше домена, значит живой сервер уже доступен, уходим на него
