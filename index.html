@@ -674,6 +674,8 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
 
 /* Отметка «сохранено» у настройки — гаснет сама через полторы секунды */
 .set-ok{ font-size:11px; color:var(--accent); margin-left:6px; opacity:.85 }
+
+#places-editor-slot input:not([type=checkbox]),#places-editor-slot select{box-sizing:border-box;width:100%;min-width:0;min-height:46px;border-radius:12px;padding:10px 12px;font:inherit}#places-editor-slot select{appearance:none;-webkit-appearance:none}#places-editor-slot label{display:flex;flex-direction:column;gap:12px}#places-editor-slot label:has(input[type=checkbox]){flex-direction:row;align-items:center}#places-editor-slot>div{gap:14px!important}#places-list button{min-height:40px}#places-editor-slot input:focus-visible,#places-editor-slot select:focus-visible{outline-offset:3px}
 </style>
 
 <style id="bp-visual-redesign-2026">
@@ -1253,7 +1255,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           <button class="action-btn" onclick="location.href='tasks.html'">Задачи проекта</button>
           <button class="action-btn" onclick="openSettingsPopup()">Настройки клуба</button>
           <button class="action-btn" onclick="openSecPopup()" id="sec-btn">Безопасность</button>
-          <button class="action-btn" onclick="openPlacesPopup()">Каналы и чаты</button>
+          <button class="action-btn" onclick="openPlacesPopup()">Каналы и группы</button>
           <button class="action-btn" onclick="openBonusPopup()">Бонусы за вступление</button>
           <button class="action-btn" onclick="openNudgesPopup()">Дожимные рассылки</button>
           <button class="action-btn" onclick="openOnbxPopup()">Знакомство новичка</button>
@@ -1452,9 +1454,9 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
   <div class="popup" style="max-width:560px">
     <button class="popup-close-x" onclick="closePlacesPopup()" title="Закрыть">✕</button>
     <div class="popup-body" style="padding-top:20px">
-      <div class="popup-section-title" style="margin-top:0">Каналы и чаты</div>
+      <div class="popup-section-title" style="margin-top:0">Каналы и группы</div>
       <div style="font-size:12px;color:var(--text-faint);margin-bottom:10px">
-        Закрытые площадки в Telegram и правило, по которому туда пускают.
+        Закрытые каналы Telegram и группы ВКонтакте с общими правилами доступа.
         Бот должен быть администратором площадки с правом приглашать и банить.
       </div>
       <div id="places-list"><div class="loading">Загрузка...</div></div>
@@ -3485,7 +3487,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v218';
+const BUILD_VERSION = 'admin-v219';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -20292,11 +20294,12 @@ function closePlacesPopup(){
 async function loadPlaces(){
   var box = document.getElementById('places-list');
   try {
-    var r = await fetch(API + '/admin/tg/places?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN))
-      .then(function(x){ return x.json(); });
+    var r = await fetch(API + '/admin/bot-members/places?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN))
+      .then(async function(x){var d=await x.json();if(!x.ok)throw new Error(d.detail||'Ошибка сервера');return d;});
     placesList = (r && r.places) || [];
+    box.dataset.removal = r.automatic_removal_enabled?'Автоматическое закрытие включено':'Автоматическое закрытие выключено; участники не удаляются фоновым процессом';
     try {
-      placesRewards = await fetch(API + '/reward-catalog').then(function(x){ return x.json(); });
+      placesRewards = await fetch(API + '/reward-catalog').then(async function(x){var d=await x.json();if(!x.ok)throw new Error(d.detail||'Ошибка сервера');return d;});
       if (!Array.isArray(placesRewards)) placesRewards = [];
     } catch(e){ placesRewards = []; }
     renderPlaces();
@@ -20326,23 +20329,23 @@ function renderPlaces(){
     box.innerHTML = '<div style="font-size:12px;color:var(--text-faint)">Пока пусто</div>';
     return;
   }
-  var h = '<div style="display:flex;flex-direction:column;gap:8px">';
+  var h = '<p style="color:var(--text-faint)">'+elEsc(box.dataset.removal||'')+'</p><div style="display:flex;flex-direction:column;gap:8px">';
   placesList.forEach(function(p){
     h += '<div style="border:1px solid var(--line);border-radius:10px;padding:10px">'
       +    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
       +      '<div style="font-weight:600">' + elEsc(p.title || p.key) + '</div>'
-      +      '<div style="font-size:11px;color:var(--text-faint)">' + (p.kind === 'chat' ? 'чат' : 'канал') + '</div>'
+      +      '<div style="font-size:11px;color:var(--text-faint)">' + (p.platform==='vk'?'группа ВК':p.kind === 'chat' ? 'чат ТГ' : 'канал ТГ') + '</div>'
       +      (p.active ? '' : '<div style="font-size:11px;color:var(--text-faint)">выключен</div>')
-      +      '<div style="margin-left:auto;font-size:11px;color:var(--text-faint)">внутри: ' + (p.inside || 0) + '</div>'
+      +      '<div style="margin-left:auto;font-size:11px;color:var(--text-faint)">внутри: ' + (p.inside==null?'не сверено':p.inside) + '</div>'
       +    '</div>'
       +    '<div style="font-size:12px;color:var(--text-faint);margin-top:4px">'
       +      placeAccessLabel(p) + ' · ' + elEsc(String(p.chat_id))
       +      (p.approve_delay_sec ? ' · ждём бота ' + p.approve_delay_sec + ' с' : '')
       +    '</div>'
       +    '<div style="display:flex;gap:6px;margin-top:8px">'
-      +      '<button class="action-btn" style="padding:4px 10px;font-size:11px" onclick="placeEdit(\'' + elEsc(p.key) + '\')">Изменить</button>'
+      +      '<button class="action-btn" style="padding:4px 10px;font-size:11px" data-place="' + elEsc(p.platform+':'+p.key) + '" onclick="placeEdit(this.dataset.place)">Изменить</button>'
       +      (p.key === 'channel' || p.key === 'chat' ? ''
-          : '<button class="action-btn" style="padding:4px 10px;font-size:11px" onclick="placeDelete(\'' + elEsc(p.key) + '\')">Удалить</button>')
+          : '<button class="action-btn" style="padding:4px 10px;font-size:11px" data-place="' + elEsc(p.platform+':'+p.key) + '" onclick="placeDelete(this.dataset.place)">Выключить</button>')
       +    '</div>'
       +  '</div>';
   });
@@ -20350,8 +20353,8 @@ function renderPlaces(){
 }
 
 function placeEdit(key){
-  var p = placesList.filter(function(x){ return x.key === key; })[0] || {
-    key: '', title: '', chat_id: '', kind: 'channel', link: '',
+  var p = placesList.filter(function(x){ return (x.platform+':'+x.key) === key; })[0] || {
+    platform:'tg', key: '', title: '', chat_id: '', kind: 'channel', link: '',
     access: 'member', bonus_key: '', min_level: 0, approve_delay_sec: 0,
     active: true, sort_order: 100
   };
@@ -20362,9 +20365,10 @@ function placeEdit(key){
   slot.innerHTML =
     '<div style="border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px">'
     + '<input id="pl-key" placeholder="ключ латиницей, напр. archive" value="' + elEsc(p.key) + '"' + (p.key ? ' readonly' : '') + '>'
+    + '<label>Площадка<select id="pl-platform"'+(p.key?' disabled':'')+'>' + opt('tg','Telegram',p.platform) + opt('vk','ВКонтакте',p.platform) + '</select></label>'
     + '<input id="pl-title" placeholder="Название для дашборда" value="' + elEsc(p.title) + '">'
-    + '<input id="pl-chat" placeholder="ID чата, начинается с -100" value="' + elEsc(String(p.chat_id || '')) + '">'
-    + '<select id="pl-kind">' + opt('channel', 'канал', p.kind) + opt('chat', 'чат', p.kind) + '</select>'
+    + '<input id="pl-chat" placeholder="ID: отрицательный для ТГ, положительный для группы ВК" value="' + elEsc(String(p.chat_id || '')) + '">'
+    + '<select id="pl-kind">' + opt('channel', 'канал', p.kind) + opt('chat', 'чат ТГ', p.kind) + opt('group','группа ВК',p.kind) + '</select>'
     + '<input id="pl-link" placeholder="запасная ссылка-приглашение" value="' + elEsc(p.link) + '">'
     + '<select id="pl-access" onchange="placeAccessChanged()">'
     +   opt('member', 'всем участникам', p.access)
@@ -20383,11 +20387,11 @@ function placeEdit(key){
     + '</select>'
     + '<input id="pl-level" type="number" placeholder="минимальный уровень" value="' + (p.min_level || 0) + '" style="display:' + (p.access === 'level' ? 'block' : 'none') + '">'
     + '<div style="font-size:11px;color:var(--text-faint)">Порог для награды задаётся один раз в «Настроить уровни» — здесь его дублировать не надо.</div>'
-    + '<label style="font-size:12px;color:var(--text-faint)">Ждать бота Salebot, секунд'
+    + '<label style="font-size:12px;color:var(--text-faint)">Задержка одобрения, секунд'
     +   '<input id="pl-delay" type="number" value="' + (p.approve_delay_sec || 0) + '"></label>'
     + '<div style="font-size:11px;color:var(--text-faint)">'
-    +   (core ? 'Основные канал и чат: заявки одобряет бот Salebot, и после одобрения он пишет списки и сообщает боту ВК. Успеем первыми — это не выполнится. Не ставь здесь ноль.'
-            : 'Своя площадка: Salebot о ней не знает, одобряем сразу. Ноль — правильное значение.')
+    +   (core ? 'Основные канал и чат обслуживает наш сервер. Задержка применяется при одобрении заявки.'
+            : 'Заявки проверяет наш сервер по выбранному правилу доступа.')
     + '</div>'
     + '<label style="font-size:12px"><input type="checkbox" id="pl-active"' + (p.active ? ' checked' : '') + '> включена</label>'
     + '<div style="display:flex;gap:8px">'
@@ -20406,7 +20410,7 @@ function placeAccessChanged(){
 }
 
 async function placeSave(){
-  var body = {
+  var body = {platform:document.getElementById('pl-platform').value,
     key: document.getElementById('pl-key').value.trim(),
     title: document.getElementById('pl-title').value.trim(),
     chat_id: parseInt(document.getElementById('pl-chat').value.trim(), 10),
@@ -20421,13 +20425,13 @@ async function placeSave(){
     sort_order: (placeEditing && placeEditing.sort_order) || 100
   };
   if (!body.key){ alert('Нужен ключ'); return; }
-  if (!body.chat_id){ alert('Нужен ID чата — число, начинается с -100'); return; }
+  if (!body.chat_id){ alert('Нужен числовой ID: отрицательный для ТГ, положительный для ВК'); return; }
   if (body.access === 'reward' && !body.reward_key){ alert('Выбери награду из каталога'); return; }
   if (body.access === 'bonus' && !body.bonus_key){ alert('Впиши ключ бонуса'); return; }
   try {
-    var r = await fetch(API + '/admin/tg/places?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
+    var r = await fetch(API + '/admin/bot-members/places?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
       method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
-    }).then(function(x){ return x.json(); });
+    }).then(async function(x){var d=await x.json();if(!x.ok)throw new Error(d.detail||'Ошибка сервера');return d;});
     if (r && r.warning){
       document.getElementById('pl-warn').textContent = 'Сохранено, но: ' + r.warning;
     } else {
@@ -20438,9 +20442,10 @@ async function placeSave(){
 }
 
 async function placeDelete(key){
-  if (!confirm('Убрать площадку «' + key + '» из справочника? Люди из канала не вылетят, отметки сохранятся.')) return;
+ var bits=key.split(':');var platform=bits[0];key=bits[1];
+  if (!confirm('Выключить площадку «' + key + '» из справочника? Люди из канала не вылетят, отметки сохранятся.')) return;
   try {
-    await fetch(API + '/admin/tg/places?key=' + encodeURIComponent(key) + '&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN),
+    await fetch(API + '/admin/bot-members/places?key=' + encodeURIComponent(key) + '&platform='+encodeURIComponent(platform)+'&x_admin_token=' + encodeURIComponent(ADMIN_TOKEN),
                 { method: 'DELETE' });
     await loadPlaces();
   } catch(e){ alert('Не удалилось: ' + e.message); }
