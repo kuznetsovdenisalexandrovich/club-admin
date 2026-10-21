@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v217 -->
+<!-- FILE_VERSION: admin-v218 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1821,6 +1821,15 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
   </div>
 </div>
 
+<!-- admin-v218: отправка карты всплывающим окном. Поверх окна карточек
+     (у него z-index 140) и конструктора перелива (160) — иначе открылось бы под ними -->
+<div class="popup-overlay popup-centered" id="card-send-overlay" style="z-index:170" onclick="if(overlayShouldClose(event,this)) closeCardSend()">
+  <div class="popup" style="max-width:460px">
+    <button class="popup-close-x" onclick="closeCardSend()" title="Закрыть">&#10005;</button>
+    <div class="popup-body" style="padding-top:20px" id="card-send-body"></div>
+  </div>
+</div>
+
 <!-- admin-v211: конструктор перелива серии -->
 <!-- admin-v214: поверх окна карточек пантеона (у него z-index 140), иначе перелив карты открывался под ним -->
 <div class="popup-overlay popup-centered" id="holo-popup-overlay" style="z-index:160" onclick="if(overlayShouldClose(event,this)) closeHoloEditor()">
@@ -3476,7 +3485,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v217';
+const BUILD_VERSION = 'admin-v218';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -11716,12 +11725,108 @@ document.addEventListener('keydown', function(e){
 
 function editCardType(){ cardEditMode = true; renderCardShelf(); }
 
-/* «Отправить» уводит на вкладку «Подарить» с этой карточкой уже выбранной —
-   иначе пришлось бы искать её в длинном списке вручную */
-function sendCardFromDetail(key){
-  switchCardsTab('grant');
-  const sel = document.getElementById('grant-card');
-  if (sel) sel.value = key;
+/* admin-v218 · «Отправить» — ВСПЛЫВАЮЩЕЕ ОКНО С ЭТОЙ КАРТОЙ, а не переход на
+   вкладку «Подарить». [stated] Denis 21.10: там получатель оставался с прошлого
+   раза, а карта — нет (список заполнялся заново и выбор слетал), и её
+   приходилось искать в выпадающем списке по названию. Здесь карта уже
+   известна, выбирается только получатель; прошлый получатель предложен сразу.
+   Вкладка «Подарить» осталась — для случайных паков. */
+let cardSendKey = '';
+let cardSendTo = null;
+
+function sendCardFromDetail(key){ openCardSend(key); }
+
+function cardSendLast(){
+  try { return JSON.parse(localStorage.getItem('adm_card_send_last') || 'null'); } catch(e){ return null; }
+}
+
+function openCardSend(key){
+  cardSendKey = key;
+  cardSendTo = cardSendLast();
+  renderCardSend('');
+  document.getElementById('card-send-overlay').classList.add('open');
+  setTimeout(function(){ const i = document.getElementById('card-send-search'); if (i && !cardSendTo) i.focus(); }, 50);
+}
+function closeCardSend(){
+  document.getElementById('card-send-overlay').classList.remove('open');
+}
+
+function renderCardSend(status){
+  const c = (cardTypes || []).find(function(x){ return x.key === cardSendKey; }) || { key: cardSendKey };
+  const art = c.image_url
+    ? '<img src="' + escapeHtmlAdm(c.image_url) + '" alt="" style="width:64px;aspect-ratio:3/4;object-fit:cover;border-radius:8px;display:block;flex-shrink:0" onerror="this.style.display=\'none\'">'
+    : '';
+  const who = cardSendTo
+    ? '<div class="pay-item"><div class="pay-info" style="min-width:0">'
+        + '<div class="pay-name">' + escapeHtmlAdm(cardSendTo.name) + '</div>'
+        + '<div class="pay-meta">Telegram ID ' + escapeHtmlAdm(cardSendTo.telegram_id) + '</div></div>'
+        + '<button class="action-btn" style="flex-shrink:0" onclick="cardSendChange()">Другой получатель</button></div>'
+    : '<input id="card-send-search" class="popup-input" placeholder="Кому — имя, телефон, юзернейм или номер" oninput="cardSendSearch()" style="margin:0">'
+      + '<div id="card-send-results" style="margin-top:6px"></div>';
+  document.getElementById('card-send-body').innerHTML =
+      '<div class="popup-section-title" style="margin-top:0">Отправить карту</div>'
+    + '<div style="display:flex;gap:12px;align-items:center;margin-bottom:14px">' + art
+      + '<div style="min-width:0"><div style="font-size:15px;font-weight:600;color:var(--text)">' + escapeHtmlAdm(c.title || c.key) + '</div>'
+      + '<div style="font-size:12px;color:var(--text-faint);margin-top:3px">' + escapeHtmlAdm([c.god, RARITY_LABELS[c.rarity] || c.rarity].filter(Boolean).join(' · '))
+      + (c.active === false ? ' · выключена' : '') + '</div>'
+      + '<div style="font-size:11.5px;color:var(--text-faint);margin-top:4px;line-height:1.4">Придёт закрытой, как обычная — со вскрытием.</div></div></div>'
+    + '<div class="pay-meta" style="margin-bottom:6px">Получатель</div>' + who
+    + '<button class="popup-save" style="margin-top:14px" onclick="cardSendGo()"' + (cardSendTo ? '' : ' disabled') + '>Отправить</button>'
+    + '<div id="card-send-status" style="font-size:12.5px;color:var(--text-faint);margin-top:8px;min-height:16px">' + (status || '') + '</div>';
+}
+
+function cardSendChange(){
+  cardSendTo = null;
+  renderCardSend('');
+  const i = document.getElementById('card-send-search'); if (i) i.focus();
+}
+
+function cardSendSearch(){
+  const q = document.getElementById('card-send-search').value.trim().toLowerCase();
+  const el = document.getElementById('card-send-results');
+  if (!q){ el.innerHTML = ''; return; }
+  const matches = (allUsers || []).filter(function(u){
+    return u.telegram_id && (
+      (u.full_name||'').toLowerCase().includes(q) ||
+      (u.name||'').toLowerCase().includes(q) ||
+      (u.phone||'').includes(q) ||
+      (u.username||'').toLowerCase().includes(q) ||
+      String(u.telegram_id).includes(q)
+    );
+  }).slice(0, 8);
+  el.innerHTML = matches.map(function(u){
+    return '<div class="pay-item" style="cursor:pointer" onclick="cardSendPick(' + jsArg(u.id) + ')">'
+      + '<div class="pay-info" style="min-width:0"><div class="pay-name">' + escapeHtmlAdm(u.full_name||u.name||'—') + '</div>'
+      + '<div class="pay-meta">' + escapeHtmlAdm(u.phone||u.username||u.telegram_id) + '</div></div></div>';
+  }).join('') || '<div class="empty" style="padding:10px">Никого не нашлось</div>';
+}
+
+function cardSendPick(userId){
+  // jsArg отдаёт номер строкой — сравниваем строками, иначе клик молча не срабатывает
+  const u = (allUsers || []).find(function(x){ return String(x.id) === String(userId); });
+  if (!u) return;
+  cardSendTo = { telegram_id: u.telegram_id, name: u.full_name || u.name || String(u.telegram_id) };
+  try { localStorage.setItem('adm_card_send_last', JSON.stringify(cardSendTo)); } catch(e){}
+  renderCardSend('');
+}
+
+async function cardSendGo(){
+  if (!cardSendTo || !cardSendKey) return;
+  const btn = document.querySelector('#card-send-body .popup-save');
+  if (btn) btn.disabled = true;
+  document.getElementById('card-send-status').textContent = 'Отправляю...';
+  try {
+    const r = await fetch(API+'/cards/admin/grant?x_admin_token='+encodeURIComponent(ADMIN_TOKEN), {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ telegram_id: cardSendTo.telegram_id, card_key: cardSendKey, reason: 'manual' })
+    });
+    const d = await r.json().catch(function(){ return {}; });
+    if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
+    renderCardSend('Отправлена: ' + escapeHtmlAdm(cardSendTo.name) + '. Можно отправить ещё раз или закрыть окно.');
+    loadCardTypes();   // расход лимитов мог измениться — как после выдачи на вкладке
+  } catch(e){
+    renderCardSend('Не получилось: ' + escapeHtmlAdm(e && e.message ? e.message : e));
+  }
 }
 
 function openCardEditor(key){
