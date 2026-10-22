@@ -3490,7 +3490,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v220';
+const BUILD_VERSION = 'admin-v221';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -4996,7 +4996,7 @@ function openPopup(uid){
   if(!u)return;
   popupSeq++;
   currentUser=u;
-  document.getElementById('registration-card-status').textContent=registrationLine(u.registration)+' · '+(u.registration?.note||'Данные регистрации ещё не загружены');
+  document.getElementById('registration-card-status').textContent=registrationLine(u.registration)+' · '+(u.registration?.places?'По площадкам: '+Object.entries({tg_channel:'TG-канал',tg_chat:'TG-чат',vk_group:'Группа ВК',vk_chat:'Беседа ВК'}).map(([k,n])=>n+': '+(u.registration.places[k]?.label||'Нет подтверждения')+(u.registration.places[k]?.at?' ('+new Date(u.registration.places[k].at.replace(/Z$/,'')+'Z').toLocaleString('ru-RU')+')':'')).join(' · ')+' · ':'')+(u.registration?.note||'Данные регистрации ещё не загружены');
   const name=u.full_name||u.name||'—';
   document.getElementById('popup-avatar').textContent=initials(name);
   document.getElementById('popup-name').textContent=name;
