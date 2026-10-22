@@ -676,6 +676,7 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
 .set-ok{ font-size:11px; color:var(--accent); margin-left:6px; opacity:.85 }
 
 #places-editor-slot input:not([type=checkbox]),#places-editor-slot select{box-sizing:border-box;width:100%;min-width:0;min-height:46px;border-radius:12px;padding:10px 12px;font:inherit}#places-editor-slot select{appearance:none;-webkit-appearance:none}#places-editor-slot label{display:flex;flex-direction:column;gap:12px}#places-editor-slot label:has(input[type=checkbox]){flex-direction:row;align-items:center}#places-editor-slot>div{gap:14px!important}#places-list button{min-height:40px}#places-editor-slot input:focus-visible,#places-editor-slot select:focus-visible{outline-offset:3px}
+.registration-filter-wrap{padding:16px;display:flex;flex-direction:column;gap:12px}.registration-filter-wrap label{font-size:13px}.registration-filter-wrap select{height:46px;border-radius:12px;padding:0 12px;max-width:100%;min-width:0;appearance:none;-webkit-appearance:none;background:var(--input-bg);color:var(--text);border:1px solid var(--line)}.registration-filter-wrap p{font-size:12px;opacity:.7;margin:0}.registration-card-status{font-size:13px;line-height:1.7;overflow-wrap:anywhere}.registration-card-actions{display:flex;flex-wrap:wrap;gap:12px;margin:14px 0}.registration-card-actions button{min-height:46px;border-radius:12px}.registration-row-note{font-size:11px;opacity:.75;white-space:normal;overflow-wrap:anywhere}
 </style>
 
 <style id="bp-visual-redesign-2026">
@@ -1412,6 +1413,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <div class="search-wrap">
         <input type="text" id="user-search" placeholder="Поиск по имени, телефону, email, username..." oninput="filterUsers()">
       </div>
+      <div class="registration-filter-wrap"><label for="user-registration-filter">Этап регистрации</label><select id="user-registration-filter" onchange="filterUsers()"><option value="">Любой этап</option><option value="channel">Канал / группа: нет подтверждения</option><option value="chat">Чат: нет подтверждения</option><option value="reserve">Резерв: нет подтверждения</option><option value="reserve_started">Резерв: начал, не закончил</option><option value="reserve_not_started">Резерв: нет отметки о начале</option><option value="unknown">Нужна проверка данных</option></select><p>Выборка среди участников с открытым доступом. Нет отметки — не доказательство отсутствия человека на площадке. В карточке можно подготовить личное напоминание.</p></div>
       <!-- v127: сводка по этапам — каждая плашка работает как фильтр -->
       <div id="users-stats" class="ustats"></div>
       <!-- ⚠️ ДВЕ КНОПКИ РЯДОМ: обе про «завести человека руками», и искать их в
@@ -3055,6 +3057,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <div class="popup-section-title">Действия</div>
       <div id="action-result" class="action-result"></div>
 
+      <div class="popup-section-title">Регистрация</div><div id="registration-card-status" class="registration-card-status"></div><div class="registration-card-actions"><button class="action-btn" onclick="prepareRegistrationReminder('channel')">Напомнить о канале / группе</button><button class="action-btn" onclick="prepareRegistrationReminder('chat')">Напомнить о чате</button><button class="action-btn" onclick="prepareRegistrationReminder('reserve')">Предложить резерв</button></div>
       <div class="actions-grid">
         <button class="action-btn"         onclick="doAction('registration')">Регистрация</button>
         <button class="action-btn"         onclick="showPayload('shift_payment','Сдвинуть платёж','Дата ДД.ММ.ГГГГ')">Сдвинуть платёж</button>
@@ -3487,7 +3490,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v219';
+const BUILD_VERSION = 'admin-v220';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -4321,10 +4324,15 @@ async function loadUsers(){
   try{
     /* v113: 500 не хватало — каждый гость приложения теперь строка в users,
        старые участники выпадали из списка и поиска. Сервер (v310) отдаёт до 5000 */
-    const rU = await fetch(API+'/users/list?limit=5000&x_admin_token='+encodeURIComponent(ADMIN_TOKEN));   // v121: ручка закрыта ключом
+    let loadedUsers=[];
+    for(let offset=0;;offset+=5000){
+    const rU = await fetch(API+'/users/list?limit=5000&offset='+offset+'&x_admin_token='+encodeURIComponent(ADMIN_TOKEN));   // v121: ручка закрыта ключом
     const dU = await rU.json();
     if (!rU.ok || !Array.isArray(dU)) throw new Error((dU && dU.detail) || ('сервер ответил ' + rU.status));
-    allUsers = dU;
+    loadedUsers.push(...dU);
+    if(dU.length<5000)break;
+    }
+    allUsers = loadedUsers;
     document.getElementById('stat-members').textContent=allUsers.filter(u=>u.is_member).length;
     filterUsers();
   }catch(e){ document.getElementById('users-list').innerHTML='<div class="empty">Ошибка загрузки</div>'; }
@@ -4343,6 +4351,10 @@ function renderPaginationControls(containerId, page, totalPages, prevFn, nextFn)
 
 function prevUsersPage(){ if(usersPage>1){ usersPage--; renderUsersList(); } }
 function nextUsersPage(){ usersPage++; renderUsersList(); }
+
+function registrationMatches(r,k){if(!r?.eligible)return false;if(['channel','chat','reserve'].includes(k))return r[k]?.status!=='joined';if(k==='reserve_started')return r.reserve?.status!=='joined'&&r.reserve_started;if(k==='reserve_not_started')return r.reserve?.status!=='joined'&&!r.reserve_started;if(k==='unknown')return ['channel','chat','reserve'].some(x=>r[x]?.status==='unknown');return true}
+function registrationLine(r){return r?Object.entries({channel:'Канал / группа',chat:'Чат',reserve:'Резерв'}).map(([k,n])=>n+': '+(r[k]?.label||'Нет данных')).join(' · '):''}
+function prepareRegistrationReminder(step){if(!currentUser)return;const part={channel:'вступление в закрытый канал / группу',chat:'вступление в чат клуба',reserve:'подключение резервной площадки'}[step];const url=currentUser.registration?.primary==='vk'?'https://vk.ru/app54715238#bm':'https://t.me/youselllikeagod_bot/app?startapp='+({channel:'nb_channel',chat:'nb_chat',reserve:'nb_plat2'}[step]);const input=document.getElementById('payload-input');if(input.value.trim()&&document.getElementById('payload-row').classList.contains('visible')){showActionResult('Существующий черновик сохранён. Проверь его перед отправкой.','');return}pendingAction='send_message';input.value='Привет! Проверь, пожалуйста, '+part+'. Если этот шаг ещё не пройден, продолжить можно здесь: '+url+' Если уже всё сделал, напиши мне — проверю отметку в карточке.';document.getElementById('payload-send-btn').textContent='Отправить лично →';document.getElementById('payload-row').classList.add('visible');input.focus();showActionResult('Это черновик. Сообщение ещё не отправлено.','')}
 
 function filterUsers(){
   usersPage=1;
@@ -4441,6 +4453,8 @@ function renderUsersList(){
   else if(f==='app_active') users=users.filter(u=>u.is_member && u.app_status==='active');
   else if(f==='stuck_hard') users=users.filter(u=>!!u.stuck_hard);
   else if(f==='empty')      users=users.filter(u=>userIsEmpty(u));
+  const registrationFilter=document.getElementById('user-registration-filter').value;
+  if(registrationFilter)users=users.filter(u=>registrationMatches(u.registration,registrationFilter));
   if(q) users=users.filter(u=>
     (u.full_name||'').toLowerCase().includes(q)||
     (u.name||'').toLowerCase().includes(q)||
@@ -4474,6 +4488,7 @@ function renderUsersList(){
       <div class="item-info">
         <div class="item-name u-row"><span class="u-nm">${name}</span>${cancelled?' <span class="badge badge-err">остановлена</span>':''}${flagged?' <span class="badge badge-warn" title="'+setEsc(u.flag_reason)+'">⚠ часто пользуется</span>':''}${regNote}${userIsEmpty(u)?' <span class="badge badge-err" title="Нет ни имени, ни Telegram, ни ВК — оплата пришла от Продамуса, а Salebot не сообщил, кто это. Открой карточку: почта и телефон подскажут, с кем склеить">пустая карточка</span>':appUsageBadge(u)}</div>
         <div class="item-sub">${frozen?('пауза до '+escapeHtmlAdm(u.frozen_until)):sub}</div>
+        <div class="registration-row-note">${escapeHtmlAdm(registrationLine(u.registration))}</div>
       </div>
       <div class="item-right">
         <div class="item-val">${total>0?fmt(total):''}</div>
@@ -4981,6 +4996,7 @@ function openPopup(uid){
   if(!u)return;
   popupSeq++;
   currentUser=u;
+  document.getElementById('registration-card-status').textContent=registrationLine(u.registration)+' · '+(u.registration?.note||'Данные регистрации ещё не загружены');
   const name=u.full_name||u.name||'—';
   document.getElementById('popup-avatar').textContent=initials(name);
   document.getElementById('popup-name').textContent=name;
