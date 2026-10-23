@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v218 -->
+<!-- FILE_VERSION: admin-v222 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -677,6 +677,87 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
 
 #places-editor-slot input:not([type=checkbox]),#places-editor-slot select{box-sizing:border-box;width:100%;min-width:0;min-height:46px;border-radius:12px;padding:10px 12px;font:inherit}#places-editor-slot select{appearance:none;-webkit-appearance:none}#places-editor-slot label{display:flex;flex-direction:column;gap:12px}#places-editor-slot label:has(input[type=checkbox]){flex-direction:row;align-items:center}#places-editor-slot>div{gap:14px!important}#places-list button{min-height:40px}#places-editor-slot input:focus-visible,#places-editor-slot select:focus-visible{outline-offset:3px}
 .registration-filter-wrap{padding:16px;display:flex;flex-direction:column;gap:12px}.registration-filter-wrap label{font-size:13px}.registration-filter-wrap select{height:46px;border-radius:12px;padding:0 12px;max-width:100%;min-width:0;appearance:none;-webkit-appearance:none;background:var(--input-bg);color:var(--text);border:1px solid var(--line)}.registration-filter-wrap p{font-size:12px;opacity:.7;margin:0}.registration-card-status{font-size:13px;line-height:1.7;overflow-wrap:anywhere}.registration-card-actions{display:flex;flex-wrap:wrap;gap:12px;margin:14px 0}.registration-card-actions button{min-height:46px;border-radius:12px}.registration-row-note{font-size:11px;opacity:.75;white-space:normal;overflow-wrap:anywhere}
+/* Cards workspace: task navigation, shared controls, responsive content. */
+#cards-popup-overlay [hidden]{display:none!important}
+#cards-popup-overlay .cards-workspace{max-width:1000px;min-width:0;width:100%;max-height:90dvh;overscroll-behavior:contain}
+#cards-popup-overlay .popup-body{padding:28px 32px}
+#cards-popup-overlay .popup-close-x{width:44px;height:44px;z-index:2}
+#cards-popup-overlay .cards-heading{padding:0 48px 22px 0}
+#cards-popup-overlay .cards-heading h2{font:600 25px/1.3 var(--body);margin-top:4px}
+#cards-popup-overlay .cards-eyebrow{font-size:12px;color:var(--text-dim)}
+#cards-popup-overlay .cards-primary-nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding:5px;gap:5px;background:var(--surface2);border-radius:17px;margin-bottom:14px}
+#cards-popup-overlay .cards-primary-nav .action-btn{box-shadow:none;background:transparent;border:0;border-radius:13px;min-width:0;padding:12px 4px;font-size:14px;color:var(--text-dim)}
+#cards-popup-overlay .cards-primary-nav [aria-pressed="true"]{background:var(--popup-bg);box-shadow:var(--sh-sm);color:var(--text)}
+#cards-popup-overlay .cards-secondary-nav{display:flex;gap:6px;flex-wrap:wrap;padding:0 0 18px;margin-bottom:22px;border-bottom:1px solid var(--line)}
+#cards-popup-overlay .cards-secondary-nav .action-btn{background:transparent;box-shadow:none;border:1px solid transparent;color:var(--text-dim);font-size:13px;padding:9px 12px}
+#cards-popup-overlay .cards-secondary-nav [aria-pressed="true"]{background:var(--input-bg);box-shadow:var(--sh-is);border-color:var(--line);color:var(--text)}
+#cards-popup-overlay #cards-todo-count{margin-left:5px;font-size:11px;color:var(--warm)}
+#cards-popup-overlay .cards-page-title{font:600 21px/1.4 var(--body);margin:4px 0 6px}
+#cards-popup-overlay .cards-caption{font:400 13px/1.6 var(--body);color:var(--text-dim);margin:6px 0 12px}
+#cards-popup-overlay .cards-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:20px 0}
+#cards-popup-overlay .cards-toolbar h4{flex:1;font-size:15px}
+#cards-popup-overlay .cards-back{box-shadow:none;background:transparent;margin-bottom:14px;padding-left:0}
+#cards-popup-overlay .cards-set-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:18px 0;border-bottom:1px solid var(--line)}
+#cards-popup-overlay .cards-set-row b{display:block;font-size:16px;overflow-wrap:anywhere}
+#cards-popup-overlay .cards-set-meta{font-size:13px;color:var(--text-dim);line-height:1.6;margin-top:3px}
+#cards-popup-overlay .cards-set-row .action-btn{box-shadow:none;background:transparent;border:1px solid var(--line)}
+#cards-popup-overlay .cards-disclosure{border-top:1px solid var(--line);margin:20px 0;padding-top:6px}
+#cards-popup-overlay summary{min-height:44px;padding:12px 0;font-size:13px;cursor:pointer;overflow-wrap:anywhere}
+#cards-popup-overlay .cards-form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:20px 0;align-items:end}
+#cards-popup-overlay .cards-form-grid label,#cards-popup-overlay .cards-upload-field{font-size:13px;color:var(--text-dim);min-width:0}
+#cards-popup-overlay .cards-form-grid label :is(input,select){display:block;width:100%;margin-top:7px}
+#cards-popup-overlay .cards-upload-field{flex:1 1 200px}
+#cards-popup-overlay .cards-upload-field select{display:block;width:100%;margin-top:7px}
+#cards-popup-overlay .cards-upload-mode{display:block;font-size:13px;margin:20px 0}
+#cards-popup-overlay .cards-upload-mode select{display:block;width:100%;margin-top:7px}
+#cards-popup-overlay .cards-feedback{font-size:13px;line-height:1.5;margin-top:16px;overflow-wrap:anywhere}
+#cards-popup-overlay .cards-danger{color:var(--red);box-shadow:none;border:1px solid var(--line)}
+#cards-popup-overlay :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),select,textarea){min-height:44px;max-width:100%;min-width:0!important;font-family:var(--body);font-size:14px!important;padding:10px 12px!important;border-radius:12px!important;box-sizing:border-box}
+#cards-popup-overlay .action-btn{min-height:44px;white-space:normal;overflow-wrap:anywhere;font-size:13px}
+#cards-popup-overlay :is(.popup-save,.popup-cancel){min-height:44px}
+#cards-popup-overlay :is(input,select,textarea,button):focus-visible{outline:2px solid var(--warm,var(--accent));outline-offset:3px}
+#cards-popup-overlay :is([style*="display:flex"],[style*="display: flex"]){flex-wrap:wrap}
+#cards-popup-overlay :is([style*="flex:1"],[style*="flex: 1"],[style*="flex:2"]){min-width:0}
+#cards-popup-overlay :is(img,canvas,video){max-width:100%}
+#cards-popup-overlay :is(.pay-name,.pay-meta){overflow-wrap:anywhere}
+#cards-popup-overlay .cards-table-scroll{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain}
+#cards-popup-overlay #fr-pools table{table-layout:fixed}
+#cards-popup-overlay #fr-pools th{overflow-wrap:anywhere}
+#cards-popup-overlay .cards-frame-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:16px;margin-top:12px}
+#cards-popup-overlay .cards-frame-tile{text-align:center;min-width:0}
+#cards-popup-overlay .cards-frame-tile img{width:100%;border-radius:9px;background:var(--surface2)}
+#cards-popup-overlay .cards-frame-key{font-size:12px;color:var(--text-dim);overflow-wrap:anywhere;margin:6px 0}
+#cards-popup-overlay .cards-frame-tile .action-btn{box-shadow:none;color:var(--text-dim)}
+@media(max-width:600px){
+ #cards-popup-overlay.popup-centered{padding:10px;align-items:center}
+ #cards-popup-overlay .cards-workspace{max-height:calc(100dvh - 20px);border-radius:20px;padding-bottom:env(safe-area-inset-bottom,0px)}
+ #cards-popup-overlay .popup-body{padding:20px 16px}
+ #cards-popup-overlay .cards-heading{padding-bottom:18px}
+ #cards-popup-overlay .cards-primary-nav .action-btn{font-size:12px}
+ #cards-popup-overlay .cards-secondary-nav{gap:4px;margin-bottom:18px;padding-bottom:14px}
+ #cards-popup-overlay .cards-secondary-nav .action-btn{font-size:12px;padding:8px 10px}
+ #cards-popup-overlay .cards-form-grid{grid-template-columns:minmax(0,1fr)}
+ #cards-popup-overlay :is(input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea){font-size:16px!important}
+ #cards-popup-overlay .cards-toolbar>.action-btn{flex:1 1 130px}
+ #cards-popup-overlay #cards-search-row>*{flex:1 1 100%!important}
+ #cards-popup-overlay #cards-filter-row{gap:6px!important}
+ #cards-popup-overlay .cards-frame-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #cards-popup-overlay .hfe-wrap{grid-template-columns:minmax(0,1fr)}
+}
+
+
+#cards-popup-overlay .cards-heading{display:block}
+#cards-popup-overlay .cards-primary-nav .action-btn,#cards-popup-overlay .cards-secondary-nav .action-btn,#cards-popup-overlay .cards-back{background:transparent!important;box-shadow:none!important;border-color:transparent!important;color:var(--text-dim)!important}
+#cards-popup-overlay .cards-primary-nav [aria-pressed="true"]{background:var(--popup-bg)!important;box-shadow:var(--sh-sm)!important;color:var(--text)!important}
+#cards-popup-overlay .cards-secondary-nav [aria-pressed="true"]{background:var(--input-bg)!important;box-shadow:var(--sh-is)!important;border-color:var(--line)!important;color:var(--text)!important}
+#cards-popup-overlay .cards-set-row .action-btn,#cards-popup-overlay .cards-frame-tile .action-btn{background:transparent!important;box-shadow:none!important;border-color:var(--line)!important}
+#cards-popup-overlay .cards-danger{color:var(--red)!important;box-shadow:none!important}
+#cards-popup-overlay .cards-upload-review{padding:18px 0;border-bottom:1px solid var(--line)}
+#cards-popup-overlay .cards-upload-review .cards-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+#cards-popup-overlay #cards-filter-disclosure{margin:6px 0 12px}
+@media(max-width:600px){#cards-popup-overlay .cards-upload-review .cards-form-grid{grid-template-columns:minmax(0,1fr)}}
+#cards-popup-overlay input[type="file"]{width:100%;min-width:0;max-width:100%;font-size:13px}
+#cards-popup-overlay [id^="card-art-preview-"] + div{flex:1 1 180px!important;min-width:0!important}
 </style>
 
 <style id="bp-visual-redesign-2026">
@@ -1871,37 +1952,35 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 </div>
 
 <div class="popup-overlay popup-centered" id="cards-popup-overlay" onclick="if(overlayShouldClose(event,this)) closeCardsPopup()">
-  <div class="popup" style="max-width:560px">
-    <button class="popup-close-x" onclick="closeCardsPopup()" title="Закрыть">✕</button>
+  <div class="popup cards-workspace" role="dialog" aria-label="Карточки" aria-modal="true">
+    <button class="popup-close-x" aria-label="Закрыть карточки" onclick="closeCardsPopup()" title="Закрыть">✕</button>
     <div class="popup-body" style="padding-top:20px">
 
-      <div class="popup-section-title" style="margin-top:0">Колода карточек</div>
-      <div id="cards-master-switch" style="margin-bottom:12px"></div>
-
-      <!-- ЧЕТЫРЕ РАЗДЕЛА ВМЕСТО ВОСЬМИ ВКЛАДОК.
-           Разделы названы по типу РАБОТЫ, а не по типу карточки: «доделать
-           колоду», «собрать картинку», «разобраться с тем, что от меня ждут».
-           Прежние вкладки Сезон / Вся колода / Уникальные — это фильтры внутри
-           «Колоды», а не отдельные места. Симулятор и «Подарить» переехали
-           внутрь тех разделов, где они реально нужны. -->
-      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-        <button class="action-btn" id="cards-sec-deck-btn" onclick="switchCardsSection('deck')">Колода</button>
+      <header class="cards-heading"><div class="cards-eyebrow">Управление коллекцией</div><h2>Карточки</h2></header>
+      <nav class="cards-primary-nav" aria-label="Разделы карточек">
+        <button class="action-btn" id="cards-group-collection" onclick="cardsOpenGroup('collection')">Коллекция</button>
+        <button class="action-btn" id="cards-group-design" onclick="cardsOpenGroup('design')">Оформление</button>
+        <button class="action-btn" id="cards-group-issuance" onclick="cardsOpenGroup('issuance')">Выдача<span id="cards-todo-count"></span></button>
+      </nav>
+      <nav id="cards-deck-chips" class="cards-secondary-nav" aria-label="Коллекция">
+        <button class="action-btn" id="cards-view-series-btn" onclick="switchDeckView('series')">Сезоны и серии</button>
+        <button class="action-btn" id="cards-view-deck-btn" onclick="switchDeckView('deck')">Все карточки</button>
+        <button class="action-btn" id="cards-view-unique-btn" onclick="switchDeckView('unique')">Уникальные</button>
+        <button class="action-btn" id="cards-sec-gods-btn" onclick="switchCardsSection('gods')">Боги</button>
+      </nav>
+      <nav id="cards-design-nav" class="cards-secondary-nav" aria-label="Оформление" hidden>
         <button class="action-btn" id="cards-sec-frames-btn" onclick="switchCardsSection('frames')">Рамки</button>
         <button class="action-btn" id="cards-sec-sigils-btn" onclick="switchCardsSection('sigils')">Сигилы</button>
-        <button class="action-btn" id="cards-sec-screens-btn" onclick="switchCardsSection('screens')">Экраны</button>
+        <button class="action-btn" id="cards-sec-screens-btn" onclick="switchCardsSection('screens')">Экраны открытия</button>
         <button class="action-btn" id="cards-sec-packs-btn" onclick="switchCardsSection('packs')">Паки и постеры</button>
-        <button class="action-btn" id="cards-sec-gods-btn" onclick="switchCardsSection('gods')">Боги</button>
-        <button class="action-btn" id="cards-sec-todo-btn" onclick="switchCardsSection('todo')">Дела<span id="cards-todo-count" style="margin-left:6px;font-size:11px;color:var(--warm)"></span></button>
-      </div>
-
-      <!-- Фильтры «Колоды». СЕЗОН ПЕРВЫЙ И ПО УМОЛЧАНИЮ: это то, над чем идёт
-           текущая работа, а вся колода и уникальные — справочные виды -->
-      <div id="cards-deck-chips" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-        <button class="action-btn" id="cards-view-series-btn" onclick="switchDeckView('series')">Сезон</button>
-        <button class="action-btn" id="cards-view-deck-btn" onclick="switchDeckView('deck')">Вся колода</button>
-        <button class="action-btn" id="cards-view-unique-btn" onclick="switchDeckView('unique')">Уникальные</button>
-        <button class="action-btn" id="cards-view-sim-btn" onclick="switchDeckView('sim')" style="margin-left:auto;background:transparent;font-size:12px;opacity:.75">Симулятор выдачи</button>
-      </div>
+      </nav>
+      <nav id="cards-issuance-nav" class="cards-secondary-nav" aria-label="Выдача" hidden>
+        <button class="action-btn" id="cards-sec-settings-btn" onclick="switchCardsSection('settings')">Настройки</button>
+        <button class="action-btn" id="cards-view-sim-btn" onclick="switchDeckView('sim')">Симулятор</button>
+        <button class="action-btn" id="cards-sec-grant-btn" onclick="switchCardsSection('grant')">Выдать вручную</button>
+        <button class="action-btn" id="cards-sec-todo-btn" onclick="switchCardsSection('todo')">Обязательства</button>
+      </nav>
+      <div id="cards-tab-settings" style="display:none"><h3 class="cards-page-title">Выдача за продление</h3><div id="cards-master-switch"></div></div>
 
       <!-- Колода -->
       <div id="cards-tab-deck">
@@ -1917,7 +1996,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
             <option value="title">По названию</option>
           </select>
         </div>
-        <div id="cards-filter-row" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+        <details id="cards-filter-disclosure"><summary id="cards-filter-label">Фильтр: все карточки</summary><div id="cards-filter-row" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div></details>
         <label class="toggle-switch" id="cards-shelf-secret-row" style="margin-bottom:10px">
           <input type="checkbox" id="cards-shelf-show-secret" onchange="toggleCardsShelfSecret()">
           <span class="toggle-track"><span class="toggle-thumb"></span></span>
@@ -1975,7 +2054,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       </div>
 
       <!-- Подарить -->
-      <div id="cards-tab-grant" style="display:none;margin-top:18px;border-top:1px solid var(--line);padding-top:16px">
+      <div id="cards-tab-grant" style="display:none">
         <div style="font-size:12px;color:var(--text-faint);line-height:1.45;margin-bottom:12px">
           Выдать карточку или пак конкретному участнику — для тестов и для подарков.
           Приходит закрытой, как обычная: ритуал вскрытия сохраняется.
@@ -2019,39 +2098,51 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
            подмножества рамка берётся случайно — это и есть уникальность
            экземпляра, и она ЗАПИСЫВАЕТСЯ карте при выдаче. -->
       <div id="cards-tab-frames" style="display:none">
-        <div id="fr-pools" style="margin-bottom:14px"></div>
-
-        <div class="popup-section-title" style="margin-top:0">Сеты</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-          <input id="fr-set-key" placeholder="ключ латиницей: ruina"
+        <div id="fr-catalog-view">
+          <h3 class="cards-page-title">Рамки</h3><p class="cards-caption" id="fr-catalog-summary">Наборы оформления карточек</p>
+          <div class="cards-toolbar"><button class="action-btn primary" onclick="frOpenUpload()">Загрузить рамки</button><button class="action-btn" onclick="frOpenSet('')">Новый набор</button></div>
+          <div id="fr-sets"><div class="loading">Загрузка...</div></div>
+          <details class="cards-disclosure"><summary>Покрытие по редкости и стилю <span id="fr-coverage-note"></span></summary><div id="fr-pools"></div></details>
+        </div>
+        <div id="fr-set-view" hidden>
+          <button class="action-btn cards-back" onclick="frShowView('catalog')">← Все наборы</button>
+          <h3 class="cards-page-title" id="fr-set-title">Новый набор</h3>
+        <div class="cards-form-grid">
+          <label>Ключ набора<input id="fr-set-key" placeholder="Например, ruina"
                  style="flex:1;min-width:120px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">
-          <select id="fr-set-rarity" style="padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">
+          </label><label>Редкость<select id="fr-set-rarity" style="padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">
             <option value="common">Частая</option>
             <option value="uncommon">Нечастая</option>
             <option value="rare">Редкая</option>
             <option value="legendary">Легендарная</option>
           </select>
-          <input id="fr-set-season" list="series-datalist" placeholder="сезон (пусто = всесезонный)"
+          </label><label>Сезон<input id="fr-set-season" list="series-datalist" placeholder="Пусто — всесезонный"
                  style="flex:1;min-width:120px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">
-          <button class="action-btn" onclick="frSaveSet()">Завести сет</button>
+          </label><button class="action-btn primary" onclick="frSaveSet()">Сохранить набор</button>
         </div>
-        <div id="fr-sets"><div class="loading">Загрузка...</div></div>
 
-        <div class="popup-section-title">Залить картотеку разом</div>
+          <div id="fr-set-tools"></div>
+          <div id="fr-set-frames"><div class="cards-toolbar"><h4>Рамки набора</h4><button class="action-btn" onclick="frOpenUpload(frSelectedSet)">Добавить рамки</button></div><div id="fr-list"></div></div>
+        </div>
+        <div id="fr-upload-view" hidden>
+          <button class="action-btn cards-back" onclick="frUploadBack()">← Назад</button><h3 class="cards-page-title">Загрузка рамок</h3>
+          <p class="cards-caption">Выберите способ распределения, проверьте файлы и подтвердите загрузку.</p>
+          <label class="cards-upload-mode">Распределение<select id="fr-upload-mode" onchange="frUploadMode(this.value)"><option value="auto">Определить набор и стиль по имени файла</option><option value="manual">Указать набор и стиль вручную</option></select></label>
+          <div id="fr-upload-auto">        <div class="popup-section-title">Распределение по именам файлов</div>
         <div style="opacity:.7;font-size:12.5px;line-height:1.5;margin-bottom:10px">
           Для файлов, уже названных по стандарту <b>frame-стиль-сет-NN.png</b>:
-          выбери хоть все 57 сразу, сет и стиль возьмутся из имени. Сеты, которых
+          выбери несколько файлов сразу, набор и стиль возьмутся из имени. Наборы, которых
           ещё нет, заведутся сами — редкость каждого проверь в таблице ниже.
           Геометрия у таких файлов уже выверена, поэтому замер только сверяет.
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-          <button class="action-btn" onclick="document.getElementById('fr-bulk-files').click()">Выбрать всю картотеку</button>
+          <button class="action-btn" onclick="document.getElementById('fr-bulk-files').click()">Выбрать PNG-файлы</button>
           <input type="file" id="fr-bulk-files" multiple accept="image/png" style="display:none">
         </div>
         <div id="fr-bulk-plan"></div>
         <div id="fr-bulk-say" style="font-size:12.5px;opacity:.8;margin-top:8px"></div>
 
-        <div class="popup-section-title">Загрузить рамки поштучно</div>
+</div><div id="fr-upload-manual" hidden>        <div class="popup-section-title">Загрузка в выбранный набор</div>
         <div style="opacity:.7;font-size:12.5px;line-height:1.5;margin-bottom:10px">
           Кидай PNG как приходят от рисовщика, любого размера. Каждую меряют два
           замерщика — обычный и устойчивый к разрывам борта, — берётся тот, что
@@ -2059,23 +2150,24 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           обломками, больше — правь ползунками.
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-          <select id="fr-up-set" style="flex:1;min-width:140px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px"></select>
-          <select id="fr-up-style" style="padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">
+          <label class="cards-upload-field">Набор<select id="fr-up-set" style="flex:1;min-width:140px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px"></select>
+          </label><label class="cards-upload-field">Стиль<select id="fr-up-style" style="padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">
             <option value="light">Светлые</option>
             <option value="dark">Тёмные</option>
             <option value="special">Особые</option>
           </select>
-          <button class="action-btn" onclick="document.getElementById('fr-files').click()">Выбрать файлы</button>
+</label>          <button class="action-btn" onclick="document.getElementById('fr-files').click()">Выбрать файлы</button>
           <input type="file" id="fr-files" multiple accept="image/png" style="display:none">
         </div>
         <div id="fr-up-list"></div>
-        <div id="fr-say" style="font-size:12.5px;opacity:.8;margin-top:8px"></div>
+
         <div id="fr-up-actions" style="display:none;margin-top:10px">
-          <button class="action-btn primary" onclick="frUploadAll()">Залить все посаженные</button>
+          <button class="action-btn primary" onclick="frUploadAll()">Загрузить подготовленные рамки</button>
         </div>
 
-        <div class="popup-section-title">Картотека</div>
-        <div id="fr-list"><div class="loading">Загрузка...</div></div>
+</div>
+        </div>
+        <div id="fr-say" class="cards-feedback" role="status" aria-live="polite"></div>
       </div>
 
       <!-- ═══ СИГИЛЫ: покрытие 19 богов x 3 стиля ═════════════════════════
@@ -3490,7 +3582,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v221';
+const BUILD_VERSION = 'admin-v222';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -10335,6 +10427,7 @@ let cardsTab = 'deck';
 
 async function openCardsPopup(after){
   document.getElementById('cards-popup-overlay').classList.add('open');
+  cardExpanded = null; cardsEditorOrigin = null; cardEditMode = false;
   deckView = 'series';              // открываемся на сезоне — там идёт работа
   switchCardsSection('deck');
   loadCardsQueue();                 // молча, ради цифры долга на кнопке «Дела»
@@ -10352,24 +10445,15 @@ function closeCardsPopup(){
   document.getElementById('cards-popup-overlay').classList.remove('open');
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   РАЗДЕЛЫ РАБОЧЕГО МЕСТА ПО КАРТОЧКАМ
-
-   Было восемь вкладок, стало четыре раздела. Соответствие:
-     Колода     ← Сезон + Вся колода + Уникальные (теперь фильтры) + Симулятор
-     Мастерская ← Элементы + сборка картинки
-     Боги       ← Боги (без изменений)
-     Дела       ← Личное участие + Подарить
-
-   Ни один прежний экран не удалён: все контейнеры `#cards-tab-*` на месте, все
-   функции отрисовки вызываются как раньше. Изменилась только группировка и то,
-   какими кнопками до них добираться.
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* Рабочее место карточек: коллекция / оформление / выдача.
+   Старые идентификаторы вкладок и обработчики сохранены для совместимости.
+   cardsSyncNavigation отвечает за два уровня навигации; switchCardsSection
+   и switchDeckView открывают прежние экраны через существующие загрузчики. */
 
 var cardsSection = 'deck';
 var deckView = 'series';   // сезон — вид по умолчанию
 
-const CARD_TAB_IDS = ['deck','gods','sim','queue','grant','series','unique','elements','packs','frames','sigils','screens'];
+const CARD_TAB_IDS = ['settings','deck','gods','sim','queue','grant','series','unique','elements','packs','frames','sigils','screens'];
 
 function hideAllCardTabs(){
   CARD_TAB_IDS.forEach(function(t){
@@ -10443,7 +10527,7 @@ function frBulkPlan(skipped){
   const box = document.getElementById('fr-bulk-plan');
   if (!FR_BULK.length){
     box.innerHTML = '<div class="empty">Ни одно имя не подошло под стандарт frame-стиль-сет-NN.png. '
-      + 'Такие файлы заливай поштучно ниже.</div>';
+      + 'Выберите распределение вручную и загрузите эти файлы.</div>';
     return;
   }
   // группировка сет x стиль
@@ -10455,36 +10539,20 @@ function frBulkPlan(skipped){
   const known = {};
   frSets.forEach(function(f){ known[f.key] = f; });
 
-  let h = '<table style="width:100%;border-collapse:collapse;font-size:13px">'
-        + '<tr><th style="text-align:left;padding:6px;opacity:.6;font-size:11px">Сет</th>'
-        + '<th style="text-align:left;padding:6px;opacity:.6;font-size:11px">Редкость</th>'
-        + '<th style="text-align:left;padding:6px;opacity:.6;font-size:11px">Сезон</th>'
-        + '<th style="text-align:right;padding:6px;opacity:.6;font-size:11px">Свет</th>'
-        + '<th style="text-align:right;padding:6px;opacity:.6;font-size:11px">Тьма</th>'
-        + '<th style="text-align:right;padding:6px;opacity:.6;font-size:11px">Особ</th></tr>';
+  let h = '';
   Object.keys(sets).sort().forEach(function(sk){
-    const c = sets[sk];
-    const cur = known[sk];
+    const c = sets[sk], cur = known[sk];
     const rarity = cur ? cur.rarity : (FR_SET_RARITY_HINT[sk] || 'common');
     const season = cur ? (cur.season_key || '') : '';
-    h += '<tr><td style="padding:6px;border-top:1px solid var(--line)"><b>' + escapeHtmlAdm(sk) + '</b>'
-       + (cur ? '' : ' <span style="opacity:.55;font-size:11px">новый</span>') + '</td>'
-       + '<td style="padding:6px;border-top:1px solid var(--line)">'
-       + '<select id="frb-rar-' + escapeHtmlAdm(sk) + '" style="padding:5px 8px;border-radius:7px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:12.5px">'
-       + Object.keys(FR_RARITIES).map(function(r){
-           return '<option value="' + r + '"' + (r === rarity ? ' selected' : '') + '>' + FR_RARITIES[r] + '</option>'; }).join('')
-       + '</select></td>'
-       + '<td style="padding:6px;border-top:1px solid var(--line)">'
-       + '<input id="frb-sea-' + escapeHtmlAdm(sk) + '" list="series-datalist" value="' + escapeHtmlAdm(season) + '" placeholder="всесезонный" '
-       + 'style="width:110px;padding:5px 8px;border-radius:7px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:12.5px"></td>'
-       + '<td style="padding:6px;border-top:1px solid var(--line);text-align:right">' + c.light + '</td>'
-       + '<td style="padding:6px;border-top:1px solid var(--line);text-align:right">' + c.dark + '</td>'
-       + '<td style="padding:6px;border-top:1px solid var(--line);text-align:right">' + c.special + '</td></tr>';
+    h += '<section class="cards-upload-review"><h4>'+escapeHtmlAdm(sk)+(cur ? '' : ' · новый набор')+'</h4>'
+      + '<p class="cards-caption">Светлых: '+c.light+' · тёмных: '+c.dark+' · особых: '+c.special+'</p><div class="cards-form-grid">'
+      + '<label>Редкость<select id="frb-rar-'+escapeHtmlAdm(sk)+'">'
+      + Object.keys(FR_RARITIES).map(function(r){ return '<option value="'+r+'"'+(r === rarity ? ' selected' : '')+'>'+FR_RARITIES[r]+'</option>'; }).join('')
+      + '</select></label><label>Сезон<input id="frb-sea-'+escapeHtmlAdm(sk)+'" list="series-datalist" value="'+escapeHtmlAdm(season)+'" placeholder="Всесезонный"></label></div></section>';
   });
-  h += '</table>'
-     + '<div style="margin-top:10px;font-size:12.5px;opacity:.75">Разобрано файлов: <b>' + FR_BULK.length + '</b>'
-     + (skipped && skipped.length ? (' · не подошли по имени: ' + skipped.length) : '') + '</div>'
-     + '<button class="action-btn primary" style="margin-top:10px" onclick="frBulkUpload()">Залить всё</button>';
+  h += '<div class="cards-caption">Распознано файлов: '+FR_BULK.length+'</div>';
+  if (skipped && skipped.length) h += '<div class="cards-caption">Не распознаны: '+skipped.map(escapeHtmlAdm).join(', ')+'. Выберите их отдельно в режиме ручного распределения.</div>';
+  h += '<button class="action-btn primary" onclick="frBulkUpload()">Загрузить распознанные рамки</button>';
   box.innerHTML = h;
 }
 
@@ -10690,26 +10758,56 @@ function frRenderPools(){
     h += '</tr>';
   });
   document.getElementById('fr-pools').innerHTML = h + '</table>';
+  const gaps = Object.keys(FR_RARITIES).flatMap(function(r){ return Object.keys(FR_STYLES).map(function(st){ return frPools[r+'|'+st] || 0; }); }).filter(function(n){ return !n; }).length;
+  document.getElementById('fr-coverage-note').textContent = gaps ? '· пустых сочетаний: '+gaps : '';
+}
+
+var frSelectedSet = '';
+var frUploadReturn = 'catalog';
+function frShowView(view){
+  ['catalog','set','upload'].forEach(function(v){ document.getElementById('fr-'+v+'-view').hidden = v !== view; });
+}
+function frOpenSet(key){
+  frSelectedSet = key;
+  var f = frSets.find(function(x){ return x.key === key; });
+  document.getElementById('fr-set-title').textContent = f ? (f.title || f.key) : 'Новый набор';
+  var input = document.getElementById('fr-set-key');
+  input.value = key; input.readOnly = !!f;
+  document.getElementById('fr-set-rarity').value = f ? f.rarity : 'common';
+  document.getElementById('fr-set-season').value = f ? (f.season_key || '') : '';
+  document.getElementById('fr-set-frames').hidden = !f;
+  frRenderSetTools(); frRenderList(); frShowView('set');
+}
+function frRenderSetTools(){
+  var f = frSets.find(function(x){ return x.key === frSelectedSet; });
+  document.getElementById('fr-set-tools').innerHTML = !f ? '' :
+    '<details class="cards-disclosure"><summary>Участие в выдаче · '+(f.active ? 'включён' : 'отключён')+'</summary>'+
+    '<p class="cards-caption">Отключённый набор не участвует в новых выдачах. Уже выданные рамки сохраняются.</p>'+
+    '<button class="action-btn" onclick="frToggleSet('+jsArg(f.key)+','+(!f.active)+')">'+(f.active ? 'Отключить набор' : 'Включить набор')+'</button></details>'+
+    '<details class="cards-disclosure"><summary>Удаление набора</summary><p class="cards-caption">Удалятся все рамки набора, в том числе оформление уже выданных карточек.</p>'+
+    '<button class="action-btn cards-danger" onclick="frDeleteSet('+jsArg(f.key)+')">Удалить набор и рамки</button></details>';
+}
+function frOpenUpload(key){
+  frUploadReturn = key ? 'set' : 'catalog';
+  if (key) document.getElementById('fr-up-set').value = key;
+  frUploadMode(key ? 'manual' : 'auto');
+  frShowView('upload');
+}
+function frUploadBack(){ frShowView(frUploadReturn); }
+function frUploadMode(mode){
+  document.getElementById('fr-upload-mode').value = mode;
+  document.getElementById('fr-upload-auto').hidden = mode !== 'auto';
+  document.getElementById('fr-upload-manual').hidden = mode !== 'manual';
 }
 
 function frRenderSets(){
-  if (!frSets.length){
-    document.getElementById('fr-sets').innerHTML = '<div class="empty">Сетов пока нет. Заведи первый — он и решает, какой редкости достанутся его рамки.</div>';
-    return;
-  }
-  let h = '';
-  frSets.forEach(function(f){
-    h += '<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)">'
-       + '<b style="flex:1">' + escapeHtmlAdm(f.key) + '</b>'
-       + '<span style="opacity:.7;font-size:12.5px">' + (FR_RARITIES[f.rarity] || f.rarity) + '</span>'
-       + '<span style="opacity:.55;font-size:12px">' + (f.season_key ? escapeHtmlAdm(f.season_key) : 'всесезонный') + '</span>'
-       + '<span style="opacity:.7;font-size:12.5px">' + f.frames_count + ' шт</span>'
-       + '<button class="action-btn" style="font-size:12px;padding:4px 9px" onclick="frToggleSet(\'' + escapeHtmlAdm(f.key) + '\',' + (f.active ? 'false' : 'true') + ')">'
-       + (f.active ? 'выключить' : 'включить') + '</button>'
-       + '<button class="action-btn" style="font-size:12px;padding:4px 9px" onclick="frDeleteSet(\'' + escapeHtmlAdm(f.key) + '\')">удалить</button>'
-       + '</div>';
-  });
-  document.getElementById('fr-sets').innerHTML = h;
+  document.getElementById('fr-catalog-summary').textContent = 'Наборов: '+frSets.length+' · рамок: '+frFrames.length;
+  document.getElementById('fr-sets').innerHTML = frSets.length ? frSets.map(function(f){
+    return '<div class="cards-set-row"><div><b>'+escapeHtmlAdm(f.title || f.key)+'</b><div class="cards-set-meta">'+
+      escapeHtmlAdm(FR_RARITIES[f.rarity] || f.rarity)+' · '+f.frames_count+' рамок<br>'+escapeHtmlAdm(f.season_key || 'Всесезонный')+' · '+(f.active ? 'Включён' : 'Отключён')+
+      '</div></div><button class="action-btn" onclick="frOpenSet('+jsArg(f.key)+')">Открыть</button></div>';
+  }).join('') : '<div class="empty">Наборов пока нет. Создайте набор или загрузите рамки по именам файлов.</div>';
+  frRenderSetTools();
 }
 
 function frFillUpSelect(){
@@ -10722,20 +10820,22 @@ function frFillUpSelect(){
 
 async function frSaveSet(){
   const key = (document.getElementById('fr-set-key').value || '').trim().toLowerCase();
-  if (!key){ frSay('Назови сет латиницей'); return; }
+  if (!/^[a-z0-9_-]+$/.test(key)){ frSay('Укажите ключ латиницей: буквы, цифры, дефис или подчёркивание.'); return; }
+  const existing = frSets.find(function(f){ return f.key === key; });
+  if (!frSelectedSet && existing){ frSay('Такой набор уже существует. Откройте его из списка.'); return; }
   try {
     await frApi('/cards/admin/framesets', {
       method: 'POST',
       body: JSON.stringify({
-        key: key, title: key,
+        key: key, title: existing ? (existing.title || key) : key,
         rarity: document.getElementById('fr-set-rarity').value,
         season_key: (document.getElementById('fr-set-season').value || '').trim(),
-        active: true
+        active: existing ? existing.active : true
       })
     });
-    document.getElementById('fr-set-key').value = '';
-    frSay('Сет «' + key + '» заведён');
-    frLoad();
+    frSay('Набор «' + key + '» сохранён');
+    await frLoad();
+    frOpenSet(key);
   } catch (e){ frSay('Не вышло: ' + e.message); }
 }
 async function frToggleSet(key, on){
@@ -10751,32 +10851,17 @@ async function frDeleteSet(key){
   try {
     const r = await frApi('/cards/admin/framesets/' + encodeURIComponent(key), {method:'DELETE'});
     frSay('Удалено рамок: ' + r.frames_deleted + (r.instances_affected ? ', задето экземпляров: ' + r.instances_affected : ''));
+    frSelectedSet = ''; frShowView('catalog');
     frLoad();
   } catch (e){ frSay('Не вышло: ' + e.message); }
 }
 
 function frRenderList(){
-  if (!frFrames.length){
-    document.getElementById('fr-list').innerHTML = '<div class="empty">Рамок пока нет.</div>';
-    return;
-  }
-  const bySet = {};
-  frFrames.forEach(function(f){ (bySet[f.set_key] = bySet[f.set_key] || []).push(f); });
-  let h = '';
-  Object.keys(bySet).forEach(function(sk){
-    h += '<div style="margin-top:12px;font-weight:600;font-size:13px">' + escapeHtmlAdm(sk)
-       + ' <span style="opacity:.55;font-weight:400">' + bySet[sk].length + ' шт</span></div>'
-       + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px;margin-top:6px">';
-    bySet[sk].forEach(function(f){
-      h += '<div style="text-align:center">'
-         + '<img src="' + escapeHtmlAdm(f.url_small || f.url) + '" loading="lazy" style="width:100%;border-radius:6px;background:repeating-conic-gradient(#3a3a46 0 25%,#2c2c36 0 50%) 50%/14px 14px">'
-         + '<div style="font-size:9.5px;opacity:.6;margin-top:4px;word-break:break-all">' + escapeHtmlAdm(f.key.replace('frame-','')) + '</div>'
-         + '<button class="action-btn" style="font-size:10px;padding:2px 7px;margin-top:3px" onclick="frDeleteFrame(\'' + escapeHtmlAdm(f.key) + '\')">убрать</button>'
-         + '</div>';
-    });
-    h += '</div>';
-  });
-  document.getElementById('fr-list').innerHTML = h;
+  var frames = frFrames.filter(function(f){ return f.set_key === frSelectedSet; });
+  document.getElementById('fr-list').innerHTML = frames.length ? '<div class="cards-frame-grid">'+frames.map(function(f){
+    return '<div class="cards-frame-tile"><img src="'+escapeHtmlAdm(f.url_small || f.url)+'" alt="'+escapeHtmlAdm(f.key)+'" loading="lazy">'+
+      '<div class="cards-frame-key">'+escapeHtmlAdm(f.key.replace('frame-',''))+'</div><button class="action-btn" onclick="frDeleteFrame('+jsArg(f.key)+')">Убрать рамку</button></div>';
+  }).join('')+'</div>' : '<div class="empty">В этом наборе пока нет рамок.</div>';
 }
 async function frDeleteFrame(key){
   if (!confirm('Убрать рамку «' + key + '»?')) return;
@@ -11304,77 +11389,52 @@ async function sgUploadAll(){
   frSay('Залито сигилов: ' + done);
 }
 
-function switchCardsSection(name){
-  // ⚠️⚠️ НЕИЗВЕСТНОЕ ИМЯ РАЗДЕЛА НЕ ДОЛЖНО ДАВАТЬ ПУСТОЕ ОКНО. Ниже сначала
-  // прячется всё, а показывается только то, у чего есть своя ветка: опечатка
-  // или снятый раздел молча оставляли попап без единой строки, и выглядело это
-  // как «дашборд сломался». Падаем на колоду — она есть всегда.
-  var KNOWN = ['deck','frames','sigils','screens','packs','gods','todo'];
-  if (KNOWN.indexOf(name) === -1) name = 'deck';
-  cardsSection = name;
-  ['deck','frames','sigils','screens','packs','gods','todo'].forEach(function(n){
-    const b = document.getElementById('cards-sec-'+n+'-btn');
-    if (b) b.style.opacity = (n === name) ? '1' : '.55';
-  });
-  // строка фильтров принадлежит только «Колоде»
-  const chips = document.getElementById('cards-deck-chips');
-  if (chips) chips.style.display = (name === 'deck') ? 'flex' : 'none';
-
-  hideAllCardTabs();
-  if (name === 'deck'){ switchDeckView(deckView); return; }
-
-  // ⚠️ КОНСТРУКТОР СНЯТ 22.08.2026. Раздел «Мастерская» и сборка картинки из
-  // элементов больше не нужны: карточка стала слоями (арт + рамка + подпись),
-  // и картинка рождается на лету, а не запекается файлом. Разметка и функции
-  // конструктора оставлены на месте, чтобы ничего не отвалилось по цепочке,
-  // но входа в них из интерфейса нет.
-  if (name === 'frames'){
-    document.getElementById('cards-tab-frames').style.display = 'block';
-    frLoad();
-  }
-  if (name === 'sigils'){
-    document.getElementById('cards-tab-sigils').style.display = 'block';
-    sgLoadCover();
-  }
-  // ⚠️ ЭКРАНЫ ОТКРЫТИЯ переехали сюда из отдельного попапа 22.08.2026
-  if (name === 'screens'){
-    document.getElementById('cards-tab-screens').style.display = 'block';
-    loadScreens();
-  }
-  // ⚠️ ПАКИ БОГОВ И ПОСТЕРЫ. Вход в них был ТОЛЬКО кнопкой «Постеры» внутри
-  // «Мастерской» — и умер вместе с ней, когда конструктор убрали из интерфейса.
-  // Разметка и функции всё это время были живы, недоступен был лишь путь.
-  // Урок: убирая раздел, проверить, не проходил ли через него единственный
-  // путь к чему-то, что остаётся нужным.
-  if (name === 'packs'){
-    document.getElementById('cards-tab-packs').style.display = 'block';
-    pstLoadList();
-  }
-  if (name === 'gods'){
-    document.getElementById('cards-tab-gods').style.display = 'block';
-    godExpanded = null;
-    loadGods();
-  }
-  if (name === 'todo'){
-    // Оба блока сразу: и очередь личного участия, и ручная выдача. Это один
-    // вопрос «что требует моего участия», а не два разных места
-    document.getElementById('cards-tab-queue').style.display = 'block';
-    document.getElementById('cards-tab-grant').style.display = 'block';
-    loadCardsQueue();
-    if (!grantTarget) resetGrantTab();
-  }
+var cardsGroupLast = {collection:'series', design:'frames', issuance:'settings'};
+function cardsOpenGroup(group){
+  var route = cardsGroupLast[group] || 'series';
+  if (['series','deck','unique','sim'].includes(route)) switchDeckView(route);
+  else switchCardsSection(route);
 }
-
-function switchDeckView(view){
-  if (view !== 'sim') deckView = view;   // симулятор не запоминаем как вид
-  ['series','deck','unique','sim'].forEach(function(v){
-    const b = document.getElementById('cards-view-'+v+'-btn');
-    if (b) b.style.opacity = (v === view) ? '1' : (v === 'sim' ? '.75' : '.55');
+function cardsSyncNavigation(route){
+  var group = ['frames','sigils','screens','packs'].includes(route) ? 'design' : ['settings','sim','todo','grant'].includes(route) ? 'issuance' : 'collection';
+  cardsGroupLast[group] = route;
+  ['collection','design','issuance'].forEach(function(g){
+    document.getElementById('cards-group-'+g).setAttribute('aria-pressed', String(g === group));
   });
+  document.getElementById('cards-deck-chips').hidden = group !== 'collection';
+  document.getElementById('cards-design-nav').hidden = group !== 'design';
+  document.getElementById('cards-issuance-nav').hidden = group !== 'issuance';
+  document.querySelectorAll('#cards-popup-overlay .cards-secondary-nav button').forEach(function(b){
+    b.style.opacity = '';
+    b.setAttribute('aria-pressed', String(b.id === 'cards-view-'+route+'-btn' || b.id === 'cards-sec-'+route+'-btn'));
+  });
+}
+function switchCardsSection(name){
+  if (!['deck','frames','sigils','screens','packs','gods','todo','grant','settings'].includes(name)) name = 'deck';
+  if (name === 'deck') { switchDeckView(deckView); return; }
+  cardsSection = name;
+  cardsSyncNavigation(name);
+  hideAllCardTabs();
+  document.getElementById('cards-tab-'+(name === 'todo' ? 'queue' : name)).style.display = 'block';
+  if (name === 'frames') frLoad();
+  if (name === 'sigils') sgLoadCover();
+  if (name === 'screens') loadScreens();
+  if (name === 'packs') pstLoadList();
+  if (name === 'gods') { godExpanded = null; loadGods(); }
+  if (name === 'todo') loadCardsQueue();
+  if (name === 'grant' && !grantTarget) resetGrantTab();
+  if (name === 'settings') loadCardsMasterSwitch();
+}
+function switchDeckView(view){
+  if (!['series','deck','unique','sim'].includes(view)) view = 'series';
+  if (view !== 'sim') deckView = view;
+  cardsSection = view === 'sim' ? 'sim' : 'deck';
+  cardsSyncNavigation(view);
   hideAllCardTabs();
   document.getElementById('cards-tab-'+view).style.display = 'block';
   if (view === 'series') loadSeries();
   if (view === 'unique') renderUniqueCards();
+  if (view === 'deck') renderCardShelf();
 }
 
 /* Совместимость: старое имя ещё вызывается из сборки картинки и из выдачи.
@@ -11385,7 +11445,8 @@ function switchCardsTab(tab){
   // Мастерской больше нет; ближайшее осмысленное место — колода
   if (tab === 'elements') return switchCardsSection('deck');
   if (tab === 'gods') return switchCardsSection('gods');
-  if (tab === 'queue' || tab === 'grant') return switchCardsSection('todo');
+  if (tab === 'queue') return switchCardsSection('todo');
+  if (tab === 'grant') return switchCardsSection('grant');
   if (tab === 'series' || tab === 'unique' || tab === 'sim'){
     switchCardsSection('deck');
     return switchDeckView(tab);
@@ -11466,6 +11527,9 @@ function cardFilterTest(key){
 
 function setCardsFilter(key){
   cardsFilter = key;
+  const label = CARD_FILTERS.find(function(f){ return f.key === key; });
+  document.getElementById('cards-filter-label').textContent = 'Фильтр: '+(label ? label.label : 'Все');
+  document.getElementById('cards-filter-disclosure').open = false;
   cardsPage = 0;          // иначе с 3-й страницы всех карточек попадёшь в пустоту
   renderCardShelf();
 }
@@ -11560,6 +11624,7 @@ function renderCardShelf(){
   const filterRow = document.getElementById('cards-filter-row');
   const summaryEl = document.getElementById('cards-summary');
   const secretRow = document.getElementById('cards-shelf-secret-row');
+  document.getElementById('cards-filter-disclosure').hidden = !!cardExpanded;
   if (cardExpanded){
     if (searchRow) searchRow.style.display = 'none';
     if (filterRow) filterRow.style.display = 'none';
@@ -11847,7 +11912,9 @@ async function cardSendGo(){
   }
 }
 
+var cardsEditorOrigin = null;
 function openCardEditor(key){
+  if (!cardExpanded) cardsEditorOrigin = {section:cardsSection, view:deckView, scroll:document.querySelector('#cards-popup-overlay .popup').scrollTop};
   cardExpanded = key;
   cardEditMode = false;   // открываем просмотром, не формой
   // КАРТОЧКА ЖИВЁТ ВО «ВСЕЙ КОЛОДЕ». Если открыть её, стоя на «Сезоне» или
@@ -11863,7 +11930,18 @@ function openCardEditor(key){
   const popup = document.querySelector('#cards-popup-overlay .popup');
   if (popup) popup.scrollTop = 0;
 }
-function closeCardEditor(){ cardExpanded = null; cardEditMode = false; renderCardShelf(); }
+function closeCardEditor(){
+  cardExpanded = null; cardEditMode = false; renderCardShelf();
+  var origin = cardsEditorOrigin; cardsEditorOrigin = null;
+  if (!origin) return;
+  cardsSection = origin.section; deckView = origin.view;
+  var route = origin.section === 'deck' ? origin.view : origin.section;
+  hideAllCardTabs(); cardsSyncNavigation(route);
+  var tab = document.getElementById('cards-tab-'+(route === 'todo' ? 'queue' : route));
+  if (tab) tab.style.display = 'block';
+  if (origin.god) openGodCards(origin.god);
+  requestAnimationFrame(function(){ document.querySelector('#cards-popup-overlay .popup').scrollTop = origin.scroll; });
+}
 
 
 
@@ -11933,6 +12011,7 @@ async function openCardFromGod(key){
   // openCardsPopup дожидается каталога, иначе редактор откроется на пустом массиве
   if (!cardsPopupOpen()) await openCardsPopup();
   openCardEditor(key);
+  if (cardsEditorOrigin) cardsEditorOrigin.god = godCardsGod;
 }
 
 /* ⚠️ ЗАВОДИМ КАРТОЧКУ ЗАРАНЕЕ, А НЕ ПОСЛЕ ВЫБОРА ФАЙЛА. Загрузка арта
@@ -14954,18 +15033,19 @@ function cardSetByKey(k){ return cardSetsList.filter(function(x){ return x.key =
 
 function renderCardSets(){
   var box = document.getElementById('sets-block'); if (!box) return;
-  var h = '<div class="hfe-h" style="margin-top:0">Серии карт</div>'
-    + '<div style="font-size:11px;color:var(--text-faint);margin-bottom:8px;line-height:1.5">Серия — папка артов от GPT со своим латинским именем. На серии — сезон, редкость и перелив. Сезон над сериями: закрыл сезон — его серии перестали выпадать.</div>'
-    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">';
+  var h = '<div class="cards-toolbar"><h3 class="cards-page-title">Серии карточек</h3>'
+    + '<button class="action-btn" onclick="openCardSetEditor(&quot;&quot;)">Новая серия</button></div>'
+    + '<p class="cards-caption">Общий стиль, редкость и перелив для группы карточек. Серии объединяются в сезоны.</p>';
   cardSetsList.forEach(function(s){
-    h += '<button class="action-btn" onclick="openCardSetEditor(' + jsArg(s.key) + ')" style="opacity:' + (cardSetExpanded === s.key ? '1' : '.75') + '">'
-      + elEsc(s.title || s.key) + ' · ' + s.cards_count
-      + (s.rarity ? ' · ' + elEsc(RARITY_LABELS[s.rarity] || s.rarity) : '')
-      + (s.holo && s.holo.on ? ' · перелив' : '') + '</button>';
+    var season = (seriesList || []).find(function(x){ return x.key === s.season_key; });
+    h += '<div class="cards-set-row"><div><b>'+elEsc(s.title || s.key)+'</b><div class="cards-set-meta">'+s.cards_count+' карточек'
+      + (s.rarity ? ' · '+elEsc(RARITY_LABELS[s.rarity] || s.rarity) : '')+'<br>'+elEsc(season ? season.title || season.key : 'Без сезона')
+      + (s.holo && s.holo.on ? ' · перелив включён' : '')+'</div></div>'
+      + '<button class="action-btn" onclick="openCardSetEditor('+jsArg(s.key)+')">Открыть</button></div>';
   });
-  h += '<button class="action-btn" onclick="openCardSetEditor(&quot;&quot;)">+ серия</button></div>';
-  if (cardSetsUnassigned) h += '<div style="font-size:11px;color:var(--text-faint);margin-bottom:8px">Карт без серии: ' + cardSetsUnassigned + '. Привязать их можно в окне серии — по началу ключа.</div>';
-  h += '<div id="set-editor-slot">' + (cardSetExpanded !== null ? cardSetEditorHtml(cardSetExpanded) : '') + '</div>';
+  if (!cardSetsList.length) h += '<p class="cards-caption">Серий пока нет. Карточки можно добавить и без серии.</p>';
+  if (cardSetsUnassigned) h += '<p class="cards-caption">Карточек без серии: '+cardSetsUnassigned+'. Привязать их можно в редакторе серии по началу ключа.</p>';
+  h += '<div id="set-editor-slot">'+(cardSetExpanded !== null ? cardSetEditorHtml(cardSetExpanded) : '')+'</div>';
   box.innerHTML = h;
 }
 
@@ -16666,6 +16746,7 @@ async function pstDelete(){
    ⚠️ ОТКРЫВАЕМСЯ ВСЕГДА СО СПИСКА, а не на том боге, где были в прошлый раз:
    иначе после перезагрузки страницы редактор показывал бы пустого бога */
 function showPacksTab(){
+  cardsSection = 'packs'; cardsSyncNavigation('packs');
   hideAllCardTabs();
   var el = document.getElementById('cards-tab-packs');
   if (el) el.style.display = 'block';
