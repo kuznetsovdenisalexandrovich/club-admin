@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v225 -->
+<!-- FILE_VERSION: admin-v226 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -758,6 +758,25 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
 @media(max-width:600px){#cards-popup-overlay .cards-upload-review .cards-form-grid{grid-template-columns:minmax(0,1fr)}}
 #cards-popup-overlay input[type="file"]{width:100%;min-width:0;max-width:100%;font-size:13px}
 #cards-popup-overlay [id^="card-art-preview-"] + div{flex:1 1 180px!important;min-width:0!important}
+/* Member rows: one clear hierarchy on narrow mobile screens. */
+.member-card{gap:12px;align-items:flex-start}
+.member-card .item-info{min-width:0;flex:1}
+.member-card .avatar{flex-shrink:0;margin-top:3px}
+.member-name{font-size:15px;font-weight:600;line-height:1.35;overflow-wrap:anywhere}
+.member-billing{font-size:12px;color:var(--warm);margin-top:7px}
+.member-date{font-size:12px;color:var(--text-faint);margin-top:3px}
+.member-status{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px}
+.member-status .badge{font-size:10px}
+.member-open{color:var(--text-faint);font-size:24px;flex-shrink:0}
+.manual-row{padding:14px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+.manual-row:last-child{border-bottom:0}
+.manual-info{flex:1;min-width:0;overflow-wrap:anywhere}
+.manual-name{font-size:14px;font-weight:600}
+.manual-detail{font-size:12px;color:var(--text-faint);margin-top:4px;line-height:1.4}
+.manual-row .popup-save{width:auto;min-height:40px;height:auto;padding:9px 14px;margin:0;flex-shrink:0;line-height:1.2;font-size:12px}
+.manual-caption{padding:14px 14px 0;font-size:12px;color:var(--text-faint)}
+.manual-late{color:var(--warm)}
+.update-banner{position:fixed;top:12px;left:12px;right:12px;z-index:99999;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--card-bg,#fff8f1);box-shadow:0 4px 20px #0002;font-size:13px}
 </style>
 
 <style id="bp-visual-redesign-2026">
@@ -1469,7 +1488,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
        Продамусе у них нет — если список спрятать, о просроченных никто не
        вспомнит. Секция сама прячется, когда никого нет -->
   <div class="section" id="manual-section" style="display:none">
-    <div class="section-head"><div class="section-title">Должны оплатить</div></div>
+    <div class="section-head"><div class="section-title">Оплата переводом</div></div>
     <div class="card">
       <div id="manual-list"><div class="loading">Загрузка...</div></div>
     </div>
@@ -1480,6 +1499,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <div class="section-title">Участники</div>
       <select id="user-filter" onchange="filterUsers()" style="font-size:11px;font-family:var(--body);padding:4px 8px;border-radius:10px;border:1px solid var(--line);background:var(--input-bg);color:var(--text)">
         <option value="active" selected>Активные</option>
+        <option value="transfer">Оплата переводом</option>
         <option value="all">Все</option>
         <option value="app_not_using">Не пользуются приложением</option>
         <option value="app_never">— не знакомы с ним</option>
@@ -3583,7 +3603,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v225';
+const BUILD_VERSION = 'admin-v226';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -4532,11 +4552,33 @@ function usersCountNote(f, n){
   el.style.display='block';
 }
 
+function memberDisplayName(u){
+  const name=(u.full_name||u.name||'').trim();
+  if(name && !['none','null','—'].includes(name.toLowerCase()))return name;
+  const raw=u.username||'', nick=raw.match(/@([a-zA-Z0-9_]{3,})/);
+  if(nick)return '@'+nick[1];
+  if(/^[a-zA-Z][a-zA-Z0-9_]{2,}$/.test(raw))return '@'+raw;
+  return u.email||u.phone||(u.vk_id?'ВК '+u.vk_id:'Telegram '+u.telegram_id);
+}
+function memberContact(u){
+  const raw=u.username||'', nick=raw.match(/@([a-zA-Z0-9_]{3,})/);
+  if(nick)return '@'+nick[1];
+  if(/^[a-zA-Z][a-zA-Z0-9_]{2,}$/.test(raw))return '@'+raw;
+  return u.email||u.phone||(u.vk_id?'vk.com/id'+u.vk_id:'');
+}
+function memberBillingLabel(u){
+  if(u.billing_method==='prodamus')return 'Prodamus · автосписание';
+  if(u.billing_method==='transfer'||u.sub_status==='Оплата переводом')return 'Оплата переводом';
+  if(['0','cancelled'].includes(String(u.sub_status)))return 'Автосписание отключено';
+  return u.is_member?'Способ оплаты требует сверки':'Нет активного участия';
+}
+
 function renderUsersList(){
   const q=(document.getElementById('user-search').value||'').toLowerCase();
   const f=document.getElementById('user-filter').value;
   let users=allUsers;
   if(f==='active') users=users.filter(u=>u.is_member);
+  else if(f==='transfer') users=users.filter(u=>u.billing_method==='transfer');
   /* v121: «пользуется приложением» считает сервер (app_usage_map) — здесь
      только отбор. Фильтры по приложению — среди участников */
   else if(f==='app_not_using') users=users.filter(u=>u.is_member && u.app_status && u.app_status!=='active');
@@ -4564,29 +4606,20 @@ function renderUsersList(){
   if(usersPage<1) usersPage=1;
   const pageItems=users.slice((usersPage-1)*PAGE_SIZE, usersPage*PAGE_SIZE);
   el.innerHTML=pageItems.map(u=>{
-    const name=escapeHtmlAdm(u.full_name||u.name||'—');
-    const sub=escapeHtmlAdm(u.username||u.email||u.phone||'—');
-    const total=u.total_revenue||0;
-    const frozen=admFrozenActive(u.frozen_until);   // v113: пауза уже прошла — не «навсегда ❄»
-    const cancelled=(u.sub_status||'')==='cancelled';
-    const flagged=!!u.flagged;
-    const stuckHard=!!u.stuck_hard;
-    const stuckSoft=!!u.stuck_soft && !stuckHard;
-    const itemClass=stuckHard?' stuck-hard':(frozen?' frozen':(stuckSoft?' stuck-soft':''));
-    const avatarMark=stuckHard?'🔴':(frozen?'❄':(stuckSoft?'🟡':initials(name)));
-    const regNote=stuckHard?` <span class="badge badge-danger">оплатил и пропал, ${u.hours_since_activation}ч</span>`
-                 :(stuckSoft?` <span class="badge badge-warn">не зашёл в канал/чат, ${u.hours_since_activation}ч</span>`:'');
-    return `<div class="list-item${itemClass}" onclick="openPopup(${u.id})">
-      <div class="avatar">${avatarMark}</div>
+    const display=memberDisplayName(u), name=escapeHtmlAdm(display);
+    const contact=memberContact(u), frozen=admFrozenActive(u.frozen_until);
+    const date=admPayDate(u.next_payment_date);
+    const billing=memberBillingLabel(u);
+    return `<div class="list-item member-card${frozen?' frozen':''}" onclick="openPopup(Number(${jsArg(u.id)}))">
+      <div class="avatar">${escapeHtmlAdm(initials(display))}</div>
       <div class="item-info">
-        <div class="item-name u-row"><span class="u-nm">${name}</span>${cancelled?' <span class="badge badge-err">остановлена</span>':''}${flagged?' <span class="badge badge-warn" title="'+setEsc(u.flag_reason)+'">⚠ часто пользуется</span>':''}${regNote}${userIsEmpty(u)?' <span class="badge badge-err" title="Нет ни имени, ни Telegram, ни ВК — оплата пришла от Продамуса, а Salebot не сообщил, кто это. Открой карточку: почта и телефон подскажут, с кем склеить">пустая карточка</span>':appUsageBadge(u)}</div>
-        <div class="item-sub">${frozen?('пауза до '+escapeHtmlAdm(u.frozen_until)):sub}</div>
-        <div class="registration-row-note">${escapeHtmlAdm(registrationLine(u.registration))}</div>
+        <div class="member-name">${name}</div>
+        ${contact && contact!==display?'<div class="item-sub">'+escapeHtmlAdm(contact)+'</div>':''}
+        <div class="member-billing">${escapeHtmlAdm(billing)}</div>
+        <div class="member-date">${frozen?'Пауза до '+escapeHtmlAdm(u.frozen_until):(date?'Следующая оплата: '+date:'Дата оплаты не указана')}</div>
+        <div class="member-status">${appUsageBadge(u)}${userIsEmpty(u)?'<span class="badge badge-warn">Уточнить контакты</span>':''}${u.flagged?'<span class="badge badge-warn">Проверить историю</span>':''}</div>
       </div>
-      <div class="item-right">
-        <div class="item-val">${total>0?fmt(total):''}</div>
-        <div class="item-date">${admPayDate(u.next_payment_date)}</div>
-      </div>
+      <span class="member-open" aria-hidden="true">›</span>
     </div>`;
   }).join('');
   renderPaginationControls('users-pagination', usersPage, totalPages, 'prevUsersPage', 'nextUsersPage');
@@ -18192,48 +18225,36 @@ var refPosts = [];
 
 /* ══ ОПЛАТИВШИЕ ПЕРЕВОДОМ ═══════════════════════════════════════════════ */
 let manualItems = [];
+let manualListError = '';
+const manualPaymentRequests = new Map();
+const manualPaymentsBusy = new Set();
 
 async function loadManualList(){
   try {
-    const d = await fetch(API + '/access/manual/list?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN))
-      .then(function(r){ return r.json(); });
-    manualItems = (d && d.items) || [];
-  } catch(e){ manualItems = []; }
+    const r=await fetch(API+'/access/manual/list?x_admin_token='+encodeURIComponent(ADMIN_TOKEN));
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const d=await r.json();manualItems=d.items||[];manualListError='';
+  } catch(e){manualListError='Не удалось обновить список оплат. Попробуй обновить страницу.';}
   renderManualList();
 }
-
 function renderManualList(){
-  var box = document.getElementById('manual-list');
-  var sec = document.getElementById('manual-section');
-  if (!box) return;
-  // ⚠️ ПУСТУЮ СЕКЦИЮ ПРЯЧЕМ ЦЕЛИКОМ: у Denis'а таких людей может не быть
-  // неделями, и пустое окно на главной только занимало бы место
-  if (sec) sec.style.display = manualItems.length ? '' : 'none';
-  if (!manualItems.length){ box.innerHTML = ''; return; }
-  var h = '<div style="display:flex;flex-direction:column;gap:8px">';
-  manualItems.forEach(function(it){
-    /* ⚠️ ПРОСРОЧЕННЫЙ ВИДНО СРАЗУ, БЕЗ ЧТЕНИЯ ДАТ: у Denis'а таких людей будет
-       немного, но заметить их надо с одного взгляда */
-    var late = (it.days_left !== null && it.days_left < 0);
-    var soon = (it.days_left !== null && it.days_left >= 0 && it.days_left <= 3);
-    var color = late ? 'var(--warm)' : (soon ? '#d8a13a' : 'var(--text-faint)');
-    var when = (it.days_left === null) ? 'срок неизвестен'
-      : (late ? ('просрочен на ' + Math.abs(it.days_left) + ' дн.')
-              : ('осталось ' + it.days_left + ' дн.'));
-    h += '<div style="border:1px solid ' + (late ? 'var(--warm)' : 'var(--line)')
-      + ';border-radius:10px;padding:10px;display:flex;align-items:center;gap:10px">'
-      + '<div style="flex:1;min-width:0">'
-        + '<div style="font-size:13px;font-weight:600">' + elEsc(it.name || ('id ' + it.telegram_id)) + '</div>'
-        + '<div style="font-size:11.5px;color:' + color + ';margin-top:2px">' + elEsc(when)
-          + (it.until ? ' · до ' + elEsc(it.until) : '')
-          + (it.reminded_at ? ' · напомнили' : '')
-          + (it.is_member ? '' : ' · доступа нет') + '</div>'
-        + (it.comment ? '<div style="font-size:11px;color:var(--text-faint);margin-top:2px">' + elEsc(it.comment) + '</div>' : '')
-      + '</div>'
-      + '<button class="popup-save" style="width:auto;padding:0 14px;margin:0" onclick="manualPaid(' + it.telegram_id + ')">Оплатил</button>'
-      + '</div>';
-  });
-  box.innerHTML = h + '</div>';
+  const box=document.getElementById('manual-list'), sec=document.getElementById('manual-section');
+  if(!box)return;
+  if(sec)sec.style.display=(manualItems.length||manualListError)?'':'none';
+  if(manualListError){box.innerHTML='<div class="manual-caption">'+elEsc(manualListError)+'</div>';return;}
+  const due=manualItems.filter(it=>it.days_left!==null && it.days_left<=0);
+  const future=manualItems.filter(it=>it.days_left===null || it.days_left>0);
+  function rows(items){return items.map(it=>{
+    const late=it.days_left<0;
+    const when=it.days_left===null?'Нужно уточнить срок':it.days_left===0?'Оплата сегодня':late?'Просрочка '+Math.abs(it.days_left)+' дн.':'Оплачено ещё на '+it.days_left+' дн.';
+    return '<div class="manual-row"><div class="manual-info">'
+      +'<div class="manual-name">'+elEsc(it.name||'Участник')+'</div>'
+      +'<div class="manual-detail '+(late?'manual-late':'')+'">'+elEsc(when)+(it.until?' · '+elEsc(admPayDate(it.until)):'')+'</div>'
+      +'<div class="manual-detail">'+elEsc(String(it.amount||990))+' ₽ за '+elEsc(String(it.days||30))+' дней'+(it.reminded_at?' · уведомление отправлено':'')+'</div>'
+      +'</div><button class="popup-save" '+(manualPaymentsBusy.has(it.user_id)?'disabled':'')+' onclick="manualPaid('+jsArg(it.telegram_id)+','+jsArg(it.user_id)+')">'+(manualPaymentsBusy.has(it.user_id)?'Сохраняю…':'Оплатил')+'</button></div>';
+  }).join('');}
+  box.innerHTML=(due.length?'<div class="manual-caption">Пора оплатить · '+due.length+'</div>'+rows(due):'<div class="manual-caption">Просроченных оплат нет</div>')
+    +(future.length?'<details><summary class="manual-caption" style="padding-bottom:14px;cursor:pointer">Оплаченный период · '+future.length+'</summary>'+rows(future)+'</details>':'');
 }
 
 async function manualInvite(){
@@ -18258,17 +18279,45 @@ async function manualInvite(){
   } catch(e){ alert('Сеть не ответила: ' + e.message); }
 }
 
-async function manualPaid(telegramId){
-  if (!confirm('Продлить на 30 дней и записать 990 ₽?')) return;
-  try {
-    const r = await fetch(API + '/access/manual/paid?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ telegram_id: telegramId }),
-    });
-    if (!r.ok){ const d = await r.json(); alert('Не получилось: ' + (d.detail || r.status)); return; }
-    loadManualList();
-  } catch(e){ alert('Сеть не ответила: ' + e.message); }
+async function manualPaid(telegramId,userId){
+  telegramId=Number(telegramId);userId=Number(userId);
+  const it=manualItems.find(x=>userId?x.user_id===userId:x.telegram_id===telegramId);
+  if(!it||manualPaymentsBusy.has(it.user_id))return;
+  const days=it.days||30,amount=it.amount||990;
+  if(!confirm('Перевод '+amount+' ₽ получен? Записать оплату и продлить доступ на '+days+' дней?'))return;
+  const key=String(it.user_id)+':'+it.cycle;
+  if(!manualPaymentRequests.has(key))manualPaymentRequests.set(key,crypto.randomUUID());
+  manualPaymentsBusy.add(it.user_id);renderManualList();
+  try{
+    const r=await fetch(API+'/access/manual/paid?x_admin_token='+encodeURIComponent(ADMIN_TOKEN),{
+      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        user_id:it.user_id,telegram_id:it.telegram_id,expected_cycle:it.cycle,
+        request_id:manualPaymentRequests.get(key),days:days,amount:amount})});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.detail||r.status);
+    manualPaymentRequests.delete(key);
+    await Promise.all([loadManualList(),loadUsers()]);
+  }catch(e){alert('Не получилось подтвердить оплату: '+e.message);}
+  finally{manualPaymentsBusy.delete(it.user_id);renderManualList();}
 }
+
+let dashboardUpdateChecked=0;
+async function checkDashboardUpdate(){
+  if(document.hidden||Date.now()-dashboardUpdateChecked<300000)return;
+  dashboardUpdateChecked=Date.now();
+  try{
+    const url=new URL('index.html',location.href);url.searchParams.set('version_check',String(Date.now()));
+    const r=await fetch(url,{cache:'no-store'});if(!r.ok)return;
+    const html=await r.text(), found=html.match(/const BUILD_VERSION = 'admin-v(\d+)'/);
+    if(!found||Number(found[1])<=Number(BUILD_VERSION.split('v')[1])||document.getElementById('dashboard-update'))return;
+    const box=document.createElement('div');box.id='dashboard-update';box.className='update-banner';
+    box.innerHTML='Доступна новая версия дашборда. Сохрани изменения перед обновлением. <button class="action-btn" onclick="location.reload()">Обновить</button>';
+    document.body.appendChild(box);
+  }catch(e){}
+}
+window.addEventListener('focus',checkDashboardUpdate);
+document.addEventListener('visibilitychange',checkDashboardUpdate);
+setInterval(checkDashboardUpdate,300000);
 
 function openRefPostsPopup(){
   document.getElementById('refposts-popup-overlay').classList.add('open');
