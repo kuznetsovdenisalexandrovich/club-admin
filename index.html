@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v229 -->
+<!-- FILE_VERSION: admin-v230 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3719,7 +3719,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v229';
+const BUILD_VERSION = 'admin-v230';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -3857,7 +3857,7 @@ async function loadAll(){
   document.getElementById('last-update').textContent='Обновлено в '+new Date().toLocaleTimeString('ru');
   loadManualList();          // «должны оплатить» — своя секция на главной
   qaAlertLoad();             // v159: окно новых багов наверху
-  await Promise.all([loadOverviewConversion(),loadStats(),loadUsers(),loadPayments(),loadNotificationLists(),loadCampaigns(),loadAdminCalendarMonth(),loadQuestions(),loadCardsWidget(),loadSeasonWidget(),loadLiveHero()]);
+  await Promise.all([(typeof loadOverviewConversion==='function'?loadOverviewConversion():Promise.resolve()),loadStats(),loadUsers(),loadPayments(),loadNotificationLists(),loadCampaigns(),loadAdminCalendarMonth(),loadQuestions(),loadCardsWidget(),loadSeasonWidget(),loadLiveHero()]);
 }
 
 async function loadQuestions(){
@@ -23822,6 +23822,7 @@ function renderOverviewConversion(rebuildSources=false){
 }
 
 initOverviewConversion();
+if(ADMIN_TOKEN)loadOverviewConversion();
 </script>
 </body>
 </html>
