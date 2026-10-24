@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v222 -->
+<!-- FILE_VERSION: admin-v223 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2941,7 +2941,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <div style="display:flex;flex-direction:column;gap:8px">
         <div style="display:flex;gap:8px">
           <input class="popup-input" type="date" id="sched-event-date" style="margin-bottom:0;flex:1">
-          <input class="popup-input" type="time" id="sched-event-time" style="margin-bottom:0;flex:1">
+          <input class="popup-input" type="text" id="sched-event-time" placeholder="ЧЧ:ММ · МСК" aria-label="Время в 24-часовом формате, МСК" maxlength="5" autocomplete="off" style="margin-bottom:0;flex:1">
         </div>
         <input class="popup-input" type="text" id="sched-event-title" placeholder="Название события" style="margin-bottom:0">
         <textarea class="popup-input" id="sched-event-desc" rows="2" placeholder="Описание..." style="margin-bottom:0;resize:vertical"></textarea>
@@ -2972,7 +2972,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
             <option value="5">Суббота</option>
             <option value="6">Воскресенье</option>
           </select>
-          <input class="popup-input" type="time" id="sched-rule-time" style="margin-bottom:0;flex:1">
+          <input class="popup-input" type="text" id="sched-rule-time" placeholder="ЧЧ:ММ · МСК" aria-label="Время в 24-часовом формате, МСК" maxlength="5" autocomplete="off" style="margin-bottom:0;flex:1">
         </div>
         <input class="popup-input" type="text" id="sched-rule-title" placeholder="Название события" style="margin-bottom:0">
         <textarea class="popup-input" id="sched-rule-desc" rows="2" placeholder="Описание..." style="margin-bottom:0;resize:vertical"></textarea>
@@ -3582,7 +3582,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v222';
+const BUILD_VERSION = 'admin-v223';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -9748,9 +9748,30 @@ function resetTeaserForm(){
   document.getElementById('sched-teaser-submit-btn').textContent='Добавить анонс';
 }
 
+function scheduleTimeValue(id){
+  const el=document.getElementById(id);
+  const raw=el.value.trim();
+  if(!raw) return '';
+  const match=raw.match(/^(\d{1,2})[:.](\d{2})$/);
+  if(!match || Number(match[1])>23 || Number(match[2])>59){
+    alert('Введи время в формате ЧЧ:ММ от 00:00 до 23:59, например 19:30. Время московское.');
+    el.focus(); return null;
+  }
+  return el.value=match[1].padStart(2,'0')+':'+match[2];
+}
+
+async function verifyScheduleTime(kind,id,time){
+  const response=await fetch(API+'/schedule/'+kind,{cache:'no-store'});
+  if(!response.ok) throw new Error('Не удалось проверить сохранение. Введённые данные оставлены в форме.');
+  const rows=await response.json();
+  const saved=rows.find(row=>String(row.id)===String(id));
+  if(!saved || (saved.event_time||'')!==time) throw new Error('Сервер не подтвердил сохранение времени. Введённые данные оставлены в форме.');
+}
+
 async function saveOneOffEvent(){
   const event_date=document.getElementById('sched-event-date').value;
-  const event_time=document.getElementById('sched-event-time').value;
+  const event_time=scheduleTimeValue('sched-event-time');
+  if(event_time === null) return;
   const title=document.getElementById('sched-event-title').value.trim();
   const description=document.getElementById('sched-event-desc').value.trim();
   const link=document.getElementById('sched-event-link').value.trim();
@@ -9767,11 +9788,15 @@ async function saveOneOffEvent(){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({event_date,event_time,title,description,link,category,live_event_id,live_play_code,duration_min})
     });
-    if(!r.ok){ alert('Ошибка сохранения'); return; }
+    if(!r.ok){ alert('Не удалось сохранить изменения (код '+r.status+'). Данные оставлены в форме.'); return; }
+    const result=await r.json();
+    if(!isEdit) editingScheduleEventId=result.id;
+    await verifyScheduleTime('events',editingScheduleEventId,event_time);
     resetOneOffForm();
-    loadScheduleEvents();
-    loadAdminCalendarMonth();
-  }catch(e){ alert('Ошибка соединения'); }
+    await loadScheduleEvents();
+    await loadAdminCalendarMonth();
+    alert('Изменения сохранены'+(event_time?' · '+event_time+' МСК':''));
+  }catch(e){ alert(e.message || 'Ошибка соединения. Данные оставлены в форме.'); }
 }
 
 async function saveTeaser(){
@@ -9857,7 +9882,8 @@ function resetScheduleRuleForm(){
 
 async function saveScheduleRule(){
   const weekday=parseInt(document.getElementById('sched-rule-weekday').value);
-  const event_time=document.getElementById('sched-rule-time').value;
+  const event_time=scheduleTimeValue('sched-rule-time');
+  if(event_time === null) return;
   const title=document.getElementById('sched-rule-title').value.trim();
   const description=document.getElementById('sched-rule-desc').value.trim();
   const link=document.getElementById('sched-rule-link').value.trim();
@@ -9875,11 +9901,15 @@ async function saveScheduleRule(){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({weekday,event_time,title,description,link,category,live_event_id,live_play_code,duration_min,active})
     });
-    if(!r.ok){ alert('Ошибка сохранения'); return; }
+    if(!r.ok){ alert('Не удалось сохранить изменения (код '+r.status+'). Данные оставлены в форме.'); return; }
+    const result=await r.json();
+    if(!isEdit) editingScheduleRuleId=result.id;
+    await verifyScheduleTime('rules',editingScheduleRuleId,event_time);
     resetScheduleRuleForm();
-    loadScheduleRules();
-    loadAdminCalendarMonth();
-  }catch(e){ alert('Ошибка соединения'); }
+    await loadScheduleRules();
+    await loadAdminCalendarMonth();
+    alert('Изменения сохранены'+(event_time?' · '+event_time+' МСК':''));
+  }catch(e){ alert(e.message || 'Ошибка соединения. Данные оставлены в форме.'); }
 }
 
 async function deleteScheduleRule(id){
