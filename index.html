@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v223 -->
+<!-- FILE_VERSION: admin-v224 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -2368,6 +2368,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <button type="button" onclick="applyFormat('news-common','italic')"><i>I</i></button>
         <button type="button" onclick="applyFormat('news-common','underline')"><u>U</u></button>
         <button type="button" onclick="applyLinkFormat('news-common')">🔗</button>
+        <button type="button" onclick="insertNewsAppLink('news-common')">В приложение</button>
       </div>
       <div id="news-common" class="popup-input rich-input" contenteditable="true" data-placeholder="Общий текст для всех участников..."></div>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-dim);padding:2px 2px 4px">
@@ -3582,7 +3583,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v223';
+const BUILD_VERSION = 'admin-v224';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -7120,6 +7121,7 @@ function renderNewsTargeted(){
         <button type="button" onclick="applyFormat('news-target-${i}','bold')"><b>B</b></button>
         <button type="button" onclick="applyFormat('news-target-${i}','italic')"><i>I</i></button>
         <button type="button" onclick="applyLinkFormat('news-target-${i}')">🔗</button>
+        <button type="button" onclick="insertNewsAppLink('news-target-${i}')">В приложение</button>
       </div>
       <div id="news-target-${i}" class="popup-input rich-input" style="min-height:50px" contenteditable="true" data-placeholder="Текст для этого списка..." oninput="newsTargeted[${i}].text=this.innerHTML">${t.text}</div>
     </div>`).join('');
@@ -10076,6 +10078,37 @@ function applyFormat(fieldId, command){
   const el=document.getElementById(fieldId);
   el.focus();
   document.execCommand(command, false, null);
+}
+
+function newsAppRoute(value){
+  const raw=String(value||'').trim();
+  const presets={'игры':'games','дайджест':'digest','расписание':'schedule','библиотека':'library','эфир':'live'};
+  if(presets[raw.toLowerCase()]) return presets[raw.toLowerCase()];
+  let route=raw.replace(/^app:/,'');
+  if(/^https:\/\//i.test(raw)){
+    const url=new URL(raw);
+    if(url.username || url.password) return '';
+    if(url.hostname==='t.me' && /^\/youselllikeagod_bot(?:\/app)?$/.test(url.pathname)) route=url.searchParams.get('startapp')||'';
+    else if(['vk.ru','vk.com'].includes(url.hostname) && /^\/app54715238(?:_-232119632)?$/.test(url.pathname)) route=url.hash.slice(1);
+    else return '';
+  }
+  return /^(?:games|digest|schedule|library|live|(?:l|la|li|dg|g|gs)_[A-Za-z0-9_-]+)$/.test(route)?route:'';
+}
+
+function insertNewsAppLink(fieldId){
+  const el=document.getElementById(fieldId);
+  const selection=window.getSelection();
+  const range=selection.rangeCount && el.contains(selection.anchorNode) && el.contains(selection.focusNode)?selection.getRangeAt(0).cloneRange():null;
+  const raw=prompt('Куда ведёт ссылка? Вставь ссылку из приложения или напиши: игры, дайджест, расписание, библиотека, эфир. Для аудиоверсии — ссылка «Поделиться» из аудиоплеера.');
+  if(raw===null) return;
+  let route='';try{route=newsAppRoute(raw);}catch(e){}
+  if(!route){alert('Не удалось распознать ссылку. Скопируй её через «Поделиться» в приложении.');return;}
+  const label=prompt('Текст ссылки:',range && !range.collapsed?range.toString():'Открыть в приложении');
+  if(!label || !label.trim()) return;
+  const link=document.createElement('a');link.href='https://t.me/youselllikeagod_bot/app?startapp='+route;link.textContent=label.trim();
+  el.focus();
+  if(range){range.deleteContents();range.insertNode(link);}else{el.appendChild(document.createTextNode(' '));el.appendChild(link);}
+  el.dispatchEvent(new Event('input',{bubbles:true}));
 }
 
 function applyLinkFormat(fieldId){
