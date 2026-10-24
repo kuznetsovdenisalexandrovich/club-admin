@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v228 -->
+<!-- FILE_VERSION: admin-v229 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1316,6 +1316,20 @@ select:disabled{opacity:.55;cursor:not-allowed}
  .workflow-guide{font-size:12px;padding:12px 14px;line-height:1.55}
  .popup-section-title{padding-right:36px}
 }
+</style>
+<style>
+.overview-conversion-card{padding:18px}
+.overview-filters{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin-bottom:16px}
+.overview-filters label{display:grid;gap:6px;flex:1 1 170px;min-width:0;font-size:12px;color:var(--text-faint)}
+.overview-filters select{width:100%}.overview-filters button{min-height:44px}
+.overview-lead-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;padding:20px 0}
+.overview-lead-totals strong{display:block;font-family:var(--disp);font-size:24px;margin-top:7px;overflow-wrap:anywhere}
+.overview-source-table{overflow-x:auto}.overview-source-table table{border-collapse:collapse;width:100%;font-size:13px}
+.overview-source-table th,.overview-source-table td{text-align:right;padding:12px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.overview-source-table th:first-child{text-align:left;min-width:130px;overflow-wrap:anywhere}
+.overview-source-table small{display:block;font-weight:400;font-size:11px;color:var(--text-faint);margin-top:5px}
+.overview-lead-help{margin:16px 0 0;line-height:1.6}
+@media(max-width:599px){.overview-conversion-card{padding:14px}.overview-lead-totals{gap:10px}.overview-lead-totals strong{font-size:19px}.overview-source-table th,.overview-source-table td{padding:10px 6px;font-size:12px}}
 </style>
 </head>
 
@@ -3705,7 +3719,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v228';
+const BUILD_VERSION = 'admin-v229';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -3843,7 +3857,7 @@ async function loadAll(){
   document.getElementById('last-update').textContent='Обновлено в '+new Date().toLocaleTimeString('ru');
   loadManualList();          // «должны оплатить» — своя секция на главной
   qaAlertLoad();             // v159: окно новых багов наверху
-  await Promise.all([loadStats(),loadUsers(),loadPayments(),loadNotificationLists(),loadCampaigns(),loadAdminCalendarMonth(),loadQuestions(),loadCardsWidget(),loadSeasonWidget(),loadLiveHero()]);
+  await Promise.all([loadOverviewConversion(),loadStats(),loadUsers(),loadPayments(),loadNotificationLists(),loadCampaigns(),loadAdminCalendarMonth(),loadQuestions(),loadCardsWidget(),loadSeasonWidget(),loadLiveHero()]);
 }
 
 async function loadQuestions(){
@@ -23620,7 +23634,7 @@ function dashboardTab(key,focusTab=false){
   if(on&&innerWidth<1000){const tabs=b.parentElement;tabs.scrollLeft=Math.max(0,b.offsetLeft-tabs.offsetLeft-12);}
  });
  try{sessionStorage.setItem('dashboard-section',key);}catch(e){}
- if(typeof revenueChart!=='undefined'&&revenueChart&&key==='analytics')requestAnimationFrame(()=>revenueChart.resize());
+ if(typeof revenueChart!=='undefined'&&revenueChart&&key==='overview')requestAnimationFrame(()=>revenueChart.resize());
 }
 function dashboardSearch(){
  const q=document.getElementById('dashboard-search').value.trim().toLowerCase();
@@ -23659,7 +23673,7 @@ function initDashboardNavigation(){
  // Install containers before moving nodes; no clone means no duplicated IDs or forms.
  shell.querySelector('header').after(nav,workspace);
  const updated=shell.querySelector('.last-update');if(updated)nav.before(updated);
- const mapping={'Выручка':'analytics','Источники продаж':'analytics','Воронка лидов':'analytics','Расписание':'events','Сезон':'rewards','Колода карточек':'rewards','Вопросы клубу':'overview','Обращения в поддержку':'overview','Заявки на награды':'rewards','Оплата переводом':'members','Участники':'members','Платежи':'analytics'};
+ const mapping={'Выручка':'overview','Источники продаж':'analytics','Воронка лидов':'analytics','Расписание':'events','Сезон':'rewards','Колода карточек':'rewards','Вопросы клубу':'overview','Обращения в поддержку':'overview','Заявки на награды':'rewards','Оплата переводом':'members','Участники':'members','Платежи':'analytics'};
  const oldTools=[...shell.querySelectorAll(':scope > .section')].filter(el=>['Инструменты','Рассылки'].includes(el.querySelector('.section-title')?.textContent.trim()));
  const tools=oldTools.flatMap(el=>[...el.querySelectorAll('button[onclick]')]);
  const config={
@@ -23750,6 +23764,64 @@ function updateEventGuide(n){
 }
 initDashboardNavigation();
 
+</script>
+<script>
+let overviewConversionData=null, overviewConversionSeq=0;
+function initOverviewConversion(){
+ const overview=document.getElementById('dashboard-overview');
+ const revenue=document.getElementById('revenueChart').closest('.section');
+ const kpi=overview.querySelector('.kpi-grid');kpi.after(revenue);
+ const section=document.createElement('div');section.className='section';section.id='overview-conversion';
+ section.innerHTML=`<div class="section-head"><div class="section-title">Лиды и покупки</div><button class="action-btn" onclick="openAttributionPopup()">Подробный отчёт и метки</button></div>
+ <div class="card overview-conversion-card"><div class="overview-filters">
+ <label>Период прихода лидов<select id="overview-lead-period" onchange="loadOverviewConversion()"><option value="7">7 дней</option><option value="30" selected>30 дней</option><option value="90">90 дней</option><option value="365">Год</option></select></label>
+ <label>Площадка<select id="overview-lead-platform" onchange="renderOverviewConversion(true)"><option value="">Все площадки</option></select></label>
+ <label>Источник<select id="overview-lead-source" onchange="renderOverviewConversion()"><option value="">Все источники</option></select></label>
+ <button class="action-btn" onclick="loadOverviewConversion()">Обновить</button></div>
+ <div id="overview-lead-status" role="status" class="pay-meta"></div><div id="overview-lead-result"></div>
+ <p class="pay-meta overview-lead-help">Считаем первые входы в бота за выбранный период и первую успешную покупку после входа, известную на сегодня. Повторные списания не увеличивают конверсию. Один аккаунт на площадке — один лид; Telegram и ВК считаются отдельно. «Нет данных» означает, что часть истории свёрнута или контакт ещё не связан с оплатами.</p></div>`;
+ revenue.after(section);
+}
+async function loadOverviewConversion(){
+ const box=document.getElementById('overview-lead-status');if(!box)return;
+ const seq=++overviewConversionSeq;box.textContent='Загружаю статистику…';
+ document.getElementById('overview-lead-result').replaceChildren();overviewConversionData=null;
+ try{
+  const days=document.getElementById('overview-lead-period').value;
+  const r=await fetch(API+'/admin/attribution/conversion?days='+days+'&x_admin_token='+encodeURIComponent(ADMIN_TOKEN));
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  const data=await r.json();if(seq!==overviewConversionSeq)return;
+  if(!Array.isArray(data.rows))throw new Error('Неверный формат');
+  overviewConversionData=data;
+  const sel=document.getElementById('overview-lead-platform'),prev=sel.value;
+  sel.replaceChildren(new Option('Все площадки',''));
+  [...new Set(data.rows.map(x=>x.platform))].sort().forEach(p=>sel.add(new Option(ATTR_PLATFORM_LABELS[p]||p,p)));
+  if([...sel.options].some(o=>o.value===prev))sel.value=prev;
+  box.textContent='Пришли: '+data.start.split('-').reverse().join('.')+' — '+data.end.split('-').reverse().join('.')+' · покупки по текущий момент';
+  renderOverviewConversion(true);
+ }catch(e){if(seq===overviewConversionSeq)box.textContent='Не удалось загрузить статистику. Нажми «Обновить», чтобы повторить.';}
+}
+function renderOverviewConversion(rebuildSources=false){
+ if(!overviewConversionData)return;
+ const platform=document.getElementById('overview-lead-platform').value;
+ let rows=overviewConversionData.rows.filter(x=>!platform||x.platform===platform);
+ const sel=document.getElementById('overview-lead-source');
+ if(rebuildSources){const prev=sel.value;sel.replaceChildren(new Option('Все источники',''));
+  const sources=new Map(rows.map(x=>[JSON.stringify(x.source),x]));
+  sources.forEach((x,key)=>sel.add(new Option((x.title||'Без метки')+(x.source&&x.title!==x.source?' · '+x.source:''),key)));
+  if([...sel.options].some(o=>o.value===prev))sel.value=prev;
+ }
+ if(sel.value)rows=rows.filter(x=>JSON.stringify(x.source)===sel.value);
+ const total=rows.reduce((a,x)=>({leads:a.leads+x.leads,paid:a.paid+x.paid,unknown:a.unknown+x.archived+x.unlinked}),{leads:0,paid:0,unknown:0});
+ const percent=(paid,leads,unknown)=>unknown?'Нет данных':leads?(100*paid/leads).toLocaleString('ru-RU',{maximumFractionDigits:1})+'%':'—';
+ const esc=x=>escapeHtmlText(String(x??''));
+ const box=document.getElementById('overview-lead-result');
+ if(!rows.length){box.innerHTML='<div class="empty">За этот период лидов из выбранного источника нет.</div>';return;}
+ box.innerHTML='<div class="overview-lead-totals">'+[['Лиды',total.leads],['Подтверждённые покупки',total.paid],['Конверсия в покупку',percent(total.paid,total.leads,total.unknown)]].map(([label,value])=>'<div><div class="pay-meta">'+label+'</div><strong>'+esc(value)+'</strong></div>').join('')+'</div>'
+ +'<div class="overview-source-table"><table><thead><tr><th scope="col">Источник</th><th scope="col">Лиды</th><th scope="col">Купили</th><th scope="col">Конверсия</th></tr></thead><tbody>'+rows.map(x=>'<tr><th scope="row">'+esc(x.title||'Без метки')+'<small>'+esc(ATTR_PLATFORM_LABELS[x.platform]||x.platform)+(x.source?' · '+esc(x.source):'')+'</small></th><td>'+x.leads+'</td><td>'+x.paid+'</td><td>'+percent(x.paid,x.leads,x.archived+x.unlinked)+(x.archived+x.unlinked?'<small>Не хватает истории: '+(x.archived+x.unlinked)+'</small>':'')+'</td></tr>').join('')+'</tbody></table></div>';
+}
+
+initOverviewConversion();
 </script>
 </body>
 </html>
