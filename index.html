@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v224 -->
+<!-- FILE_VERSION: admin-v225 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3583,7 +3583,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v224';
+const BUILD_VERSION = 'admin-v225';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -7563,7 +7563,7 @@ async function loadScheduleEvents(){
   oneoffEl.innerHTML='<div class="loading">Загрузка...</div>';
   teaserEl.innerHTML='<div class="loading">Загрузка...</div>';
   try{
-    scheduleEvents=await fetch(API+'/schedule/events').then(r=>r.json());
+    scheduleEvents=await fetch(API+'/schedule/events?x_admin_token='+encodeURIComponent(ADMIN_TOKEN)).then(r=>r.json());
     renderOneOffList();
     loadNbInvite();   // v131: флаги «звать новичков» дорисуются, когда придут
     renderTeaserList();
@@ -9832,7 +9832,7 @@ async function loadScheduleRules(){
   const el=document.getElementById('sched-rules-list');
   el.innerHTML='<div class="loading">Загрузка...</div>';
   try{
-    scheduleRules=await fetch(API+'/schedule/rules').then(r=>r.json());
+    scheduleRules=await fetch(API+'/schedule/rules?x_admin_token='+encodeURIComponent(ADMIN_TOKEN)).then(r=>r.json());
     renderScheduleRulesList();
     loadNbInvite();   // v131
     updateCategoryDatalist();
