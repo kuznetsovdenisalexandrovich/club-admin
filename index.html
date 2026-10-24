@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v226 -->
+<!-- FILE_VERSION: admin-v227 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1215,6 +1215,68 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
    Правило стоит в самом конце блока, иначе его перебивают общие правила кнопок. */
 .scroll-btn.on{background:var(--lav-deep,#7c6cf0)!important;border-color:var(--lav-deep,#7c6cf0)!important;color:#fff!important}
 </style>
+<style>
+/* Shared controls: explicit geometry overrides tiny native macOS selects. */
+select:not([multiple]){appearance:none!important;-webkit-appearance:none!important;min-height:44px!important;height:auto!important;line-height:1.4!important;font:inherit;font-size:14px!important;padding:10px 36px 10px 12px!important;border:1px solid var(--line)!important;border-radius:12px!important;background-color:var(--input-bg)!important;color:var(--text)!important;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%23847770' stroke-width='1.6'/%3E%3C/svg%3E")!important;background-repeat:no-repeat!important;background-position:right 12px center!important;max-width:100%;min-width:0;box-sizing:border-box}
+select[multiple]{min-height:132px;font-size:14px;padding:10px}
+select:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--warm);outline-offset:3px}
+select:disabled{opacity:.55;cursor:not-allowed}
+.dashboard-panel[hidden]{display:none!important}
+.dashboard-panel{min-width:0}
+.dashboard-panel h1{font-family:var(--disp);font-size:26px;letter-spacing:-.025em;margin:8px 0}
+.dashboard-intro{font-size:14px;line-height:1.6;color:var(--text-faint);max-width:760px;margin:0 0 22px}
+#dashboard-nav{margin-bottom:22px;position:sticky;top:0;z-index:20;background:var(--bg);padding-top:8px;border-radius:14px}
+.dashboard-tabs{display:flex;gap:6px;overflow:auto;padding:5px 2px 10px;scrollbar-width:thin}
+.dashboard-tab{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);border-radius:12px;padding:12px 16px;white-space:nowrap;cursor:pointer;min-height:44px}
+.dashboard-tab[aria-selected=true]{background:var(--warm);color:white;border-color:var(--warm)}
+.dashboard-search{position:relative;margin-bottom:12px}
+.dashboard-search label{display:block;font-size:12px;color:var(--text-faint);margin-bottom:7px}
+.dashboard-search input{box-sizing:border-box;width:100%;min-height:44px;border:1px solid var(--line);background:var(--input-bg);border-radius:12px;padding:10px 12px;color:var(--text);font:inherit;font-size:14px}
+#dashboard-search-results:not([hidden]){position:absolute;left:0;top:100%;z-index:20;width:min(360px,85vw);background:var(--popup-bg);box-shadow:0 8px 32px #0002;border-radius:12px;padding:8px;max-height:65vh;overflow:auto;box-sizing:border-box;font-size:13px}
+.dashboard-search-result{display:block;text-align:left;width:100%;padding:12px;border:0;border-bottom:1px solid var(--line);font:inherit;background:transparent;color:var(--text);cursor:pointer}
+.dashboard-search-result:hover{background:var(--input-bg)}
+.dashboard-tool-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:24px}
+.dashboard-tool{padding:16px;background:var(--input-bg);border:1px solid var(--line);border-radius:18px;min-width:0}
+.dashboard-tool .dashboard-tool-button{font-size:14px;min-height:44px;width:100%;text-align:left;line-height:1.4;padding:10px 12px;white-space:normal}
+.dashboard-tool p{font-size:12px;color:var(--text-faint);line-height:1.5;margin:10px 2px 0}
+.dashboard-quick{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px}
+.dashboard-quick button{min-height:44px;padding:10px 16px}
+.workflow-guide{border-left:3px solid var(--warm);background:var(--input-bg);padding:14px 16px;margin:0 0 18px;border-radius:0 12px 12px 0;font-size:13px;line-height:1.6}
+.workflow-guide strong{font-weight:600}.workflow-guide p{margin:6px 0 0;color:var(--text-faint)}
+#ev-strip{flex-wrap:wrap;overflow:visible!important}
+#ev-strip .ptab{min-height:40px;font-size:12px;padding:9px 12px;color:var(--text)!important}
+#ev-strip .ptab.active{color:#fff!important}
+#live-popup-overlay .popup-section-title{padding-right:32px}
+.workflow-advanced{margin:14px 0;padding:12px;border:1px solid var(--line);border-radius:12px;font-size:13px}
+.workflow-advanced summary{cursor:pointer;line-height:1.5}
+#dashboard-members .section-head{flex-wrap:wrap;gap:12px}
+#dashboard-members #user-filter{max-width:100%;flex:0 1 auto}
+@media(min-width:1000px){
+ .shell{max-width:1440px!important;display:grid;grid-template-columns:232px minmax(0,1fr);column-gap:36px;padding:0 32px 40px!important}
+ .shell>header,.shell>.last-update{grid-column:1/-1}
+ #dashboard-nav{grid-column:1;grid-row:3;position:sticky;top:24px;align-self:start;max-height:calc(100vh - 48px);overflow:visible}
+ .dashboard-tabs{flex-direction:column;overflow:visible;gap:7px}
+ .dashboard-tab{text-align:left;white-space:normal}
+ #dashboard-workspace{grid-column:2;grid-row:3;min-width:0}
+ .shell>.build-mark{grid-column:1/-1}
+ .dashboard-panel .kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .dashboard-panel .kpi-wide{grid-column:1/-1}
+ .dashboard-panel .section{margin-top:24px}
+ .popup-overlay{align-items:center!important;padding:24px;box-sizing:border-box}
+ .popup-overlay>.popup{max-width:900px!important;max-height:calc(100dvh - 48px);border-radius:24px!important}
+ #live-popup-overlay>.popup{max-width:1040px!important}
+ .popup-body{padding-left:28px;padding-right:28px}
+ .popup-close-x{position:sticky!important;top:10px;float:right;margin-right:12px;z-index:10}
+}
+@media(max-width:599px){
+ .dashboard-tool-grid{grid-template-columns:1fr}
+ .dashboard-panel h1{font-size:23px}
+ .section-head{flex-wrap:wrap;gap:10px}
+ .popup-input{min-width:0;box-sizing:border-box}
+ #ev-strip .ptab{flex:1 1 42%;white-space:normal}
+}
+
+</style>
 </head>
 
 <body>
@@ -1298,7 +1360,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
        Denis'а). Раньше это была одна из мелких кнопок в углу заголовка, наравне
        с «Управлять», — а пульт эфира открывают в момент, когда времени искать
        нет: до начала минуты. -->
-  <button class="popup-save live-big-btn" id="live-hero-btn" onclick="openLivePopup()">Эфир<span class="live-hero-sub" id="live-hero-sub">Пульт трансляции — подготовка, площадки, чат</span></button>
+  <button class="popup-save live-big-btn" id="live-hero-btn" onclick="openLivePopup()">Пульт эфира<span class="live-hero-sub" id="live-hero-sub">Пульт трансляции — подготовка, площадки, чат</span></button>
 
   <!-- ⚠️ АТРИБУЦИЯ ПРОДАЖ (13.08.2026). Раздел уровня «Расписания» и «Эфира» —
        свой попап, своя кнопка сюда, отчёт открывается сразу с данными. -->
@@ -1306,7 +1368,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     <div class="section-head">
       <div class="section-title">Источники продаж</div>
       <div style="display:flex;gap:6px">
-        <button class="action-btn" style="padding:5px 10px;font-size:11px" onclick="openAttributionPopup()">Отчёт</button>
+        <button class="action-btn" style="padding:5px 10px;font-size:11px" onclick="openAttributionPopup()">Откуда приходят оплаты</button>
       </div>
     </div>
     <div class="pay-meta" style="margin:0 2px 4px">Какой рилс, пост или выпуск журнала привёл к оплате — и откуда вообще берутся новые люди.</div>
@@ -1319,7 +1381,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     <div class="section-head">
       <div class="section-title">Воронка лидов</div>
       <div style="display:flex;gap:6px">
-        <button class="action-btn" style="padding:5px 10px;font-size:11px" onclick="openFunnelPopup()">Смотреть</button>
+        <button class="action-btn" style="padding:5px 10px;font-size:11px" onclick="openFunnelPopup()">Путь от входа до оплаты</button>
       </div>
     </div>
     <div class="pay-meta" style="margin:0 2px 4px">Кто зашёл, до какой ступени дошёл и где отвалился. Плюс настройка сигналов «кажется, запутался».</div>
@@ -1329,7 +1391,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     <div class="section-head">
       <div class="section-title">Расписание</div>
       <div style="display:flex;gap:6px">
-        <button class="action-btn" style="padding:5px 10px;font-size:11px" onclick="openSchedulePopup()">Управлять</button>
+        <button class="action-btn" style="padding:5px 10px;font-size:11px" onclick="openSchedulePopup()">Редактировать расписание</button>
       </div>
     </div>
     <div class="card" style="padding:14px">
@@ -1606,7 +1668,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
       <input class="popup-input" type="text" id="camp-link" placeholder="Ссылка на телемост/материал" style="margin-bottom:0;display:none">
       <!-- v116: поле баллов было только у неотправленных кампаний в списке, а встреча уходит сразу при создании — то есть всегда с нулём -->
       <input class="popup-input" type="number" id="camp-points" min="0" max="100000" step="10" placeholder="Баллы тому, кто перейдёт (0 — не платим)" style="margin-bottom:0;display:none">
-      <button class="popup-save" id="camp-submit-btn" onclick="createCampaign()">Создать кампанию</button>
+      <button class="popup-save" id="camp-submit-btn" onclick="createCampaign()">Создать и отправить</button>
     </div>
     <div id="campaigns-list"><div class="loading">Загрузка...</div></div>
     </div>
@@ -2523,15 +2585,16 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <div class="loading">Загрузка...</div>
       </div>
       <div id="ev-strip" style="display:flex;gap:6px;overflow-x:auto;padding:2px 2px 8px;margin-bottom:6px;-webkit-overflow-scrolling:touch">
-        <button class="ptab" data-ev="0" onclick="evShow(0)">0 · Настройки</button>
-        <button class="ptab" data-ev="1" onclick="evShow(1)">1 · Анонс</button>
-        <button class="ptab" data-ev="2" onclick="evShow(2)">2 · Старт</button>
-        <button class="ptab" data-ev="3" onclick="evShow(3)">3 · Бесплатная часть</button>
-        <button class="ptab" data-ev="4" onclick="evShow(4)">4 · Пришедшие и баллы</button>
-        <button class="ptab" data-ev="5" onclick="evShow(5)">5 · Телемост</button>
-        <button class="ptab" data-ev="6" onclick="evShow(6)">Ещё</button>
+        <button class="ptab" data-ev="0" onclick="evShow(0)">Подготовка</button>
+        <button class="ptab" data-ev="1" onclick="evShow(1)">Анонс участникам</button>
+        <button class="ptab" data-ev="2" onclick="evShow(2)">Запуск и остановка</button>
+        <button class="ptab" data-ev="3" onclick="evShow(3)">Доступ к эфиру</button>
+        <button class="ptab" data-ev="4" onclick="evShow(4)">Участники и баллы</button>
+        <button class="ptab" data-ev="5" onclick="evShow(5)">Перейти в телемост</button>
+        <button class="ptab" data-ev="6" onclick="evShow(6)">Запись и обслуживание</button>
       </div>
 
+      <div class="workflow-guide" id="event-stage-guide" role="status">Подготовь название и формат встречи. Затем выбери нужный шаг выше.</div>
       <!-- ── 0 · НАСТРОЙКИ. Заполняется заранее, хранится черновиком на
            сервере (admin_doc «event_draft»), при старте уезжает в сессию ── -->
       <div class="ev-stage" id="ev-stage-0">
@@ -2556,7 +2619,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
           </select>
         </div>
         </div>
-        <div class="pay-meta" id="ev-meet-only-note" style="display:none;margin:0 2px 8px;color:var(--text)">Действует на ближайшую встречу — на следующий день тип сам вернётся к «Эфир + телемост». Режим «Только телемост»: эфир не запускается, трансляции Кинескопа и ВК не создаются, в приложении не будет ни эфира, ни «эфир скоро». Людей зовёт рассылка ссылки на встречу (этап 1).</div>
+        <div class="pay-meta" id="ev-meet-only-note" style="display:none;margin:0 2px 8px;color:var(--text)">Действует на ближайшую встречу — на следующий день тип сам вернётся к «Эфир + телемост». Режим «Только телемост»: эфир не запускается, трансляции Кинескопа и ВК не создаются, в приложении не будет ни эфира, ни «эфир скоро». Людей зовёт рассылка ссылки на встречу (вкладка «Анонс участникам»).</div>
         <input class="popup-input" type="text" id="live-admin-title" placeholder="Название эфира (увидят участники и площадки)" style="margin-bottom:8px" oninput="evDraftChanged()">
         <textarea class="popup-input" id="live-admin-desc" placeholder="Текст анонса — он же описание трансляции ВК. Например: «Как продавать даже без скриптов?»" style="margin-bottom:8px;min-height:60px" oninput="evDraftChanged()"></textarea>
         
@@ -2623,12 +2686,11 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 
       <!-- ── 2 · СТАРТ ── -->
       <div class="ev-stage" id="ev-stage-2" style="display:none">
-        <div class="pay-meta" id="ev-start-meet-note" style="display:none;margin:4px 2px 12px;color:var(--text)">Событие «Только телемост» — эфир не запускается. Встреча начинается рассылкой ссылки на этапе 1, а кнопку телемоста поверх приложения включает этап 5 «Позвать в телемост».</div>
+        <div class="pay-meta" id="ev-start-meet-note" style="display:none;margin:4px 2px 12px;color:var(--text)">Событие «Только телемост» — эфир не запускается. Встреча начинается рассылкой ссылки во вкладке «Анонс участникам», а кнопку телемоста поверх приложения включает вкладка «Перейти в телемост».</div>
         <div id="ev-start-box">
-          <button class="popup-save" onclick="liveAutoStart()">Начать эфир</button>
-          <div class="pay-meta" style="margin-top:6px">Сам включит трансляцию, создаст площадки ВК и пропишет точки ретрансляции. Название, анонс, баллы и галочка бесплатной части — из этапа 0.</div>
-          <button class="action-btn" style="margin-top:8px" onclick="liveStart()">Только открыть сессию</button>
-          <div class="pay-meta" style="margin-top:4px">Если площадки заведены руками и надо просто включить блок в аппе.</div>
+          <button class="popup-save" onclick="liveAutoStart()">Запустить трансляцию</button>
+          <div class="pay-meta" style="margin-top:6px">Сам включит трансляцию, создаст площадки ВК и пропишет точки ретрансляции. Название, анонс, баллы и галочка бесплатной части — из вкладки «Подготовка».</div>
+          <details class="workflow-advanced"><summary>Трансляция уже запущена вручную</summary><p>Используй только когда видео и площадки уже настроены отдельно. Эта кнопка открывает сессию в приложении, но сама не запускает видеотрансляцию.</p><button class="action-btn" onclick="liveStart()">Подключить готовую трансляцию к приложению</button></details>
         </div>
         <div id="ev-running-box" style="display:none">
           <div class="section-title" style="margin:14px 0 6px;font-size:13px">Точки ретрансляции</div>
@@ -2952,9 +3014,9 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
     </div>
 
     <div class="period-tabs" style="margin-bottom:12px">
-      <button class="ptab active" id="sched-tab-btn-oneoff" onclick="switchScheduleTab('oneoff')">Разовые</button>
-      <button class="ptab" id="sched-tab-btn-rules" onclick="switchScheduleTab('rules')">Повторяющиеся</button>
-      <button class="ptab" id="sched-tab-btn-teaser" onclick="switchScheduleTab('teaser')">Анонсы</button>
+      <button class="ptab active" id="sched-tab-btn-oneoff" onclick="switchScheduleTab('oneoff')">На конкретную дату</button>
+      <button class="ptab" id="sched-tab-btn-rules" onclick="switchScheduleTab('rules')">Каждую неделю</button>
+      <button class="ptab" id="sched-tab-btn-teaser" onclick="switchScheduleTab('teaser')">Планы без даты</button>
     </div>
 
     <!-- Разовые события -->
@@ -3009,7 +3071,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
         <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-dim);padding:2px 2px 4px">
           <input type="checkbox" id="sched-rule-active" checked style="width:16px;height:16px"> Активно
         </label>
-        <button class="popup-save" id="sched-rule-submit-btn" onclick="saveScheduleRule()">Добавить правило</button>
+        <button class="popup-save" id="sched-rule-submit-btn" onclick="saveScheduleRule()">Добавить еженедельную встречу</button>
       </div>
       <datalist id="sched-cat-list"></datalist>
       <button class="action-btn" style="margin-top:10px" onclick="checkKinescopeHealth()">Связь с Kinescope</button>
@@ -3603,7 +3665,7 @@ input[type="checkbox"]:disabled{ opacity:.45; cursor:default; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v226';
+const BUILD_VERSION = 'admin-v227';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -4784,7 +4846,7 @@ function markLiveCampaigns(campaigns){
   if (!btn) return;
   const live = (campaigns || []).filter(campaignIsLive).length;
   btn.classList.toggle('live-now', live > 0);
-  btn.textContent = live > 0 ? 'Кампании · идёт встреча' : 'Кампании';
+  btn.textContent = live > 0 ? 'Разовая рассылка · идёт встреча' : 'Разовая рассылка';
 }
 
 function renderCampaigns(campaigns){
@@ -5069,7 +5131,7 @@ async function deleteCampaign(id,e){
 
 /* ── Chart ── */
 function setPeriod(p,btn){
-  document.querySelectorAll('.ptab').forEach(b=>b.classList.remove('active'));
+  btn.closest('.period-tabs').querySelectorAll('.ptab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active'); currentPeriod=p; drawChart();
 }
 
@@ -7103,6 +7165,7 @@ function openCampaignsPopup(){ document.getElementById('campaigns-popup-overlay'
 function closeCampaignsPopup(){ document.getElementById('campaigns-popup-overlay').classList.remove('open'); }
 
 let newsTargeted=[];
+let newsReady=false;
 
 async function openNewsPopup(){
   document.getElementById('news-popup-overlay').classList.add('open');
@@ -7113,16 +7176,21 @@ async function openNewsPopup(){
 // в новую запись уходит только то, что набрано сейчас, и блоки по спискам
 // (например книжный клуб) перестают показываться в приложении
 async function loadNewsIntoPopup(){
+  newsReady=false;
   const listEl = document.getElementById('news-targeted-list');
   listEl.innerHTML = '<div class="loading">Загрузка...</div>';
   if(!notificationLists.length){ try{ await loadNotificationLists(); }catch(e){} }
   try{
-    const news = await fetch(API+'/news/latest').then(r=>r.json());
+    const response=await fetch(API+'/news/latest');
+    if(!response.ok)throw new Error('HTTP '+response.status);
+    const news=await response.json();
     document.getElementById('news-common').innerHTML = news.common_text || '';
     document.getElementById('news-urgent').checked = !!news.urgent;
     newsTargeted = (news.targeted || []).map(t => ({ list_id: t.list_id, text: t.text || '' }));
+    newsReady=true;
   }catch(e){
-    newsTargeted = [];
+    listEl.innerHTML='<div class="workflow-guide">Новости не загрузились. Сохранение остановлено, чтобы не затереть существующие блоки. <button class="action-btn" onclick="loadNewsIntoPopup()">Повторить загрузку</button></div>';
+    return;
   }
   renderNewsTargeted();
 }
@@ -7161,6 +7229,7 @@ function renderNewsTargeted(){
 }
 
 async function publishNews(){
+  if(!newsReady){alert("Сначала загрузи текущие новости — нажми «Повторить загрузку».");return;}
   const common_text = document.getElementById('news-common').innerHTML.trim();
   const targeted = newsTargeted.filter(t => (t.text||'').trim());
   // Общий текст больше не обязателен — иначе нельзя обновить новость только
@@ -7219,7 +7288,7 @@ async function loadStreamsList(){
           <div class="pay-name">${s.title}</div>
           <div class="pay-meta">${s.stream_key}</div>
         </div>
-        <button class="action-btn" onclick='editStream(${JSON.stringify(s)})'>Изм.</button>
+        <button class="action-btn" onclick="editStream(JSON.parse(${jsArg(JSON.stringify(s))}))">Изм.</button>
         <button class="action-btn danger" onclick="deleteStream('${s.stream_key}')">Удл.</button>
       </div>`).join('');
   }catch(e){ el.innerHTML='<div class="pay-meta">Ошибка загрузки</div>'; }
@@ -7463,13 +7532,13 @@ function categoryColor(name){
 }
 function categoryBadge(cat){
   if(!cat) return '';
-  return ` <span class="badge" style="background:${categoryColor(cat)}22;color:${categoryColor(cat)}">${cat}</span>`;
+  return ` <span class="badge" style="background:${categoryColor(cat)}22;color:${categoryColor(cat)}">${escapeHtmlAdm(cat)}</span>`;
 }
 function updateCategoryDatalist(){
   const known=new Set(['Книжный клуб','Продажи практика','Пятничные встречи']);
   scheduleEvents.forEach(e=>{ if(e.category) known.add(e.category); });
   scheduleRules.forEach(r=>{ if(r.category) known.add(r.category); });
-  document.getElementById('sched-cat-list').innerHTML=[...known].map(c=>`<option value="${c}">`).join('');
+  document.getElementById('sched-cat-list').innerHTML=[...known].map(c=>`<option value="${escapeHtmlAdm(c).replace(/"/g,'&quot;')}">`).join('');
 }
 
 /* ── Мини-календарь предпросмотра (та же логика рендера, что и в club-app) ── */
@@ -7614,11 +7683,11 @@ function renderOneOffList(){
   el.innerHTML=rows.map(e=>`
     <div class="pay-item">
       <div style="flex:1;min-width:0">
-        <div class="pay-name">${e.title}${categoryBadge(e.category)}</div>
+        <div class="pay-name">${escapeHtmlAdm(e.title)}${categoryBadge(e.category)}</div>
         <div class="pay-meta">${e.event_date}${e.event_time?' · '+e.event_time:''}</div>
       </div>
       ${nbInviteChip('event:'+e.id)}
-      <button class="action-btn" style="flex-shrink:0" onclick='editOneOffEvent(${JSON.stringify(e)})'>Изм.</button>
+      <button class="action-btn" style="flex-shrink:0" onclick="editOneOffEvent(JSON.parse(${jsArg(JSON.stringify(e))}))">Изм.</button>
       <button class="action-btn danger" style="flex-shrink:0" onclick="deleteScheduleEvent(${e.id})">Удл.</button>
     </div>`).join('');
 }
@@ -7630,10 +7699,10 @@ function renderTeaserList(){
   el.innerHTML=rows.map(e=>`
     <div class="pay-item">
       <div style="flex:1;min-width:0">
-        <div class="pay-name">${e.title}</div>
-        <div class="pay-meta">${e.description||''}</div>
+        <div class="pay-name">${escapeHtmlAdm(e.title)}</div>
+        <div class="pay-meta">${escapeHtmlAdm(e.description||'')}</div>
       </div>
-      <button class="action-btn" style="flex-shrink:0" onclick='editTeaser(${JSON.stringify(e)})'>Изм.</button>
+      <button class="action-btn" style="flex-shrink:0" onclick="editTeaser(JSON.parse(${jsArg(JSON.stringify(e))}))">Изм.</button>
       <button class="action-btn danger" style="flex-shrink:0" onclick="deleteScheduleEvent(${e.id})">Удл.</button>
     </div>`).join('');
 }
@@ -7750,7 +7819,7 @@ async function loadLiveHero(){
         + (s.is_streaming ? ' · картинка идёт' : ' · картинки ещё нет')
         + '</span>';
     } else {
-      btn.innerHTML = 'Эфир<span class="live-hero-sub" id="live-hero-sub">'
+      btn.innerHTML = 'Пульт эфира<span class="live-hero-sub" id="live-hero-sub">'
         + 'Пульт трансляции — подготовка, площадки, чат</span>';
     }
   }catch(e){ /* молчим: кнопка работает и без статуса */ }
@@ -7780,10 +7849,12 @@ function closeLivePopup(){
 
 /* ══ ПУЛЬТ «СОБЫТИЕ» — этапы ══ */
 let evStage = -1;          // -1 — ещё не выбирали, подсказывает состояние
+let evDraftReady = false;
 let evDraft = null;        // черновик этапа 0 (admin_doc «event_draft»)
 let evDraftTimer = null;
 function evShow(n){
   evStage = n;
+  updateEventGuide(n);
   document.querySelectorAll('.ev-stage').forEach(function(el){ el.style.display = 'none'; });
   const st = document.getElementById('ev-stage-' + n);
   if (st) st.style.display = 'block';
@@ -7867,23 +7938,31 @@ function evIsMeetOnly(){
 }
 function evMeetOnlyGuard(){
   if (!evIsMeetOnly()) return false;
-  alert('Событие «Только телемост» — эфир не запускается. Если нужен эфир, на этапе 0 смени тип на «Эфир + телемост».');
+  alert('Событие «Только телемост» — эфир не запускается. Если нужен эфир, во вкладке «Подготовка» смени тип на «Эфир + телемост».');
   return true;
 }
 async function evDraftLoad(){
+  evDraftReady = false;
   try{
     const r = await fetch(API + '/admin/doc/event_draft?x_admin_token=' + ADMIN_TOKEN);
+    if(!r.ok)throw new Error('HTTP '+r.status);
     const d = await r.json();
     evDraftApply((d && d.data) || {});
-  }catch(e){ evDraftApply({}); }
+    evDraftReady = true;
+    document.getElementById('ev-draft-state').textContent='Черновик загружен. Изменения сохраняются автоматически.';
+  }catch(e){
+    document.getElementById('ev-draft-state').innerHTML='Не удалось загрузить черновик. Сохранение и запуск остановлены, чтобы не потерять настройки. <button class="action-btn" onclick="evDraftLoad()">Повторить загрузку</button>';
+  }
 }
 function evDraftChanged(){
+  if(!evDraftReady)return;
   evKindApply();
   const st = document.getElementById('ev-draft-state'); if (st) st.textContent = 'Сохраняю…';
   if (evDraftTimer) clearTimeout(evDraftTimer);
   evDraftTimer = setTimeout(evDraftSave, 700);
 }
 async function evDraftSave(){
+  if(!evDraftReady)return;
   const d = evDraftFields(); evDraft = d;
   const st = document.getElementById('ev-draft-state');
   try{
@@ -7923,11 +8002,12 @@ function evRenderAnnounceHint(){
   const ann = evDraft && evDraft.announced_at ? ' Уже разослан: ' + evDraft.announced_at + '.' : '';
   el.textContent = active
     ? 'Эфир идёт — анонс уйдёт с живыми ссылками на трансляции ВК.'
-    : 'Эфир ещё не идёт — анонс уйдёт с названием и текстом из этапа 0 и ссылками в приложение (ссылок на трансляции ВК до старта нет).' + ann;
+    : 'Эфир ещё не идёт — анонс уйдёт с названием и текстом из вкладки «Подготовка» и ссылками в приложение (ссылок на трансляции ВК до старта нет).' + ann;
   renderAnnounceTargets();
 }
 /* ── 1 · встреча без эфира: кампания «просто встреча» + рассылка ── */
 async function evSendMeetup(){
+  if(!evDraftReady){alert("Сначала дождись загрузки черновика на вкладке «Подготовка».");return;}
   const d = evDraftFields();
   const out = document.getElementById('ev-meetup-out');
   if (!d.meet_link){ alert('Впиши ссылку на телемост на этапе 0'); return; }
@@ -8943,6 +9023,7 @@ function announceRenderPreview(d){
 }
 
 async function announceSend(){
+  if(!evDraftReady){alert("Сначала дождись загрузки черновика на вкладке «Подготовка».");return;}
   const ids = checkedTargetIds();
   if (!ids.length){ document.getElementById('live-announce-out').textContent = 'Все площадки выключены — включи нужные в настройках площадок.'; return; }
   const active = !!(liveAdminState && liveAdminState.active);
@@ -9458,6 +9539,7 @@ async function liveToggleOpen(){
 }
 
 async function liveStart(){
+  if(!evDraftReady){alert("Сначала дождись загрузки черновика на вкладке «Подготовка».");return;}
   if (evMeetOnlyGuard()) return;   // v126
   const sel = document.getElementById('live-admin-event');
   const opt = sel.options[sel.selectedIndex];
@@ -9475,7 +9557,7 @@ async function liveStart(){
     });
     const d = await r.json();
     if (!d.ok){ alert('Не начали: ' + (d.error || 'неизвестно')); }
-    else { liveRememberEvent(live_event_id); await evAfterStart(); evShow(1); }
+    else { liveRememberEvent(live_event_id); await evAfterStart(); evShow(2); }
     loadLiveAdminState();
   }catch(e){ alert('Ошибка: ' + (e && e.message || e)); }
 }
@@ -9535,6 +9617,7 @@ async function copyId(value, el){
 }
 
 async function liveAutoStart(){
+  if(!evDraftReady){alert("Сначала дождись загрузки черновика на вкладке «Подготовка».");return;}
   if (evMeetOnlyGuard()) return;   // v126
   const sel = document.getElementById('live-admin-event');
   const opt = sel.options[sel.selectedIndex];
@@ -9563,7 +9646,7 @@ async function liveAutoStart(){
   const msg = 'Трансляция: ' + (opt ? opt.textContent : '—') + '\n\n'
     + 'Будут созданы трансляции и точки ретрансляции:\n' + where + '\n\n'
     + 'Точки добавятся ИМЕННО К ЭТОЙ трансляции Kinescope.\n'
-    + 'Если эфир нужен только в приложении — отмени и нажми «Только открыть сессию».\n\nПродолжить?';
+    + 'Если эфир нужен только в приложении — отмени и нажми «Подключить готовую трансляцию к приложению».\n\nПродолжить?';
   if (!confirm(msg)) return;
   try{
     const r = await fetch(API + '/admin/live/auto-start?x_admin_token=' + ADMIN_TOKEN, {
@@ -9572,6 +9655,10 @@ async function liveAutoStart(){
         free_part: !!document.getElementById('live-free-part').checked})
     });
     const d = await r.json();
+    if(!r.ok || (!d.session && d.ok === false)){
+      alert('Эфир не запущен: '+(d.error||d.detail||('HTTP '+r.status)));
+      loadLiveAdminState();return;
+    }
     let msg = (d.steps || []).join('\n');
     if (d.obs && d.obs.rtmp_link){
       msg += '\n\nДЛЯ OBS:\nСервер: ' + d.obs.rtmp_link + '\nКлюч: ' + (d.obs.streamkey || '');
@@ -9579,10 +9666,10 @@ async function liveAutoStart(){
     if ((d.links || []).length){
       msg += '\n\nССЫЛКИ НА ТРАНСЛЯЦИИ:\n' + d.links.map(function(l){ return l.label + ': ' + l.link; }).join('\n');
     }
-    alert(msg || 'Готово');
+    alert((d.ok === false ? 'Сессия открыта, но часть площадок не запустилась. Проверь отчёт:\n\n' : '')+(msg || 'Сессия эфира открыта'));
     liveRememberEvent(live_event_id);
     await evAfterStart();      // v115: цена входа и ссылка телемоста — из черновика
-    evShow(1);                 // следующий этап — анонс
+    evShow(2);                 // остаёмся у статуса, чата и кнопки остановки
     loadLiveAdminState();
   }catch(e){ alert('Ошибка: ' + (e && e.message || e)); }
 }
@@ -9878,11 +9965,11 @@ function renderScheduleRulesList(){
   el.innerHTML=scheduleRules.map(r=>`
     <div class="pay-item">
       <div style="flex:1;min-width:0">
-        <div class="pay-name">${r.title} <span class="badge ${r.active?'badge-ok':'badge-err'}">${r.active?'активно':'выкл'}</span>${categoryBadge(r.category)}</div>
+        <div class="pay-name">${escapeHtmlAdm(r.title)} <span class="badge ${r.active?'badge-ok':'badge-err'}">${r.active?'активно':'выкл'}</span>${categoryBadge(r.category)}</div>
         <div class="pay-meta">Каждый ${WEEKDAY_NAMES[r.weekday]}${r.event_time?' · '+r.event_time:''}</div>
       </div>
       ${nbInviteChip('rule:'+r.id)}
-      <button class="action-btn" style="flex-shrink:0" onclick='editScheduleRule(${JSON.stringify(r)})'>Изм.</button>
+      <button class="action-btn" style="flex-shrink:0" onclick="editScheduleRule(JSON.parse(${jsArg(JSON.stringify(r))}))">Изм.</button>
       <button class="action-btn danger" style="flex-shrink:0" onclick="deleteScheduleRule(${r.id})">Удл.</button>
     </div>`).join('');
 }
@@ -23098,7 +23185,7 @@ async function onbxSaveTexts(btn){
 }
 </script>
 
-<div style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5">сборка admin-v213</div>
+<div id="dashboard-build-mark" style="position:fixed;right:10px;bottom:8px;font-size:11px;opacity:.45;pointer-events:none;z-index:5"></div>
 <script>
 /* ═══ HoloFX · голографический перелив поверх карточки ══════════════════════
    ОДИН И ТОТ ЖЕ КОД в трёх местах: песочница holo-lab, дашборд (конструктор
@@ -23470,6 +23557,159 @@ async function onbxSaveTexts(btn){
 
   root.HoloFX = {PATTERNS: PATTERNS, RANGES: RANGES, BLENDS: BLENDS, defaults: defaults, normalize: normalize, thumb: thumb, mount: mount};
 })(window);
+</script>
+<script>
+/* One DOM per tool: moving existing controls preserves IDs, values and handlers. */
+const dashboardSections = [
+ ['overview','Обзор','Текущие показатели и обращения, требующие внимания.'],
+ ['events','Эфиры и расписание','Календарь определяет дату встречи. Пульт управляет анонсом, трансляцией, телемостом и записью.'],
+ ['content','Материалы','Всё, что участники читают, смотрят и слушают в приложении.'],
+ ['members','Участники','Доступ, регистрация, подписки и подтверждение оплат переводом.'],
+ ['messages','Рассылки','Сообщения в ботах, автоматические цепочки и приглашения.'],
+ ['analytics','Оплаты и аналитика','Платежи, источники продаж, использование приложения и удержание.'],
+ ['rewards','Баллы и карточки','Сезоны, коллекция, награды и розыгрыши.'],
+ ['settings','Настройки','Площадки клуба, безопасность, состояние сервисов и обслуживание.']
+];
+let dashboardTools=[];
+function dashboardTab(key,focusTab=false){
+ if(!dashboardSections.some(x=>x[0]===key))key='overview';
+ document.querySelectorAll('.dashboard-panel').forEach(p=>p.hidden=p.id!=='dashboard-'+key);
+ document.querySelectorAll('.dashboard-tab').forEach(b=>{
+  const on=b.dataset.panel===key;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;
+  if(on&&focusTab)b.focus();
+  if(on&&innerWidth<1000){const tabs=b.parentElement;tabs.scrollLeft=Math.max(0,b.offsetLeft-tabs.offsetLeft-12);}
+ });
+ try{sessionStorage.setItem('dashboard-section',key);}catch(e){}
+ if(typeof revenueChart!=='undefined'&&revenueChart&&key==='analytics')requestAnimationFrame(()=>revenueChart.resize());
+}
+function dashboardSearch(){
+ const q=document.getElementById('dashboard-search').value.trim().toLowerCase();
+ const box=document.getElementById('dashboard-search-results');box.replaceChildren();box.hidden=!q;
+ if(!q)return;
+ const matches=dashboardTools.filter(x=>(x.label+' '+x.description).toLowerCase().includes(q));
+ if(!matches.length){box.textContent='Не найдено. Попробуй «эфир», «ссылка», «запись» или «оплата».';return;}
+ matches.slice(0,12).forEach(x=>{const b=document.createElement('button');b.type='button';b.className='dashboard-search-result';
+  b.textContent=x.label+' · '+dashboardSections.find(t=>t[0]===x.section)[1];
+  b.onclick=()=>{dashboardTab(x.section);box.hidden=true;for(let el=x.button.parentElement;el;el=el.parentElement){if(el.tagName==='DETAILS')el.open=true;}x.button.scrollIntoView({block:'center',behavior:'smooth'});x.button.focus();};box.append(b);});
+}
+function dashboardGuide(target,title,text){
+ if(!target)return;
+ const box=document.createElement('div');box.className='workflow-guide';
+ const strong=document.createElement('strong');strong.textContent=title;
+ const p=document.createElement('p');p.textContent=text;box.append(strong,p);target.prepend(box);
+}
+function initDashboardNavigation(){
+ document.getElementById('dashboard-build-mark').textContent='сборка '+BUILD_VERSION;
+ const shell=document.querySelector('.shell');if(!shell||document.getElementById('dashboard-nav'))return;
+ const nav=document.createElement('nav');nav.id='dashboard-nav';nav.setAttribute('aria-label','Разделы дашборда');
+ const search=document.createElement('div');search.className='dashboard-search';
+ search.innerHTML='<label for="dashboard-search">Найти инструмент</label><input id="dashboard-search" type="search" placeholder="Эфир, новости, оплата…" autocomplete="off" aria-controls="dashboard-search-results"><div id="dashboard-search-results" hidden></div>';
+ search.querySelector('input').addEventListener('input',dashboardSearch);nav.append(search);
+ const tabs=document.createElement('div');tabs.className='dashboard-tabs';tabs.setAttribute('role','tablist');nav.append(tabs);
+ const workspace=document.createElement('main');workspace.id='dashboard-workspace';
+ for(const [key,title,description] of dashboardSections){
+  const button=document.createElement('button');button.type='button';button.className='dashboard-tab';button.dataset.panel=key;button.id='dashboard-tab-'+key;button.textContent=title;
+  button.setAttribute('role','tab');button.setAttribute('aria-controls','dashboard-'+key);button.onclick=()=>dashboardTab(key);tabs.append(button);
+  const panel=document.createElement('section');panel.className='dashboard-panel';panel.id='dashboard-'+key;panel.setAttribute('role','tabpanel');panel.setAttribute('aria-labelledby',button.id);
+  const heading=document.createElement('h1');heading.textContent=title;const intro=document.createElement('p');intro.className='dashboard-intro';intro.textContent=description;panel.append(heading,intro);workspace.append(panel);
+ }
+ tabs.addEventListener('keydown',e=>{if(!['ArrowRight','ArrowLeft','ArrowDown','ArrowUp','Home','End'].includes(e.key))return;
+  e.preventDefault();const list=[...tabs.children],i=list.indexOf(document.activeElement);let n=e.key==='Home'?0:e.key==='End'?list.length-1:(i+(['ArrowRight','ArrowDown'].includes(e.key)?1:-1)+list.length)%list.length;dashboardTab(list[n].dataset.panel,true);});
+ const panel=key=>document.getElementById('dashboard-'+key);
+ // Install containers before moving nodes; no clone means no duplicated IDs or forms.
+ shell.querySelector('header').after(nav,workspace);
+ const updated=shell.querySelector('.last-update');if(updated)nav.before(updated);
+ const mapping={'Выручка':'analytics','Источники продаж':'analytics','Воронка лидов':'analytics','Расписание':'events','Сезон':'rewards','Колода карточек':'rewards','Вопросы клубу':'overview','Обращения в поддержку':'overview','Заявки на награды':'rewards','Оплата переводом':'members','Участники':'members','Платежи':'analytics'};
+ const oldTools=[...shell.querySelectorAll(':scope > .section')].filter(el=>['Инструменты','Рассылки'].includes(el.querySelector('.section-title')?.textContent.trim()));
+ const tools=oldTools.flatMap(el=>[...el.querySelectorAll('button[onclick]')]);
+ const config={
+  openSettingsPopup:['settings','Основные настройки','Параметры клуба, приложения и подписки.'],
+  openSecPopup:['settings','Безопасность и доступ','Проверки защиты и административного доступа.'],
+  openPlacesPopup:['settings','Каналы и группы клуба','Закрытые площадки для участников и резерв.'],
+  openBonusPopup:['content','Материалы для новичков','Бонусные материалы, доступные после вступления.'],
+  openNudgesPopup:['messages','Автоматические напоминания','Сценарии возвращения гостей и продолжения регистрации.'],
+  openOnbxPopup:['members','Знакомство с приложением','Шаги регистрации новичков, тексты и статистика прохождения.'],
+  openAsstPopup:['overview','ИИ-помощница','Обсуждение проекта и технические задачи.'],
+  openMetrics:['analytics','Показатели по дням','Динамика посещений и активности.'],
+  openRetentionPopup:['analytics','Удержание участников','Возвращаются ли люди и как пользуются клубом.'],
+  openStoriesPopup:['content','Сториз приложения','Материалы в формате сториз.'],
+  openRegistrationReport:['analytics','Прохождение регистрации','Где участники остановились при входе в клуб.'],
+  openLectureStats:['analytics','Популярность лекций','Какие лекции открывают участники.'],
+  openBalances:['settings','Балансы сервисов','Остатки средств на внешних сервисах.'],
+  openViewLog:['analytics','История просмотров','Открытия материалов участниками.'],
+  openDupes:['members','Связанные аккаунты','Проверка связей карточек Telegram, ВК и других входов.'],
+  openBulkPointsPopup:['rewards','Начислить баллы','Выдача баллов выбранным участникам.'],
+  openLevelConfigPopup:['rewards','Уровни участников','Пороги и правила повышения уровня.'],
+  openRewardCatalogPopup:['rewards','Каталог наград','Что можно получить за баллы.'],
+  openRafflePopup:['rewards','Розыгрыши','Подготовка и проведение розыгрышей.'],
+  storageCleanRun:['settings','Очистить хранилище','Проверка и удаление неиспользуемых файлов.'],
+  adminPushToggle:['settings','Уведомления администратора','Подписка браузера на служебные уведомления.'],
+  openDigestPopup:['content','Дайджест','Сборка и публикация выпусков дайджеста.'],
+  openQaPopup:['settings','Ошибки и проверки','Сообщения о сбоях и результаты проверок.'],
+  openTextsPopup:['content','Тексты интерфейса','Подписи и сообщения внутри приложения.'],
+  openHelpDocsPopup:['content','Справка для участников','Статьи помощи в приложении.'],
+  openGamesPopup:['content','Игры и тренировки','Настройка игровых сценариев.'],
+  openRefPostsPopup:['messages','Тексты приглашений','Готовые посты, которыми участники приглашают друзей.'],
+  openWavesPopup:['messages','Рассылка приглашений','Волны приглашений по аудиториям.'],
+  openPxPopup:['rewards','Экспорт оформления карт','Подготовка карточек для работы с дизайном.'],
+  openLinkGenPopup:['messages','Ссылки в приложение','Создание ссылок на конкретные разделы и материалы.'],
+  openPromoPopup:['messages','Акции и предложения','Промо-условия для привлечения участников.'],
+  openClPopup:['events','Ссылки на занятия','Постоянные ссылки на встречи для публикаций.'],
+  openCampaignsPopup:['messages','Разовая рассылка','Отправка анонса или материала выбранному списку.'],
+  openNewsPopup:['content','Новости приложения и бота','Текст на главном экране и в главном меню бота.'],
+  openStreamsPopup:['content','Библиотека лекций','Разделы библиотеки, лекции и учебные материалы.'],
+  openMagazinePopup:['content','Выпуски журнала','Редактирование выпусков и материалов журнала.'],
+  openListNotifPopup:['messages','Аудитории уведомлений','Списки подписчиков и темы уведомлений.']
+ };
+ tools.forEach(button=>{
+  const action=button.getAttribute('onclick'),name=(action.match(/^(\w+)\(/)||[])[1];
+  // The collection already has its own complete section and entry point.
+  if(name==='openCardsPopup'){button.remove();return;}
+  const spec=config[name]||(action.includes('tasks.html')?['overview','Задачи проекта','Открытые и завершённые задачи на таскборде.']:['settings',button.textContent.trim(),'Дополнительный инструмент клуба.']);
+  const [section,label,description]=spec;button.textContent=label;button.classList.add('dashboard-tool-button');
+  let grid=panel(section).querySelector('.dashboard-tool-grid');if(!grid){grid=document.createElement('div');grid.className='dashboard-tool-grid';panel(section).append(grid);}
+  const card=document.createElement('div');card.className='dashboard-tool';card.dataset.tool=name||'tasks';const detail=document.createElement('p');detail.textContent=description;card.append(button,detail);grid.append(card);
+  dashboardTools.push({button,section,label,description});
+ });
+ oldTools.forEach(el=>el.remove());
+ [...shell.querySelectorAll(':scope > .section')].forEach(el=>panel(mapping[el.querySelector('.section-title')?.textContent.trim()]||'settings').append(el));
+ for(const selector of ['.kpi-grid','#qa-alert']){const el=shell.querySelector(':scope > '+selector);if(el)panel('overview').append(el);}
+ const contentOrder=['openNewsPopup','openStreamsPopup','openMagazinePopup','openDigestPopup','openGamesPopup','openStoriesPopup','openBonusPopup','openHelpDocsPopup','openTextsPopup'];
+ const contentGrid=panel('content').querySelector('.dashboard-tool-grid');
+ contentOrder.forEach(name=>{const card=contentGrid.querySelector('[data-tool="'+name+'"]');if(card)contentGrid.append(card);});
+ const memberTools=panel('members').querySelector('.dashboard-tool-grid');
+ if(memberTools){const details=document.createElement('details');details.className='workflow-advanced';const summary=document.createElement('summary');summary.textContent='Регистрация и связанные аккаунты';details.append(summary,memberTools);panel('members').append(details);}
+ const kpi=panel('overview').querySelector('.kpi-grid');if(kpi)panel('overview').insertBefore(kpi,panel('overview').querySelector('.dashboard-tool-grid'));
+ const hero=document.getElementById('live-hero-btn');panel('events').insertBefore(hero,panel('events').children[2]);
+ dashboardTools.push({button:hero,section:'events',label:'Пульт эфира',description:'Трансляция, запуск, телемост, запись предыдущего эфира, анонс'});
+ const quick=document.createElement('div');quick.className='dashboard-quick';quick.innerHTML='<button class="action-btn" onclick="dashboardTab(\'events\');openLivePopup()">Открыть пульт эфира</button><button class="action-btn" onclick="dashboardTab(\'members\')">Найти участника</button>';
+ panel('overview').insertBefore(quick,panel('overview').children[2]);
+ const schedule=document.querySelector('#sched-tab-oneoff').closest('.popup-body');
+ dashboardGuide(schedule,'Как добавить встречу','Разовая встреча: укажи дату, время по Москве и название, затем сохрани. Для еженедельного занятия выбери «Каждую неделю». Запись в календаре сама не запускает трансляцию и не отправляет рассылку. Для этого открой пульт эфира.');
+ dashboardGuide(document.querySelector('#campaigns-popup .popup-body'),'Отправка разового сообщения','1. Выбери аудиторию. 2. Укажи текст и ссылку. 3. Проверь список получателей и подтверди отправку. Кнопка создания сразу отправляет сообщение. Для проведения эфира используй раздел «Эфиры и расписание».');
+ dashboardGuide(document.getElementById('news-popup-overlay')?.querySelector('.popup-body'),'Новость на главном экране','Общий текст видят все. Тематические блоки видны подписчикам выбранных уведомлений. Добавляй ссылки на лекции, игры и дайджест через «Ссылки в приложение». Сохранение новости обновляет экран, отдельную рассылку создавай в «Разовой рассылке».');
+ dashboardGuide(document.getElementById('manual-section')?.querySelector('.card'),'Учёт переводов','Сначала получи перевод, затем выдай «Ссылку за перевод» в разделе участников. При продлении нажми «Оплатил» только после получения денег. Подписки Prodamus обновляются автоматически.');
+ // Persistent labels distinguish the two controls even when both are selects.
+ [['ev-cls','Вид занятия'],['ev-kind','Формат встречи'],['live-admin-event','Трансляция Kinescope'],['camp-list','Кому отправить'],['camp-flow','Что отправить']].forEach(([id,label])=>{
+  const el=document.getElementById(id);if(el)el.setAttribute('aria-label',label);
+ });
+ let saved='overview';try{saved=sessionStorage.getItem('dashboard-section')||saved;}catch(e){}dashboardTab(saved);
+}
+function updateEventGuide(n){
+ const guide=document.getElementById('event-stage-guide');if(!guide)return;
+ const text=[
+  'Подготовка: выбери формат, название, трансляцию и ссылку на телемост. Черновик сохраняется автоматически; дождись подтверждения сохранения.',
+  'Анонс: выбери площадки, сначала посмотри предпросмотр. «Разослать анонс» отправит сообщение людям. Для встречи без эфира используй «Разослать ссылку на встречу».',
+  'Запуск: проверь готовность видеоисточника и название. «Запустить трансляцию» включает эфир и площадки ВК. После запуска проверь картинку и чат. «Завершить эфир» остановит текущую сессию.',
+  'Доступ: закрытие бесплатной части оставляет продолжение участникам клуба. Открытые площадки будут остановлены. Это действие не завершает весь эфир.',
+  'Участники: проверь список пришедших и баллы. Изменение баллов не запускает трансляцию и не рассылает приглашения.',
+  'Телемост: проверь ссылку и площадки рассылки. Затем покажи кнопку встречи зрителям и отправь приглашение. Завершение эфира остаётся на вкладке «Запуск и остановка».',
+  'После эфира: прикрепи запись Kinescope. Первая привязка записи отправляет уведомление подписчикам. Реакции и техническая диагностика находятся ниже.'
+ ];guide.textContent=text[n]||'';
+ document.querySelectorAll('#ev-strip [data-ev]').forEach(b=>b.setAttribute('aria-selected',String(Number(b.dataset.ev)===n)));
+}
+initDashboardNavigation();
+
 </script>
 </body>
 </html>
