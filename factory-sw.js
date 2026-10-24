@@ -1,0 +1,4 @@
+const CACHE='factory-shell-v113';
+self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./factory-offline.html','./factory-assets/icon-192.png']))));
+self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('factory-shell-')&&k!==CACHE).map(k=>caches.delete(k))))));
+self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.method!=='GET'||u.origin!==location.origin)return;if(e.request.mode==='navigate'&&u.pathname===new URL('./factory-gpt.html',location.href).pathname)e.respondWith(fetch(e.request).catch(()=>caches.open(CACHE).then(c=>c.match('./factory-offline.html'))));else if(u.pathname===new URL('./factory-assets/icon-192.png',location.href).pathname)e.respondWith(caches.open(CACHE).then(c=>c.match(e.request).then(hit=>hit||fetch(e.request))));});
