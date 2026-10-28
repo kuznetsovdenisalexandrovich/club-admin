@@ -1,4 +1,4 @@
-const CACHE='shooting-v13';const FILES=['./','./index.html','./app.css','./app.js','./manifest.webmanifest','./icon.svg','./icon-180.png','./icon-192.png','./icon-512.png'];
+const CACHE='shooting-v14';const FILES=['./','./index.html','./app.css','./app.js','./manifest.webmanifest','./icon.svg','./icon-180.png','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES))));
 self.addEventListener('activate',e=>e.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('shooting-')&&k!==CACHE).map(k=>caches.delete(k)))),self.clients.claim()])));
 self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.method!=='GET'||u.origin!==location.origin||!u.pathname.startsWith(new URL('./',location.href).pathname))return;e.respondWith(caches.match(e.request,{ignoreSearch:true}).then(hit=>hit||(e.request.mode==='navigate'?caches.match('./index.html').then(shell=>shell||fetch(e.request)):fetch(e.request))));});
