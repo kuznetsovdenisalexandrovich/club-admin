@@ -113,3 +113,6 @@ body.sheet-open{overflow:hidden}
 .resume-text span{color:var(--muted);overflow-wrap:anywhere}
 .resume-banner .primary{flex-shrink:0;padding:10px 14px}
 @media(max-width:440px){.header-status .account-chip{width:auto;max-width:110px;padding:6px 9px}.brand-caption{display:none}}
+/* v15: a grid item never grows past the screen because of a long one-line hypothesis name */
+.grid>*{min-width:0}.grid{grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr))}
+html{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%;text-size-adjust:100%}
