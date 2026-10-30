@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v230 -->
+<!-- FILE_VERSION: admin-v231 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3209,6 +3209,13 @@ select:disabled{opacity:.55;cursor:not-allowed}
         <div class="emoji-picker" id="listnotif-emoji-picker"></div>
       </div>
       <div id="listnotif-text" class="popup-input rich-input" contenteditable="true" data-placeholder="Текст уведомления..."></div>
+      <label for="listnotif-image-file" class="pay-meta" style="margin-top:10px">Картинка к уведомлению</label>
+      <input id="listnotif-image-file" type="file" accept="image/jpeg,image/png,image/webp" class="popup-input" style="margin-top:2px;min-height:46px" onchange="uploadNotificationImage(this.files[0])">
+      <div id="listnotif-image-status" class="pay-meta">JPEG, PNG или WebP до 5 МБ. Картинка — для Telegram, текст до 1024 символов. В push придёт только текст.</div>
+      <div id="listnotif-image-preview" hidden>
+        <img id="listnotif-image-img" alt="Картинка уведомления" style="display:block;max-width:100%;max-height:240px;border-radius:12px;margin:10px 0">
+        <button type="button" class="action-btn" onclick="clearNotificationImage()">Убрать картинку</button>
+      </div>
 
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-dim);padding:6px 2px">
         <input type="checkbox" id="listnotif-bot" checked style="width:16px;height:16px"> Отправить в бота
@@ -3719,7 +3726,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v230';
+const BUILD_VERSION = 'admin-v231';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -10184,6 +10191,32 @@ async function createManualUser(){
 }
 
 
+let notificationImage='', notificationImageBusy=false, notificationSending=false;
+let notificationRequest=null;
+function clearNotificationImage(keepFile=false){
+  notificationImage=''; if(!keepFile) document.getElementById('listnotif-image-file').value='';
+  document.getElementById('listnotif-image-preview').hidden=true;
+  document.getElementById('listnotif-image-img').removeAttribute('src');
+  document.getElementById('listnotif-image-status').textContent='JPEG, PNG или WebP до 5 МБ. Картинка — для Telegram, текст до 1024 символов. В push придёт только текст.';
+}
+async function uploadNotificationImage(file){
+  if(!file || notificationImageBusy || notificationSending) return;
+  clearNotificationImage(true);
+  const status=document.getElementById('listnotif-image-status');
+  if(file.size>5*1024*1024){status.textContent='Выбери картинку до 5 МБ';return;}
+  notificationImageBusy=true; status.textContent='Загружаю картинку…';
+  try{
+    const image_base64=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file);});
+    const r=await fetch(API+'/notifications/image?x_admin_token='+encodeURIComponent(ADMIN_TOKEN),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image_base64})});
+    const d=await r.json(); if(!r.ok) throw new Error(d.detail||'Не удалось загрузить картинку');
+    notificationImage=d.image;
+    document.getElementById('listnotif-image-img').src=d.url;
+    document.getElementById('listnotif-image-preview').hidden=false;
+    status.textContent='Картинка готова. Telegram: подпись до 1024 символов. Push — только текст. Если в аудитории есть ВК, убери картинку перед общей рассылкой.';
+  }catch(e){status.textContent=e.message||'Ошибка загрузки';}
+  finally{notificationImageBusy=false;}
+}
+
 function openListNotifPopup(){
   document.getElementById('listnotif-result').textContent='';
   document.getElementById('listnotif-popup-overlay').classList.add('open');
@@ -10192,6 +10225,8 @@ function openListNotifPopup(){
 function closeListNotifPopup(){ document.getElementById('listnotif-popup-overlay').classList.remove('open'); }
 
 async function sendListNotification(isTest){
+  if(notificationSending) return;
+  if(notificationImageBusy){alert("Дождись загрузки картинки");return;}
   const rawVal=document.getElementById('listnotif-target').value;
   const aud=listNotifAudience();
   const listVal=aud ? '' : rawVal;
@@ -10209,27 +10244,30 @@ async function sendListNotification(isTest){
                     : (listVal?'выбранному списку':'ВСЕМ участникам клуба');
     if(!confirm(`Отправить это ${label}?`)) return;
   }
+  const payload={list_id:listVal?parseInt(listVal):null,audience:aud?aud.key:null,message,
+    send_bot:sendBot,send_app:sendApp,buttons:bcastButtons,test_phone:isTest?test_phone:null,image:notificationImage};
+  const fingerprint=JSON.stringify(payload);
+  if(!notificationRequest || notificationRequest.fingerprint!==fingerprint)
+    notificationRequest={fingerprint,id:crypto.randomUUID()};
+  payload.request_id=notificationRequest.id;
+  notificationSending=true;
   resultEl.textContent='Отправляю...';
   try{
     const r=await fetch(API+'/notifications/send?x_admin_token='+ADMIN_TOKEN,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        list_id: listVal ? parseInt(listVal) : null,
-        audience: aud ? aud.key : null,
-        message,
-        send_bot: sendBot,
-        send_app: sendApp,
-        buttons: bcastButtons,
-        test_phone: isTest?test_phone:null,
-      })
+      body:JSON.stringify(payload)
     });
     const data=await r.json();
     if(!r.ok){ resultEl.textContent='Ошибка: '+(data.detail||'неизвестная'); return; }
     if(isTest){ resultEl.textContent='Тест отправлен тебе — проверь Telegram.'; return; }
     let summary=[];
     if(data.app) summary.push(`Приложение: ${data.app.sent} из ${data.app.total_subscriptions} подписок (участников со списком: ${data.app.matched_members})`);
-    if(data.bot && data.bot.audience){
+    if(data.bot && data.bot.transport==='native'){
+      const b=data.bot;
+      summary.push('Бот: в очереди '+(b.queued_count||0)+', пропущено '+(b.skipped_count||0)+' (нет доступного диалога или запрет писать), удержано '+(b.held_count||0)+'. Итог доставки — в журнале бота.');
+    }
+    else if(data.bot && data.bot.audience){
       const b=data.bot, parts=[];
       parts.push('через Salebot: '+b.via_salebot);
       if(b.via_direct) parts.push('ботом напрямую: '+b.via_direct+(b.direct_buttons_dropped?' (без кнопок-команд — их отправляет только Salebot)':''));
@@ -10242,9 +10280,11 @@ async function sendListNotification(isTest){
     else if(data.bot) summary.push('Бот: отправлено');
     resultEl.textContent=summary.join(' · ') || 'Готово';
     document.getElementById('listnotif-text').innerHTML='';
+    clearNotificationImage(); notificationRequest=null;
     bcastButtons=[];
     renderBcastButtons();
-  }catch(e){ resultEl.textContent='Ошибка соединения'; }
+  }catch(e){ resultEl.textContent='Не удалось получить ответ. Проверь журнал перед повтором; повтор с тем же содержимым не создаст новую рассылку бота.'; }
+  finally{notificationSending=false;}
 }
 
 /* ── HTML-форматирование текстовых полей ── */
