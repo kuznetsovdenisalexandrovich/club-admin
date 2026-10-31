@@ -116,3 +116,6 @@ body.sheet-open{overflow:hidden}
 /* v15: a grid item never grows past the screen because of a long one-line hypothesis name */
 .grid>*{min-width:0}.grid{grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr))}
 html{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+
+/* Searchable, synced topic tags. */
+.tag-list{display:flex;flex-wrap:wrap;gap:6px;min-width:0}.tag-list .pill{max-width:100%;overflow-wrap:anywhere;white-space:normal}.idea-filters select{max-width:100%;min-width:0}#collection-preview{overflow-wrap:anywhere}#collection-preview li{margin:8px 0}
