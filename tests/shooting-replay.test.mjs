@@ -16,3 +16,12 @@ test('replay visits every step without changing saved filming status or date',as
 test('normal shooting still records completion',async()=>{
  const {c}=setup(false);c.shoot.step=2;await c.next();assert.equal(c.writes,1);assert.match(c.dialog,/shoot-replay/);
 });
+test('replay entry works without a shooting day and returns to its original screen',async()=>{
+ const entry=source.slice(source.indexOf('async function startReplay('),source.indexOf('async function startShoot('));
+ for(const screen of [{view:'card',selected:'card',sheet:false,hypo:'',tab:'script'},{view:'day',selected:'day',sheet:false,hypo:'',tab:'script'},{view:'hypothesis',selected:'card',sheet:true,hypo:'hyp',tab:'details'}]){
+  const card={id:'card',data:{slate:true,day_id:screen.view==='day'?'day':'',blocks:[]}},before=JSON.stringify(card);
+  const c={...screen,shoot:null,wakeLock:null,item:id=>id==='card'?card:id==='day'?{kind:'day'}:null,complete:()=>true,document:{body:{classList:{remove(){}}}},render(){},navigator:{wakeLock:{request:async()=>({release(){}})}}};
+  vm.createContext(c);vm.runInContext(entry+';globalThis.start=startReplay;globalThis.exit=exitShoot',c);await c.start('card');assert.equal(c.shoot.replay,true);assert.equal(c.shoot.ids[0],'card');assert.equal(c.shoot.step,0);assert.equal(c.sheet,false);
+  c.exit();assert.equal(c.shoot,null);for(const [key,value] of Object.entries(screen))assert.equal(c[key],value);assert.equal(JSON.stringify(card),before);
+ }
+});
