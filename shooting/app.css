@@ -119,3 +119,4 @@ html{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%;text-size-adjust:100
 
 /* Searchable, synced topic tags. */
 .tag-list{display:flex;flex-wrap:wrap;gap:6px;min-width:0}.tag-list .pill{max-width:100%;overflow-wrap:anywhere;white-space:normal}.idea-filters select{max-width:100%;min-width:0}#collection-preview{overflow-wrap:anywhere}#collection-preview li{margin:8px 0}
+.reel-text{white-space:pre-wrap;overflow-wrap:anywhere}#reel-work section{margin:18px 0}#reel-work h4{margin:12px 0 6px}#reel-work details{margin:16px 0}.reel-history{display:flex;flex-direction:column;align-items:flex-start;gap:5px;margin:12px 0;min-width:0}.reel-history button{max-width:100%;text-align:left;overflow-wrap:anywhere}
