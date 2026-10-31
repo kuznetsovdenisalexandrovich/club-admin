@@ -56,3 +56,24 @@ export function parseCollection(text,hypotheses){
     return {id:c.id,title,idea:c.idea,hypothesis_id:h.id,notes,blocks:versioned?canonical.map(name=>c.blocks.find(b=>b.title===name)):c.blocks};
   });
 }
+
+// Legacy cards may only have an approximate creation time supplied by the server.
+export function itemDate(row,field='created'){
+ const raw=field==='updated'?row.updated:row.created||row.data?.created_at;
+ const value=Date.parse(raw||'');return Number.isFinite(value)?value:null;
+}
+export function matchesDates(row,filters={}){
+ for(const field of ['created','updated']){
+  const from=filters[field+'From'],to=filters[field+'To'];if(!from&&!to)continue;
+  const value=itemDate(row,field);if(value===null)return false;
+  const d=new Date(value),day=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+  if(from&&day<from||to&&day>to)return false;
+ }
+ return true;
+}
+export function compareItemDates(a,b,sort='new'){
+ const field=sort.startsWith('updated')?'updated':'created',ascending=sort==='old'||sort==='updated-old';
+ const av=itemDate(a,field),bv=itemDate(b,field);
+ if(av===null||bv===null)return av===bv?String(a.id).localeCompare(String(b.id)):av===null?1:-1;
+ return (ascending?av-bv:bv-av)||String(a.id).localeCompare(String(b.id));
+}
