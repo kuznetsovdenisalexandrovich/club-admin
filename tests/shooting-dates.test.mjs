@@ -14,3 +14,7 @@ test('date sorting has four directions and unknown dates stay last',()=>{
   const sorted=[unknown,a,b].sort((a,b)=>compareItemDates(a,b,sort));assert.equal(sorted[0].id,first);assert.equal(sorted[2].id,'c');
  }
 });
+test('legacy frames stay in creation order even if an old frame was recently modified',()=>{
+ const rows=[{id:'66',created:'2026-10-31',created_estimated:true,updated:'2026-11-01',data:{spoken_code:'Кадр 66'}},{id:'120',data:{spoken_code:'Кадр 120'}},{id:'121',created:'2026-11-01',created_estimated:true,data:{spoken_code:'Кадр 121'}},{id:'119',created:'2026-10-31',created_estimated:true,data:{spoken_code:'Кадр 119'}}];
+ assert.deepEqual(rows.sort((a,b)=>compareItemDates(a,b,'new')).map(r=>r.id),['121','120','119','66']);
+});

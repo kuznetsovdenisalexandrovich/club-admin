@@ -74,6 +74,8 @@ export function matchesDates(row,filters={}){
 export function compareItemDates(a,b,sort='new'){
  const field=sort.startsWith('updated')?'updated':'created',ascending=sort==='old'||sort==='updated-old';
  const av=itemDate(a,field),bv=itemDate(b,field);
+ // Before creation dates existed, frame numbers preserve the order of legacy cards.
+ if(field==='created'&&(a.created_estimated||av===null)&&(b.created_estimated||bv===null)){const an=Number(String(a.data?.spoken_code||'').match(/^Кадр (\d+)/)?.[1]),bn=Number(String(b.data?.spoken_code||'').match(/^Кадр (\d+)/)?.[1]);if(an&&bn&&an!==bn)return ascending?an-bn:bn-an;}
  if(av===null||bv===null)return av===bv?String(a.id).localeCompare(String(b.id)):av===null?1:-1;
  return (ascending?av-bv:bv-av)||String(a.id).localeCompare(String(b.id));
 }
