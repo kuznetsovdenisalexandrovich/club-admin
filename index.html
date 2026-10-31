@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v231 -->
+<!-- FILE_VERSION: admin-v232 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3726,7 +3726,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v231';
+const BUILD_VERSION = 'admin-v232';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -22001,7 +22001,7 @@ function qaRenderItems(){
       + '<span style="width:10px;height:10px;border-radius:50%;background:' + color + ';flex-shrink:0"></span>'
       + '<div style="flex:1;min-width:0"><div class="pay-name">' + qaEsc(i.title) + '</div>'
       + '<div class="pay-meta">' + (QA_AUD[i.aud] || i.aud) + (i.platform !== 'any' ? ' · только ' + (QA_PLAT[i.platform] || i.platform) : '')
-      + ' · ' + (i.runs.length ? i.runs.map(function(r){ return qaEsc(r.name) + (r.ok ? ' — да' : ' — нет'); }).join(', ') : 'в этом круге не проверяли')
+      + ' · ' + (i.runs.length ? i.runs.map(function(r){ return qaEsc(r.name) + (r.ok ? ' — да' : ' — нет') + (r.platform ? ' · '+qaEsc(r.platform) : '') + (r.build ? ' · '+qaEsc(r.build) : ''); }).join(', ') : 'в этом круге не проверяли')
       + (i.active ? '' : ' · выключен') + '</div></div>'
       + '<span style="font-size:12px;font-weight:700;color:' + color + ';white-space:nowrap">' + state + '</span>'
       + '<button class="action-btn" style="flex-shrink:0" onclick="qaEditItem(' + i.id + ')">Изм.</button>'
