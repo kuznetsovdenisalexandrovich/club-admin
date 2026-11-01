@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v232 -->
+<!-- FILE_VERSION: admin-v233 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3726,7 +3726,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v232';
+const BUILD_VERSION = 'admin-v233';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -4280,6 +4280,7 @@ async function resolveReward(id){
    сама, ещё до того как я допишу ей человеческую подпись.
    Вид поля: bool — тумблер, num — число, text — строка, area — многострочный */
 const SETTINGS_META = {
+  points_min_payment: ['Минимальный платёж после списания баллов, ₽', '0 — можно оплатить месяц целиком баллами. 300 — после баллов останется минимум 300 ₽. Для новых запросов; ранее назначенные скидки сохраняются. Скидки без баллов по-прежнему оставляют минимум 300 ₽.', 'num'],
   /* admin-v160: подписи к настройкам, заведённым на бэкенде в v379–v386 —
      без них они показывались голым ключом «Подпись ещё не описана» */
   invite_film_video: ['Пригласить друга: видео тизера', 'Файл в хранилище (s3:stories/…) — крутится на стенде «Чем поделиться» и уходит постом в Telegram-бота. Во ВКонтакте тизер прикреплён в самом блоке Salebot', 'text'],
@@ -4406,6 +4407,7 @@ const NUDGE_SETTING_KEYS = ['nudge_later_label','card_change_remind_text','card_
   'gift_title','gift_button_label','gift_name_fallback','gift_points_text','gift_discount_text','gift_shift_text'];
 
 const SETTINGS_GROUPS = [
+  ['Оплата баллами', ['points_min_payment']],
   ['Фильм и окно бонусов', ['film_lecture_slug','film_duration_sec','funnel_bonus_window_min','funnel_bonus_window_back','funnel_window_last_min','guest_tour_enabled']],
   ['Что открыто участнику', ['insights_unlock_level','pdf_unlock_level','audio_preview_minutes']],
   ['ИИ-помощник', ['assistant_on','assistant_guests','assistant_limit_member','assistant_limit_guest','assistant_limit_text','assistant_fail_text','assistant_facts','assistant_prompt','assistant_admin_prompt','assistant_model']],
@@ -4459,6 +4461,14 @@ function settingRowHtml(key, value){
       + '<label class="switch"><input type="checkbox" ' + (value === '1' ? 'checked' : '')
       + ' onchange="saveSetting(\'' + key + '\', this.checked ? \'1\' : \'0\')">'
       + '<span class="switch-track"></span></label></div>';
+  }
+  if (key === 'points_min_payment'){
+    return '<div class="pay-item" style="display:block">'
+      + '<label for="points-min-payment" style="display:block;font-size:13px;font-weight:600">' + title + ok + '</label>'
+      + '<div class="pay-meta" style="margin-top:6px">' + hint + '</div>'
+      + '<input id="points-min-payment" type="number" min="0" max="1000000" step="1" value="' + setEsc(value) + '" '
+      + 'style="width:110px;margin-top:12px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--stat-bg);color:var(--text);font-family:inherit" '
+      + 'onchange="saveSetting(\'' + key + '\', this.value)"></div>';
   }
   if (type === 'num'){
     return '<div class="pay-item">' + head
