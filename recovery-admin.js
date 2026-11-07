@@ -4,7 +4,7 @@
 let generation=0,busy=false,detail=null,items=[],previousFocus=null;
 const $=id=>document.getElementById('recovery-'+id);
 const titles={rf_failure:'Ошибка обмена',rf_transport:'Связь между серверами',rf_identity:'Сопоставление записей',rf_missing_row:'Восстановление записи',bot_outbox:'Доставка боту',operator_retry:'Ручной повтор сообщения',operator_rf:'Ручной повтор обмена',disk_pressure:'Свободное место'};
-const statuses={waiting:'Требует внимания',resolved:'Восстановлено',accepted:'Принято ботом',requested:'Повтор запрошен',rejected:'Не принято',review:'Нужна проверка',unknown:'Результат неизвестен',failed:'Ошибка',blocked:'Доставка недоступна',conflict:'Конфликт',sent:'Отправлено',callback:'Колбек оплаты'};
+const statuses={waiting:'Требует внимания',resolved:'Восстановлено',accepted:'Принято ботом',requested:'Повтор запрошен',rejected:'Не принято',review:'Нужна проверка',unknown:'Результат неизвестен',failed:'Ошибка',blocked:'Доставка недоступна',conflict:'Конфликт',sent:'Отправлено',callback:'Колбек оплаты',queued:'В очереди',pending:'Ожидает обработки',sending:'Отправляется',delivered:'Доставлено',done:'Обработано'};
 function node(){return $('node').value;}
 function label(){return node()==='primary'?'Основной сервер':'Резервный сервер';}
 function text(tag,value,cls){const e=document.createElement(tag);e.textContent=value==null?'':String(value);if(cls)e.className=cls;return e;}
@@ -50,15 +50,16 @@ async function openDetail(item){
  try{const d=await request(paths[item.type]+encodeURIComponent(item.id));if(g!==generation)return;detail={item,data:d,node:node()};const box=$('detail');box.replaceChildren(text('h3',item.title),text('p',label(),'pay-meta'));
   if(item.ids)box.append(text('p','Исходные записи: '+item.ids.join(', ')));
   if(item.type==='callback')box.append(text('p',d.processing==='recorded'?'Обработка зарегистрирована. Результат сохранён ниже.':'Обработка на этом сервере не подтверждена. Сверьте резерв и журнал обмена.'));
+  if(item.type==='outbox')box.append(text('p','Статус: '+(statuses[d.status]||d.status)+' · попыток: '+(d.attempts||0)));
   if(d.retry)box.append(text('p',d.retry.reason));
   if(item.type==='outbox'&&d.retry&&d.retry.allowed)box.append(button('Безопасно повторить сообщение',()=>retryMessage()));
   if(item.type==='journal'&&['rf_failure','rf_transport'].includes(d.kind))box.append(button('Повторить обмен на этом сервере',()=>retryExchange()));
-  box.append(button('Скачать JSON',download));const pre=text('pre',JSON.stringify(d,null,2),'recovery-json');pre.tabIndex=0;box.append(pre);box.scrollIntoView({block:'nearest',behavior:'smooth'});
+  box.append(button('Обновить карточку',()=>openDetail(item)),button('Скачать JSON',download));const pre=text('pre',JSON.stringify(d,null,2),'recovery-json');pre.tabIndex=0;box.append(pre);box.scrollIntoView({block:'nearest',behavior:'smooth'});
  }catch(e){if(g===generation)$('detail').replaceChildren(text('p',e.message));}
 }
 async function mutate(path,prompt){
- if(busy||!confirm(label()+'. '+prompt))return;lock(true);message('Выполняю действие. Повторно не нажимайте.');
- try{const d=await request(path,'POST');message('Запрос принят. Обновляю состояние…');lock(false);await refresh();message(path==='/rf/retry'?'Обмен выполнен. Последнее применённое событие: '+d.through+'.':('Запрос повтора сообщения принят. Факт доставки смотрите в карточке сообщения; принятие запроса ещё не означает доставку.'));}
+ if(busy||!confirm(label()+'. '+prompt))return;const current=detail?.item;lock(true);message('Выполняю действие. Повторно не нажимайте.');
+ try{const d=await request(path,'POST');message('Запрос принят. Обновляю состояние…');lock(false);await refresh();if(path.startsWith('/outbox/')&&current)await openDetail(current);message(path==='/rf/retry'?'Обмен выполнен. Последнее применённое событие: '+d.through+'.':('Запрос повтора сообщения принят. Факт доставки смотрите в карточке сообщения; принятие запроса ещё не означает доставку.'));}
  catch(e){message(e.message+' Автоматического повторного запроса не было. Нажмите «Обновить», чтобы проверить результат.');}
  finally{lock(false);}
 }
