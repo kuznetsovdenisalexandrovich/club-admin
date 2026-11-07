@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v233 -->
+<!-- FILE_VERSION: admin-v234 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1331,6 +1331,19 @@ select:disabled{opacity:.55;cursor:not-allowed}
 .overview-lead-help{margin:16px 0 0;line-height:1.6}
 @media(max-width:599px){.overview-conversion-card{padding:14px}.overview-lead-totals{gap:10px}.overview-lead-totals strong{font-size:19px}.overview-source-table th,.overview-source-table td{padding:10px 6px;font-size:12px}}
 </style>
+<style>
+.recovery-popup{max-width:1100px;width:calc(100vw - 24px)}
+.recovery-popup .popup-body{padding-top:24px}
+.recovery-controls{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin:14px 0}
+.recovery-controls label{display:flex;flex-direction:column;gap:6px;font-size:12px;min-width:0}
+.recovery-controls select,.recovery-controls input{padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text);max-width:100%}
+.recovery-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:18px}
+.recovery-row{padding:14px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.recovery-row p,#recovery-message,#recovery-detail p{font-size:13px;overflow-wrap:anywhere;white-space:pre-wrap}
+.recovery-json{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--surface2);padding:14px;border-radius:12px;font-size:12px;max-height:65vh;overflow:auto}
+#recovery-detail{min-width:0}#recovery-detail button{margin:5px 8px 5px 0}
+@media(max-width:700px){.recovery-columns{grid-template-columns:minmax(0,1fr)}#recovery-detail{grid-row:1}.recovery-popup{width:calc(100vw - 16px)}}
+</style>
 </head>
 
 <body>
@@ -1471,6 +1484,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
         <div class="tools-grid">
           <button class="action-btn" onclick="location.href='tasks.html'">Задачи проекта</button>
           <button class="action-btn" onclick="openSettingsPopup()">Настройки клуба</button>
+          <button class="action-btn" onclick="openRecoveryPopup()">Журнал и восстановление</button>
           <button class="action-btn" onclick="openSecPopup()" id="sec-btn">Безопасность</button>
           <button class="action-btn" onclick="openPlacesPopup()">Каналы и группы</button>
           <button class="action-btn" onclick="openBonusPopup()">Бонусы за вступление</button>
@@ -3726,7 +3740,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v233';
+const BUILD_VERSION = 'admin-v234';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -23727,6 +23741,7 @@ function initDashboardNavigation(){
  const oldTools=[...shell.querySelectorAll(':scope > .section')].filter(el=>['Инструменты','Рассылки'].includes(el.querySelector('.section-title')?.textContent.trim()));
  const tools=oldTools.flatMap(el=>[...el.querySelectorAll('button[onclick]')]);
  const config={
+  openRecoveryPopup:['settings','Журнал и восстановление','Ошибки, тела колбеков, автоматические исправления и безопасный ручной повтор.'],
   openSettingsPopup:['settings','Основные настройки','Параметры клуба, приложения и подписки.'],
   openSecPopup:['settings','Безопасность и доступ','Проверки защиты и административного доступа.'],
   openPlacesPopup:['settings','Каналы и группы клуба','Закрытые площадки для участников и резерв.'],
@@ -23874,5 +23889,6 @@ function renderOverviewConversion(rebuildSources=false){
 initOverviewConversion();
 if(ADMIN_TOKEN)loadOverviewConversion();
 </script>
+<script src="recovery-admin.js?v=234"></script>
 </body>
 </html>
