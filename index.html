@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v236 -->
+<!-- FILE_VERSION: admin-v239 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
+<script src="card-review.js?v=239"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -777,6 +778,14 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
 .manual-caption{padding:14px 14px 0;font-size:12px;color:var(--text-faint)}
 .manual-late{color:var(--warm)}
 .update-banner{position:fixed;top:12px;left:12px;right:12px;z-index:99999;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--card-bg,#fff8f1);box-shadow:0 4px 20px #0002;font-size:13px}
+
+.cr-layout{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:24px;padding:20px}
+.cr-scene{width:min(100%,340px);margin:8px auto 24px}.cr-note{font-size:12px;line-height:1.5;color:var(--text-faint)}
+.cr-shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(transparent 49%,rgba(6,6,11,.88) 79%,#08080d)}
+.cr-copy{position:absolute;z-index:7;bottom:10%;left:13%;right:13%;color:#f6efe6;text-align:center;pointer-events:none;font:700 22px Georgia,serif}
+.cr-actions{display:flex;gap:8px;flex-wrap:wrap}.cr-actions .popup-save{width:auto;margin:0;padding:10px 18px}
+.cr-layout dt{font-size:12px;color:var(--text-faint);margin-top:10px}.cr-layout dd{margin:3px 0 0}
+@media(max-width:640px){.cr-layout{grid-template-columns:minmax(0,1fr);padding:12px}}
 </style>
 
 <style id="bp-visual-redesign-2026">
@@ -3407,12 +3416,16 @@ select:disabled{opacity:.55;cursor:not-allowed}
           </select></label>
       </div>
       <label class="toggle-switch" style="margin-bottom:8px">
-        <input type="checkbox" id="pu-active" checked>
+        <input type="checkbox" id="pu-active">
         <span class="toggle-track"><span class="toggle-thumb"></span></span>
         <span class="toggle-label-text">Сразу в колоду (выпадают из паков)</span>
       </label>
       <button class="action-btn" style="width:100%" onclick="document.getElementById('pu-files').click()">Выбрать файлы</button>
       <input type="file" id="pu-files" accept="image/*" multiple style="display:none" onchange="packUpAdd(this.files); this.value=''">
+      <label style="display:block;margin-top:10px">Сжатие изображений
+      <select class="popup-input" id="pu-compression"><option value="balanced">1600 px · качество 85% — сбалансированно</option><option value="small">1200 px · качество 78% — компактно</option><option value="original">2400 px · качество 90% — подробнее</option></select></label>
+      <button class="action-btn" onclick="packEstimateCompression()">Посчитать размер после сжатия</button><span id="pu-size" role="status"></span>
+      <details style="margin:12px 0"><summary>Импорт подготовленной папки</summary><p>Выбери папку с manifest.json и изображениями. Коллекции, редкости и индивидуальные переливы восстановятся автоматически. Исходные файлы не изменятся.</p><input type="file" webkitdirectory multiple onchange="preparedRead(this.files)"><button class="action-btn" id="prepared-go" disabled onclick="preparedUpload()">Загрузить на ревью</button><div id="prepared-status" role="status" style="white-space:pre-wrap"></div></details>
       <div id="pu-note" style="font-size:11.5px;color:var(--text-faint);margin:8px 0;line-height:1.45"></div>
       <div id="pu-rows"></div>
       <div class="action-result err" id="pu-error"></div>
@@ -3740,7 +3753,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v238';
+const BUILD_VERSION = 'admin-v239';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -10746,6 +10759,7 @@ async function openCardsPopup(after){
   if (typeof after === 'function') after();
 }
 function closeCardsPopup(){
+  cardReview.active=false;reviewStopFx();
   document.getElementById('cards-popup-overlay').classList.remove('open');
 }
 
@@ -11849,6 +11863,7 @@ function renderCardFilters(){
     return '<button class="ptab' + (on ? ' active' : '') + '" onclick="setCardsFilter(' + jsArg(f.key) + ')">'
       + f.label + ' <span style="opacity:.6">' + n + '</span></button>';
   }).join('')
+  + '<button class="ptab" onclick="reviewStart(false)">Ревью новых</button><button class="ptab" onclick="reviewStart(true)">Ревью всех</button><button class="ptab" onclick="reviewRandomizeMissing(this)">Назначить переливы без настройки</button>'
   + (cardsFilter === 'review' ? '<button class="ptab" onclick="markShownReviewed()">✓ Отметить показанные проверенными</button>' : '');
 }
 
@@ -12008,6 +12023,7 @@ function renderCardShelf(){
 }
 
 function renderCardDetailSlot(){
+  reviewStopFx();
   const slot = document.getElementById('cards-editor-slot');
   if (!slot) return;
   if (!cardExpanded){ slot.innerHTML = ''; return; }
@@ -12024,8 +12040,9 @@ function renderCardDetailSlot(){
       + '<div style="flex:1;font-size:13px;font-weight:600">' + (c.title || c.key) + ' ' + unsavedNote + '</div>'
       + '<button class="action-btn" onclick="closeCardEditor()">← К колоде</button>'
     + '</div>'
-    + (cardEditMode ? cardEditorHtml(c, idx) : cardDetailHtml(c, idx))
+    + (cardEditMode ? cardEditorHtml(c, idx) : cardReview.active ? reviewHtml(c, idx) : cardDetailHtml(c, idx))
     + '</div>';
+  if(cardReview.active && !cardEditMode) reviewMount(c);
 }
 
 /* Крупный просмотр карточки: как она выглядит, плюс её настройки словами.
@@ -12110,7 +12127,7 @@ document.addEventListener('keydown', function(e){
   if (e.key === 'Escape') closeAdminZoom();
 });
 
-function editCardType(){ cardEditMode = true; renderCardShelf(); }
+function editCardType(){ reviewStopFx(); cardEditMode = true; renderCardShelf(); }
 
 /* admin-v218 · «Отправить» — ВСПЛЫВАЮЩЕЕ ОКНО С ЭТОЙ КАРТОЙ, а не переход на
    вкладку «Подарить». [stated] Denis 21.10: там получатель оставался с прошлого
@@ -12235,6 +12252,7 @@ function openCardEditor(key){
   if (popup) popup.scrollTop = 0;
 }
 function closeCardEditor(){
+  cardReview.active=false;reviewStopFx();
   cardExpanded = null; cardEditMode = false; renderCardShelf();
   var origin = cardsEditorOrigin; cardsEditorOrigin = null;
   if (!origin) return;
@@ -13564,6 +13582,7 @@ async function saveCardType(idx){
     unique_card: cb('unique_card'),
     // admin-v213: серия карты. Сезон у карты из серии сервер берёт от серии
     set_key: v('set_key'),
+    needs_review: cardReview.active || !!(cardTypes[idx] && cardTypes[idx].needs_review),
   };
   if (!payload.key){ alert('Нужен ключ карточки'); return; }
 
@@ -13572,7 +13591,9 @@ async function saveCardType(idx){
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
     });
     if (!r.ok){ alert((await r.json().catch(function(){return {};})).detail || 'Ошибка сохранения'); return; }
-    cardExpanded = null;
+    const reviewing = cardReview.active;
+    cardExpanded = reviewing ? payload.key : null;
+    cardEditMode = false;
     await loadCardTypes();
     renderCardsWidget();
   } catch(e){ alert('Ошибка соединения'); }
@@ -13848,7 +13869,7 @@ function cardResizeToDataUrl(file, maxWidth, quality){
    JPEG, как раньше (он в разы легче). Размеры прежние: превью 400, полная 2400,
    мельче оригинала не растягиваем */
 function cardArtCanvas(img, maxWidth){
-  const scale = Math.min(1, maxWidth / img.width);
+  const scale = Math.min(1, maxWidth / Math.max(img.width, img.height));
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.round(img.width * scale));
   canvas.height = Math.max(1, Math.round(img.height * scale));
@@ -13886,7 +13907,7 @@ function cardArtEncode(file, opts){
           resolve({
             ext: png ? 'png' : 'jpg', alpha: png,
             thumb: cardArtCanvas(img, 400).toDataURL(mime, 0.82),
-            full:  cardArtCanvas(img, opts.maxFull || 2400).toDataURL(mime, 0.85),
+            full:  cardArtCanvas(img, opts.maxFull || 1600).toDataURL(mime, opts.quality || 0.85),
           });
         } catch(e){ reject(e); }
       };
@@ -13980,7 +14001,7 @@ async function bulkUploadArts(fileList){
       }
       const enc = await cardArtEncode(f);
       const d = await cardArtPost(key, enc);
-      card.image_url = d.url; card.image_full_url = d.full_url || '';
+      card.image_url = d.url && d.url.startsWith('s3:') ? API+'/media/'+d.url.slice(3) : d.url; card.image_full_url = d.full_url && d.full_url.startsWith('s3:') ? API+'/media/'+d.full_url.slice(3) : (d.full_url||'');
       ok++;
       lines.push('✓ ' + escapeHtmlAdm(f.name) + ' → ' + escapeHtmlAdm(key) + note + (enc.alpha ? ' · с прозрачностью (PNG)' : ''));
     } catch(e){
@@ -14474,7 +14495,7 @@ async function packUpGo(){
       for (let t = 0; t < tries.length && !sent; t++){
         try {
           if (t) { r.status = 'ещё попытка ' + (t + 1) + '…'; packUpRender(); await new Promise(function(z){ setTimeout(z, 1500); }); }
-          const enc = await cardArtEncode(r.file, tries[t]);
+          const enc = await cardArtEncode(r.file, Object.assign({}, cardCompressionOptions(), tries[t]));
           await cardArtPost(key, enc);
           sent = true;
         } catch(e){ lastErr = e; }
@@ -15530,6 +15551,7 @@ async function holoOpen(){
 function closeHoloEditor(){
   if (holoEd.fx){ holoEd.fx.destroy(); holoEd.fx = null; }
   document.getElementById('holo-popup-overlay').classList.remove('open');
+  if(cardReview.active) renderCardDetailSlot();
 }
 
 function renderHoloEditor(){
