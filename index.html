@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v235 -->
+<!-- FILE_VERSION: admin-v236 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3740,7 +3740,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v235';
+const BUILD_VERSION = 'admin-v236';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -5269,6 +5269,9 @@ function openPopup(uid){
   if(!u)return;
   popupSeq++;
   currentUser=u;
+  let controls=document.getElementById('client-restriction-controls');
+  if(!controls){controls=document.createElement('div');controls.id='client-restriction-controls';controls.style.cssText='display:flex;flex-wrap:wrap;gap:10px;margin:16px 0';const button=document.createElement('button');button.className='action-btn';button.textContent='Бан и стоп-лист дожимов';button.onclick=()=>openClientRestrictions(currentUser.id);controls.append(button);document.getElementById('popup-overlay').querySelector('.popup').append(controls)}
+
   document.getElementById('registration-card-status').textContent=registrationLine(u.registration)+' · '+(u.registration?.places?'По площадкам: '+Object.entries({tg_channel:'TG-канал',tg_chat:'TG-чат',vk_group:'Группа ВК',vk_chat:'Беседа ВК'}).map(([k,n])=>n+': '+(u.registration.places[k]?.label||'Нет подтверждения')+(u.registration.places[k]?.at?' ('+new Date(u.registration.places[k].at.replace(/Z$/,'')+'Z').toLocaleString('ru-RU')+')':'')).join(' · ')+' · ':'')+(u.registration?.note||'Данные регистрации ещё не загружены');
   const name=u.full_name||u.name||'—';
   document.getElementById('popup-avatar').textContent=initials(name);
@@ -12450,14 +12453,37 @@ function nudgeTargetPick(prefix, id){
   inp.style.display = 'none';
 }
 
-async function openNudgesPopup(){
-  document.getElementById('nudges-popup-overlay').classList.add('open');
-  switchNudgesTab('scenarios');
-  // Список маршрутов — после первой отрисовки: попап открывается сразу
-  await nudgeLoadTargets();
-  if (nudgeScenarioExpanded) renderNudgeScenarios();
-  if (nudgeChainExpanded) renderNudgeChain();
+let nurtureFrame=null;
+async function nurtureBridge(path,body,method){
+ const r=await fetch(API+'/admin/nurture/bridge',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Token':ADMIN_TOKEN},body:JSON.stringify({path,method:method||(body===undefined?'GET':'POST'),body:body??null})});
+ const d=await r.json();if(!r.ok)throw new Error(typeof d.detail==='string'?d.detail:'Редактор недоступен');return d;
 }
+window.addEventListener('message',async e=>{
+ if(!nurtureFrame||e.source!==nurtureFrame.contentWindow||e.data?.type!=='club-nurture')return;
+ const source=e.source,{id,path,body,method}=e.data;
+ try{const result=await nurtureBridge(path,body,method);source.postMessage({type:'club-nurture-result',id,result},'*')}
+ catch(error){source.postMessage({type:'club-nurture-result',id,error:error.message},'*')}
+});
+async function openNudgesPopup(){
+ const overlay=document.getElementById('nudges-popup-overlay');overlay.classList.add('open');
+ const box=overlay.querySelector('.popup');box.style.maxWidth='1200px';box.style.width='calc(100vw - 32px)';box.style.padding='24px';
+ box.innerHTML='<button class="popup-close" onclick="closeNudgesPopup()">×</button><div class="popup-section-title">Дожимные сценарии</div><p class="pay-meta">Единый редактор с дашбордом бота: общие настройки, история и стоп-лист.</p><div id="unified-nurture-host" class="loading">Загрузка…</div>';
+ try{const d=await nurtureBridge('/nurture/editor-bundle');nurtureFrame=document.createElement('iframe');nurtureFrame.title='Редактор дожимных сценариев';nurtureFrame.setAttribute('sandbox','allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox');nurtureFrame.style.cssText='width:100%;height:72vh;border:0;border-radius:12px;display:block';nurtureFrame.srcdoc=d.html;document.getElementById('unified-nurture-host').replaceChildren(nurtureFrame)}catch(e){document.getElementById('unified-nurture-host').textContent=e.message}
+}
+
+async function restrictionApi(body,uid){
+ const r=await fetch(API+'/admin/restrictions'+(uid?'?user_id='+encodeURIComponent(uid):''),{method:body?'POST':'GET',headers:{'Content-Type':'application/json','X-Admin-Token':ADMIN_TOKEN},...(body?{body:JSON.stringify(body)}:{})});const d=await r.json();if(!r.ok)throw new Error(typeof d.detail==='string'?d.detail:'Не удалось изменить ограничения');return d;
+}
+async function openClientRestrictions(uid){
+ let dialog=document.getElementById('client-restriction-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='client-restriction-dialog';dialog.style.cssText='max-width:650px;width:calc(100vw - 32px);border:1px solid var(--border);border-radius:20px;padding:24px;background:var(--bg);color:var(--text)';document.body.append(dialog)}
+ try{const d=await restrictionApi(null,uid);dialog.innerHTML='<h2>Ограничения · '+escapeHtmlText(d.name||d.username||'#'+uid)+'</h2><p>'+ (d.banned?'Бан включён':'Бана нет')+' · '+(d.nurture_stopped?'Дожимы отключены':'Дожимы разрешены')+'</p><p>Бан закрывает приложение, ботов и площадки, останавливает подписку. Для участника создаётся задача вернуть деньги. Снятие бана предлагает оформить подписку заново.</p>'+(d.refund_task?'<p>Задача возврата: '+escapeHtmlText(d.refund_task)+'</p>':'')+d.jobs.map(j=>'<p>'+escapeHtmlText(({billing:'Остановка подписки',platform:'Площадка '+(j.title||''),return_offer:'Предложение вернуться',owner_notice:'Уведомление владельцу'})[j.kind]||j.title||j.kind)+' · '+escapeHtmlText(({confirmed:j.kind==='return_offer'?'В очереди сообщений':'Подтверждено',pending:'В очереди',retry:'Ожидает проверки / повтора',unconfirmed:'Доставка не подтверждена'})[j.status]||j.status)+(j.error?' · '+escapeHtmlText(j.error):'')+'</p>').join('');
+ const actions=document.createElement('div');actions.style.cssText='display:flex;gap:10px;flex-wrap:wrap';
+ for(const [action,label] of [[d.nurture_stopped?'resume_nurture':'stop_nurture',d.nurture_stopped?'Включить дожимные':'Отключить дожимные'],[d.banned?'unban':'ban',d.banned?'Снять бан':'Забанить']]){const b=document.createElement('button');b.className='action-btn';b.textContent=label;b.onclick=async()=>{if(!confirm(label+' для этого пользователя?'+(action==='ban'?' Подписка остановится, доступы закроются.':action==='unban'?' Бывшему участнику придёт предложение новой подписки.':'')))return;b.disabled=true;try{await restrictionApi({user_id:Number(uid),action,request_id:crypto.randomUUID()});await openClientRestrictions(uid)}catch(e){alert(e.message)}finally{b.disabled=false}};actions.append(b)}
+ const refresh=document.createElement('button');refresh.className='action-btn';refresh.textContent='Обновить состояние';refresh.onclick=()=>openClientRestrictions(uid);actions.append(refresh);
+ const close=document.createElement('button');close.className='action-btn';close.textContent='Закрыть';close.onclick=()=>dialog.close();actions.append(close);dialog.append(actions);if(!dialog.open)dialog.showModal();
+ }catch(e){alert(e.message)}
+}
+
 function closeNudgesPopup(){
   document.getElementById('nudges-popup-overlay').classList.remove('open');
 }
