@@ -3740,7 +3740,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v236';
+const BUILD_VERSION = 'admin-v237';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -12453,7 +12453,7 @@ function nudgeTargetPick(prefix, id){
   inp.style.display = 'none';
 }
 
-let nurtureFrame=null;
+let nurtureFrame=null, nurtureServiceMarkup=null;
 async function nurtureBridge(path,body,method){
  const r=await fetch(API+'/admin/nurture/bridge',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Token':ADMIN_TOKEN},body:JSON.stringify({path,method:method||(body===undefined?'GET':'POST'),body:body??null})});
  const d=await r.json();if(!r.ok)throw new Error(typeof d.detail==='string'?d.detail:'Редактор недоступен');return d;
@@ -12466,9 +12466,19 @@ window.addEventListener('message',async e=>{
 });
 async function openNudgesPopup(){
  const overlay=document.getElementById('nudges-popup-overlay');overlay.classList.add('open');
- const box=overlay.querySelector('.popup');box.style.maxWidth='1200px';box.style.width='calc(100vw - 32px)';box.style.padding='24px';
- box.innerHTML='<button class="popup-close" onclick="closeNudgesPopup()">×</button><div class="popup-section-title">Дожимные сценарии</div><p class="pay-meta">Единый редактор с дашбордом бота: общие настройки, история и стоп-лист.</p><div id="unified-nurture-host" class="loading">Загрузка…</div>';
+ const box=overlay.querySelector('.popup');if(!nurtureServiceMarkup)nurtureServiceMarkup=box.innerHTML;box.style.maxWidth='1200px';box.style.width='calc(100vw - 32px)';box.style.padding='24px';
+ box.innerHTML='<button class="popup-close" onclick="closeNudgesPopup()">×</button><div class="popup-section-title">Дожимные сценарии</div><p class="pay-meta">Единый редактор с дашбордом бота: общие настройки, история и стоп-лист.</p><button class="action-btn" style="margin-bottom:16px" onclick="openNurtureServiceSettings()">Служебные тексты и отдельные посты</button><div id="unified-nurture-host" class="loading">Загрузка…</div>';
  try{const d=await nurtureBridge('/nurture/editor-bundle');nurtureFrame=document.createElement('iframe');nurtureFrame.title='Редактор дожимных сценариев';nurtureFrame.setAttribute('sandbox','allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox');nurtureFrame.style.cssText='width:100%;height:72vh;border:0;border-radius:12px;display:block';nurtureFrame.srcdoc=d.html.replace('data-theme="light"','data-theme="'+(document.documentElement.dataset.theme==='dark'?'dark':'light')+'"');document.getElementById('unified-nurture-host').replaceChildren(nurtureFrame)}catch(e){document.getElementById('unified-nurture-host').textContent=e.message}
+}
+
+function openNurtureServiceSettings(){
+ if(!nurtureServiceMarkup)return;
+ nurtureFrame=null;
+ const box=document.getElementById('nudges-popup-overlay').querySelector('.popup');box.innerHTML=nurtureServiceMarkup;
+ const back=document.createElement('button');back.className='action-btn';back.style.margin='16px 0';back.textContent='Вернуться к единому редактору дожимов';back.onclick=openNudgesPopup;box.prepend(back);
+ for(const name of ['scenarios','chain','stats'])document.getElementById('nudges-tab-'+name+'-btn').style.display='none';
+ const note=document.createElement('p');note.className='pay-meta';note.textContent='Здесь сохранены служебные тексты и отправка отдельных постов. Гостевые дожимные настраиваются в едином редакторе; эти старые ограничения их не меняют.';back.after(note);
+ switchNudgesTab('common');
 }
 
 async function restrictionApi(body,uid){
