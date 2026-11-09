@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v240 -->
+<!-- FILE_VERSION: admin-v241 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3327,10 +3327,10 @@ select:disabled{opacity:.55;cursor:not-allowed}
 
       <div class="popup-section-title">Регистрация</div><div id="registration-card-status" class="registration-card-status"></div><div class="registration-card-actions"><button class="action-btn" onclick="prepareRegistrationReminder('channel')">Напомнить о канале / группе</button><button class="action-btn" onclick="prepareRegistrationReminder('chat')">Напомнить о чате</button><button class="action-btn" onclick="prepareRegistrationReminder('reserve')">Предложить резерв</button></div>
       <div class="actions-grid">
-        <button class="action-btn" onclick="adminShift()">Сдвинуть дату платежа</button>
         <button class="action-btn" onclick="showPayload('send_message','Отправить','Текст сообщения...')">Сообщение через бота</button>
         <button class="action-btn" onclick="recordCurrentTransfer()">Получен перевод</button>
         <button class="action-btn" onclick="recordManualPayment()">Записать сумму без продления</button>
+        <button class="action-btn primary" onclick="openPointsPopup()">Начислить баллы</button>
       </div>
 
       <div class="payload-row" id="payload-row">
@@ -3346,7 +3346,8 @@ select:disabled{opacity:.55;cursor:not-allowed}
       <button class="popup-save" onclick="saveUserPatch()">Сохранить</button>
 
       <!-- Подписка напрямую через Продамус -->
-      <div class="popup-section-title">Подписка (напрямую в Продамус)</div>
+      <div id="client-subscription-actions">
+      <div class="popup-section-title">Автосписания Prodamus</div>
       <div id="sub-action-result" class="action-result"></div>
       <div class="actions-grid">
         <button class="action-btn primary" onclick="adminDiscount()">Скидка ₽</button>
@@ -3354,7 +3355,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
         <button class="action-btn"         onclick="adminFreeze()">Пауза</button>
         <button class="action-btn success" onclick="adminReactivate()">Восстановить</button>
         <button class="action-btn danger"  onclick="adminCancel()">Остановить подписку</button>
-        <button class="action-btn primary" onclick="openPointsPopup()">Начислить баллы</button>
+      </div>
       </div>
 
       <!-- Диагностика: снимок участника глазами приложения -->
@@ -3759,7 +3760,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v240';
+const BUILD_VERSION = 'admin-v241';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -5289,6 +5290,7 @@ function openPopup(uid){
   popupSeq++;
   currentUser=u;
   document.getElementById('client-close-access').disabled=!u.is_member||manualPaymentsBusy.has(u.id);
+  document.getElementById('client-subscription-actions').hidden=!u.profile_id||!u.sub_id||['manual','оплата переводом'].includes(String(u.sub_status||'').toLowerCase());
 
   document.getElementById('registration-card-status').textContent=registrationLine(u.registration)+' · '+(u.registration?.places?'По площадкам: '+Object.entries({tg_channel:'TG-канал',tg_chat:'TG-чат',vk_group:'Группа ВК',vk_chat:'Беседа ВК'}).map(([k,n])=>n+': '+(u.registration.places[k]?.label||'Нет подтверждения')+(u.registration.places[k]?.at?' ('+new Date(u.registration.places[k].at.replace(/Z$/,'')+'Z').toLocaleString('ru-RU')+')':'')).join(' · ')+' · ':'')+(u.registration?.note||'Данные регистрации ещё не загружены');
   const name=u.full_name||u.name||'—';
