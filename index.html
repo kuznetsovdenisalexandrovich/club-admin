@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v243 -->
+<!-- FILE_VERSION: admin-v244 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3760,7 +3760,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v243';
+const BUILD_VERSION = 'admin-v244';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -4764,6 +4764,7 @@ function renderUsersList(){
     (u.email||'').toLowerCase().includes(q)||
     (u.username||'').toLowerCase().includes(q)
   );
+  users=[...new Map(users.map(u=>{const id=u.linked_accounts?.owner_user_id||u.id;return [id,allUsers.find(x=>x.id===id)||u]})).values()];
   const el=document.getElementById('users-list');
   usersCountNote(f, users.length);
   renderUsersStats(f);
@@ -5285,10 +5286,12 @@ function drawChart(){
 /* v114: номер открытия карточки — поздний ответ по прошлой карточке выбрасывается */
 let popupSeq = 0;
 function openPopup(uid){
-  const u=allUsers.find(u=>u.id===uid);
+  let u=allUsers.find(u=>u.id===uid);
   if(!u)return;
+  if(u.linked_accounts)u=allUsers.find(x=>x.id===u.linked_accounts.owner_user_id)||u;
   popupSeq++;
   currentUser=u;
+  setTimeout(()=>loadLinkedTelegram(u.id),0);
   document.getElementById('client-close-access').disabled=!u.is_member||manualPaymentsBusy.has(u.id);
   document.getElementById('client-subscription-actions').hidden=!u.profile_id||!u.sub_id||['manual','оплата переводом'].includes(String(u.sub_status||'').toLowerCase());
 
@@ -6107,6 +6110,15 @@ async function submitPoints(){
 
 /* ── Удаление карточки ── */
 
+async function loadLinkedTelegram(uid){
+ let box=document.getElementById('linked-tg-editor');
+ if(!box){box=document.createElement('section');box.id='linked-tg-editor';box.style.cssText='padding:16px 0;border-top:1px solid var(--line)';document.getElementById('client-subscription-actions').after(box)}
+ box.textContent='Загружаю Telegram-аккаунты…';
+ try{const r=await fetch(API+'/admin/users/'+uid+'/telegram-accounts?x_admin_token='+encodeURIComponent(ADMIN_TOKEN));const d=await r.json();if(!r.ok)throw Error(d.detail||'Ошибка');if(currentUser?.id!==uid)return;
+ box.innerHTML='<h3>Telegram-аккаунты одной карточки</h3>'+d.accounts.map(a=>'<p>'+escapeHtmlText((a.username?'@'+a.username+' · ':'')+a.telegram_id+(a.primary?' · основной':''))+'</p>').join('')+'<p>Подписка общая. История, баллы и прогресс каждого аккаунта сохраняются.</p><label for="linked-tg-id" style="display:block;margin-bottom:12px">Telegram ID второго аккаунта</label><input id="linked-tg-id" inputmode="numeric" placeholder="Например, 123456789" style="width:100%;min-height:46px;padding:10px 12px;margin-bottom:12px"><button class="action-btn" id="linked-tg-add" type="button">Добавить аккаунт</button><p id="linked-tg-state" role="status"></p>';
+ document.getElementById('linked-tg-add').onclick=async function(){const raw=document.getElementById('linked-tg-id').value.trim(),status=document.getElementById('linked-tg-state');if(!/^[1-9]\d{4,15}$/.test(raw)){status.textContent='Укажи Telegram ID числом';return}this.disabled=true;try{const r=await fetch(API+'/admin/users/'+uid+'/telegram-accounts?x_admin_token='+encodeURIComponent(ADMIN_TOKEN),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_id:Number(raw)})});const d=await r.json();if(!r.ok)throw Error(d.detail||'Не удалось добавить');for(const a of d.accounts){const u=allUsers.find(x=>x.id===a.user_id);if(u)u.linked_accounts=d}renderUsersList();await loadLinkedTelegram(uid)}catch(e){status.textContent=e.message;this.disabled=false}};
+ }catch(e){if(currentUser?.id===uid)box.textContent=e.message}
+}
 async function deleteCurrentUser(){
   if(!currentUser) return;
   if(!confirm('Удалить карточку целиком? Действие необратимо. Подписку в Продамусе удаление не останавливает — если она действует, сначала «Остановить подписку».')) return;
@@ -7243,10 +7255,12 @@ async function revokeView(id){
 
 function renderPopupPayments(u){
   const el=document.getElementById('popup-payments');
+  const accountIds=new Set([u.id,...(u.linked_accounts?.accounts||[]).map(a=>a.user_id)]);
+  const telegramIds=new Set([u.telegram_id,...(u.linked_accounts?.accounts||[]).map(a=>a.telegram_id)]);
   const pays=allPayments.filter(p=>
-    (u.id && p.user_id===u.id) ||
+    (p.user_id && accountIds.has(p.user_id)) ||
     (!p.user_id && u.profile_id && p.profile_id===u.profile_id) ||
-    (!p.user_id && !p.profile_id && u.telegram_id && p.telegram_id===u.telegram_id)
+    (!p.user_id && !p.profile_id && p.telegram_id && telegramIds.has(p.telegram_id))
   ).sort((a,b)=>new Date(b.payment_date)-new Date(a.payment_date));
   if(!pays.length){ el.innerHTML='<div class="empty">Платежей нет</div>'; return; }
   el.innerHTML=pays.map(p=>{
