@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v239 -->
+<!-- FILE_VERSION: admin-v240 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -771,6 +771,9 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
 .member-open{color:var(--text-faint);font-size:24px;flex-shrink:0}
 .manual-row{padding:14px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
 .manual-row:last-child{border-bottom:0}
+.manual-buttons{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.manual-buttons .action-btn{min-height:40px}
+@media(max-width:600px){.manual-row{flex-wrap:wrap}.manual-buttons{width:100%;justify-content:flex-start}}
 .manual-info{flex:1;min-width:0;overflow-wrap:anywhere}
 .manual-name{font-size:14px;font-weight:600}
 .manual-detail{font-size:12px;color:var(--text-faint);margin-top:4px;line-height:1.4}
@@ -3294,6 +3297,12 @@ select:disabled{opacity:.55;cursor:not-allowed}
         </div>
       </div>
 
+      <div class="popup-section-title">Управление доступом</div>
+      <div id="client-restriction-controls" class="actions-grid">
+        <button id="client-close-access" class="action-btn danger" onclick="closeCurrentAccess()">Закрыть доступ</button>
+        <button class="action-btn" onclick="openCurrentRestrictions()">Бан и стоп-лист дожимов</button>
+      </div>
+      <div class="manual-caption">Закрытие доступа завершает участие. Бан и стоп-лист настраиваются отдельно.</div>
       <div id="popup-rows"></div>
 
       <!-- ПУТЬ КЛИЕНТА: откуда пришёл, что дожало, кто привёл, сколько шёл
@@ -3318,13 +3327,10 @@ select:disabled{opacity:.55;cursor:not-allowed}
 
       <div class="popup-section-title">Регистрация</div><div id="registration-card-status" class="registration-card-status"></div><div class="registration-card-actions"><button class="action-btn" onclick="prepareRegistrationReminder('channel')">Напомнить о канале / группе</button><button class="action-btn" onclick="prepareRegistrationReminder('chat')">Напомнить о чате</button><button class="action-btn" onclick="prepareRegistrationReminder('reserve')">Предложить резерв</button></div>
       <div class="actions-grid">
-        <button class="action-btn"         onclick="doAction('registration')">Регистрация</button>
-        <button class="action-btn"         onclick="showPayload('shift_payment','Сдвинуть платёж','Дата ДД.ММ.ГГГГ')">Сдвинуть платёж</button>
-        <button class="action-btn"         onclick="showPayload('send_message','Отправить','Текст сообщения...')">Сообщение</button>
-        <button class="action-btn"         onclick="showPayload('callback','Колбек','Текст колбека...')">Колбек</button>
-        <button class="action-btn success" onclick="recordManualPayment()">Записать оплату</button>
-        <button class="action-btn"         onclick="doAction('cleanup_last_message')">Очистить сообщение</button>
-        <button class="action-btn"         onclick="doAction('send_menu')">В меню</button>
+        <button class="action-btn" onclick="adminShift()">Сдвинуть дату платежа</button>
+        <button class="action-btn" onclick="showPayload('send_message','Отправить','Текст сообщения...')">Сообщение через бота</button>
+        <button class="action-btn" onclick="recordCurrentTransfer()">Получен перевод</button>
+        <button class="action-btn" onclick="recordManualPayment()">Записать сумму без продления</button>
       </div>
 
       <div class="payload-row" id="payload-row">
@@ -3753,7 +3759,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v239';
+const BUILD_VERSION = 'admin-v240';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -5282,8 +5288,7 @@ function openPopup(uid){
   if(!u)return;
   popupSeq++;
   currentUser=u;
-  let controls=document.getElementById('client-restriction-controls');
-  if(!controls){controls=document.createElement('div');controls.id='client-restriction-controls';controls.style.cssText='display:flex;flex-wrap:wrap;gap:10px;margin:16px 0';const button=document.createElement('button');button.className='action-btn';button.textContent='Бан и стоп-лист дожимов';button.onclick=()=>openClientRestrictions(currentUser.id);controls.append(button);document.getElementById('popup-overlay').querySelector('.popup').append(controls)}
+  document.getElementById('client-close-access').disabled=!u.is_member||manualPaymentsBusy.has(u.id);
 
   document.getElementById('registration-card-status').textContent=registrationLine(u.registration)+' · '+(u.registration?.places?'По площадкам: '+Object.entries({tg_channel:'TG-канал',tg_chat:'TG-чат',vk_group:'Группа ВК',vk_chat:'Беседа ВК'}).map(([k,n])=>n+': '+(u.registration.places[k]?.label||'Нет подтверждения')+(u.registration.places[k]?.at?' ('+new Date(u.registration.places[k].at.replace(/Z$/,'')+'Z').toLocaleString('ru-RU')+')':'')).join(' · ')+' · ':'')+(u.registration?.note||'Данные регистрации ещё не загружены');
   const name=u.full_name||u.name||'—';
@@ -10465,7 +10470,7 @@ function getRichText(fieldId){
 async function recordManualPayment(){
   if(!currentUser || !currentUser.id){ alert('Нет данных клиента'); return; }
   const suggested=currentUser.cost || '';
-  const amount=prompt('Сумма платежа:', suggested);
+  const amount=prompt('Записать сумму в историю оплат без продления доступа. Для продления после перевода используй «Получен перевод». Сумма ₽:', suggested);
   if(amount===null) return;
   try{
     const r=await fetch(API+'/users/'+currentUser.id+'/manual-payment?x_admin_token='+ADMIN_TOKEN,{
@@ -10489,7 +10494,7 @@ async function doAction(action, payload=null){
       body:JSON.stringify({telegram_id:currentUser.telegram_id,action,payload})
     });
     const d=await r.json();
-    if(r.ok) showActionResult('✓ Готово','ok');
+    if(r.ok) showActionResult(d.message||'Готово','ok');
     else showActionResult('✗ '+( d.detail||'Ошибка'),'err');
   }catch(e){ showActionResult('✗ Ошибка соединения','err'); }
 }
@@ -18514,7 +18519,7 @@ function renderManualList(){
       +'<div class="manual-name">'+elEsc(it.name||'Участник')+'</div>'
       +'<div class="manual-detail '+(late?'manual-late':'')+'">'+elEsc(when)+(it.until?' · '+elEsc(admPayDate(it.until)):'')+'</div>'
       +'<div class="manual-detail">'+elEsc(String(it.amount||990))+' ₽ за '+elEsc(String(it.days||30))+' дней'+(it.reminded_at?' · уведомление отправлено':'')+'</div>'
-      +'</div><button class="popup-save" '+(manualPaymentsBusy.has(it.user_id)?'disabled':'')+' onclick="manualPaid('+jsArg(it.telegram_id)+','+jsArg(it.user_id)+')">'+(manualPaymentsBusy.has(it.user_id)?'Сохраняю…':'Оплатил')+'</button></div>';
+      +'</div><div class="manual-buttons"><button class="popup-save" '+(manualPaymentsBusy.has(it.user_id)?'disabled':'')+' onclick="manualPaid('+jsArg(it.telegram_id)+','+jsArg(it.user_id)+')">'+(manualPaymentsBusy.has(it.user_id)?'Сохраняю…':'Оплатил')+'</button><button class="action-btn danger" '+(manualPaymentsBusy.has(it.user_id)?'disabled':'')+' onclick="closeMemberAccess('+jsArg(it.user_id)+')">Закрыть доступ</button></div></div>';
   }).join('');}
   box.innerHTML=(due.length?'<div class="manual-caption">Пора оплатить · '+due.length+'</div>'+rows(due):'<div class="manual-caption">Просроченных оплат нет</div>')
     +(future.length?'<details><summary class="manual-caption" style="padding-bottom:14px;cursor:pointer">Оплаченный период · '+future.length+'</summary>'+rows(future)+'</details>':'');
@@ -18540,6 +18545,51 @@ async function manualInvite(){
     // поэтому поле остаётся выделенным — скопировать можно руками
     try { navigator.clipboard && navigator.clipboard.writeText(d.url || ''); } catch(e){}
   } catch(e){ alert('Сеть не ответила: ' + e.message); }
+}
+
+function closeCurrentAccess(){if(currentUser)closeMemberAccess(currentUser.id);}
+function openCurrentRestrictions(){if(currentUser)openClientRestrictions(currentUser.id);}
+async function recordCurrentTransfer(){
+  if(!currentUser)return;
+  const uid=currentUser.id;await loadManualList();
+  const it=manualItems.find(x=>x.user_id===uid);
+  if(!it){alert('Нет открытого периода оплаты переводом. Для нового участника используй ссылку регистрации за перевод.');return;}
+  await manualPaid(it.telegram_id,uid);
+}
+const memberAccessRequests=new Map();
+async function closeMemberAccess(userId){
+  userId=Number(userId);
+  if(!userId||manualPaymentsBusy.has(userId))return;
+  manualPaymentsBusy.add(userId);renderManualList();
+  if(currentUser?.id===userId)document.getElementById('client-close-access').disabled=true;
+  try{
+    const url=API+'/admin/bot-members/card/u:'+userId;
+    const headers={'X-Admin-Token':ADMIN_TOKEN,'Content-Type':'application/json'};
+    let body=memberAccessRequests.get(userId);
+    if(!body){
+      const r=await fetch(url,{headers});const card=await r.json();
+      if(!r.ok)throw new Error(card.detail||'Не удалось обновить карточку');
+      const u=card.user;
+      if(!u?.is_member)throw new Error('Доступ уже закрыт. Обнови список.');
+      if(['1','active'].includes(String(u.sub_status||'').toLowerCase()))throw new Error('Сначала останови автопродление подписки, затем закрой доступ.');
+      const reason=prompt('Закрыть доступ: '+memberDisplayName(u)+' (карточка #'+userId+')? Доступ в приложение закроется сразу, снятие с площадок будет поставлено в очередь. Напоминания об оплате переводом остановятся. Баллы, уровень и темы PDF сбросятся по правилам окончания участия. История оплат сохранится. Укажи причину:', 'Не продлил участие');
+      if(reason===null)return;
+      if(!reason.trim()){alert('Укажи причину закрытия доступа.');return;}
+      body={action:'revoke',confirm:true,reason:reason.trim(),version:card.version,request_id:crypto.randomUUID()};
+      memberAccessRequests.set(userId,body);
+    }
+    const r=await fetch(url+'/action',{method:'POST',headers,body:JSON.stringify(body)});
+    const d=await r.json();
+    if(!r.ok){if(r.status<500)memberAccessRequests.delete(userId);throw new Error(typeof d.detail==='string'?d.detail:'Не удалось закрыть доступ');}
+    memberAccessRequests.delete(userId);
+    await Promise.all([loadUsers(),loadManualList()]);
+    if(currentUser?.id===userId)openPopup(userId);
+    alert(d.message||'Доступ закрыт');
+  }catch(e){alert('Закрытие доступа: '+e.message);}
+  finally{
+    manualPaymentsBusy.delete(userId);renderManualList();
+    if(currentUser?.id===userId)document.getElementById('client-close-access').disabled=!currentUser.is_member;
+  }
 }
 
 async function manualPaid(telegramId,userId){
