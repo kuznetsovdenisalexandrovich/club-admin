@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v245 -->
+<!-- FILE_VERSION: admin-v246 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3761,7 +3761,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v245';
+const BUILD_VERSION = 'admin-v246';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -6459,10 +6459,15 @@ function storyDrawEditor(s){
       + '<span class="pay-meta" id="st-cover-state">' + (s.cover_url ? 'есть' : 'нет — кружок будет цветным') + '</span></div>'
       + '<input type="hidden" id="st-cover-url" value="' + escapeHtmlAdm(s.cover_url || '') + '"></div>'
     + '<div style="display:flex;gap:8px"><div style="flex:1">' + fld('Кнопка (подпись)', 'st-cta', s.cta_label) + '</div>'
-      + '<div style="flex:1">' + sel('Куда ведёт', 'st-target', (STORY_TARGETS.some(function(t){ return t[0] === (s.cta_target || ''); }) ? (s.cta_target || '') : '__custom'), STORY_TARGETS.concat([['__custom','занятие: lecture:<slug>']])) + '</div></div>'
+      + '<div style="flex:1">' + sel('Куда ведёт', 'st-target', (STORY_TARGETS.some(function(t){ return t[0] === (s.cta_target || ''); }) ? (s.cta_target || '') : '__custom'), STORY_TARGETS.concat([['__custom','Экран или lecture:<slug>']])) + '</div></div>'
     + '<div id="st-target-custom-wrap" style="display:' + (STORY_TARGETS.some(function(t){ return t[0] === (s.cta_target || ''); }) ? 'none' : '') + '">' + fld('Свой адрес (например lecture:sales_p1_l2_intro)', 'st-target-custom', s.cta_target) + '</div>'
     + '<div style="display:flex;gap:8px"><div style="flex:1">' + sel('Кому', 'st-aud', s.audience, Object.keys(STORY_AUD_LABELS).map(function(k){ return [k, STORY_AUD_LABELS[k]]; })) + '</div>'
       + '<div style="flex:1">' + fld('Срок (пусто — постоянная)', 'st-exp', s.expires_at ? s.expires_at.slice(0,10) : '', 'date') + '</div></div>'
+    + fld('Ссылка для Telegram (HTTPS, вместо экрана)', 'st-url-tg', s.cta_url_tg)
+    + fld('Ссылка для ВКонтакте (HTTPS, вместо экрана)', 'st-url-vk', s.cta_url_vk)
+    + fld('Знакомство: с какого дня после первой оплаты (0 — обычная сториз)', 'st-onb-day', s.onboarding_day || 0, 'number')
+    + fld('Показывать до дня включительно', 'st-onb-until', s.onboarding_until_day || 7, 'number')
+    + '<div class="pay-meta">Для знакомства выбери аудиторию «Участники». День 1 — день первой оплаты по Москве; продления не запускают серию заново. Для постоянной серии оставь общий срок пустым.</div>'
     + '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:10px"><input type="checkbox" id="st-active" ' + (s.active ? 'checked' : '') + '> Показывать</label>'
     + '<div style="display:flex;gap:8px">'
       + '<button class="popup-save" style="flex:1" onclick="storySave()">Сохранить</button>'
@@ -6516,13 +6521,18 @@ async function storySave(){
     cover_url: document.getElementById('st-cover-url').value.trim(),
     cta_label: document.getElementById('st-cta').value.trim(),
     cta_target: targetSel === '__custom' ? document.getElementById('st-target-custom').value.trim() : targetSel,
+    cta_url_tg: document.getElementById('st-url-tg').value.trim(),
+    cta_url_vk: document.getElementById('st-url-vk').value.trim(),
+    onboarding_day: Number(document.getElementById('st-onb-day').value),
+    onboarding_until_day: Number(document.getElementById('st-onb-until').value),
+    sort_order: (storiesAll.find(s => s.id === storyEditId) || {}).sort_order ?? 100,
     audience: document.getElementById('st-aud').value,
     active: document.getElementById('st-active').checked,
     duration_s: parseInt(document.getElementById('st-duration').value, 10) || 0,
     expires_at: document.getElementById('st-exp').value || '',
   };
   if (!payload.video_url){ alert('Сначала залей видео'); return; }
-  if (payload.cta_label && !payload.cta_target){ alert('У кнопки нет адреса'); return; }
+  if (payload.cta_label && !payload.cta_target && !(payload.cta_url_tg && payload.cta_url_vk)){ alert('У кнопки нет адреса'); return; }
   try{
     await retPost('/admin/stories', payload);
     document.getElementById('story-editor').style.display = 'none';
