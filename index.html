@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v244 -->
+<!-- FILE_VERSION: admin-v245 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1665,9 +1665,10 @@ select:disabled{opacity:.55;cursor:not-allowed}
         <button class="action-btn" style="flex:1" onclick="openManualUserPopup()">+ Добавить клиента вручную</button>
         <button class="action-btn" style="flex:1" onclick="manualInvite()">Ссылка за перевод</button>
       </div>
+      <label style="display:block;padding:0 16px 14px"><input id="manual-trial" type="checkbox"> Пробный доступ: 1 ₽ на 3 дня</label>
       <div id="manual-invite-out" style="display:none;padding:0 16px 14px">
         <input class="popup-input" type="text" id="manual-invite-link" readonly onclick="this.select()" style="margin-bottom:6px">
-        <div style="font-size:11px;color:var(--text-faint)">Скопировано. Отправь человеку — сработает один раз, живёт трое суток.</div>
+        <div id="manual-invite-description" style="font-size:11px;color:var(--text-faint)">Скопировано. Отправь человеку — сработает один раз, живёт трое суток.</div>
       </div>
       <div id="users-count-note" style="display:none;padding:0 16px 10px;font-size:12px;color:var(--text-dim)"></div>
       <div id="users-list"><div class="loading">Загрузка...</div></div>
@@ -3760,7 +3761,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v244';
+const BUILD_VERSION = 'admin-v245';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -18509,6 +18510,7 @@ var refPosts = [];
 
 /* ══ ОПЛАТИВШИЕ ПЕРЕВОДОМ ═══════════════════════════════════════════════ */
 let manualItems = [];
+let manualStats = {};
 let manualListError = '';
 const manualPaymentRequests = new Map();
 const manualPaymentsBusy = new Set();
@@ -18517,27 +18519,28 @@ async function loadManualList(){
   try {
     const r=await fetch(API+'/access/manual/list?x_admin_token='+encodeURIComponent(ADMIN_TOKEN));
     if(!r.ok)throw new Error('HTTP '+r.status);
-    const d=await r.json();manualItems=d.items||[];manualListError='';
+    const d=await r.json();manualItems=d.items||[];manualStats=d.stats||{};manualListError='';
   } catch(e){manualListError='Не удалось обновить список оплат. Попробуй обновить страницу.';}
   renderManualList();
 }
 function renderManualList(){
   const box=document.getElementById('manual-list'), sec=document.getElementById('manual-section');
   if(!box)return;
-  if(sec)sec.style.display=(manualItems.length||manualListError)?'':'none';
+  if(sec)sec.style.display=(manualItems.length||manualStats.payments_30d||manualListError)?'':'none';
   if(manualListError){box.innerHTML='<div class="manual-caption">'+elEsc(manualListError)+'</div>';return;}
-  const due=manualItems.filter(it=>it.days_left!==null && it.days_left<=0);
-  const future=manualItems.filter(it=>it.days_left===null || it.days_left>0);
+  const due=manualItems.filter(it=>it.due);
+  const future=manualItems.filter(it=>!it.due);
   function rows(items){return items.map(it=>{
     const late=it.days_left<0;
     const when=it.days_left===null?'Нужно уточнить срок':it.days_left===0?'Оплата сегодня':late?'Просрочка '+Math.abs(it.days_left)+' дн.':'Оплачено ещё на '+it.days_left+' дн.';
     return '<div class="manual-row"><div class="manual-info">'
-      +'<div class="manual-name">'+elEsc(it.name||'Участник')+'</div>'
+      +'<div class="manual-name">'+elEsc(it.name||'Участник')+(it.trial?' · тест-драйв 1 ₽':'')+'</div>'
       +'<div class="manual-detail '+(late?'manual-late':'')+'">'+elEsc(when)+(it.until?' · '+elEsc(admPayDate(it.until)):'')+'</div>'
       +'<div class="manual-detail">'+elEsc(String(it.amount||990))+' ₽ за '+elEsc(String(it.days||30))+' дней'+(it.reminded_at?' · уведомление отправлено':'')+'</div>'
       +'</div><div class="manual-buttons"><button class="popup-save" '+(manualPaymentsBusy.has(it.user_id)?'disabled':'')+' onclick="manualPaid('+jsArg(it.telegram_id)+','+jsArg(it.user_id)+')">'+(manualPaymentsBusy.has(it.user_id)?'Сохраняю…':'Оплатил')+'</button><button class="action-btn danger" '+(manualPaymentsBusy.has(it.user_id)?'disabled':'')+' onclick="closeMemberAccess('+jsArg(it.user_id)+')">Закрыть доступ</button></div></div>';
   }).join('');}
-  box.innerHTML=(due.length?'<div class="manual-caption">Пора оплатить · '+due.length+'</div>'+rows(due):'<div class="manual-caption">Просроченных оплат нет</div>')
+  const stats='<div class="manual-caption">Участников: '+elEsc(String(manualStats.active||0))+' · Тест-драйв: '+elEsc(String(manualStats.trial||0))+' · Ждут решения: '+elEsc(String(manualStats.awaiting_answer||0))+'<br>Учтено за 30 дней: '+elEsc(String(manualStats.payments_30d||0))+' переводов · '+elEsc(String(manualStats.amount_30d||0))+' ₽</div>';
+  box.innerHTML=stats+(due.length?'<div class="manual-caption">Ждут твоего решения — доступ пока сохраняется · '+due.length+'</div>'+rows(due):'<div class="manual-caption">Просроченных оплат нет</div>')
     +(future.length?'<details><summary class="manual-caption" style="padding-bottom:14px;cursor:pointer">Оплаченный период · '+future.length+'</summary>'+rows(future)+'</details>':'');
 }
 
@@ -18545,17 +18548,19 @@ async function manualInvite(){
   /* ⚠️ ПОЛЕЙ СРОКА И СУММЫ НА ГЛАВНОЙ НЕТ — берём договорённые 30 дней и 990 ₽
      ([stated] Denis). Кнопка должна работать в одно нажатие: спрашивать цифры
      каждый раз ради редкого исключения значит мешать в частом случае */
+  var trial = !!document.getElementById('manual-trial')?.checked;
   var days = 30, amount = 990;
   try {
     const r = await fetch(API + '/access/manual/invite?x_admin_token=' + encodeURIComponent(ADMIN_TOKEN), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ days: days, amount: amount }),
+      body: JSON.stringify({ days: days, amount: amount, trial: trial }),
     });
     const d = await r.json();
     if (!r.ok){ alert('Не получилось: ' + (d.detail || r.status)); return; }
     document.getElementById('manual-invite-out').style.display = 'block';
     var box = document.getElementById('manual-invite-link');
     box.value = d.url || '';
+    document.getElementById('manual-invite-description').textContent=(d.trial?'Тест-драйв: 1 ₽ на 3 дня с момента входа. Затем 990 ₽ за 30 дней. Без твоего ответа доступ сохраняется. ':'Обычный доступ: 990 ₽ на 30 дней. ')+'Ссылка одноразовая, открыть её нужно в течение 72 часов.';
     box.focus(); box.select();
     // ⚠️ Копируем сами, но молча не полагаемся на это: буфер доступен не везде,
     // поэтому поле остаётся выделенным — скопировать можно руками
