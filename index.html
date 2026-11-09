@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v242 -->
+<!-- FILE_VERSION: admin-v243 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3760,7 +3760,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v242';
+const BUILD_VERSION = 'admin-v243';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -18599,7 +18599,8 @@ async function manualPaid(telegramId,userId){
   const it=manualItems.find(x=>userId?x.user_id===userId:x.telegram_id===telegramId);
   if(!it||manualPaymentsBusy.has(it.user_id))return;
   const days=it.days||30,amount=it.amount||990;
-  if(!confirm('Перевод '+amount+' ₽ получен? Записать оплату и продлить доступ на '+days+' дней?'))return;
+  const previous=it.paid_at ? 'Последний перевод уже учтён '+new Date(it.paid_at+'Z').toLocaleDateString('ru-RU')+'. Доступ оплачен до '+it.until+'. Это новый, отдельный перевод?\n\n' : '';
+  if(!confirm(previous+'Перевод '+amount+' ₽ получен? Записать оплату, продлить доступ на '+days+' дней и выдать один пак, если выдача включена?'))return;
   const key=String(it.user_id)+':'+it.cycle;
   if(!manualPaymentRequests.has(key))manualPaymentRequests.set(key,crypto.randomUUID());
   manualPaymentsBusy.add(it.user_id);renderManualList();

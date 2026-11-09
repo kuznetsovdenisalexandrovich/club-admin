@@ -1953,7 +1953,7 @@ async function bpOpen(){
     if (!log.children.length) bpAdd('Спроси что-нибудь или поручи дело.', 'him');
   } catch(e) { bpAdd('История не загрузилась.', 'him'); }
 }
-function bpConfirm(){
+function bpConfirm(transferConfirmation){
   const log = document.getElementById('bp-log');
   const box = document.createElement('div');
   box.className = 'bp-msg him';
@@ -1963,8 +1963,8 @@ function bpConfirm(){
   const нет = document.createElement('button');
   нет.className = 'bp-send'; нет.style.background = 'var(--surface2)';
   нет.style.color = 'var(--text)'; нет.textContent = 'Нет';
-  да.onclick = function(){ box.remove(); bpRun('деньги_да'); };
-  нет.onclick = function(){ box.remove(); bpRun('деньги_нет'); };
+  да.onclick = function(){ box.remove(); bpRun(Number.isInteger(transferConfirmation)?'transfer_yes:'+transferConfirmation:'деньги_да'); };
+  нет.onclick = function(){ box.remove(); bpRun(Number.isInteger(transferConfirmation)?'transfer_no:'+transferConfirmation:'деньги_нет'); };
   box.appendChild(да); box.appendChild(нет);
   log.appendChild(box); log.scrollTop = log.scrollHeight;
 }
@@ -2002,7 +2002,7 @@ async function bpSend(){
     bpAdd(data.text || data.detail || 'Пусто в ответ.', 'him');
     /* Деньги партнёр сам не выдаёт — просит подтверждения. Те же две кнопки,
        что в боте, только здесь их рисуем прямо в окне */
-    if (data['подтвердить']) bpConfirm();
+    if (data['подтвердить']) bpConfirm(data.transfer_confirmation);
     /* Мог завести задачу или закрыть — обновим доску, чтобы это было видно */
     if (typeof loadAll === 'function') loadAll();
   } catch(e) {
