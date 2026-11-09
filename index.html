@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v241 -->
+<!-- FILE_VERSION: admin-v242 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3760,7 +3760,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v241';
+const BUILD_VERSION = 'admin-v242';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -19309,15 +19309,57 @@ function renderHelpDocsEditor(a){
       + '<button class="lec-card" style="border:none;font-size:12px;padding:6px 12px" onclick="helpFormat(\'applink\')">→ Экран аппа</button>'
     + '</div>'
     + '<textarea class="popup-input" id="hd-body" rows="12" style="font-family:inherit;resize:vertical;margin-bottom:10px">' + escapeHtmlText(a ? a.body : '') + '</textarea>'
+    + "<div style=\"margin:12px 0\"><label class=\"action-btn\" style=\"display:inline-block;cursor:pointer\">Загрузить видео<input id=\"hd-video-file\" type=\"file\" accept=\"video/mp4,video/webm,.mp4,.webm\" style=\"display:none\" onchange=\"helpDocsUploadVideo(this)\"></label><div id=\"hd-video-state\" style=\"margin-top:8px;font-size:12px;color:var(--text-faint)\">MP4 или WebM, до 250 МБ. Видео появится в статье после сохранения.</div><div id=\"hd-videos\"></div></div>"
     + '<div style="display:flex;gap:8px">'
       + '<button class="popup-save" style="flex:1" onclick="helpDocsSave()">Сохранить</button>'
       + (isNew ? '' : '<button class="popup-save" style="flex:0 0 auto;width:auto;padding-left:20px;padding-right:20px;background:transparent;border:1px solid var(--red);color:var(--red)" onclick="helpDocsDelete(' + jsArg(a.key) + ')">Удалить</button>')
     + '</div>';
+  document.getElementById('hd-body').addEventListener('input',helpDocsVideoPreview);
+  helpDocsVideoPreview();
 }
 
 /* Панель форматирования — вставляет ТОТ ЖЕ markdown, что понимает парсер в
    аппе, прямо в textarea. Работает с выделением: если ничего не выделено,
    подставляет заготовку и сразу выделяет её — удобно сразу печатать поверх */
+function helpDocsVideoLines(){
+  const ta=document.getElementById('hd-body');
+  return (ta ? ta.value : '').split('\n').map((line,index)=>({line,index,match:line.trim().match(/^!\[Видео\]\((https:\/\/[^\s<>]+)\)$/)})).filter(x=>x.match);
+}
+function helpDocsVideoPreview(){
+  const box=document.getElementById('hd-videos');if(!box)return;
+  box.replaceChildren();
+  helpDocsVideoLines().forEach(item=>{
+    const row=document.createElement('div');row.style.cssText='margin:10px 0;padding:10px;border:1px solid var(--border);border-radius:12px';
+    const video=document.createElement('video');video.src=item.match[1];video.controls=true;video.playsInline=true;video.preload='none';video.style.cssText='display:block;width:100%;max-height:320px;background:#080910;border-radius:10px';
+    const remove=document.createElement('button');remove.type='button';remove.className='action-btn';remove.textContent='Убрать видео из статьи';remove.style.marginTop='8px';remove.onclick=()=>{const ta=document.getElementById('hd-body'),lines=ta.value.split('\n');lines.splice(item.index,1);ta.value=lines.join('\n');helpDocsVideoPreview()};
+    row.append(video,remove);box.append(row);
+  });
+}
+async function helpDocsUploadVideo(input){
+  const file=input.files&&input.files[0];if(!file)return;
+  const ta=document.getElementById('hd-body'),state=document.getElementById('hd-video-state');
+  const ext=file.name.split('.').pop().toLowerCase();
+  if(!['mp4','webm'].includes(ext)){state.textContent='Выбери MP4 или WebM.';input.value='';return;}
+  if(file.size>250*1024*1024){state.textContent='Файл слишком большой. Максимум — 250 МБ.';input.value='';return;}
+  input.disabled=true;ta.dataset.videoUploading='1';state.textContent='Подготовка загрузки…';
+  try{
+    const meta=await retPost('/admin/audio-upload-url',{slug:'help-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),kind:'video',ext:ext});
+    const url=new URL(meta.public_url);if(url.protocol!=='https:')throw new Error('Хранилище не вернуло HTTPS-адрес видео');
+    await new Promise((resolve,reject)=>{
+      const xhr=new XMLHttpRequest();xhr.open('PUT',meta.upload_url);xhr.timeout=300000;xhr.setRequestHeader('Content-Type',meta.content_type);
+      xhr.upload.onprogress=e=>{if(e.lengthComputable)state.textContent='Загрузка: '+Math.round(e.loaded/e.total*100)+'%'};
+      xhr.onload=()=>xhr.status>=200&&xhr.status<300?resolve():reject(new Error('Хранилище: '+xhr.status));
+      xhr.onerror=()=>reject(new Error('Нет соединения с хранилищем'));xhr.ontimeout=()=>reject(new Error('Загрузка заняла слишком много времени'));xhr.send(file);
+    });
+    // Editing another article while the upload runs must never attach to it.
+    if(!ta.isConnected)return;
+    const safe=url.href.replace(/[()]/g,c=>c==='('?'%28':'%29');
+    ta.value=ta.value.replace(/\s*$/,'')+'\n\n![Видео]('+safe+')\n';
+    helpDocsVideoPreview();state.textContent='Видео загружено. Нажми «Сохранить», чтобы добавить его в статью.';
+  }catch(e){if(ta.isConnected)state.textContent='Не удалось загрузить: '+(e.message||e)+'. Можно попробовать ещё раз.';}
+  finally{delete ta.dataset.videoUploading;input.disabled=false;input.value='';}
+}
+
 function helpFormat(type){
   const ta = document.getElementById('hd-body');
   if (!ta) return;
@@ -19399,6 +19441,7 @@ function helpFormat(type){
 }
 
 async function helpDocsSave(){
+  if(document.getElementById('hd-body').dataset.videoUploading){alert('Дождись окончания загрузки видео.');return;}
   const key = document.getElementById('hd-key').value.trim();
   const sectionKey = document.getElementById('hd-section-key').value.trim();
   if (!key || !/^[a-z0-9-]+$/.test(key)){ alert('Ключ статьи — латиница, цифры, дефис'); return; }
