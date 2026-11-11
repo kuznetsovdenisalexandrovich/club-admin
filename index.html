@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v249 -->
+<!-- FILE_VERSION: admin-v250 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3761,7 +3761,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v249';
+const BUILD_VERSION = 'admin-v250';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -20037,10 +20037,10 @@ function gmEdit(key){
      — раньше это была одна общая настройка на все игры в общем списке */
   var gimg = g.image_url || '';
   var gsrc = gimg.indexOf('s3:') === 0 ? (API + '/media/' + gimg.slice(3)) : gimg;
-  h += elLbl('Картинка игры (к посту «мой результат», когда игрок делится партией)')
+  h += elLbl('Обложка игры и поста с результатом · 3:2, от 1200 × 800, без надписей')
      + '<input type="hidden" id="gm-image" value="' + elEsc(gimg) + '">'
      + '<div style="display:flex;gap:10px;align-items:center">'
-       + '<div id="gm-image-prev" style="width:96px;aspect-ratio:3/4;border-radius:10px;overflow:hidden;background:var(--stat-bg);flex:none">'
+       + '<div id="gm-image-prev" style="width:144px;aspect-ratio:3/2;border-radius:10px;overflow:hidden;background:var(--stat-bg);flex:none">'
          + (gsrc ? '<img src="' + elEsc(gsrc) + '" style="width:100%;height:100%;object-fit:cover;display:block">' : '') + '</div>'
        + '<div style="display:flex;flex-direction:column;gap:6px">'
          + '<button class="action-btn" onclick="document.getElementById(\'gm-image-file\').click()">' + (gimg ? 'Заменить картинку' : 'Загрузить картинку') + '</button>'
@@ -24076,5 +24076,5 @@ initOverviewConversion();
 if(ADMIN_TOKEN)loadOverviewConversion();
 </script>
 <script src="recovery-admin.js?v=235"></script>
-<script src="telegram-editor.js?v=238" defer></script><script src="quiz-editor.js?v=3"></script><script>QuizEditor.init({base:()=>API,token:()=>ADMIN_TOKEN});</script></body>
+<script src="telegram-editor.js?v=238" defer></script><script src="quiz-editor.js?v=4"></script><script>QuizEditor.init({base:()=>API,token:()=>ADMIN_TOKEN});</script></body>
 </html>
