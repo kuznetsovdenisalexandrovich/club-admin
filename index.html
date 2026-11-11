@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v248 -->
+<!-- FILE_VERSION: admin-v249 -->
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -3761,7 +3761,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v248';
+const BUILD_VERSION = 'admin-v249';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -12451,7 +12451,7 @@ const NUDGE_CHAIN_KIND_LABELS = Object.assign({ '': 'Общая — для вс�
 let NUDGE_TARGETS = null;
 
 async function nudgeLoadTargets(){
-  if (NUDGE_TARGETS) return;
+  // Reload the live catalogue so new games appear without reopening the dashboard.
   const имена = {};
   /* try, а не typeof: список объявлен ниже по файлу через const, и обращение к
      нему до инициализации бросает ошибку, а не отдаёт undefined */
@@ -12472,6 +12472,8 @@ async function nudgeLoadTargets(){
   } catch(e){ /* сервер молчит — обойдёмся именами из своего списка */ }
   if (!ключи.length) ключи = Object.keys(имена).map(function(k){ return { key: k, guests: true }; });
   NUDGE_TARGETS = ключи.map(function(x){ return { key: x.key, guests: x.guests, title: (имена[x.key] || x.key) + (x.guests ? '' : ' — только участникам') }; });
+  try {const r=await fetch(API+'/knowledge-quizzes/admin-links',{headers:{'X-Admin-Token':ADMIN_TOKEN}});if(r.ok){const rows=await r.json();NUDGE_TARGETS=NUDGE_TARGETS.filter(x=>!rows.some(y=>y.key===x.key)).concat(rows.map(x=>({key:x.key,guests:x.guests,title:x.title+(x.kind==='quiz'?' — квиз, с 3-го уровня или за баллы':'')})));}}catch(e){console.warn('Game links unavailable');}
+
 }
 
 function nudgeTargetFieldHtml(prefix, id, value){
@@ -19962,6 +19964,7 @@ function gmEdit(key){
      + '<button class="action-btn" onclick="gmOpenKey=\'\';document.getElementById(\'gm-editor\').innerHTML=\'\'">Свернуть</button>'
      + '</div>';
 
+  h += '<button class="action-btn" onclick="QuizEditor.links('+jsArg('g_'+g.key)+')">Ссылки для приглашения в игру</button>';
   h += elLbl('Название и описание для игрока')
      + '<input id="gm-title" value="' + elEsc(g.title) + '" style="' + elInput() + '">'
      + '<textarea id="gm-desc" style="min-height:50px;' + elInput() + '">' + elEsc(g.description) + '</textarea>';
@@ -24073,5 +24076,5 @@ initOverviewConversion();
 if(ADMIN_TOKEN)loadOverviewConversion();
 </script>
 <script src="recovery-admin.js?v=235"></script>
-<script src="telegram-editor.js?v=238" defer></script><script src="quiz-editor.js?v=2"></script><script>QuizEditor.init({base:()=>API,token:()=>ADMIN_TOKEN});</script></body>
+<script src="telegram-editor.js?v=238" defer></script><script src="quiz-editor.js?v=3"></script><script>QuizEditor.init({base:()=>API,token:()=>ADMIN_TOKEN});</script></body>
 </html>
