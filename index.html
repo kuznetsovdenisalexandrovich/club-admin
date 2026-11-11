@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v250 -->
+<!-- FILE_VERSION: admin-v251 -->
 <html lang="ru" data-theme="light">
 <head>
+<script src="https://kuznetsovdenisalexandrovich.github.io/club-app/card-motion.js?v=1"></script>
 <meta charset="UTF-8">
 <script src="card-review.js?v=239"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -3761,7 +3762,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v250';
+const BUILD_VERSION = 'admin-v251';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -15527,8 +15528,7 @@ var holoEd = { mode:'set', key:'', title:'', S:null, on:true, own:false, fx:null
 var HOLO_GROUPS = [
   ['Узор подробнее', [['scale','Размер узора','px'],['density','Плотность','%'],['angle','Поворот узора','deg']]],
   ['Полоса света',   [['band','Ширина полосы','pc'],['bandAngle','Наклон полосы','deg'],['bandRest','Полоса в покое','rest'],['soft','Мягкость края','%'],['travel','Скорость пробега','x']]],
-  ['Сила эффекта',   [['intensity','Яркость перелива','%'],['glare','Блик','%'],['sat','Насыщенность цвета','%'],['shift','Ширина радуги','pc']]],
-  ['Отклик',         [['range','Угол полного перелива','deg'],['smooth','Скорость реакции','%']]]
+  ['Сила эффекта',   [['intensity','Яркость перелива','%'],['glare','Блик','%'],['sat','Насыщенность цвета','%'],['shift','Ширина радуги','pc']]]
 ];
 var HOLO_STEP = {scale:1, density:.01, angle:1, band:1, bandAngle:1, bandRest:.05, soft:.01, travel:.05, intensity:.01, glare:.01, sat:.05, shift:1, range:1, smooth:.01};
 var HOLO_BLEND_NAMES = [['color-dodge','Фольга (осветление)'],['overlay','Мягкая (перекрытие)'],['screen','Светлая (экран)'],['soft-light','Тонкая (мягкий свет)'],['hard-light','Резкая (жёсткий свет)']];
@@ -15644,7 +15644,7 @@ function renderHoloEditor(){
   });
   var card = document.getElementById('hfe-card');
   // Перелив — в окне под арт, рамка сверху; наклоняется вся карта
-  holoEd.fx = HoloFX.mount(document.getElementById('hfe-win'), holoEd.S, { input: card, tiltEl: card });
+  holoEd.fx = HoloFX.mount(document.getElementById('hfe-win'), withClubCardMotion(holoEd.S), { input: card, tiltEl: card });
   holoSyncJson();
 }
 
@@ -15679,12 +15679,12 @@ function holoShowFrame(i){
 function holoSlide(k, kind, v){
   holoEd.S[k] = +v;
   var o = document.getElementById('hfe-' + k + '-out'); if (o) o.textContent = holoFmt(kind, v);
-  if (holoEd.fx) holoEd.fx.set(holoEd.S);
+  if (holoEd.fx) holoEd.fx.set(withClubCardMotion(holoEd.S));
   holoSyncJson();
 }
 
 function holoApply(rerenderSliders){
-  if (holoEd.fx){ holoEd.fx.set(holoEd.S); holoEd.S = holoEd.fx.get(); }
+  if (holoEd.fx){ holoEd.fx.set(withClubCardMotion(holoEd.S)); holoEd.S = holoEd.fx.get(); }
   if (rerenderSliders){
     HOLO_GROUPS.forEach(function(g){ g[1].forEach(function(f){
       var el = document.getElementById('hfe-' + f[0]); if (el) el.value = holoEd.S[f[0]];
