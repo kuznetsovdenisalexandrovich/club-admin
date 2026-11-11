@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v251 -->
+<!-- FILE_VERSION: admin-v252 -->
 <html lang="ru" data-theme="light">
 <head>
 <script src="https://kuznetsovdenisalexandrovich.github.io/club-app/card-motion.js?v=1"></script>
@@ -3762,7 +3762,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v251';
+const BUILD_VERSION = 'admin-v252';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -23719,7 +23719,7 @@ async function onbxSaveTexts(btn){
 
     var input = opts.input || host, tiltEl = opts.tiltEl || null;
     var target = {x:0, y:0}, cur = {x:0, y:0}, mode = "pointer", running = false, dead = false;
-    var frames = 0, fpsT = 0, cw = 300, ch = 420, moved = 0, base = null;
+    var frames = 0, fpsT = 0, cw = 300, ch = 420, moved = 0, base = null, returning = false, lastFrame = 0;
     var offs = [];
 
     function applyPattern(){
@@ -23758,7 +23758,8 @@ async function onbxSaveTexts(btn){
     }
     function frame(now){
       if (dead) return;
-      var k = S.smooth;
+      var dt = lastFrame ? Math.min(64,now-lastFrame) : 1000/60; lastFrame=now;
+      var k = returning ? 1-Math.exp(-dt/220) : S.smooth;
       cur.x += (target.x - cur.x) * k; cur.y += (target.y - cur.y) * k;
       render(); frames++;
       if (!fpsT) fpsT = now;
@@ -23768,10 +23769,11 @@ async function onbxSaveTexts(btn){
       }
       requestAnimationFrame(frame);
     }
-    function kick(){ if (!running && !dead){ running = true; frames = 0; fpsT = 0; requestAnimationFrame(frame); } }
+    function kick(){ if (!running && !dead){ running = true; frames = 0; fpsT = 0; lastFrame = 0; requestAnimationFrame(frame); } }
 
     function on(el, ev, fn, o){ el.addEventListener(ev, fn, o); offs.push(function(){ el.removeEventListener(ev, fn, o); }); }
     function fromPointer(e){
+      returning = false;
       var r = input.getBoundingClientRect();
       target.x = clamp(((e.clientX - r.left)/r.width - .5) * 2);
       target.y = clamp(((e.clientY - r.top)/r.height - .5) * 2);
@@ -23779,16 +23781,21 @@ async function onbxSaveTexts(btn){
     }
     var downAt = null, allowTouch = opts.touch !== false;
     var mine = function(e){ return allowTouch || e.pointerType === "mouse"; };
-    on(input, "pointermove", function(e){
-      if (mode !== "pointer" || !mine(e)) return;
-      if (e.pointerType === "mouse" || e.buttons){
-        if (downAt) moved = Math.max(moved, Math.abs(e.clientX-downAt[0]) + Math.abs(e.clientY-downAt[1]));
-        fromPointer(e);
-      }
-    });
-    on(input, "pointerdown", function(e){ if (!mine(e)) return; downAt = [e.clientX, e.clientY]; moved = 0; if (mode === "pointer") fromPointer(e); });
-    on(input, "pointerleave", function(e){ if (mode === "pointer" && e.pointerType === "mouse"){ target.x = 0; target.y = 0; kick(); } });
-    on(input, "pointerup", function(e){ if (!mine(e)) return; downAt = null; if (mode === "pointer"){ target.x = 0; target.y = 0; kick(); } });
+    function returnHome(){if(mode!=="pointer"||returning)return;returning=true;target.x=0;target.y=0;kick();}
+    function nearCard(e){
+      var r=input.getBoundingClientRect(),pad=40;
+      return r.width>0&&r.height>0&&e.clientX>=r.left-pad&&e.clientX<=r.right+pad&&e.clientY>=r.top-pad&&e.clientY<=r.bottom+pad;
+    }
+    var ownerWindow=root.ownerDocument.defaultView;
+    on(ownerWindow,"pointermove",function(e){
+      if(mode!=="pointer"||e.pointerType!=="mouse")return;
+      if(nearCard(e)){if(downAt)moved=Math.max(moved,Math.abs(e.clientX-downAt[0])+Math.abs(e.clientY-downAt[1]));fromPointer(e)}else returnHome();
+    },{passive:true});
+    on(ownerWindow,"blur",returnHome);
+    on(root.ownerDocument,"pointerout",function(e){if(e.pointerType==="mouse"&&!e.relatedTarget)returnHome()});
+    on(input,"pointermove",function(e){if(mode!=="pointer"||e.pointerType==="mouse"||!mine(e)||!e.buttons)return;if(downAt)moved=Math.max(moved,Math.abs(e.clientX-downAt[0])+Math.abs(e.clientY-downAt[1]));fromPointer(e)});
+    on(input,"pointerdown",function(e){if(!mine(e))return;downAt=[e.clientX,e.clientY];moved=0;if(mode==="pointer")fromPointer(e)});
+    on(ownerWindow,"pointerup",function(e){if(!mine(e))return;downAt=null;if(e.pointerType!=="mouse")returnHome()});
     // Провели пальцем по карточке — это не нажатие: не открываем увеличение
     on(input, "click", function(e){ if (moved > 10){ e.stopPropagation(); e.preventDefault(); } moved = 0; }, true);
 
