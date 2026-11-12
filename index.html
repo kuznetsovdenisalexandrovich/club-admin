@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v254 -->
+<!-- FILE_VERSION: admin-v255 -->
 <html lang="ru" data-theme="light">
 <head>
 <script src="https://kuznetsovdenisalexandrovich.github.io/club-app/card-motion.js?v=1"></script>
@@ -2691,6 +2691,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
         <button class="ptab" data-ev="6" onclick="evShow(6)">Запись и обслуживание</button>
       </div>
 
+      <div style="margin:12px 0"><a class="action-btn" href="https://selectel-api.youselllikeagod-magazine.ru/video-upload/" target="_blank" rel="noopener">Загрузить запись телемоста</a><div class="pay-meta">WebM · выбери дату встречи в загрузчике. Запись появится после обработки, хранится 30 дней.</div></div>
       <div class="workflow-guide" id="event-stage-guide" role="status">Подготовь название и формат встречи. Затем выбери нужный шаг выше.</div>
       <!-- ── 0 · НАСТРОЙКИ. Заполняется заранее, хранится черновиком на
            сервере (admin_doc «event_draft»), при старте уезжает в сессию ── -->
@@ -3777,7 +3778,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v254';
+const BUILD_VERSION = 'admin-v255';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -7749,9 +7750,24 @@ function showAdminDayDetails(dateStr){
     <div class="pay-item" style="border-left:3px solid ${categoryColor(e.category)}">
       <div style="flex:1">
         <div class="pay-name">${e.title}${categoryBadge(e.category)}</div>
-        <div class="pay-meta">${e.time?e.time+' · ':''}${e.source==='rule'?'повторяющееся':'разовое'}</div>
+        <div class="pay-meta">${e.time?e.time+' · ':''}${e.source==='rule'?'повторяющееся':'разовое'}</div><button class="action-btn" onclick="meetingLinks(${jsArg(String(e.id))},${jsArg(dateStr)})">Ссылки на встречу и запись</button>
       </div>
     </div>`).join('');
+}
+
+async function meetingLinks(id,date){
+ try{
+  let eventId=Number(id);
+  if(String(id).startsWith('rule-')){
+   const response=await fetch(API+'/admin/meeting-recordings/occurrence?x_admin_token='+encodeURIComponent(ADMIN_TOKEN),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rule_id:Number(String(id).slice(5)),date:date})});
+   if(!response.ok)throw Error('Не удалось создать ссылку на эту дату');
+   eventId=(await response.json()).event_id;
+  }
+  if(!eventId)throw Error('Выбери конкретную встречу');
+  const text='Telegram: https://t.me/youselllikeagod_bot/app?startapp=meeting_'+eventId+'\nВК: https://vk.ru/app54715238#meeting_'+eventId;
+  try{await navigator.clipboard.writeText(text);alert('Ссылки скопированы. До встречи ведут на её карточку, во время — на вход, после обработки — на запись. После публикации из анализатора — на список занятий этой встречи.');}
+  catch(e){prompt('Ссылки встречи',text);}
+ }catch(e){alert(e.message||'Не удалось получить ссылки');}
 }
 
 function openSchedulePopup(){
