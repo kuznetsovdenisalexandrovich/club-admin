@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v252 -->
+<!-- FILE_VERSION: admin-v254 -->
 <html lang="ru" data-theme="light">
 <head>
 <script src="https://kuznetsovdenisalexandrovich.github.io/club-app/card-motion.js?v=1"></script>
 <meta charset="UTF-8">
-<script src="card-review.js?v=239"></script>
+<script src="card-review.js?v=254"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -783,13 +783,22 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
 .manual-late{color:var(--warm)}
 .update-banner{position:fixed;top:12px;left:12px;right:12px;z-index:99999;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--card-bg,#fff8f1);box-shadow:0 4px 20px #0002;font-size:13px}
 
+.cr-entry,.cr-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:12px 0}
+#card-review-workspace{border:1px solid var(--line);border-radius:16px;background:var(--card-bg);margin:16px 0;scroll-margin-top:20px}
+#card-review-workspace[hidden]{display:none}
+.cr-toolbar{padding:0 18px}.cr-preview{position:sticky;top:20px;align-self:start;min-width:0}.cr-settings{min-width:0}
+.cr-frame-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px;max-height:220px;overflow:auto;padding:4px}
+.cr-frame-option{position:relative;display:block;border:1px solid var(--line);border-radius:8px;padding:4px;cursor:pointer}.cr-frame-option:has(input:checked){border-color:var(--lav-deep)}
+.cr-frame-option img{display:block;width:100%;aspect-ratio:3/4;object-fit:contain}.cr-frame-option input{position:absolute;top:5px;left:5px;accent-color:var(--lav-deep)}
+.cr-footer{position:sticky;bottom:0;background:var(--popup-bg);padding:14px 18px;border-top:1px solid var(--line);z-index:8;border-radius:0 0 16px 16px}
+.cr-holo-group{margin:14px 0}.cr-holo-group summary{font-size:13px;font-weight:600;cursor:pointer;margin-bottom:10px}
 .cr-layout{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:24px;padding:20px}
 .cr-scene{width:min(100%,340px);margin:8px auto 24px}.cr-note{font-size:12px;line-height:1.5;color:var(--text-faint)}
 .cr-shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(transparent 49%,rgba(6,6,11,.88) 79%,#08080d)}
 .cr-copy{position:absolute;z-index:7;bottom:10%;left:13%;right:13%;color:#f6efe6;text-align:center;pointer-events:none;font:700 22px Georgia,serif}
 .cr-actions{display:flex;gap:8px;flex-wrap:wrap}.cr-actions .popup-save{width:auto;margin:0;padding:10px 18px}
 .cr-layout dt{font-size:12px;color:var(--text-faint);margin-top:10px}.cr-layout dd{margin:3px 0 0}
-@media(max-width:640px){.cr-layout{grid-template-columns:minmax(0,1fr);padding:12px}}
+@media(max-width:640px){.cr-preview{position:static}.cr-layout{grid-template-columns:minmax(0,1fr);padding:12px}}
 </style>
 
 <style id="bp-visual-redesign-2026">
@@ -1593,6 +1602,8 @@ select:disabled{opacity:.55;cursor:not-allowed}
           <span class="toggle-track"><span class="toggle-thumb"></span></span>
           <span class="toggle-label-text">Показать секретные</span>
         </label>
+        <div class="cr-entry"><button class="action-btn action-btn--lav" onclick="reviewStart(false)">Начать одобрение новых карт</button><button class="action-btn" onclick="reviewStart(true)">Просмотреть все карты</button></div>
+        <div id="card-review-workspace" hidden></div>
         <div id="cards-widget"><div class="loading">Открываю колоду…</div></div>
         <div id="cards-widget-pager" style="display:flex;justify-content:center;align-items:center;gap:10px;margin-top:10px"></div>
         <button class="action-btn" style="width:100%;margin-top:10px" onclick="openCardsPopup()">Вся колода, симулятор и личное участие</button>
@@ -3766,7 +3777,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v253';
+const BUILD_VERSION = 'admin-v254';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -10796,7 +10807,6 @@ async function openCardsPopup(after){
   if (typeof after === 'function') after();
 }
 function closeCardsPopup(){
-  cardReview.active=false;reviewStopFx();
   document.getElementById('cards-popup-overlay').classList.remove('open');
 }
 
@@ -12060,7 +12070,6 @@ function renderCardShelf(){
 }
 
 function renderCardDetailSlot(){
-  reviewStopFx();
   const slot = document.getElementById('cards-editor-slot');
   if (!slot) return;
   if (!cardExpanded){ slot.innerHTML = ''; return; }
@@ -12077,9 +12086,8 @@ function renderCardDetailSlot(){
       + '<div style="flex:1;font-size:13px;font-weight:600">' + (c.title || c.key) + ' ' + unsavedNote + '</div>'
       + '<button class="action-btn" onclick="closeCardEditor()">← К колоде</button>'
     + '</div>'
-    + (cardEditMode ? cardEditorHtml(c, idx) : cardReview.active ? reviewHtml(c, idx) : cardDetailHtml(c, idx))
+    + (cardEditMode ? cardEditorHtml(c, idx) : cardDetailHtml(c, idx))
     + '</div>';
-  if(cardReview.active && !cardEditMode) reviewMount(c);
 }
 
 /* Крупный просмотр карточки: как она выглядит, плюс её настройки словами.
@@ -12164,7 +12172,7 @@ document.addEventListener('keydown', function(e){
   if (e.key === 'Escape') closeAdminZoom();
 });
 
-function editCardType(){ reviewStopFx(); cardEditMode = true; renderCardShelf(); }
+function editCardType(){ cardEditMode = true; renderCardShelf(); }
 
 /* admin-v218 · «Отправить» — ВСПЛЫВАЮЩЕЕ ОКНО С ЭТОЙ КАРТОЙ, а не переход на
    вкладку «Подарить». [stated] Denis 21.10: там получатель оставался с прошлого
@@ -12289,7 +12297,6 @@ function openCardEditor(key){
   if (popup) popup.scrollTop = 0;
 }
 function closeCardEditor(){
-  cardReview.active=false;reviewStopFx();
   cardExpanded = null; cardEditMode = false; renderCardShelf();
   var origin = cardsEditorOrigin; cardsEditorOrigin = null;
   if (!origin) return;
@@ -13633,7 +13640,7 @@ async function saveCardType(idx){
     unique_card: cb('unique_card'),
     // admin-v213: серия карты. Сезон у карты из серии сервер берёт от серии
     set_key: v('set_key'),
-    needs_review: cardReview.active || !!(cardTypes[idx] && cardTypes[idx].needs_review),
+    needs_review: !!(cardTypes[idx] && cardTypes[idx].needs_review),
   };
   if (!payload.key){ alert('Нужен ключ карточки'); return; }
 
@@ -13642,8 +13649,7 @@ async function saveCardType(idx){
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
     });
     if (!r.ok){ alert((await r.json().catch(function(){return {};})).detail || 'Ошибка сохранения'); return; }
-    const reviewing = cardReview.active;
-    cardExpanded = reviewing ? payload.key : null;
+    cardExpanded = null;
     cardEditMode = false;
     await loadCardTypes();
     renderCardsWidget();
@@ -15601,7 +15607,6 @@ async function holoOpen(){
 function closeHoloEditor(){
   if (holoEd.fx){ holoEd.fx.destroy(); holoEd.fx = null; }
   document.getElementById('holo-popup-overlay').classList.remove('open');
-  if(cardReview.active) renderCardDetailSlot();
 }
 
 function renderHoloEditor(){

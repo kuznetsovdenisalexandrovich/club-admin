@@ -1,59 +1,180 @@
-/* admin-v239: review queue and resumable prepared-card import. */
-var cardReview = {active:false, keys:[], index:0, fx:null, generation:0, frames:[], frame:0, busy:false};
-function reviewStopFx(){ if(cardReview.fx){cardReview.fx.destroy();cardReview.fx=null;} cardReview.generation++; }
-function reviewStart(all){
-  var list=typeof visibleCards==='function'?visibleCards().list:cardTypes;
-  cardReview.keys=list.filter(function(c){return c.image_url&&(all||c.needs_review);}).map(function(c){return c.key;});
-  if(!cardReview.keys.length){alert('В выбранном списке нет карточек для проверки. Измени фильтр или открой ревью всех карт.');return;}
-  cardReview.active=true;cardReview.index=0;reviewOpenCurrent();
+/* admin-v254: one-screen review, saved frame pools and direct owner delivery. */
+var cardReview = {active:false, keys:[], index:0, fx:null, generation:0, frames:[], frame:0, busy:false,
+  ready:false, dirty:false, cache:new Map(), grants:{}, state:null, holo:null, own:false, selected:null};
+function reviewStopFx(){if(cardReview.fx){cardReview.fx.destroy();cardReview.fx=null;}cardReview.generation++;}
+async function reviewStart(all){
+  if(cardReview.busy)return;
+  if(cardReview.active && cardReview.dirty && !confirm('Начать другую очередь без сохранения текущих правок?'))return;
+  if(typeof dashboardTab==='function')dashboardTab('rewards');
+  var host=document.getElementById('card-review-workspace');
+  host.hidden=false;host.innerHTML='<p class="cr-note">Загружаю очередь карт…</p>';
+  document.getElementById('cards-popup-overlay').classList.remove('open');
+  cardExpanded=null;cardEditMode=false;
+  host.scrollIntoView({block:'start',behavior:'smooth'});
+  reviewStopFx();cardReview.active=true;cardReview.busy=true;cardReview.cache.clear();
+  var gen=cardReview.generation;
+  try{
+    var list=await cardReviewRequest('/cards/admin/catalog');
+    if(gen!==cardReview.generation)return;
+    cardTypes=list;
+    cardReview.keys=list.filter(function(c){return c.image_url&&(all||c.needs_review);}).sort(cardAddedCmp).map(function(c){return c.key;});
+    cardReview.index=0;cardReview.busy=false;cardReview.dirty=false;
+    if(!cardReview.keys.length){cardReview.active=false;host.innerHTML='<p class="cr-note">Все загруженные карты уже проверены.</p>';return;}
+    reviewOpenCurrent();
+  }catch(e){cardReview.busy=false;cardReview.active=false;host.textContent='Не удалось загрузить очередь: '+e.message;}
+}
+function reviewData(key){
+  if(!cardReview.cache.has(key)){
+    var p=cardReviewRequest('/cards/admin/review-state?key='+encodeURIComponent(key));
+    cardReview.cache.set(key,p);p.catch(function(){cardReview.cache.delete(key);});
+  }
+  return cardReview.cache.get(key);
+}
+function reviewPrefetch(){
+  var key=cardReview.keys[cardReview.index+1];
+  for(var k of cardReview.cache.keys())if(k!==key&&k!==cardReview.keys[cardReview.index])cardReview.cache.delete(k);
+  if(!key)return;
+  reviewData(key).catch(function(){});
+  var c=cardTypes.find(function(c){return c.key===key;});
+  if(c){cardReview.nextImage=new Image();cardReview.nextImage.src=c.image_full_url||c.image_url;}
 }
 function reviewOpenCurrent(){
-  reviewStopFx();cardReview.busy=false;
-  if(cardReview.index>=cardReview.keys.length){cardReview.active=false;closeCardEditor();alert('Ревью завершено');return;}
-  openCardEditor(cardReview.keys[cardReview.index]);
+  reviewStopFx();cardReview.busy=false;cardReview.ready=false;cardReview.dirty=false;
+  var host=document.getElementById('card-review-workspace');
+  if(cardReview.index>=cardReview.keys.length){cardReview.active=false;host.innerHTML='<h3>Очередь пройдена</h3><p class="cr-note">Отложенные карты остаются в очереди непроверенных.</p>';renderCardsWidget();return;}
+  var c=cardTypes.find(function(c){return c.key===cardReview.keys[cardReview.index];});
+  if(!c){cardReview.index++;reviewOpenCurrent();return;}
+  host.innerHTML=reviewHtml(c);host.scrollIntoView({block:"start"});reviewMount(c);reviewPrefetch();
 }
-function reviewExit(){cardReview.active=false;reviewStopFx();closeCardEditor();}
-function reviewNext(){if(cardReview.busy)return;cardReview.index++;reviewOpenCurrent();}
-async function reviewApprove(){
+function reviewExit(){
   if(cardReview.busy)return;
-  var key=cardReview.keys[cardReview.index],generation=cardReview.generation;cardReview.busy=true;
-  document.querySelectorAll('.cr-actions button').forEach(function(b){b.disabled=true;});
-  try{
-    await cardReviewRequest('/cards/admin/reviewed',{keys:[key],reviewed:true});
-    var c=cardTypes.find(function(c){return c.key===key;});if(c)c.needs_review=false;
-    if(!cardReview.active||generation!==cardReview.generation)return;
-    cardReview.index++;reviewOpenCurrent();
-  }catch(e){if(!cardReview.active||generation!==cardReview.generation)return;document.getElementById('cr-status').textContent=e.message;cardReview.busy=false;document.querySelectorAll('.cr-actions button').forEach(function(b){b.disabled=false;});}
+  if(cardReview.dirty&&!confirm('Закончить без сохранения текущих правок?'))return;
+  cardReview.active=false;reviewStopFx();cardReview.cache.clear();
+  var host=document.getElementById('card-review-workspace');host.hidden=true;host.innerHTML='';renderCardsWidget();
 }
-function reviewHtml(c,idx){
-  return '<div class="cr-layout"><div><div class="hfe-scene cr-scene"><div class="hfe-card is-bare" id="cr-card"><div class="hfe-win" id="cr-win"><img id="cr-art" alt=""><div class="cr-shade"></div></div><div class="cr-copy"><b>'+escapeHtmlAdm(c.god||c.title||'')+'</b></div><img class="hfe-frame" id="cr-frame" alt="" hidden></div></div>'
-    +'<div class="hfe-nav"><button class="action-btn" onclick="reviewFrame(-1)">‹</button><span id="cr-frame-label">Подбираю рамки…</span><button class="action-btn" onclick="reviewFrame(1)">›</button></div>'
-    +'<p class="cr-note">Вариант рамки из пула выдачи: у каждого выданного экземпляра она может быть другой.</p>'
-    +'<button class="action-btn" onclick="openAdminZoom('+jsArg(c.image_full_url||c.image_url)+')">Целый оригинал</button><p id="cr-ratio" class="cr-note"></p></div>'
-    +'<div><p>'+ (cardReview.index+1)+' / '+cardReview.keys.length+'</p><h3>'+escapeHtmlAdm(c.title||c.key)+'</h3>'
-    +'<dl><dt>Редкость</dt><dd>'+escapeHtmlAdm(RARITY_LABELS[c.rarity]||c.rarity)+'</dd><dt>Коллекция / сезон</dt><dd>'+escapeHtmlAdm((c.set_key||'Без коллекции')+' / '+(c.series_key||'Без сезона'))+'</dd><dt>Вес / баллы</dt><dd>'+Number(c.weight||0)+' / '+Number(c.effect_points||0)+'</dd><dt>Эффект</dt><dd>'+escapeHtmlAdm(({points:'Баллы',content:'Контент',reward:'Награда'})[c.effect_type]||c.effect_type||'Баллы')+'</dd><dt>Выдача</dt><dd>'+(c.active?'Включена':'Выключена')+'</dd></dl>'
-    +'<p id="cr-holo" class="cr-note"></p><div class="cr-actions"><button class="popup-save" id="cr-approve" onclick="reviewApprove()">Одобрить</button><button class="action-btn" onclick="editCardType()">Редактировать</button><button class="action-btn" onclick="openHoloForCard('+jsArg(c.key)+')">Перелив</button><button class="action-btn" onclick="reviewNext()">Позже</button><button class="action-btn" onclick="reviewExit()">Закончить ревью</button></div><p class="cr-note">Одобрение отмечает проверку. Включение выдачи остаётся отдельной настройкой карты.</p><div id="cr-status" role="status"></div></div></div>';
+function reviewNext(){
+  if(cardReview.busy)return;
+  if(cardReview.dirty&&!confirm('Отложить карту без сохранения текущих правок?'))return;
+  cardReview.index++;reviewOpenCurrent();
+}
+function reviewLock(value){
+  cardReview.busy=value;
+  document.querySelectorAll('#card-review-workspace button,#card-review-workspace input,#card-review-workspace select').forEach(function(b){b.disabled=value;});
+}
+function reviewStatus(text){var el=document.getElementById('cr-status');if(el)el.textContent=text;}
+async function reviewSave(approve){
+  var key=cardReview.keys[cardReview.index];
+  var state=await cardReviewRequest('/cards/admin/review-save',{key:key,revision:cardReview.state.revision,
+    holo:cardReview.own?Object.assign({},cardReview.holo):null,
+    frame_keys:cardReview.selected===null?null:Array.from(cardReview.selected),approve:approve});
+  cardReview.state=state;cardReview.cache.set(key,Promise.resolve(state));cardReview.dirty=false;
+  var c=cardTypes.find(function(c){return c.key===key;});if(c){c.needs_review=state.needs_review;c.holo=state.holo;}
+}
+async function reviewApprove(){
+  if(cardReview.busy||!cardReview.ready)return;
+  reviewLock(true);reviewStatus('Сохраняю и одобряю…');
+  try{await reviewSave(true);cardReview.index++;reviewOpenCurrent();}
+  catch(e){reviewLock(false);reviewStatus(e.message+' Правки остались на экране.');}
+}
+async function reviewSaveDraft(){
+  if(cardReview.busy||!cardReview.ready)return;
+  reviewLock(true);
+  try{await reviewSave(false);reviewStatus('Настройки сохранены. Карта ещё ждёт одобрения.');}
+  catch(e){reviewStatus(e.message);}
+  finally{reviewLock(false);}
+}
+async function reviewSendSelf(){
+  if(cardReview.busy||!cardReview.ready)return;
+  var key=cardReview.keys[cardReview.index];
+  if(cardReview.grants[key]&&cardReview.grants[key].done){reviewStatus('Эта карта уже выдана тебе в этом просмотре.');return;}
+  reviewLock(true);reviewStatus('Выдаю карту в твоё приложение…');
+  var receipt=cardReview.grants[key];
+  if(!receipt){
+    var storageKey='card-review-grant:'+key;
+    try{receipt=JSON.parse(localStorage.getItem(storageKey)||'null');}catch(e){}
+    receipt=receipt||{request_id:crypto.randomUUID()};cardReview.grants[key]=receipt;
+    try{localStorage.setItem(storageKey,JSON.stringify(receipt));}catch(e){}
+  }
+  try{
+    if(cardReview.dirty)await reviewSave(false);
+    await cardReviewRequest('/cards/admin/review-grant-self',{key:key,request_id:receipt.request_id});
+    receipt.done=true;
+    try{localStorage.removeItem('card-review-grant:'+key);}catch(e){}
+    reviewStatus('Карта выдана тебе. Открой её в паке в приложении — без выбора получателя.');
+  }catch(e){reviewStatus('Не удалось подтвердить выдачу: '+e.message+'. Можно повторить — дубля не будет.');}
+  finally{reviewLock(false);}
+}
+function reviewReload(){
+  if(cardReview.busy)return;
+  if(cardReview.dirty&&!confirm('Загрузить сохранённую карту и убрать текущие правки?'))return;
+  cardReview.cache.delete(cardReview.keys[cardReview.index]);reviewOpenCurrent();
+}
+function reviewHtml(c){
+  return '<div class="cr-toolbar"><div><strong>Конвейер одобрений</strong><span class="cr-note"> '+(cardReview.index+1)+' / '+cardReview.keys.length+'</span></div><button class="action-btn" onclick="reviewExit()">Закончить</button></div>'
+  +'<div class="cr-layout"><div class="cr-preview"><div class="hfe-scene cr-scene"><div class="hfe-card is-bare" id="cr-card"><div class="hfe-win" id="cr-win"><img id="cr-art" alt=""><div class="cr-shade"></div></div><div class="cr-copy"><b>'+escapeHtmlAdm(c.god||c.title||'')+'</b></div><img class="hfe-frame" id="cr-frame" alt="" hidden></div></div>'
+  +'<div class="hfe-nav"><button class="action-btn" onclick="reviewFrame(-1)">‹</button><span id="cr-frame-label">Загружаю рамки…</span><button class="action-btn" onclick="reviewFrame(1)">›</button></div>'
+  +'<button class="action-btn" onclick="openAdminZoom('+jsArg(c.image_full_url||c.image_url)+')">Оригинал крупно</button><p id="cr-ratio" class="cr-note"></p></div>'
+  +'<div class="cr-settings"><h3>'+escapeHtmlAdm(c.title||c.key)+'</h3><p class="cr-note">'+escapeHtmlAdm([RARITY_LABELS[c.rarity]||c.rarity,c.set_key||'Без коллекции',c.series_key||'Без сезона'].join(' · '))+'</p>'
+  +'<div id="cr-controls">Загружаю настройки…</div></div></div>'
+  +'<div class="cr-footer"><div class="cr-actions"><button class="popup-save" onclick="reviewApprove()" disabled>Одобрить и следующая</button><button class="action-btn" onclick="reviewSaveDraft()" disabled>Сохранить настройки</button><button class="action-btn" onclick="reviewSendSelf()" disabled>Выдать себе</button><button class="action-btn" onclick="reviewNext()">Позже</button><button class="action-btn" onclick="reviewReload()">Обновить карту</button></div><p class="cr-note">Одобрение не меняет включение карты в выдачу. Выбранные рамки применяются к новым экземплярам.</p><div id="cr-status" role="status" aria-live="polite"></div></div>';
 }
 async function reviewMount(c){
-  reviewStopFx();var gen=cardReview.generation;cardReview.frames=[];cardReview.frame=0;
+  var gen=cardReview.generation;cardReview.frames=[];cardReview.frame=0;
   var img=document.getElementById('cr-art');if(!img)return;
-  img.onload=function(){if(gen!==cardReview.generation)return;var ratio=img.naturalWidth/img.naturalHeight,target=.7815/(.8347*4/3);var loss=1-Math.min(ratio/target,target/ratio);document.getElementById('cr-ratio').textContent='Оригинал '+img.naturalWidth+' × '+img.naturalHeight+'. В рамке обрезается примерно '+Math.round(loss*100)+'% площади. Пропорции сохраняются.';};
+  img.onload=function(){if(gen!==cardReview.generation)return;document.getElementById('cr-ratio').textContent='Оригинал '+img.naturalWidth+' × '+img.naturalHeight;};
   img.src=c.image_full_url||c.image_url;
   try{
-    var data=await Promise.all([cardReviewRequest('/cards/admin/frame-candidates?rarity='+encodeURIComponent(c.rarity)+'&season_key='+encodeURIComponent(c.series_key||'')+'&style='+encodeURIComponent(c.style||'dark')),cardReviewRequest('/cards/admin/sets'),cardReviewRequest('/cards/admin/series')]);
-    if(gen!==cardReview.generation||!document.getElementById('cr-card'))return;
-    cardReview.frames=data[0].frames||[];reviewFrame(0);
-    var set=(data[1].sets||[]).find(function(s){return s.key===c.set_key;}),season=(data[2].series||[]).find(function(s){return s.key===c.series_key;});
-    var holo=c.holo||(set&&set.holo)||(season&&season.holo);
-    document.getElementById('cr-holo').textContent=holo&&holo.on?'Перелив: '+holo.pattern+' · '+Math.round(holo.intensity*100)+'%':'Перелив выключен';
-    if(holo&&holo.on){cardReview.fx=HoloFX.mount(document.getElementById('cr-win'),Object.assign({},holo),{input:document.getElementById('cr-card'),tiltEl:document.getElementById('cr-card')});}
-  }catch(e){if(gen===cardReview.generation&&document.getElementById('cr-status'))document.getElementById('cr-status').textContent='Не удалось собрать превью: '+e.message;}
+    var state=await reviewData(c.key);
+    if(gen!==cardReview.generation||!cardReview.active)return;
+    cardReview.state=state;cardReview.frames=state.frames||[];
+    cardReview.selected=state.frame_keys===null?null:new Set(state.frame_keys);
+    cardReview.own=!!state.holo;
+    var base=state.holo||state.inherited_holo;
+    cardReview.holo=HoloFX.normalize(base||Object.assign(HoloFX.defaults('lines'),{on:false}));
+    cardReview.holo.on=!!(base&&base.on);
+    cardReview.frame=Math.max(0,cardReview.frames.findIndex(function(f){return cardReview.selected===null||cardReview.selected.has(f.key);}));
+    reviewControls();reviewFrame(0);reviewApply(false);cardReview.ready=true;reviewLock(false);
+  }catch(e){if(gen===cardReview.generation)reviewStatus('Не удалось загрузить карту: '+e.message+'. Нажми «Обновить карту».');}
+}
+function reviewControls(){
+  var S=cardReview.holo;
+  var h='<div class="hfe-h">Допустимые рамки</div><label class="hfe-on"><input type="checkbox" id="cr-auto-frames" '+(cardReview.selected===null?'checked':'')+' onchange="reviewAutoFrames(this.checked)">Все подходящие рамки</label><p class="cr-note" id="cr-frame-count"></p><div class="cr-frame-grid" id="cr-frame-grid"></div>'
+   +'<div class="hfe-h">Перелив</div><label class="hfe-on"><input type="checkbox" id="cr-holo-on" '+(S.on?'checked':'')+' onchange="reviewHoloOn(this.checked)">Включён</label><p class="cr-note" id="cr-holo-source"></p><div class="hfe-pats" id="cr-patterns"></div>';
+  HOLO_GROUPS.forEach(function(g){h+='<details class="cr-holo-group"'+(g[0]==='Сила эффекта'?' open':'')+'><summary>'+g[0]+'</summary>';
+    g[1].forEach(function(f){var k=f[0],range=HoloFX.RANGES[k];h+='<div class="hfe-row"><label for="cr-'+k+'">'+f[1]+'</label><output id="cr-'+k+'-out">'+holoFmt(f[2],S[k])+'</output><input type="range" id="cr-'+k+'" min="'+range[1]+'" max="'+range[2]+'" step="'+HOLO_STEP[k]+'" value="'+S[k]+'" oninput="reviewSlide('+jsArg(k)+','+jsArg(f[2])+',this.value)"></div>';});h+='</details>';});
+  h+='<label class="hfe-row">Наложение<select id="cr-blend" onchange="reviewBlend(this.value)">'+HOLO_BLEND_NAMES.map(function(o){return '<option value="'+o[0]+'"'+(S.blend===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></label><button class="action-btn" onclick="reviewInherited()">Перелив как у коллекции / сезона</button>';
+  document.getElementById('cr-controls').innerHTML=h;
+  var box=document.getElementById('cr-patterns');
+  HoloFX.PATTERNS.forEach(function(p){var b=document.createElement('button');b.type='button';b.className='hfe-pat';b.dataset.p=p.id;b.setAttribute('aria-pressed',String(S.pattern===p.id));var canvas=document.createElement('canvas');canvas.width=68;canvas.height=68;b.appendChild(canvas);var label=document.createElement('span');label.textContent=p.name;b.appendChild(label);b.onclick=function(){reviewPattern(p.id);};box.appendChild(b);HoloFX.thumb(canvas,p.id);});
+  reviewFrameControls();reviewSource();
+}
+function reviewSource(){document.getElementById('cr-holo-source').textContent=cardReview.own?'Своя настройка этой карты':'Настройка коллекции / сезона';}
+function reviewChanged(){cardReview.dirty=true;reviewStatus('Есть несохранённые правки. «Одобрить» сохранит их и откроет следующую карту.');}
+function reviewApply(changed){
+  if(changed){cardReview.own=true;reviewChanged();reviewSource();}
+  if(!cardReview.holo.on){if(cardReview.fx){cardReview.fx.destroy();cardReview.fx=null;}return;}
+  var settings=typeof withClubCardMotion==='function'?withClubCardMotion(cardReview.holo):cardReview.holo;
+  if(cardReview.fx)cardReview.fx.set(settings);
+  else cardReview.fx=HoloFX.mount(document.getElementById('cr-win'),settings,{input:document.getElementById('cr-card'),tiltEl:document.getElementById('cr-card')});
+}
+function reviewSlide(k,kind,v){cardReview.holo[k]=+v;document.getElementById('cr-'+k+'-out').textContent=holoFmt(kind,v);reviewApply(true);}
+function reviewHoloOn(on){cardReview.holo.on=on;reviewApply(true);}
+function reviewBlend(blend){cardReview.holo.blend=blend;reviewApply(true);}
+function reviewPattern(id){var p=HoloFX.PATTERNS.find(function(p){return p.id===id;});if(!p)return;Object.assign(cardReview.holo,{pattern:p.id,scale:p.def.scale,density:p.def.density,angle:p.def.angle,on:true});cardReview.own=true;reviewControls();reviewApply(true);}
+function reviewInherited(){var base=cardReview.state.inherited_holo;cardReview.holo=HoloFX.normalize(base||Object.assign(HoloFX.defaults('lines'),{on:false}));cardReview.holo.on=!!(base&&base.on);cardReview.own=false;reviewControls();reviewApply(false);reviewChanged();}
+function reviewAutoFrames(auto){cardReview.selected=auto?null:new Set(cardReview.frames.map(function(f){return f.key;}));reviewFrameControls();reviewChanged();}
+function reviewToggleFrame(key,on){if(cardReview.selected===null)cardReview.selected=new Set(cardReview.frames.map(function(f){return f.key;}));if(on)cardReview.selected.add(key);else cardReview.selected.delete(key);document.getElementById('cr-auto-frames').checked=false;var i=cardReview.frames.findIndex(function(f){return f.key===key;});if(i>=0){cardReview.frame=i;reviewFrame(0);}reviewFrameControls();reviewChanged();}
+function reviewFrameControls(){
+  var box=document.getElementById('cr-frame-grid');box.innerHTML='';
+  cardReview.frames.forEach(function(f){var label=document.createElement('label');label.className='cr-frame-option';var input=document.createElement('input');input.type='checkbox';input.checked=cardReview.selected===null||cardReview.selected.has(f.key);input.onchange=function(){reviewToggleFrame(f.key,input.checked);};var img=document.createElement('img');img.src=f.url;img.alt=f.key;img.loading='lazy';label.appendChild(input);label.appendChild(img);box.appendChild(label);});
+  var count=cardReview.selected===null?cardReview.frames.length:cardReview.selected.size;
+  document.getElementById('cr-frame-count').textContent=cardReview.frames.length?'Выбрано '+count+' из '+cardReview.frames.length+'. Новому экземпляру достанется случайная из выбранных.':'Подходящих рамок пока нет — карта будет без рамки.';
 }
 function reviewFrame(delta){
   var frames=cardReview.frames,el=document.getElementById('cr-frame'),card=document.getElementById('cr-card');if(!el||!card)return;
   cardReview.frame=frames.length?(cardReview.frame+delta+frames.length)%frames.length:0;
   var f=frames[cardReview.frame];el.hidden=!f;card.classList.toggle('is-bare',!f);if(f)el.src=f.url;else el.removeAttribute('src');
-  document.getElementById('cr-frame-label').textContent=f?'Рамка '+(cardReview.frame+1)+' / '+frames.length:'Подходящих рамок нет';
+  document.getElementById('cr-frame-label').textContent=f?'Примерка '+(cardReview.frame+1)+' / '+frames.length:'Без рамки';
 }
 async function cardReviewRequest(path,body){
   var r=await fetch(API+path+(path.includes('?')?'&':'?')+'x_admin_token='+encodeURIComponent(ADMIN_TOKEN),body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:undefined);
