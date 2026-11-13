@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v255 -->
+<!-- FILE_VERSION: admin-v256 -->
 <html lang="ru" data-theme="light">
 <head>
 <script src="https://kuznetsovdenisalexandrovich.github.io/club-app/card-motion.js?v=1"></script>
@@ -799,6 +799,10 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
 .cr-actions{display:flex;gap:8px;flex-wrap:wrap}.cr-actions .popup-save{width:auto;margin:0;padding:10px 18px}
 .cr-layout dt{font-size:12px;color:var(--text-faint);margin-top:10px}.cr-layout dd{margin:3px 0 0}
 @media(max-width:640px){.cr-preview{position:static}.cr-layout{grid-template-columns:minmax(0,1fr);padding:12px}}
+
+.meeting-upload{display:flex;flex-direction:column;align-items:flex-start;gap:10px;margin:16px 0}
+.meeting-upload .meeting-upload-link{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;max-width:100%;min-height:40px;padding:10px 14px;font-size:12px;font-weight:500;line-height:1.4;text-decoration:none}
+.meeting-upload .meeting-upload-hint{margin:0;font-size:11px;font-weight:400;line-height:1.5;color:var(--text-dim)}
 </style>
 
 <style id="bp-visual-redesign-2026">
@@ -2691,7 +2695,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
         <button class="ptab" data-ev="6" onclick="evShow(6)">Запись и обслуживание</button>
       </div>
 
-      <div style="margin:12px 0"><a class="action-btn" href="https://selectel-api.youselllikeagod-magazine.ru/video-upload/" target="_blank" rel="noopener">Загрузить запись телемоста</a><div class="pay-meta">WebM · выбери дату встречи в загрузчике. Запись появится после обработки, хранится 30 дней.</div></div>
+      <div class="meeting-upload"><a class="action-btn meeting-upload-link" href="https://selectel-api.youselllikeagod-magazine.ru/video-upload/" target="_blank" rel="noopener">Загрузить запись телемоста</a><div class="pay-meta meeting-upload-hint">WebM · выбери дату встречи в загрузчике. Запись появится после обработки, хранится 30 дней.</div></div>
       <div class="workflow-guide" id="event-stage-guide" role="status">Подготовь название и формат встречи. Затем выбери нужный шаг выше.</div>
       <!-- ── 0 · НАСТРОЙКИ. Заполняется заранее, хранится черновиком на
            сервере (admin_doc «event_draft»), при старте уезжает в сессию ── -->
@@ -3778,7 +3782,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v255';
+const BUILD_VERSION = 'admin-v256';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
