@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v258 -->
+<!-- FILE_VERSION: admin-v259 -->
 <html lang="ru" data-theme="light">
 <head>
 <script src="https://kuznetsovdenisalexandrovich.github.io/club-app/card-motion.js?v=1"></script>
@@ -3782,7 +3782,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v258';
+const BUILD_VERSION = 'admin-v259';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -21649,20 +21649,25 @@ function dgAnnImgPick(){
   f.value = '';
   f.click();
 }
+var dgAnnUploadBusy = false;
 async function dgAnnImgFile(input){
   var file = input.files && input.files[0];
-  if (!file || !dgAnnIssue) return;
+  if (!file || !dgAnnIssue || dgAnnUploadBusy) return;
+  const issue = dgAnnIssue, draft = dgAnnImg;
+  dgAnnUploadBusy = true;
   try{
     dgToast('уменьшаю…');
     var сжатый = await dgShrinkImage(file);
     dgToast('заливаю ' + dgKb(сжатый.blob.size) + '…');
-    var meta = await retPost('/admin/audio-upload-url', { slug: 'dgann' + dgAnnIssue + '-' + Date.now().toString(36), kind: 'digest_decor', ext: сжатый.ext });
+    var meta = await retPost('/admin/audio-upload-url', { slug: 'dgann' + issue + '-' + Date.now().toString(36), kind: 'digest_decor', ext: сжатый.ext });
     var put = await fetch(meta.upload_url, { method:'PUT', headers:{ 'Content-Type': meta.content_type }, body: сжатый.blob });
     if (!put.ok) throw new Error('хранилище ответило ' + put.status);
     /* хранилище закрыто для прямых ссылок — показываем через раздатчик сервера */
+    if (dgAnnIssue !== issue || dgAnnImg !== draft){ dgToast('Редактор переключён — картинка не добавлена.', 'bad'); return; }
     dgAnnImgSet('s3:' + meta.key, API + '/media/' + meta.key);
     dgToast('Картинка загружена: ' + dgKb(сжатый.blob.size), 'ok');
   }catch(e){ dgToast('Не залилось: ' + (e.message || e), 'bad'); }
+  finally{ dgAnnUploadBusy = false; }
 }
 async function dgAnnounceOpen(id){
   dgAnnIssue = id;
@@ -22821,46 +22826,53 @@ function dgToast(текст, вид){
   if (вид) dgToastTimer = setTimeout(function(){ el.style.opacity = '0'; }, 6000);
 }
 function dgKb(n){ return n > 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' МБ' : Math.round(n / 1024) + ' КБ'; }
+var dgImageUploadBusy = false;
 async function dgDecorFile(input){
   const file = input.files && input.files[0];
-  if (!file || !dgDecorIssue) return;
-  const state = document.getElementById('dg-decor-state');
-  const скажи = function(t, вид){ const el = document.getElementById('dg-decor-state'); if (el) el.textContent = t; dgToast(t, вид); };
+  if (!file || !dgDecorIssue || dgImageUploadBusy) return;
+  const ctx = {issue: dgDecorIssue, editor: dgEdId, slot: dgDecorSlot, mode: dgUpMode};
+  const current = () => dgDecorIssue === ctx.issue && dgEdId === ctx.editor && dgDecorSlot === ctx.slot && dgUpMode === ctx.mode;
+  const скажи = function(t, вид){ const el = document.getElementById('dg-decor-state'); if (el && current()) el.textContent = t; dgToast(t, вид); };
+  dgImageUploadBusy = true;
   try{
     скажи('уменьшаю…');
     const сжатый = await dgShrinkImage(file);
     скажи('заливаю ' + dgKb(сжатый.blob.size) + (сжатый.blob !== file ? ' (было ' + dgKb(file.size) + ')' : '') + '…');
-    const meta = await retPost('/admin/audio-upload-url', { slug: 'dg' + dgDecorIssue + '-' + Date.now().toString(36), kind: 'digest_decor', ext: сжатый.ext });
+    const meta = await retPost('/admin/audio-upload-url', { slug: 'dg' + ctx.issue + '-' + Date.now().toString(36), kind: 'digest_decor', ext: сжатый.ext });
     const put = await fetch(meta.upload_url, { method:'PUT', headers:{ 'Content-Type': meta.content_type }, body: сжатый.blob });
     if (!put.ok) throw new Error('хранилище ответило ' + put.status);
-    dgUpResult = 'Загружено: ' + dgKb(сжатый.blob.size)
+    if (!current()){ dgToast('Редактор переключён — картинка не добавлена.', 'bad'); return; }
+    const saved = ctx.mode === 'photo_add' || ctx.mode === 'photo_url'
+      ? await dgEdPhoto(ctx.slot, ctx.mode === 'photo_add' ? 'add_photo' : 'photo_url', meta.public_url, ctx)
+      : await dgDecorSet(ctx.slot, meta.public_url, ctx);
+    if (!saved) throw new Error('файл загружен, но изменения выпуска не сохранены');
+    dgUpResult = 'Сохранено: ' + dgKb(сжатый.blob.size)
       + (сжатый.blob !== file ? ' — сжато из ' + dgKb(file.size) : ' — файл и так лёгкий, не пересжимали');
     dgToast(dgUpResult, 'ok');
-    if (dgUpMode === 'photo_add' || dgUpMode === 'photo_url'){
-      await dgEdPhoto(dgDecorSlot, dgUpMode === 'photo_add' ? 'add_photo' : 'photo_url', meta.public_url);
-    } else {
-      await dgDecorSet(dgDecorSlot, meta.public_url);
-    }
-  }catch(e){ dgUpResult = ''; скажи('Не залилось: ' + (e.message || e), 'bad'); }
+  }catch(e){ dgUpResult = ''; скажи('Не сохранилось: ' + (e.message || e), 'bad'); }
+  finally{ dgImageUploadBusy = false; }
 }
-async function dgEdPhoto(slot, action, url){
-  const r = await fetch(API+'/admin/digest/issues/'+dgEdId+'/page?x_admin_token='+ADMIN_TOKEN, {
+async function dgEdPhoto(slot, action, url, ctx){
+  const id = ctx ? ctx.editor : dgEdId;
+  const r = await fetch(API+'/admin/digest/issues/'+id+'/page?x_admin_token='+ADMIN_TOKEN, {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({slot: slot, action: action, url: url})});
   const d = await r.json().catch(function(){ return {}; });
   if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
-  dgEditorOpen(dgEdId);
+  if (dgEdId === id) dgEditorOpen(id);
+  return true;
 }
-async function dgDecorSet(slot, url){
+async function dgDecorSet(slot, url, ctx){
+  const id = ctx ? ctx.issue : dgDecorIssue, editor = ctx ? ctx.editor : dgEdId;
   try{
-    const r = await fetch(API+'/admin/digest/issues/'+dgDecorIssue+'/decor?x_admin_token='+ADMIN_TOKEN, {
+    const r = await fetch(API+'/admin/digest/issues/'+id+'/decor?x_admin_token='+ADMIN_TOKEN, {
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ slot: slot, url: url })});
     const d = await r.json();
     if (!r.ok) throw new Error(d.detail || ('сервер ответил ' + r.status));
-    const id = dgDecorIssue;
     await dgLoadIssues();
-    if (dgEdId) dgEditorOpen(id); else dgDecorOpen(id);
-  }catch(e){ alert('Не сохранилось: ' + (e.message || e)); }
+    if (dgDecorIssue === id && dgEdId === editor){ if (editor) dgEditorOpen(id); else dgDecorOpen(id); }
+    return true;
+  }catch(e){ if (!ctx) alert('Не сохранилось: ' + (e.message || e)); return false; }
 }
 
 async function dgSetTheme(id, key){
