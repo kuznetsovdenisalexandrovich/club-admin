@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v257 -->
+<!-- FILE_VERSION: admin-v258 -->
 <html lang="ru" data-theme="light">
 <head>
 <script src="https://kuznetsovdenisalexandrovich.github.io/club-app/card-motion.js?v=1"></script>
@@ -3782,7 +3782,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v257';
+const BUILD_VERSION = 'admin-v258';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -19941,6 +19941,7 @@ async function gmSave(kind, data, openKey){
      промпты!) молча пропадали. Снимаем черновик формы до запроса и
      возвращаем после перерисовки. */
   var draft = gmGameDraft();
+  var initialOpenKey = gmOpenKey;
   try{
     var response=await fetch(API+'/games/admin/save',{
       method:'POST',headers:{'Content-Type':'application/json'},
@@ -19951,10 +19952,14 @@ async function gmSave(kind, data, openKey){
       alert(typeof error.detail==='string'?error.detail:'Не удалось сохранить. Проверь поля и повтори.');return false;
     }
   }catch(e){alert('Не удалось связаться с сервером. Правки остались в форме.');return false;}
-  if (openKey !== undefined) gmOpenKey = openKey;
+  var restoreEditor = gmOpenKey === initialOpenKey;
+  if (restoreEditor && openKey !== undefined) gmOpenKey = openKey;
+  var destination = gmOpenKey;
   await gmLoad();
-  if (kind !== 'game') gmApplyDraft(draft);
-  if(kind==='material'&&openKey!==undefined)gmOpenMats(openKey);
+  if(restoreEditor && gmOpenKey===destination){
+    if (kind !== 'game') gmApplyDraft(draft);
+    if(kind==='material'&&openKey!==undefined)gmOpenMats(openKey);
+  }
   return true;
 }
 
@@ -20162,8 +20167,11 @@ function gmParseExtra(id){
 
 /* admin-v161: картинка игры — прямо в хранилище по одноразовой ссылке,
    потом сохраняем игру целиком (тем же gmSaveGame), чтобы не нажимать второй раз */
+var gmImageBusy = {};
 async function gmUploadImage(key, file){
   if (!file) return;
+  if(gmImageBusy[key])return;
+  gmImageBusy[key]=true;
   var say = document.getElementById('gm-image-say');
   var ext = (file.type === 'image/png') ? 'png' : (file.type === 'image/webp' ? 'webp' : 'jpg');
   try {
@@ -20175,15 +20183,23 @@ async function gmUploadImage(key, file){
     if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
     var put = await fetch(d.upload_url, { method: 'PUT', headers: { 'Content-Type': d.content_type }, body: file });
     if (!put.ok) throw new Error('хранилище ответило ' + put.status);
+    if(gmOpenKey!==key){
+      alert('Файл загружен, но редактор уже переключён. Вернись к этой игре, чтобы проверить обложку. Другая игра не изменена.');
+      return;
+    }
     var val = 's3:game-images/' + key + '.' + ext;
     document.getElementById('gm-image').value = val;
     var prev = document.getElementById('gm-image-prev');
     if (prev) prev.innerHTML = '<img src="' + URL.createObjectURL(file) + '" style="width:100%;height:100%;object-fit:cover;display:block">';
-    gmSaveGame(key);
-    if (say) say.textContent = 'Готово, игра сохранена';
+    if(say)say.textContent='Файл загружен. Сохраняю игру…';
+    var saved=await gmSaveGame(key);
+    if(gmOpenKey===key){
+      say=document.getElementById('gm-image-say');
+      if(say)say.textContent=saved?'Готово, игра сохранена':'Файл загружен, но игра не сохранена. Правки остались в форме — повтори сохранение.';
+    }
   } catch(e){
     if (say) say.textContent = 'Не загрузилось: ' + (e.message || e);
-  }
+  }finally{delete gmImageBusy[key];}
 }
 function gmClearImage(key){
   var el = document.getElementById('gm-image'); if (el) el.value = '';
@@ -20192,7 +20208,7 @@ function gmClearImage(key){
 }
 
 function gmSaveGame(key){
-  gmSave('game', {
+  return gmSave('game', {
     key: key, title: gmVal('gm-title'), description: gmVal('gm-desc'),
     intro_text: gmVal('gm-intro'), rules_text: gmVal('gm-rules'),
     win_text: gmVal('gm-win'),
