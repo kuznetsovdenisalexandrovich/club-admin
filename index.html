@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v256 -->
+<!-- FILE_VERSION: admin-v257 -->
 <html lang="ru" data-theme="light">
 <head>
 <script src="https://kuznetsovdenisalexandrovich.github.io/club-app/card-motion.js?v=1"></script>
@@ -3782,7 +3782,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v256';
+const BUILD_VERSION = 'admin-v257';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -19941,13 +19941,21 @@ async function gmSave(kind, data, openKey){
      промпты!) молча пропадали. Снимаем черновик формы до запроса и
      возвращаем после перерисовки. */
   var draft = gmGameDraft();
-  await fetch(API + '/games/admin/save', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ kind: kind, data: data, x_admin_token: ADMIN_TOKEN })
-  });
+  try{
+    var response=await fetch(API+'/games/admin/save',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({kind:kind,data:data,x_admin_token:ADMIN_TOKEN})
+    });
+    if(!response.ok){
+      var error=await response.json().catch(function(){return {};});
+      alert(typeof error.detail==='string'?error.detail:'Не удалось сохранить. Проверь поля и повтори.');return false;
+    }
+  }catch(e){alert('Не удалось связаться с сервером. Правки остались в форме.');return false;}
   if (openKey !== undefined) gmOpenKey = openKey;
   await gmLoad();
   if (kind !== 'game') gmApplyDraft(draft);
+  if(kind==='material'&&openKey!==undefined)gmOpenMats(openKey);
+  return true;
 }
 
 var GM_GAME_FIELDS = ['gm-title','gm-desc','gm-intro','gm-rules','gm-win','gm-track','gm-step',
@@ -20291,45 +20299,54 @@ function gmSaveStop(id, key){
    Закрытый список: судья может вернуть только слаг отсюда. Так модель
    физически не может выдумать занятие, которого нет. */
 function gmOpenMats(key){
-  var rows = (gmData.materials || []).filter(function(r){ return r.game_key === key; });
-  var rules = (gmData.rules || []).filter(function(r){ return r.game_key === key; });
-  var h = '<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px">'
-        + '<div style="font-size:12px;font-weight:600;margin-bottom:6px">Материалы после партии</div>'
-        + '<div style="font-size:11px;color:var(--text-faint);margin-bottom:8px;line-height:1.45">'
-        + 'Судья выбирает только из этого списка. Пустое правило — материал на всю игру. '
-        + 'Таймкод важнее слага: попадание в минуту работает, ссылка на трёхчасовое занятие — нет.<br>'
-        + '<b>Выжимка</b> — тезисы занятия. Их видит судья, но <b>только когда играет участник</b>: '
-        + 'это и есть «версия с базой знаний клуба», которую мы обещаем гостю.</div>';
+  var rows=(gmData.materials||[]).filter(function(r){return r.game_key===key;});
+  var rules=(gmData.rules||[]).filter(function(r){return r.game_key===key;});
+  var lectures=gmData.lectures||[];
+  var control=elInput()+';min-height:46px;border-radius:12px;min-width:0;box-sizing:border-box;';
+  var h='<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:12px">'
+    +'<div style="font-size:13px;font-weight:600;margin-bottom:8px">Материалы после партии</div>'
+    +'<div style="font-size:12px;color:var(--text-faint);margin-bottom:12px;line-height:1.5">Выбери занятие и нужную минуту. Если у занятия есть аудиоверсия, плеер откроется с этого момента. Для видео без аудиоверсии покажем таймкод на карточке. Пустое правило — материал на всю игру. Выжимку судья использует только для участников клуба.</div>';
   rows.forEach(function(r){
-    var opts = '<option value="">— на всю игру —</option>';
-    rules.forEach(function(x){
-      opts += '<option value="' + x.rule_key + '"' + (x.rule_key === r.rule_key ? ' selected' : '') + '>' + elEsc(x.rule_key) + '</option>';
-    });
-    h += '<div style="border:1px solid var(--line);border-radius:10px;padding:9px;margin-bottom:8px;display:flex;flex-direction:column;gap:6px">'
-      + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
-        + '<input id="gmm-slug-' + r.id + '" value="' + elEsc(r.slug) + '" placeholder="слаг лекции" style="flex:1;min-width:130px;' + elInput() + '">'
-        + '<input id="gmm-tc-' + r.id + '" value="' + elEsc(r.timecode) + '" placeholder="таймкод" style="width:100px;' + elInput() + '">'
-        + '<select id="gmm-rule-' + r.id + '" style="width:150px;' + elInput() + '">' + opts + '</select>'
-      + '</div>'
-      + '<input id="gmm-title-' + r.id + '" value="' + elEsc(r.title) + '" placeholder="как назвать в приложении" style="' + elInput() + '">'
-      + '<textarea id="gmm-when-' + r.id + '" placeholder="когда советовать — это читает судья" style="min-height:40px;' + elInput() + '">' + elEsc(r.when_to) + '</textarea>'
-      + '<textarea id="gmm-theory-' + r.id + '" placeholder="выжимка из занятия: тезисы, на которые судья опирается в разборе (только для участников)" style="min-height:70px;' + elInput() + '">' + elEsc(r.theory) + '</textarea>'
-      + '<div style="display:flex;gap:8px;align-items:center">'
-        + '<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="gmm-on-' + r.id + '"' + (r.enabled ? ' checked' : '') + '> вкл</label>'
-        + '<button class="action-btn" onclick="gmSaveMat(' + r.id + ',\'' + key + '\')">Сохранить</button>'
-        + '<button class="action-btn" style="margin-left:auto" onclick="gmDelete(\'material\',' + r.id + ')">Удалить</button>'
-      + '</div></div>';
+    var options='<option value="">Выбери занятие по названию</option>';
+    lectures.forEach(function(l){options+='<option value="'+elEsc(l.slug)+'"'+(l.slug===r.slug?' selected':'')+'>'+elEsc(l.title)+'</option>';});
+    var rulesHtml='<option value="">На всю игру</option>';
+    rules.forEach(function(x){rulesHtml+='<option value="'+elEsc(x.rule_key)+'"'+(x.rule_key===r.rule_key?' selected':'')+'>'+elEsc(x.label||x.rule_key)+'</option>';});
+    h+='<div style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px;display:flex;flex-direction:column;gap:12px;min-width:0">'
+      +'<input type="hidden" id="gmm-slug-'+r.id+'" value="'+elEsc(r.slug)+'">'
+      +'<label style="display:flex;flex-direction:column;gap:10px;min-width:0;font-size:12px">Занятие<select id="gmm-lecture-'+r.id+'" onchange="gmChooseMaterial('+r.id+',this.value)" style="'+control+'appearance:none;-webkit-appearance:none;">'+options+'</select></label>'
+      +'<label style="display:flex;flex-direction:column;gap:10px;min-width:0;font-size:12px">Или вставь ссылку на занятие<input id="gmm-link-'+r.id+'" placeholder="https://…" oninput="gmMaterialLink('+r.id+')" style="'+control+'"></label>'
+      +'<div style="display:flex;gap:12px;flex-wrap:wrap;min-width:0">'
+      +'<label style="display:flex;flex-direction:column;gap:10px;flex:1 1 110px;min-width:0;font-size:12px">Таймкод<input id="gmm-tc-'+r.id+'" value="'+elEsc(r.timecode)+'" placeholder="12:47" style="'+control+'"></label>'
+      +'<label style="display:flex;flex-direction:column;gap:10px;flex:2 1 160px;min-width:0;font-size:12px">Когда рекомендовать<select id="gmm-rule-'+r.id+'" style="'+control+'appearance:none;-webkit-appearance:none;">'+rulesHtml+'</select></label></div>'
+      +'<input id="gmm-title-'+r.id+'" value="'+elEsc(r.title)+'" aria-label="Название в приложении" placeholder="Название в приложении — можно оставить пустым" style="'+control+'">'
+      +'<textarea id="gmm-when-'+r.id+'" aria-label="Когда советовать" placeholder="Когда советовать — это читает судья" style="'+control+'min-height:60px;">'+elEsc(r.when_to)+'</textarea>'
+      +'<textarea id="gmm-theory-'+r.id+'" aria-label="Выжимка занятия" placeholder="Выжимка занятия: тезисы для разбора участникам клуба" style="'+control+'min-height:80px;">'+elEsc(r.theory)+'</textarea>'
+      +'<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
+      +'<label style="display:flex;align-items:center;gap:8px;font-size:12px"><input type="checkbox" id="gmm-on-'+r.id+'"'+(r.enabled?' checked':'')+'> Включён</label>'
+      +'<button class="action-btn" onclick="gmSaveMat('+r.id+','+jsArg(key)+')">Сохранить</button>'
+      +'<button class="action-btn" style="margin-left:auto" onclick="gmDelete(\'material\','+r.id+')">Удалить</button></div></div>';
   });
-  if (!rows.length) h += '<div style="font-size:12px;color:var(--text-faint)">Пока пусто. Без материалов судья не будет упоминать занятия вообще — это правильно.</div>';
-  h += '<button class="action-btn" onclick="gmSave(\'material\',{game_key:\'' + key + '\',slug:\'\',enabled:true},\'' + key + '\')">+ материал</button></div>';
-  document.getElementById('gm-sub').innerHTML = h;
+  if(!rows.length)h+='<div style="font-size:12px;color:var(--text-faint);margin-bottom:12px">Пока нет материалов. Добавь занятие, выбери таймкод и включи рекомендацию.</div>';
+  h+='<button class="action-btn" onclick="gmAddMaterial('+jsArg(key)+')">+ материал</button></div>';
+  document.getElementById('gm-sub').innerHTML=h;
 }
-
-function gmSaveMat(id, key){
-  gmSave('material', { id: id, slug: gmVal('gmm-slug-' + id), timecode: gmVal('gmm-tc-' + id),
-                       rule_key: gmVal('gmm-rule-' + id), title: gmVal('gmm-title-' + id),
-                       when_to: gmVal('gmm-when-' + id), theory: gmVal('gmm-theory-' + id),
-                       enabled: gmChk('gmm-on-' + id) }, key);
+function gmChooseMaterial(id,slug){
+  document.getElementById('gmm-slug-'+id).value=slug;
+  document.getElementById('gmm-link-'+id).value='';
+  var lecture=(gmData.lectures||[]).find(function(x){return x.slug===slug;});
+  var title=document.getElementById('gmm-title-'+id);
+  if(lecture&&!title.value.trim())title.value=lecture.title;
+}
+function gmMaterialLink(id){
+  if(gmVal('gmm-link-'+id)){
+    document.getElementById('gmm-lecture-'+id).value='';
+    document.getElementById('gmm-slug-'+id).value='';
+  }
+}
+function gmAddMaterial(key){return gmSave('material',{game_key:key,slug:'',enabled:false},key);}
+function gmSaveMat(id,key){
+  return gmSave('material',{id:id,slug:gmVal('gmm-link-'+id)||gmVal('gmm-slug-'+id),timecode:gmVal('gmm-tc-'+id),
+    rule_key:gmVal('gmm-rule-'+id),title:gmVal('gmm-title-'+id),when_to:gmVal('gmm-when-'+id),theory:gmVal('gmm-theory-'+id),enabled:gmChk('gmm-on-'+id)},key);
 }
 
 /* ═══ ПРОГОН НА ЭТАЛОНЕ ═══
