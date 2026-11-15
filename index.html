@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v259 -->
+<!-- FILE_VERSION: admin-v261 -->
 <html lang="ru" data-theme="light">
 <head>
 <script src="https://kuznetsovdenisalexandrovich.github.io/club-app/card-motion.js?v=1"></script>
@@ -3790,7 +3790,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v260';
+const BUILD_VERSION = 'admin-v261';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -12546,7 +12546,7 @@ function nudgeTargetPick(prefix, id){
   inp.style.display = 'none';
 }
 
-let nurtureFrame=null, nurtureServiceMarkup=null;
+let nurtureFrame=null, nurtureServiceMarkup=null, nurtureOpenGeneration=0;
 async function nurtureBridge(path,body,method){
  const r=await fetch(API+'/admin/nurture/bridge',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Token':ADMIN_TOKEN},body:JSON.stringify({path,method:method||(body===undefined?'GET':'POST'),body:body??null})});
  const d=await r.json();if(!r.ok)throw new Error(typeof d.detail==='string'?d.detail:'Редактор недоступен');return d;
@@ -12557,14 +12557,18 @@ window.addEventListener('message',async e=>{
  try{const result=await nurtureBridge(path,body,method);source.postMessage({type:'club-nurture-result',id,result},'*')}
  catch(error){source.postMessage({type:'club-nurture-result',id,error:error.message},'*')}
 });
-async function openNudgesPopup(){
+async function openLeadMaterialsPopup(){return openNudgesPopup('materials')}
+async function openNudgesPopup(mode){
+ const materials=mode==='materials',generation=++nurtureOpenGeneration;nurtureFrame=null;
  const overlay=document.getElementById('nudges-popup-overlay');overlay.classList.add('open');
  const box=overlay.querySelector('.popup');if(!nurtureServiceMarkup)nurtureServiceMarkup=box.innerHTML;box.style.maxWidth='1200px';box.style.width='calc(100vw - 32px)';box.style.padding='24px';
  box.innerHTML='<button class="popup-close" onclick="closeNudgesPopup()">×</button><div class="popup-section-title">Дожимные сценарии</div><p class="pay-meta">Единый редактор с дашбордом бота: общие настройки, история и стоп-лист.</p><button class="action-btn" style="margin-bottom:16px" onclick="openNurtureServiceSettings()">Служебные тексты и отдельные посты</button><div id="unified-nurture-host" class="loading">Загрузка…</div>';
- try{const d=await nurtureBridge('/nurture/editor-bundle');nurtureFrame=document.createElement('iframe');nurtureFrame.title='Редактор дожимных сценариев';nurtureFrame.setAttribute('sandbox','allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox');nurtureFrame.style.cssText='width:100%;height:72vh;border:0;border-radius:12px;display:block';nurtureFrame.srcdoc=d.html.replace('data-theme="light"','data-theme="'+(document.documentElement.dataset.theme==='dark'?'dark':'light')+'"');document.getElementById('unified-nurture-host').replaceChildren(nurtureFrame)}catch(e){document.getElementById('unified-nurture-host').textContent=e.message}
+ if(materials){box.querySelector('.popup-section-title').textContent='Лидмагниты и ссылки';box.querySelector('.pay-meta').textContent='Тот же каталог, что в дашборде бота. Создавай материалы и ссылки для разных площадок без повторного входа.';box.querySelector('button[onclick="openNurtureServiceSettings()"]').hidden=true;}
+ try{const d=await nurtureBridge(materials?'/nurture/materials-bundle':'/nurture/editor-bundle');if(generation!==nurtureOpenGeneration)return;nurtureFrame=document.createElement('iframe');nurtureFrame.title=materials?'Редактор лидмагнитов и ссылок':'Редактор дожимных сценариев';nurtureFrame.setAttribute('sandbox','allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox');nurtureFrame.style.cssText='width:100%;height:72vh;border:0;border-radius:12px;display:block';nurtureFrame.srcdoc=d.html.replace('data-theme="light"','data-theme="'+(document.documentElement.dataset.theme==='dark'?'dark':'light')+'"');document.getElementById('unified-nurture-host').replaceChildren(nurtureFrame)}catch(e){if(generation===nurtureOpenGeneration&&document.getElementById('unified-nurture-host'))document.getElementById('unified-nurture-host').textContent=e.message}
 }
 
 function openNurtureServiceSettings(){
+ nurtureOpenGeneration++;
  if(!nurtureServiceMarkup)return;
  nurtureFrame=null;
  const box=document.getElementById('nudges-popup-overlay').querySelector('.popup');box.innerHTML=nurtureServiceMarkup;
@@ -12588,6 +12592,7 @@ async function openClientRestrictions(uid){
 }
 
 function closeNudgesPopup(){
+  nurtureOpenGeneration++;nurtureFrame=null;
   document.getElementById('nudges-popup-overlay').classList.remove('open');
 }
 
@@ -24034,7 +24039,7 @@ function initDashboardNavigation(){
   openSecPopup:['settings','Безопасность и доступ','Проверки защиты и административного доступа.'],
   openPlacesPopup:['settings','Каналы и группы клуба','Закрытые площадки для участников и резерв.'],
   openBonusPopup:['content','Материалы для новичков','Бонусные материалы, доступные после вступления.'],
-  openNudgesPopup:['messages','Автоматические напоминания','Сценарии возвращения гостей и продолжения регистрации.'],
+  openNudgesPopup:['messages','Цепочки и сообщения','Гости, участники, отменившие подписку; ролики, кнопки, акции, согласия и статистика.'],
   openOnbxPopup:['members','Знакомство с приложением','Шаги регистрации новичков, тексты и статистика прохождения.'],
   openAsstPopup:['overview','ИИ-помощница','Обсуждение проекта и технические задачи.'],
   openMetrics:['analytics','Показатели по дням','Динамика посещений и активности.'],
@@ -24081,6 +24086,12 @@ function initDashboardNavigation(){
  oldTools.forEach(el=>el.remove());
  [...shell.querySelectorAll(':scope > .section')].forEach(el=>panel(mapping[el.querySelector('.section-title')?.textContent.trim()]||'settings').append(el));
  for(const selector of ['.kpi-grid','#qa-alert']){const el=shell.querySelector(':scope > '+selector);if(el)panel('overview').append(el);}
+ const materialCard=document.createElement('div');materialCard.className='dashboard-tool';
+ const materialButton=document.createElement('button');materialButton.className='action-btn dashboard-tool-button';materialButton.textContent='Лидмагниты и ссылки';materialButton.onclick=openLeadMaterialsPopup;
+ const materialNote=document.createElement('p');materialNote.textContent='Каталог бесплатных материалов, загрузка видео и отдельные ссылки для каждого размещения.';materialCard.append(materialButton,materialNote);
+ panel('messages').querySelector('.dashboard-tool-grid').append(materialCard);dashboardTools.push({button:materialButton,section:'messages',label:materialButton.textContent,description:materialNote.textContent});
+ const guide=document.createElement('div');guide.className='card';guide.innerHTML='<h2>Как подготовить запуск</h2><p>1. В «Лидмагнитах и ссылках» сохрани материал и создай ссылки для нужных площадок.</p><p>2. В «Цепочках и сообщениях» выбери гостей, участников или отменивших подписку. Добавь сообщение, ролик, кнопки и при необходимости акцию.</p><p>3. Выбери, кому доступен новый шаг, и его задержку. «Применить» меняет черновик, «Сохранить сценарий» публикует настройки. Уже доставленные шаги сохраняют историю.</p><p>4. До готовности контента оставляй автоматические отправки выключенными. Если прежняя цепочка уже включена, сохранение её правок может повлиять на текущих получателей.</p><p>5. Статистика сообщений, версий, покупок после фильма и согласий — в том же редакторе. Уведомления администратору сохраняются отдельно.</p><p>«Разовая рассылка» отправляет сообщение людям. Она не нужна для подготовки цепочки или создания ссылки.</p>';
+ panel('messages').insertBefore(guide,panel('messages').children[2]);
  const contentOrder=['openNewsPopup','openStreamsPopup','openMagazinePopup','openDigestPopup','openGamesPopup','openStoriesPopup','openBonusPopup','openHelpDocsPopup','openTextsPopup'];
  const contentGrid=panel('content').querySelector('.dashboard-tool-grid');
  contentOrder.forEach(name=>{const card=contentGrid.querySelector('[data-tool="'+name+'"]');if(card)contentGrid.append(card);});
