@@ -1370,7 +1370,13 @@ select:disabled{opacity:.55;cursor:not-allowed}
 #recovery-detail{min-width:0}#recovery-detail button{margin:5px 8px 5px 0}
 @media(max-width:700px){.recovery-columns{grid-template-columns:minmax(0,1fr)}#recovery-detail{grid-row:1}.recovery-popup{width:calc(100vw - 16px)}}
 </style>
-<link rel="stylesheet" href="telegram-editor.css?v=238"></head>
+<link rel="stylesheet" href="telegram-editor.css?v=238"><style id="member-profiles-admin-css">
+#mp-admin-card,#mp-admin-pending{padding:20px 0;border-top:1px solid var(--line);margin:20px 0}#mp-admin-pending{padding:20px;background:var(--card-bg,var(--bg));border:1px solid var(--line);border-radius:16px}.mp-admin-actions{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}.mp-admin-actions button{min-height:46px}.mp-admin-field{display:flex;flex-direction:column;gap:16px;margin:20px 0}.mp-admin-field textarea{box-sizing:border-box;width:100%;min-height:100px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--input-bg);color:var(--text);font:inherit;resize:vertical}.mp-admin-field textarea:focus-visible{outline:2px solid #9a83bd;outline-offset:3px}.mp-admin-copy{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}.mp-admin-pending-row{display:flex;gap:16px;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid var(--line)}.mp-admin-pending-row>div{min-width:0;overflow-wrap:anywhere}.mp-admin-pending-row button{flex:none}@media(max-width:480px){.mp-admin-pending-row{align-items:stretch;flex-direction:column}.mp-admin-actions button{flex:1}}
+
+#mp-admin-card a,#mp-admin-inline a{color:var(--text);text-underline-offset:3px;overflow-wrap:anywhere}
+
+</style>
+</head>
 
 <body>
 
@@ -1668,6 +1674,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
         <option value="empty">Пустые карточки</option>
       </select>
     </div>
+    <button class="action-btn" onclick="mpAdminPending()" style="margin:12px 0">Проекты на одобрение</button><div id="mp-admin-pending" hidden></div>
     <div class="card">
       <div class="search-wrap">
         <input type="text" id="user-search" placeholder="Поиск по имени, телефону, email, username..." oninput="filterUsers()">
@@ -3326,6 +3333,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
       </div>
       <div class="manual-caption">Закрытие доступа завершает участие. Бан и стоп-лист настраиваются отдельно.</div>
       <div id="popup-rows"></div>
+<div id="mp-admin-card"></div>
 
       <!-- ПУТЬ КЛИЕНТА: откуда пришёл, что дожало, кто привёл, сколько шёл
            до покупки. Грузится отдельной ручкой при открытии карточки -->
@@ -3782,7 +3790,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v259';
+const BUILD_VERSION = 'admin-v260';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -5313,6 +5321,7 @@ function openPopup(uid){
   if(u.linked_accounts)u=allUsers.find(x=>x.id===u.linked_accounts.owner_user_id)||u;
   popupSeq++;
   currentUser=u;
+  if(window.loadMemberProfileAdmin)loadMemberProfileAdmin(u.id);
   setTimeout(()=>loadLinkedTelegram(u.id),0);
   document.getElementById('client-close-access').disabled=!u.is_member||manualPaymentsBusy.has(u.id);
   document.getElementById('client-subscription-actions').hidden=!u.profile_id||!u.sub_id||['manual','оплата переводом'].includes(String(u.sub_status||'').toLowerCase());
@@ -24175,5 +24184,23 @@ async function loadPromoBonusPolicy(){const b=document.getElementById('promo-bon
 async function savePromoBonusPolicy(){try{const r=await fetch(API+'/sales-offers/admin/bonus-policy',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Token':ADMIN_TOKEN},body:JSON.stringify({enabled:document.getElementById('promo-bonus-policy').checked,bonus_keys:[]})});if(!r.ok)throw Error('Не удалось сохранить');alert('Правило бонусов сохранено')}catch(e){alert(e.message)}}
 </script>
 
+<script id="member-profiles-admin-js">
+/* Add-on entitlement and project review; never changes billing or sends messages. */
+(function(){
+'use strict';
+let seq=0,state=null,uid=null,busy=false,currentBox=null;
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(path,method='GET',data){const r=await fetch(API+'/member-profiles'+path+'?x_admin_token='+encodeURIComponent(ADMIN_TOKEN),{method,headers:{'Content-Type':'application/json'},...(data===undefined?{}:{body:JSON.stringify(data)})});const d=await r.json();if(!r.ok)throw Error(typeof d.detail==='string'?d.detail:'Не удалось сохранить');return d;}
+function message(text){const e=currentBox?.querySelector('#mp-admin-status');if(e)e.textContent=text;}
+function anchor(url){try{const u=new URL(url);if(!['http:','https:'].includes(u.protocol)||u.username||u.password)return '';return '<a href="'+esc(u.href)+'" target="_blank" rel="noopener noreferrer">Открыть ссылку проекта</a>';}catch(e){return '';}}
+function render(){const box=currentBox;if(!box||!state)return;const p=state.project;box.innerHTML='<h3>Премиальный профиль</h3><p class="pay-meta">Отдельное право участника. Назначение здесь не меняет подписку, не списывает деньги или баллы.</p><p>'+(state.premium_granted?'Право выдано'+(state.premium_active?'':' · сейчас неактивно'):'Право не выдано')+'</p><div class="mp-admin-actions"><button class="action-btn" data-mpa="grant">'+(state.premium_granted?'Снять премиум':'Выдать премиум')+'</button></div>'+(p?'<h3>Проект участника</h3><p class="mp-admin-copy"><b>'+esc(p.title)+'</b></p><p class="mp-admin-copy">'+esc(p.description)+'</p>'+anchor(p.url)+'<p>Статус: '+esc(({pending:'на рассмотрении',approved:'одобрено',rejected:'нужны изменения',hidden:'скрыто',draft:'черновик'})[state.project_status]||state.project_status)+'</p><label class="mp-admin-field">Комментарий участнику<textarea id="mp-admin-note" maxlength="500">'+esc(state.review_note)+'</textarea></label><div class="mp-admin-actions">'+(state.project_status==='pending'?'<button class="action-btn" data-mpa="approve">Одобрить публикацию</button><button class="action-btn" data-mpa="reject">Вернуть на доработку</button>':'')+(state.published?'<button class="action-btn" data-mpa="hide">Скрыть из каталога</button>':'')+'</div>':'<p class="pay-meta">Заявки на публикацию проекта пока нет.</p>')+'<p id="mp-admin-status" role="status" class="mp-admin-copy"></p>';}
+async function load(id,target=null){const n=++seq;uid=Number(id);state=null;busy=false;const box=target||document.getElementById('mp-admin-card');if(!box)return;if(currentBox&&currentBox!==box)currentBox.innerHTML='';currentBox=box;box.textContent='Загружаю профиль…';try{const data=await api('/admin/'+uid);if(n!==seq)return;state=data;render();}catch(e){if(n===seq)box.textContent=e.message;}}
+async function act(kind){if(busy||!state)return;const n=seq,target=uid;busy=true;document.querySelectorAll('[data-mpa]').forEach(e=>e.disabled=true);try{const data=kind==='grant'?await api('/admin/'+target+'/premium','PUT',{revision:state.revision,enabled:!state.premium_granted}):await api('/admin/'+target+'/review','POST',{revision:state.revision,decision:kind,note:document.getElementById('mp-admin-note')?.value||''});if(n!==seq)return;state=data;render();message('Сохранено.');}catch(e){if(n===seq)message(e.message+' При изменении другим администратором открой карточку заново.');}finally{if(n===seq){busy=false;document.querySelectorAll('[data-mpa]').forEach(e=>e.disabled=false);}}}
+async function pending(){const box=document.getElementById('mp-admin-pending');box.hidden=false;box.textContent='Загружаю заявки…';try{const data=await api('/admin-projects/pending');box.innerHTML='<h3>Проекты на одобрение</h3>'+(data.items.length?data.items.map(p=>'<div class="mp-admin-pending-row"><div><b>'+esc(p.project?.title)+'</b><p class="pay-meta">'+esc(p.name||p.display_name)+'</p></div><button class="action-btn" data-mpa-user="'+Number(p.user_id)+'">Рассмотреть</button></div>').join(''):'<p>Новых заявок нет.</p>')+'<button class="action-btn" id="mp-pending-close">Закрыть список</button>';document.getElementById('mp-pending-close').onclick=()=>box.hidden=true;}catch(e){box.textContent=e.message;}}
+document.addEventListener('click',e=>{const button=e.target.closest('[data-mpa]');if(button&&currentBox?.contains(button))act(button.dataset.mpa);const person=e.target.closest('[data-mpa-user]');if(person){const id=Number(person.dataset.mpaUser);const box=document.getElementById('mp-admin-pending');box.innerHTML='<button class="action-btn" id="mp-back-pending">Назад к заявкам</button><div id="mp-admin-inline"></div>';document.getElementById('mp-back-pending').onclick=pending;load(id,document.getElementById('mp-admin-inline'));}});
+window.loadMemberProfileAdmin=load;window.mpAdminPending=pending;
+})();
+
+</script>
 </body>
 </html>
