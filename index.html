@@ -1251,8 +1251,8 @@ select:disabled{opacity:.55;cursor:not-allowed}
 .dashboard-panel{min-width:0}
 .dashboard-panel h1{font-family:var(--disp);font-size:26px;letter-spacing:-.025em;margin:8px 0}
 .dashboard-intro{font-size:14px;line-height:1.6;color:var(--text-faint);max-width:760px;margin:0 0 22px}
-#dashboard-nav{margin-bottom:22px;position:sticky;top:0;z-index:20;background:var(--bg);padding-top:8px;border-radius:14px}
-.dashboard-tabs{display:flex;gap:6px;overflow:auto;padding:5px 2px 10px;scrollbar-width:thin}
+#dashboard-nav{margin-bottom:22px;position:relative;background:var(--bg);padding:16px;box-sizing:border-box;min-width:0;border-radius:14px}
+.dashboard-tabs{display:flex;gap:6px;overflow:auto;padding:5px 5px 10px;scroll-padding-inline:5px;scrollbar-width:thin}
 .dashboard-tab{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);border-radius:12px;padding:12px 16px;white-space:nowrap;cursor:pointer;min-height:44px}
 .dashboard-tab[aria-selected=true]{background:var(--warm);color:white;border-color:var(--warm)}
 .dashboard-search{position:relative;margin-bottom:12px}
@@ -1280,7 +1280,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 @media(min-width:1000px){
  .shell{max-width:1440px!important;display:grid;grid-template-columns:232px minmax(0,1fr);column-gap:36px;padding:0 32px 40px!important}
  .shell>header,.shell>.last-update{grid-column:1/-1}
- #dashboard-nav{grid-column:1;grid-row:3;position:sticky;top:24px;align-self:start;max-height:calc(100vh - 48px);overflow:visible}
+ #dashboard-nav{grid-column:1;grid-row:3;align-self:start;overflow:visible}
  .dashboard-tabs{flex-direction:column;overflow:visible;gap:7px}
  .dashboard-tab{text-align:left;white-space:normal}
  #dashboard-workspace{grid-column:2;grid-row:3;min-width:0}
@@ -1318,8 +1318,8 @@ select:disabled{opacity:.55;cursor:not-allowed}
  .shell>.last-update{margin-bottom:14px}
  .mark{width:38px;height:38px;border-radius:13px}
  .brand-name{font-size:13px}.brand-sub{font-size:10px}
- #dashboard-nav{padding:12px;box-sizing:border-box;top:16px;max-height:calc(100dvh - 32px)}
- .dashboard-tabs{padding:2px 0;gap:6px;max-height:calc(100dvh - 140px);overflow-y:auto}
+ #dashboard-nav{padding:16px}
+ .dashboard-tabs{padding:5px;gap:6px;overflow:visible}
  .dashboard-tab{padding:9px 12px;min-height:40px;font-size:12px;border-radius:10px}
  .dashboard-search{margin-bottom:10px}.dashboard-search label{font-size:11px}
  .dashboard-search input{font-size:12px;padding:9px 10px}
@@ -3790,7 +3790,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v264';
+const BUILD_VERSION = 'admin-v265';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
