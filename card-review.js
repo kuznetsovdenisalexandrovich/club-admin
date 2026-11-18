@@ -112,11 +112,12 @@ function reviewReload(){
 function reviewHtml(c){
   return '<div class="cr-toolbar"><div><strong>Конвейер одобрений</strong><span class="cr-note"> '+(cardReview.index+1)+' / '+cardReview.keys.length+'</span></div><button class="action-btn" onclick="reviewExit()">Закончить</button></div>'
   +'<div class="cr-layout"><div class="cr-preview"><div class="hfe-scene cr-scene"><div class="hfe-card is-bare" id="cr-card"><div class="hfe-win" id="cr-win"><img id="cr-art" alt=""><div class="cr-shade"></div></div><div class="cr-copy"><b>'+escapeHtmlAdm(c.god||c.title||'')+'</b></div><img class="hfe-frame" id="cr-frame" alt="" hidden></div></div>'
+  +'<div class="cr-footer"><div class="cr-actions"><button class="popup-save" onclick="reviewApprove()" disabled>Одобрить и следующая</button><button class="action-btn" onclick="reviewSaveDraft()" disabled>Сохранить настройки</button><button class="action-btn" onclick="reviewSendSelf()" disabled>Выдать себе</button><button class="action-btn" onclick="reviewNext()">Позже</button><button class="action-btn" onclick="reviewReload()">Обновить карту</button></div><p class="cr-note">Одобрение не меняет включение карты в выдачу. Выбранные рамки применяются к новым экземплярам.</p><div id="cr-status" role="status" aria-live="polite"></div></div>'
   +'<div class="hfe-nav"><button class="action-btn" onclick="reviewFrame(-1)">‹</button><span id="cr-frame-label">Загружаю рамки…</span><button class="action-btn" onclick="reviewFrame(1)">›</button></div>'
-  +'<button class="action-btn" onclick="openAdminZoom('+jsArg(c.image_full_url||c.image_url)+')">Оригинал крупно</button><p id="cr-ratio" class="cr-note"></p></div>'
+  +'<button class="action-btn" onclick="openAdminZoom('+jsArg(c.image_full_url||c.image_url)+')">Оригинал крупно</button><p id="cr-ratio" class="cr-note"></p>'
+  +'</div>'
   +'<div class="cr-settings"><h3>'+escapeHtmlAdm(c.title||c.key)+'</h3><p class="cr-note">'+escapeHtmlAdm([RARITY_LABELS[c.rarity]||c.rarity,c.set_key||'Без коллекции',c.series_key||'Без сезона'].join(' · '))+'</p>'
-  +'<div id="cr-controls">Загружаю настройки…</div></div></div>'
-  +'<div class="cr-footer"><div class="cr-actions"><button class="popup-save" onclick="reviewApprove()" disabled>Одобрить и следующая</button><button class="action-btn" onclick="reviewSaveDraft()" disabled>Сохранить настройки</button><button class="action-btn" onclick="reviewSendSelf()" disabled>Выдать себе</button><button class="action-btn" onclick="reviewNext()">Позже</button><button class="action-btn" onclick="reviewReload()">Обновить карту</button></div><p class="cr-note">Одобрение не меняет включение карты в выдачу. Выбранные рамки применяются к новым экземплярам.</p><div id="cr-status" role="status" aria-live="polite"></div></div>';
+  +'<div id="cr-controls">Загружаю настройки…</div></div></div>';
 }
 async function reviewMount(c){
   var gen=cardReview.generation;cardReview.frames=[];cardReview.frame=0;
@@ -138,11 +139,14 @@ async function reviewMount(c){
 }
 function reviewControls(){
   var S=cardReview.holo;
-  var h='<div class="hfe-h">Допустимые рамки</div><label class="hfe-on"><input type="checkbox" id="cr-auto-frames" '+(cardReview.selected===null?'checked':'')+' onchange="reviewAutoFrames(this.checked)">Все подходящие рамки</label><p class="cr-note" id="cr-frame-count"></p><div class="cr-frame-grid" id="cr-frame-grid"></div>'
-   +'<div class="hfe-h">Перелив</div><label class="hfe-on"><input type="checkbox" id="cr-holo-on" '+(S.on?'checked':'')+' onchange="reviewHoloOn(this.checked)">Включён</label><p class="cr-note" id="cr-holo-source"></p><div class="hfe-pats" id="cr-patterns"></div>';
+  var frames='<div class="hfe-h">Допустимые рамки</div><label class="hfe-on"><input type="checkbox" id="cr-auto-frames" '+(cardReview.selected===null?'checked':'')+' onchange="reviewAutoFrames(this.checked)">Все подходящие рамки</label><p class="cr-note" id="cr-frame-count"></p><div class="cr-frame-grid" id="cr-frame-grid"></div>';
+  var h='<div class="hfe-h">Перелив</div><label class="hfe-on"><input type="checkbox" id="cr-holo-on" '+(S.on?'checked':'')+' onchange="reviewHoloOn(this.checked)">Включён</label><p class="cr-note" id="cr-holo-source"></p>';
+  h+='<label class="hfe-row">Наложение<select id="cr-blend" onchange="reviewBlend(this.value)">'+HOLO_BLEND_NAMES.map(function(o){return '<option value="'+o[0]+'"'+(S.blend===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></label>';
+  h+='<div class="hfe-pats" id="cr-patterns"></div>';
   HOLO_GROUPS.forEach(function(g){h+='<details class="cr-holo-group"'+(g[0]==='Сила эффекта'?' open':'')+'><summary>'+g[0]+'</summary>';
     g[1].forEach(function(f){var k=f[0],range=HoloFX.RANGES[k];h+='<div class="hfe-row"><label for="cr-'+k+'">'+f[1]+'</label><output id="cr-'+k+'-out">'+holoFmt(f[2],S[k])+'</output><input type="range" id="cr-'+k+'" min="'+range[1]+'" max="'+range[2]+'" step="'+HOLO_STEP[k]+'" value="'+S[k]+'" oninput="reviewSlide('+jsArg(k)+','+jsArg(f[2])+',this.value)"></div>';});h+='</details>';});
-  h+='<label class="hfe-row">Наложение<select id="cr-blend" onchange="reviewBlend(this.value)">'+HOLO_BLEND_NAMES.map(function(o){return '<option value="'+o[0]+'"'+(S.blend===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></label><button class="action-btn" onclick="reviewInherited()">Перелив как у коллекции / сезона</button>';
+  h+='<button class="action-btn" onclick="reviewInherited()">Перелив как у коллекции / сезона</button>';
+  h+=frames;
   document.getElementById('cr-controls').innerHTML=h;
   var box=document.getElementById('cr-patterns');
   HoloFX.PATTERNS.forEach(function(p){var b=document.createElement('button');b.type='button';b.className='hfe-pat';b.dataset.p=p.id;b.setAttribute('aria-pressed',String(S.pattern===p.id));var canvas=document.createElement('canvas');canvas.width=68;canvas.height=68;b.appendChild(canvas);var label=document.createElement('span');label.textContent=p.name;b.appendChild(label);b.onclick=function(){reviewPattern(p.id);};box.appendChild(b);HoloFX.thumb(canvas,p.id);});
