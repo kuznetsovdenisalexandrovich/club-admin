@@ -3790,7 +3790,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v263';
+const BUILD_VERSION = 'admin-v264';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -12478,7 +12478,7 @@ const NUDGE_KIND_LABELS = {
   magazine: 'Не дочитал журнал',
   lecture: 'Посмотрел бесплатную лекцию и не купил',
   film_stuck: 'Третий перенос фильма — больше не уговариваем',
-  register: 'Участник не зашёл в канал',
+  register: 'Не завершил регистрацию · первые три дня',
   app_broken: 'Приложение не открылось в Telegram (участник) — зовём продолжить в боте',
   live_soon: 'Напоминание об эфире за 15 минут (по кнопке «Напомнить» в окне «скоро»)',
   free_closed: 'Закрыли бесплатную часть — зовём в клуб тех, кто был на эфире',
@@ -12787,7 +12787,7 @@ function toggleNudgeScenario(kind){
 
 function nudgeScenarioEditorHtml(s){
   const fld = function(label, id, value, type){
-    return '<label style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:120px">'
+    return '<label style="display:flex;flex-direction:column;gap:' + (s.kind === 'register' ? '10' : '3') + 'px;flex:1;min-width:120px">'
       + '<span style="font-size:11px;color:var(--text-faint)">' + label + '</span>'
       + '<input type="' + (type||'text') + '" id="ns-' + id + '-' + s.kind + '" value="' + String(value==null?'':value).replace(/"/g,'&quot;') + '" '
       + 'style="padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px"></label>';
@@ -12819,8 +12819,8 @@ function nudgeScenarioEditorHtml(s){
     + '</div>';
   } else if (s.kind === 'register'){
     thresholdFields = '<div style="display:flex;gap:8px;flex-wrap:wrap">'
-      + fld('Ждать после вступления и между повторами, минут','idle_minutes',s.idle_minutes,'number')
-    + '</div>';
+      + fld('Первое напоминание после оплаты, минут','idle_minutes',s.idle_minutes,'number')
+    + '</div><p class="cr-note">До трёх напоминаний в первые 72 часа: первое после указанной паузы, затем не чаще раза в сутки. Ночью не отправляем. {место_вступления} подставит канал, чат или группу, а кнопка вернёт на незавершённый шаг. Текст ниже используется во всех трёх напоминаниях.</p>';
   } else if (s.kind === 'app_broken'){
     thresholdFields = '<div style="display:flex;gap:8px;flex-wrap:wrap">'
       + fld('Сколько минут ждать открытия приложения после кнопки в боте','idle_minutes',s.idle_minutes,'number')
@@ -12832,15 +12832,15 @@ function nudgeScenarioEditorHtml(s){
       + '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">'
         + '<input type="checkbox" id="ns-enabled-' + s.kind + '" ' + (s.enabled?'checked':'') + '> Ситуация включена</label>'
       + thresholdFields
-      + '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">'
+      + '<label style="display:' + (s.kind === 'register' ? 'none' : 'flex') + ';align-items:center;gap:8px;font-size:13px;cursor:pointer">'
         + '<input type="checkbox" id="ns-use_slot-' + s.kind + '" ' + (s.use_slot?'checked':'') + '> '
         + 'Ждать привычный час человека (нет данных — 19:00 / 10:00), а не слать сразу</label>'
       + fld('Заголовок сообщения','title',s.title)
-      + '<label style="display:flex;flex-direction:column;gap:3px">'
+      + '<label style="display:flex;flex-direction:column;gap:10px">'
         + '<span style="font-size:11px;color:var(--text-faint)">Текст сообщения</span>'
         + '<textarea id="ns-body-' + s.kind + '" style="min-height:54px;padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);font-size:13px">' + escapeHtmlAdm(s.body||'') + '</textarea></label>'
       + fld('Подпись кнопки','cta_label',s.cta_label)
-      + nudgeTargetFieldHtml('ns', s.kind, s.cta_target)
+      + (s.kind === 'register' ? '' : nudgeTargetFieldHtml('ns', s.kind, s.cta_target))
       + '<button onclick="saveNudgeScenario(' + jsArg(s.kind) + ')" style="padding:9px;border-radius:9px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:600">Сохранить</button>'
     + '</div></div>';
 }
