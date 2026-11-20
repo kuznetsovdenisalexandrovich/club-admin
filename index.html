@@ -1376,7 +1376,30 @@ select:disabled{opacity:.55;cursor:not-allowed}
 #mp-admin-card a,#mp-admin-inline a{color:var(--text);text-underline-offset:3px;overflow-wrap:anywhere}
 
 </style>
-</head>
+<style>
+/* Event console: consistent tap spacing, one scrolling surface. */
+#live-popup-overlay .popup{max-width:720px!important}
+#live-popup-overlay .popup-body{padding:24px}
+#live-popup-overlay #ev-strip{gap:10px!important;margin:16px 0 18px!important}
+#live-popup-overlay [hidden]{display:none!important}
+#live-popup-overlay #ev-strip .ptab{font-size:14px;padding:11px 14px;min-height:44px;line-height:1.25;white-space:normal}
+#live-popup-overlay .ev-stage>.pay-meta{font-size:13px;line-height:1.5;margin:10px 0 16px!important}
+#live-popup-overlay .ev-stage .action-btn,#live-popup-overlay .ev-stage .popup-save{min-height:44px;padding:11px 16px;line-height:1.35;font-size:14px}
+#live-popup-overlay .ev-stage>div[style*="display:flex"]{gap:12px!important;margin-bottom:14px!important}
+#live-popup-overlay .ev-stage>.action-btn,#live-popup-overlay .ev-stage>.popup-save{margin:12px 0}
+#live-popup-overlay .ev-stage .popup-input{font-size:15px;line-height:1.5}
+#live-popup-overlay .html-toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+#live-popup-overlay .html-toolbar button{min-width:44px;min-height:44px;padding:8px 12px}
+#live-popup-overlay .event-primary-actions{display:grid;gap:14px;margin:20px 0;padding:16px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+#live-popup-overlay .event-primary-actions button{margin:0!important;width:100%}
+#live-popup-overlay summary{padding:12px 0;cursor:pointer;line-height:1.5}
+#live-popup-overlay .meeting-upload{margin:12px 0 20px}
+#live-popup-overlay .meeting-upload-link{display:inline-flex;margin:0 0 10px}
+#live-popup-overlay #ev-ann-file{display:block;width:100%;margin:10px 0 16px;min-height:44px}
+#live-popup-overlay #ev-ann-image{margin:16px 0}
+#live-popup-overlay #ev-announce-btn{margin:0!important}
+@media(max-width:520px){#live-popup-overlay .popup-body{padding:20px 16px}#live-popup-overlay #ev-strip{gap:8px!important}#live-popup-overlay #ev-strip .ptab{flex:1 1 calc(50% - 8px);font-size:13px}#live-popup-overlay .ev-stage>div[style*="display:flex"]>.popup-save{width:100%!important}#live-popup-overlay .pay-meta{font-size:13px}}
+</style></head>
 
 <body>
 
@@ -2692,17 +2715,17 @@ select:disabled{opacity:.55;cursor:not-allowed}
       <div id="live-admin-status" class="card" style="padding:12px;margin-bottom:10px">
         <div class="loading">Загрузка...</div>
       </div>
-      <div id="ev-strip" style="display:flex;gap:6px;overflow-x:auto;padding:2px 2px 8px;margin-bottom:6px;-webkit-overflow-scrolling:touch">
+      <div id="ev-strip" style="display:flex;flex-wrap:wrap;gap:6px;padding:2px 2px 8px;margin-bottom:6px;-webkit-overflow-scrolling:touch">
         <button class="ptab" data-ev="0" onclick="evShow(0)">Подготовка</button>
-        <button class="ptab" data-ev="1" onclick="evShow(1)">Анонс участникам</button>
-        <button class="ptab" data-ev="2" onclick="evShow(2)">Запуск и остановка</button>
-        <button class="ptab" data-ev="3" onclick="evShow(3)">Доступ к эфиру</button>
-        <button class="ptab" data-ev="4" onclick="evShow(4)">Участники и баллы</button>
-        <button class="ptab" data-ev="5" onclick="evShow(5)">Перейти в телемост</button>
-        <button class="ptab" data-ev="6" onclick="evShow(6)">Запись и обслуживание</button>
+        <button class="ptab" data-ev="1" onclick="evShow(1)">Анонсы до / после</button>
+        <button class="ptab" data-ev="2" onclick="evShow(2)">Встреча и чат</button>
+        <button hidden class="ptab" data-ev="3" onclick="evShow(3)">Бесплатная часть</button>
+        <button hidden class="ptab" data-ev="4" onclick="evShow(4)">Участники и баллы</button>
+        <button hidden class="ptab" data-ev="5" onclick="evShow(5)">Перейти в телемост</button>
+        <button class="ptab" data-ev="6" onclick="evShow(6)">Записи</button>
       </div>
 
-      <div class="meeting-upload"><a class="action-btn meeting-upload-link" href="https://selectel-api.youselllikeagod-magazine.ru/video-upload/" target="_blank" rel="noopener">Загрузить запись телемоста</a><div class="pay-meta meeting-upload-hint">WebM · выбери дату встречи в загрузчике. Запись появится после обработки, хранится 30 дней.</div></div>
+
       <div class="workflow-guide" id="event-stage-guide" role="status">Подготовь название и формат встречи. Затем выбери нужный шаг выше.</div>
       <!-- ── 0 · НАСТРОЙКИ. Заполняется заранее, хранится черновиком на
            сервере (admin_doc «event_draft»), при старте уезжает в сессию ── -->
@@ -2728,9 +2751,9 @@ select:disabled{opacity:.55;cursor:not-allowed}
           </select>
         </div>
         </div>
-        <div class="pay-meta" id="ev-meet-only-note" style="display:none;margin:0 2px 8px;color:var(--text)">Действует на ближайшую встречу — на следующий день тип сам вернётся к «Эфир + телемост». Режим «Только телемост»: эфир не запускается, трансляции Кинескопа и ВК не создаются, в приложении не будет ни эфира, ни «эфир скоро». Людей зовёт рассылка ссылки на встречу (вкладка «Анонс участникам»).</div>
+        <div class="pay-meta" id="ev-meet-only-note" style="display:none;margin:0 2px 8px;color:var(--text)">Книжный клуб и пятничная встреча проходят только в телемосте. Предварительный анонс не открывает встречу. Ссылка рассылается отдельно, когда пора начинать.</div>
         <input class="popup-input" type="text" id="live-admin-title" placeholder="Название эфира (увидят участники и площадки)" style="margin-bottom:8px" oninput="evDraftChanged()">
-        <textarea class="popup-input" id="live-admin-desc" placeholder="Текст анонса — он же описание трансляции ВК. Например: «Как продавать даже без скриптов?»" style="margin-bottom:8px;min-height:60px" oninput="evDraftChanged()"></textarea>
+        <textarea class="popup-input" id="live-admin-desc" placeholder="Описание трансляции и текст приглашения при запуске. Предварительный анонс — в соседней вкладке." style="margin-bottom:8px;min-height:60px" oninput="evDraftChanged()"></textarea>
         
         <input class="popup-input" type="text" id="ev-meet-link" placeholder="Ссылка на телемост (постоянная)" style="margin-bottom:8px" oninput="evDraftChanged()">
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 2px 4px">
@@ -2741,15 +2764,15 @@ select:disabled{opacity:.55;cursor:not-allowed}
           <input class="popup-input" type="number" id="ev-points" min="0" max="100000" step="10" placeholder="Баллы за приход" style="flex:1;min-width:120px;margin:0" oninput="evDraftChanged()">
           <input class="popup-input" type="text" id="ev-meet-label" placeholder="Надпись на кнопке телемоста" style="flex:2;min-width:160px;margin:0" oninput="evDraftChanged()">
         </div>
-        <div id="ev-btn-box">
-        <div class="section-title" style="margin:6px 0 6px;font-size:13px">Кнопка в анонсах</div>
+        <details id="ev-btn-box"><summary>Кнопка приглашения при запуске</summary>
+        <div class="section-title" style="margin:6px 0 6px;font-size:13px">Кнопка приглашения на эфир</div>
         <input class="popup-input" type="text" id="ev-btn-text" placeholder="Текст кнопки (пусто — как настроено у площадки)" style="margin-bottom:6px" oninput="evDraftChanged()">
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
           <input class="popup-input" type="text" id="ev-btn-tg" placeholder="Ссылка для Telegram (пусто — в приложение на эфир)" style="flex:1;min-width:160px;margin:0" oninput="evDraftChanged()">
           <input class="popup-input" type="text" id="ev-btn-vk" placeholder="Ссылка для ВК (пусто — мини-апп ВК на эфир)" style="flex:1;min-width:160px;margin:0" oninput="evDraftChanged()">
         </div>
-        <div class="pay-meta" style="margin:0 2px 8px">Одна кнопка во всех постах и в боте. Куда ведёт — решает приложение по времени: до старта «скоро» с напоминанием, во время — эфир, после — запись; гостю — «Открыть доступ».</div>
-        </div>
+        <div class="pay-meta" style="margin:0 2px 8px">Эта кнопка используется в приглашении на эфир. Анонсы до / после отправляются отдельно, без неё. Куда ведёт — решает приложение по времени: до старта «скоро» с напоминанием, во время — эфир, после — запись; гостю — «Открыть доступ».</div>
+        </details>
         <label class="pay-item" style="cursor:pointer;margin-bottom:8px" id="ev-free-row">
           <input type="checkbox" id="live-free-part" checked style="flex-shrink:0" onchange="evDraftChanged()">
           <div style="flex:1;min-width:0">
@@ -2778,34 +2801,53 @@ select:disabled{opacity:.55;cursor:not-allowed}
       <!-- ── 1 · АНОНС ── -->
       <div class="ev-stage" id="ev-stage-1" style="display:none">
         <div class="pay-meta" id="ev-announce-hint" style="margin:0 2px 8px"></div>
-        <div id="live-announce-targets"></div>
+        <label class="pay-meta" for="ev-ann-phase">Какое сообщение готовим</label>
+<select id="ev-ann-phase" class="popup-input" onchange="evAnnouncementLoad()"><option value="before">До занятия — приглашение заранее</option><option value="after">После занятия — итоги и запись</option></select>
+<div class="html-toolbar"><button onclick="applyFormat('ev-ann-text','bold')"><b>B</b></button><button onclick="applyFormat('ev-ann-text','italic')"><i>I</i></button><button onclick="applyLinkFormat('ev-ann-text')">Ссылка в тексте</button><button onclick="evAnnouncementHtml()">HTML</button></div>
+<div id="ev-ann-source" hidden><label class="pay-meta" for="ev-ann-html">HTML-код анонса</label><textarea id="ev-ann-html" class="popup-input" rows="5"></textarea><button class="action-btn" onclick="evAnnouncementApplyHtml()">Применить HTML</button></div>
+<div id="ev-ann-text" class="popup-input rich-input" role="textbox" aria-label="Текст анонса" aria-multiline="true" style="font-size:15px;line-height:1.5;min-height:120px" contenteditable="true" oninput="evAnnouncementChanged()" data-placeholder="Например: завтра в 14:00 встречаемся в книжном клубе. Ссылку пришлю перед началом."></div>
+<label class="pay-meta" for="ev-ann-file">Картинка анонса · до 5 МБ</label><input id="ev-ann-file" type="file" accept="image/jpeg,image/png,image/webp" onchange="evAnnouncementUpload(this.files[0])">
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0"><button class="action-btn" onclick="evAnnouncementPrevious()">Картинка прошлого занятия этого типа</button><button class="action-btn" onclick="evAnnouncementImage('','')">Убрать картинку</button></div>
+<img id="ev-ann-image" alt="Картинка анонса" hidden style="width:100%;max-height:180px;object-fit:contain;border-radius:12px">
+<div id="ev-ann-status" class="pay-meta" role="status"></div>
+<div id="live-announce-targets"></div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">
-          <button class="action-btn" onclick="announcePreview()">Показать, что уйдёт</button>
-          <button class="popup-save" style="width:auto;padding:8px 14px" id="ev-announce-btn" onclick="announceSend()">Разослать анонс</button>
+          <button class="action-btn" onclick="evAnnouncementPreview()">Предпросмотр анонса</button>
+          <button class="popup-save" style="width:auto;padding:8px 14px" id="ev-announce-btn" onclick="evAnnouncementSend()">Отправить после предпросмотра</button>
           <button class="action-btn" onclick="openTargetsPopup()">Настроить площадки</button>
         </div>
         <div id="live-announce-out" class="pay-meta" style="margin:0 2px 12px"></div>
-        <div id="ev-meetup-box" style="display:none">
-          <div class="pay-meta" style="margin:0 2px 8px">Событие без эфира: одна кнопка создаёт встречу и рассылает ссылку на телемост — подписчикам бота и в площадки, отмеченные галочками выше. С этого момента вечная ссылка «на встречу» в аппе ведёт на телемост и начисляет баллы.</div>
-          <button class="popup-save" onclick="evSendMeetup()">Разослать ссылку на встречу</button>
-          <div id="ev-meetup-out" class="pay-meta" style="margin:6px 2px 12px;white-space:pre-line"></div>
-          <button class="popup-save" id="ev-meetup-finish" style="display:none;background:transparent;border:1px solid var(--border);color:var(--text)" onclick="evFinishMeetup()">Встреча завершена</button>
-        </div>
+
       </div>
 
       <!-- ── 2 · СТАРТ ── -->
       <div class="ev-stage" id="ev-stage-2" style="display:none">
-        <div class="pay-meta" id="ev-start-meet-note" style="display:none;margin:4px 2px 12px;color:var(--text)">Событие «Только телемост» — эфир не запускается. Встреча начинается рассылкой ссылки во вкладке «Анонс участникам», а кнопку телемоста поверх приложения включает вкладка «Перейти в телемост».</div>
+        <div id="ev-meetup-box" style="display:none">
+          <div class="pay-meta" style="margin:0 2px 8px">Событие без эфира: одна кнопка создаёт встречу и рассылает ссылку на телемост — подписчикам бота и в площадки, выбранные на вкладке «Анонсы до / после». С этого момента вечная ссылка «на встречу» в аппе ведёт на телемост и начисляет баллы.</div>
+          <button class="popup-save" onclick="evSendMeetup()">Разослать ссылку на встречу</button>
+          <div id="ev-meetup-out" class="pay-meta" style="margin:6px 2px 12px;white-space:pre-line"></div>
+
+        </div><div id="ev-meeting-management"><div id="ev-meeting-state" class="pay-meta"></div>
+          <button class="popup-save" id="ev-meetup-finish" style="display:none;background:transparent;border:1px solid var(--border);color:var(--text)" onclick="evFinishMeetup()">Встреча завершена</button>
+<button class="action-btn" onclick="evMeetupCheck()">Обновить состояние</button>
+<div class="pay-meta">После завершения бот заменяет доставленные приглашения главным меню. Новое сообщение не рассылается. Автозавершение — через 3 часа.</div></div>
+        <div class="pay-meta" id="ev-start-meet-note" style="display:none;margin:4px 2px 12px;color:var(--text)">Событие «Только телемост» — эфир не запускается. Встреча начинается отдельной рассылкой ссылки здесь. Для предварительного приглашения используй «Анонсы до / после».</div>
         <div id="ev-start-box">
           <button class="popup-save" onclick="liveAutoStart()">Запустить трансляцию</button>
           <div class="pay-meta" style="margin-top:6px">Сам включит трансляцию, создаст площадки ВК и пропишет точки ретрансляции. Название, анонс, баллы и галочка бесплатной части — из вкладки «Подготовка».</div>
           <details class="workflow-advanced"><summary>Трансляция уже запущена вручную</summary><p>Используй только когда видео и площадки уже настроены отдельно. Эта кнопка открывает сессию в приложении, но сама не запускает видеотрансляцию.</p><button class="action-btn" onclick="liveStart()">Подключить готовую трансляцию к приложению</button></details>
         </div>
-        <div id="ev-running-box" style="display:none">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin:14px 0"><button class="action-btn" onclick="evShow(4)">Участники и баллы</button><button class="action-btn" id="ev-practice-shortcut" onclick="evShow(5)">Переход в телемост</button></div>
+<div id="ev-running-box" style="display:none">
+<div class="event-primary-actions">          <button class="action-btn" onclick="evShow(3)">Закрыть только бесплатную часть…</button>
+          <button class="popup-save" onclick="liveFinish()" style="background:#e8614a;margin-top:6px">Завершить эфир целиком</button></div>
+<details><summary>Отправить приглашение на идущий эфир</summary><p class="pay-meta">Это отдельная отправка со ссылкой. Площадки выбираются во вкладке анонсов; перед отправкой проверь их здесь.</p><div style="display:flex;gap:12px;flex-wrap:wrap;margin:12px 0"><button class="action-btn" onclick="evLiveInvite(true)">Предпросмотр приглашения</button><button class="action-btn" onclick="evLiveInvite(false)">Отправить ссылку на эфир</button></div><div id="ev-live-invite-out" class="pay-meta"></div></details>
+<details class="event-restreams"><summary>Площадки ретрансляции</summary>
           <div class="section-title" style="margin:14px 0 6px;font-size:13px">Точки ретрансляции</div>
         <div id="live-admin-restreams"></div>
         <div class="pay-meta" style="margin:4px 2px 12px">Отметь ОТКРЫТЫЕ площадки — их погасит кнопка ниже. Закрытые продолжат идти.</div>
         
+</details>
           <div class="section-title" style="margin:14px 0 6px;font-size:13px">Чат эфира</div>
         <div id="live-chat-reacts" class="chat-reacts"></div>
         <div id="live-chat-admin" class="chat-box"></div>
@@ -2814,12 +2856,12 @@ select:disabled{opacity:.55;cursor:not-allowed}
           <button class="action-btn" id="chat-toggle-btn" onclick="chatToggleOpen()">Закрыть чат</button>
         </div>
         
-          <button class="popup-save" onclick="liveFinish()" style="background:#e8614a;margin-top:6px">Завершить эфир</button>
+
         </div>
       </div>
 
       <!-- ── 3 · БЕСПЛАТНАЯ ЧАСТЬ ── -->
-      <div class="ev-stage" id="ev-stage-3" style="display:none">
+      <div class="ev-stage" id="ev-stage-3" style="display:none"><button class="action-btn" onclick="evShow(2)">Вернуться к встрече и чату</button>
         <div class="pay-meta" style="margin:0 2px 8px">Гости перестанут видеть плеер и получат пейвол; открытые площадки погаснут.</div>
         <label class="pay-item" style="cursor:pointer;margin-bottom:8px">
           <input type="checkbox" id="ev-invite-club" checked style="flex-shrink:0">
@@ -2833,7 +2875,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
       </div>
 
       <!-- ── 4 · ПРИШЕДШИЕ И БАЛЛЫ ── -->
-      <div class="ev-stage" id="ev-stage-4" style="display:none">
+      <div class="ev-stage" id="ev-stage-4" style="display:none"><button class="action-btn" onclick="evShow(2)">Вернуться к встрече и чату</button>
         <div class="section-title" style="margin:0 0 6px;font-size:13px">Цена за вход</div>
         <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
           <input class="popup-input" type="number" id="live-points" min="0" max="100000" step="10"
@@ -2854,7 +2896,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
       </div>
 
       <!-- ── 5 · ТЕЛЕМОСТ ── -->
-      <div class="ev-stage" id="ev-stage-5" style="display:none">
+      <div class="ev-stage" id="ev-stage-5" style="display:none"><button class="action-btn" onclick="evShow(2)">Вернуться к встрече и чату</button>
         <div class="pay-meta" style="margin:0 2px 8px">Одна кнопка: показать кнопку телемоста поверх эфира у всех зрителей и разослать ссылку в отмеченные места.</div>
         <button class="action-btn" onclick="QuizEditor.live()" style="margin-bottom:18px">Квизы после занятия</button><input class="popup-input" type="text" id="live-practice-url" placeholder="Ссылка — телемост, страница, что угодно" style="margin-bottom:6px">
         <input class="popup-input" type="text" id="live-practice-label" placeholder="Надпись на кнопке (пусто — «Подключиться к практике»)" style="margin-bottom:6px">
@@ -2880,15 +2922,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 
       <!-- ── ЕЩЁ: запись, обслуживание ── -->
       <div class="ev-stage" id="ev-stage-6" style="display:none">
-        <div class="section-title" style="margin:0 0 6px;font-size:13px">Реакции под эфиром</div>
-        <input class="popup-input" type="text" id="ev-react-base" placeholder="Смайлы всем, через запятую" style="margin-bottom:6px">
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
-          <input class="popup-input" type="text" id="ev-react-pro" placeholder="Смайлы по уровню, через запятую" style="flex:2;min-width:160px;margin:0">
-          <input class="popup-input" type="number" id="ev-react-level" min="1" max="9" placeholder="Уровень" style="flex:1;min-width:90px;margin:0">
-        </div>
-        <button class="action-btn" onclick="evSaveReactions()">Сохранить реакции</button>
-        <div class="pay-meta" id="ev-react-out" style="margin:4px 2px 12px">До восьми смайлов в каждом наборе. Второй набор виден всем, но нажать его можно с указанного уровня.</div>
-
+      <div class="meeting-upload"><a class="action-btn meeting-upload-link" href="https://selectel-api.youselllikeagod-magazine.ru/video-upload/" target="_blank" rel="noopener">Загрузить запись телемоста</a><div class="pay-meta meeting-upload-hint">WebM · выбери дату встречи в загрузчике. Запись появится после обработки, хранится 30 дней.</div></div><div class="pay-meta">Четверг: запись эфира Kinescope и запись телемоста — разные материалы. Загрузка телемоста не заменяет эфир по startapp=live. В расписании будут две отдельные кнопки.</div>
         <div class="section-title" style="margin:14px 0 6px;font-size:13px">Запись прошедшего эфира</div>
         <div id="record-state" class="pay-meta" style="margin:0 2px 6px">—</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
@@ -2902,9 +2936,18 @@ select:disabled{opacity:.55;cursor:not-allowed}
           <button class="action-btn" onclick="saveRecordCode()">Привязать запись</button>
           <button class="action-btn" onclick="clearRecordCode()">Убрать запись</button>
         </div>
-        <div class="pay-meta" style="margin:-6px 2px 12px">⚠️ При первой привязке записи людям сразу уходит письмо «эфир прошёл — запись готова» (тем, кто просил напомнить, и подписчикам уведомлений). Правка кода записи второго письма не шлёт.</div>
+        <div class="pay-meta" style="margin:-6px 2px 12px">Сохранение записи не отправляет сообщений. Позвать смотреть можно отдельно: «Анонсы до / после» → «После занятия».</div>
 
         
+<details><summary>Реакции и обслуживание</summary>        <div class="section-title" style="margin:0 0 6px;font-size:13px">Реакции под эфиром</div>
+        <input class="popup-input" type="text" id="ev-react-base" placeholder="Смайлы всем, через запятую" style="margin-bottom:6px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+          <input class="popup-input" type="text" id="ev-react-pro" placeholder="Смайлы по уровню, через запятую" style="flex:2;min-width:160px;margin:0">
+          <input class="popup-input" type="number" id="ev-react-level" min="1" max="9" placeholder="Уровень" style="flex:1;min-width:90px;margin:0">
+        </div>
+        <button class="action-btn" onclick="evSaveReactions()">Сохранить реакции</button>
+        <div class="pay-meta" id="ev-react-out" style="margin:4px 2px 12px">До восьми смайлов в каждом наборе. Второй набор виден всем, но нажать его можно с указанного уровня.</div>
+
         <div class="section-title" style="margin:16px 0 6px;font-size:13px">Обслуживание</div>
       <!-- ⚠️ ПЕСОЧНИЦА КЛЮЧЕЙ ВК. Ключ проверяется ЗДЕСЬ, а не подбором через
            переменные окружения: там каждая попытка стоит пересборки, а
@@ -2926,6 +2969,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
       <button class="action-btn" onclick="liveWebhookLog()" style="margin-left:6px">Что нам присылали</button>
       <div class="pay-meta" style="margin-top:6px">Вебхук нужен, чтобы апп знал, что поток РЕАЛЬНО пошёл, а не только что по расписанию пора.</div>
 
+      </details>
       </div>
     </div>
   </div>
@@ -3790,7 +3834,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v267';
+const BUILD_VERSION = 'admin-v268';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -8018,6 +8062,7 @@ async function openLivePopup(){
   if (sel) sel.innerHTML = '<option value="">Загружаю трансляции…</option>';
   await evDraftLoad();
   loadLiveAdminState();
+  evMeetupCheck();
   loadTargets();
   // ДОЖИДАЕМСЯ загрузки, а не угадываем паузу. Список наполняет сам
   // loadKinescopeEvents — он знает про наш селект (см. массив sels)
@@ -8047,7 +8092,8 @@ function evShow(n){
   if (n === 4) evLoadAttendees();
   if (n === 6) evLoadReactions();
   if (n === 5) evRenderMeetTargets();
-  if (n === 1) evRenderAnnounceHint();
+  if (n === 1) { evRenderAnnounceHint(); evAnnouncementLoad(); }
+  if (n === 2) evMeetupCheck();
 }
 /* Какой этап подсказать по состоянию: нет сессии → настройки или старт;
    идёт с открытой бесплатной частью → 3; закрыта → 4 */
@@ -8073,6 +8119,7 @@ function evDraftFields(){
   return {
     cls: (document.getElementById('ev-cls') || {}).value || 'lesson',
     kind: (document.getElementById('ev-kind') || {}).value || 'live_meet',
+    announcements: (evDraft && evDraft.announcements) || {},
     title: (document.getElementById('live-admin-title') || {}).value || '',
     desc: (document.getElementById('live-admin-desc') || {}).value || '',
     meet_link: (document.getElementById('ev-meet-link') || {}).value || '',
@@ -8102,16 +8149,24 @@ function evDraftApply(d){
   evKindApply();
 }
 function evKindApply(){
-  const kind = (document.getElementById('ev-kind') || {}).value || 'live_meet';
+  const select=document.getElementById('ev-kind'), cls=document.getElementById('ev-cls').value;
+  const restricted=cls!=='lesson';
+  select.querySelector('[value=live_meet]').disabled=restricted;
+  select.querySelector('[value=live_meet]').hidden=restricted;
+  if(restricted)select.value='meet_only';
+  const kind = select.value || 'live_meet';
   const meetOnly = kind === 'meet_only';
   const fr = document.getElementById('ev-free-row'); if (fr) fr.style.display = meetOnly ? 'none' : '';
-  const mb = document.getElementById('ev-meetup-box'); if (mb) mb.style.display = meetOnly ? '' : 'none';
+  const mb = document.getElementById('ev-meetup-box'); if (mb) mb.style.display = meetOnly && !evMeetupLive ? '' : 'none';
   /* v126: раньше кнопка «Начать эфир» лишь бледнела и оставалась нажимаемой —
      одно касание запускало настоящую трансляцию Кинескопа и эфиры ВК. Теперь
      в режиме «Только телемост» старт спрятан целиком (и охраняется в самих
      liveStart/liveAutoStart), выбор трансляции и кнопка анонсов — тоже.
      Идущий эфир не прячем: его надо уметь завершить в любом режиме */
   const running = !!(liveAdminState && liveAdminState.active);
+  document.getElementById('ev-meeting-management').hidden=running&&!evMeetupLive;
+  document.getElementById('ev-practice-shortcut').hidden=meetOnly&&!running;
+
   const sb = document.getElementById('ev-start-box'); if (sb && !running){ sb.style.opacity = ''; sb.style.display = meetOnly ? 'none' : ''; }
   const sn = document.getElementById('ev-start-meet-note'); if (sn) sn.style.display = (meetOnly && !running) ? '' : 'none';
   const kb = document.getElementById('ev-kin-box'); if (kb) kb.style.display = meetOnly ? 'none' : '';
@@ -8169,35 +8224,22 @@ async function evAfterStart(){
   }catch(e){}
 }
 function evRenderAnnounceHint(){
-  const el = document.getElementById('ev-announce-hint'); if (!el) return;
-  const active = !!(liveAdminState && liveAdminState.active);
-  const meetOnly = ((document.getElementById('ev-kind') || {}).value) === 'meet_only';
-  const btn = document.getElementById('ev-announce-btn');
-  if (meetOnly){
-    /* admin-v187: [stated] Denis 09.10 — выбрал площадки, а ушло только в ботов.
-       Площадки здесь теперь работают: ссылка на телемост уходит в отмеченные
-       кнопкой «Разослать ссылку на встречу» ниже. Кнопка анонса эфира спит */
-    el.textContent = 'Событие без эфира — отметь площадки: ссылка на телемост уйдёт в них и подписчикам бота кнопкой «Разослать ссылку на встречу» ниже.';
-    if (btn) btn.disabled = true;
-    renderAnnounceTargets();
-    evMeetupCheck();
-    return;
-  }
-  if (btn) btn.disabled = false;
-  const ann = evDraft && evDraft.announced_at ? ' Уже разослан: ' + evDraft.announced_at + '.' : '';
-  el.textContent = active
-    ? 'Эфир идёт — анонс уйдёт с живыми ссылками на трансляции ВК.'
-    : 'Эфир ещё не идёт — анонс уйдёт с названием и текстом из вкладки «Подготовка» и ссылками в приложение (ссылок на трансляции ВК до старта нет).' + ann;
-  renderAnnounceTargets();
+ document.getElementById('ev-announce-hint').textContent='Анонс до занятия и сообщение после хранятся отдельно. Здесь нет автоматической ссылки на встречу: она уйдёт только отдельной кнопкой запуска.';
+ document.getElementById('ev-announce-btn').disabled=false;
+ renderAnnounceTargets();
+ document.querySelectorAll("#live-announce-targets details").forEach(x=>x.remove());
 }
 /* ── 1 · встреча без эфира: кампания «просто встреча» + рассылка ── */
+let evMeetupSending=false;
 async function evSendMeetup(){
+  if(evMeetupSending||evMeetupLive){alert("Встреча уже идёт или отправка ещё выполняется. Обнови состояние.");return;}
   if(!evDraftReady){alert("Сначала дождись загрузки черновика на вкладке «Подготовка».");return;}
   const d = evDraftFields();
   const out = document.getElementById('ev-meetup-out');
   if (!d.meet_link){ alert('Впиши ссылку на телемост на этапе 0'); return; }
   const listId = d.cls === 'book' ? 2100154 : 2100153;
   if (!confirm('Разослать ссылку на встречу подписчикам списка ' + (d.cls === 'book' ? '«Книжный клуб»' : '«Живые занятия»') + '? Отозвать нельзя.')) return;
+  evMeetupSending=true;
   try{
     const r = await fetch(API + '/campaigns?x_admin_token=' + ADMIN_TOKEN, {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -8222,10 +8264,11 @@ async function evSendMeetup(){
         rep += '\n' + (d3.report || []).map(function(x){ return (x.ok ? '✓ ' : '✗ ') + x.name + (x.ok ? (x.note && /^https?:/.test(x.note) ? ' · ' + x.note : '') : ' — ' + x.error); }).join('\n');
       }catch(e){ rep += '\nПлощадки: не ушло — ' + (e.message || e); }
     }
-    if (out) out.textContent = rep + '\nВстреча идёт — вечная ссылка ведёт на телемост. Когда закончишь — «Встреча завершена» ниже (иначе погаснет сама через 6 часов).';
+    if (out) out.textContent = rep + '\nВстреча идёт — вечная ссылка ведёт на телемост. Когда закончишь — «Встреча завершена» ниже (автоматически завершится через 3 часа).';
     evMeetupCheck();
     loadCampaigns && loadCampaigns();
   }catch(e){ if (out) out.textContent = 'Не ушло: ' + (e.message || e); }
+  finally{evMeetupSending=false;}
 }
 /* admin-v187: «Встреча завершена» прямо здесь, а не в кампаниях */
 let evMeetupLive = null;
@@ -8237,7 +8280,12 @@ async function evMeetupCheck(){
     evMeetupLive = (d && d.meeting) || null;
   }catch(e){ evMeetupLive = null; }
   b.style.display = evMeetupLive ? '' : 'none';
-  if (evMeetupLive) b.textContent = 'Встреча завершена · «' + (evMeetupLive.title || 'встреча') + '»';
+  const state=document.getElementById('ev-meeting-state');
+  if(state)state.textContent=evMeetupLive?'Идёт телемост: '+evMeetupLive.title:'Активного телемоста нет. Завершённые приглашения обрабатываются ботом.';
+  if(evMeetupLive && !liveAdminState?.active)document.getElementById('live-admin-status').textContent='Идёт встреча: '+evMeetupLive.title;
+  else renderLiveAdmin();
+  evKindApply();
+  if (evMeetupLive) b.textContent = 'Завершить и вернуть меню · «' + (evMeetupLive.title || 'встреча') + '»';
 }
 async function evFinishMeetup(){
   if (!evMeetupLive) return;
@@ -8246,7 +8294,7 @@ async function evFinishMeetup(){
     const r = await fetch(API + '/campaigns/' + evMeetupLive.id + '/finish-meeting?x_admin_token=' + ADMIN_TOKEN, { method:'POST' });
     const d = await r.json().catch(function(){ return {}; });
     if (!r.ok) throw new Error(d.detail || r.status);
-    const out = document.getElementById('ev-meetup-out'); if (out) out.textContent = 'Встреча завершена.';
+    const out = document.getElementById('ev-meetup-out'); if (out) out.textContent = 'Встреча завершена. Бот вернёт меню в доставленных приглашениях.';
   }catch(e){ alert('Не получилось: ' + (e.message || e)); }
   evMeetupCheck();
   loadCampaigns && loadCampaigns();
@@ -8525,7 +8573,7 @@ async function sendRecordCode(code){
   try{
     const r = await fetch(API + '/admin/live/record?x_admin_token=' + ADMIN_TOKEN, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ code: code, free_sec: recordFreeSec() })
+      body: JSON.stringify({ code: code, free_sec: recordFreeSec(), notify: false })
     });
     const d = await r.json();
     if (!r.ok){ box.textContent = d.detail || 'Не получилось'; return; }
@@ -9107,7 +9155,7 @@ function renderAnnounceTargets(){
      (бесплатный канал ТГ, открытая группа ВК), иначе только закрытые и бот.
      Открытость площадки угадываем по имени/ключу — справочник своего признака
      не имеет */
-  const freePart = !evDraft || evDraft.free_part !== false;
+  const freePart = !evIsMeetOnly() && (!evDraft || evDraft.free_part !== false);
   /* v128: ДВЕ ГРУППЫ — закрытые (клуб) и открытые (бесплатные площадки и
      продажники). Открытые отмечены, только если у события бесплатная часть */
   function row(t){
@@ -10728,6 +10776,7 @@ async function submitPin(){
     document.getElementById('pin-screen').classList.add('hidden');
     const былОтложенный = adminRetryQueue.length > 0;
     adminRetryPending();                 // v114: сначала довершаем то, на чём споткнулись
+    if(location.hash==='#finish-meeting')setTimeout(evOpenFinishLink,0);
     if (!былОтложенный) loadAll();       // а при повторном входе с нуля — обычная загрузка
   } catch (e) {
     /* v206: вместо голого «Load failed» — что происходит. Сеть оборвалась —
@@ -10779,6 +10828,7 @@ document.addEventListener('keydown', function(e){
   if (ok) {
     document.getElementById('pin-screen').classList.add('hidden');
     loadAll();
+    if(location.hash==='#finish-meeting')setTimeout(evOpenFinishLink,0);
   }
 })();
 
@@ -24124,13 +24174,13 @@ function updateEventGuide(n){
  const guide=document.getElementById('event-stage-guide');if(!guide)return;
  const text=[
   'Подготовка: выбери формат, название, трансляцию и ссылку на телемост. Черновик сохраняется автоматически; дождись подтверждения сохранения.',
-  'Анонс: выбери площадки, сначала посмотри предпросмотр. «Разослать анонс» отправит сообщение людям. Для встречи без эфира используй «Разослать ссылку на встречу».',
-  'Запуск: проверь готовность видеоисточника и название. «Запустить трансляцию» включает эфир и площадки ВК. После запуска проверь картинку и чат. «Завершить эфир» остановит текущую сессию.',
+  'Анонсы: выбери «До занятия» или «После занятия», напиши текст, добавь картинку и проверь предпросмотр. Отправка не запускает встречу.',
+  'Здесь запуск, чат и завершение. Закрытие бесплатной части оставляет эфир для участников. Автозавершение — через 3 часа.',
   'Доступ: закрытие бесплатной части оставляет продолжение участникам клуба. Открытые площадки будут остановлены. Это действие не завершает весь эфир.',
   'Участники: проверь список пришедших и баллы. Изменение баллов не запускает трансляцию и не рассылает приглашения.',
-  'Телемост: проверь ссылку и площадки рассылки. Затем покажи кнопку встречи зрителям и отправь приглашение. Завершение эфира остаётся на вкладке «Запуск и остановка».',
-  'После эфира: прикрепи запись Kinescope. Первая привязка записи отправляет уведомление подписчикам. Реакции и техническая диагностика находятся ниже.'
- ];guide.textContent=text[n]||'';
+  'Телемост: проверь ссылку и площадки рассылки. Затем покажи кнопку встречи зрителям и отправь приглашение. Завершение эфира — кнопкой «Вернуться к встрече и чату».',
+  'Записи: Kinescope и телемост сохраняются отдельно. Сохранение не отправляет анонс; для этого открой «Анонсы до / после».'
+ ];guide.textContent=n===2&&evIsMeetOnly()?'Начни встречу отдельной рассылкой ссылки. По окончании — «Завершить и вернуть меню».':text[n]||'';
  document.querySelectorAll('#ev-strip [data-ev]').forEach(b=>b.setAttribute('aria-selected',String(Number(b.dataset.ev)===n)));
 }
 initDashboardNavigation();
@@ -24220,5 +24270,69 @@ window.loadMemberProfileAdmin=load;window.mpAdminPending=pending;
 })();
 
 </script>
-</body>
+<script>
+let evAnnImage='',evAnnImageUrl='',evAnnPreview=null,evAnnBusy=false,evAnnPhase='before';
+function evAnnouncementSpec(){return {phase:document.getElementById('ev-ann-phase').value,cls:document.getElementById('ev-cls').value,title:document.getElementById('live-admin-title').value,message:getRichText('ev-ann-text'),image:evAnnImage,target_ids:checkedTargetIds()};}
+function evAnnouncementChanged(){
+ if(!evDraftReady)return;evAnnPreview=null;
+ evDraft.announcements=Object.assign({},evDraft.announcements,{[evAnnPhase]:{text:getRichText('ev-ann-text'),image:evAnnImage,image_url:evAnnImageUrl}});evDraftChanged();
+}
+function evAnnouncementLoad(){
+ document.getElementById('ev-ann-source').hidden=true;
+ evAnnPreview=null;evAnnPhase=document.getElementById('ev-ann-phase').value;
+ const draft=(evDraft?.announcements||{})[evAnnPhase]||{};
+ // Stored Telegram HTML is sanitized through the existing rich-text converter on save.
+ document.getElementById('ev-ann-text').innerHTML=sanitizeAnnouncementHtml(draft.text||'');
+ evAnnImage=draft.image||'';evAnnImageUrl=draft.image_url||'';evAnnouncementPaintImage();
+ document.getElementById('ev-ann-status').textContent=evAnnPhase==='before'?'Отправляй за день или за полчаса. Ссылка встречи автоматически не добавляется.':'Итоги, благодарность или ссылка на запись. Это отдельное сообщение после занятия.';
+ document.getElementById('live-announce-out').replaceChildren();
+}
+function evAnnouncementPaintImage(){const img=document.getElementById('ev-ann-image');img.hidden=!evAnnImageUrl;if(evAnnImageUrl)img.src=evAnnImageUrl;else img.removeAttribute('src');}
+function evAnnouncementImage(value,url){evAnnImage=value;evAnnImageUrl=url;evAnnouncementPaintImage();evAnnouncementChanged();}
+function evAnnouncementHtml(){const panel=document.getElementById('ev-ann-source');panel.hidden=!panel.hidden;if(!panel.hidden){document.getElementById('ev-ann-html').value=getRichText('ev-ann-text');document.getElementById('ev-ann-html').focus();}}
+function evAnnouncementApplyHtml(){document.getElementById('ev-ann-text').innerHTML=sanitizeAnnouncementHtml(document.getElementById('ev-ann-html').value);document.getElementById('ev-ann-source').hidden=true;evAnnouncementChanged();}
+
+function sanitizeAnnouncementHtml(value){const doc=new DOMParser().parseFromString(value,'text/html');doc.querySelectorAll('script,style,iframe,object,img,svg,math').forEach(x=>x.remove());doc.querySelectorAll('*').forEach(el=>{for(const a of [...el.attributes])if(a.name!=='href'||!/^https:\/\//i.test(a.value))el.removeAttribute(a.name);});return doc.body.innerHTML;}
+async function evAnnouncementUpload(file){
+ if(!file||evAnnBusy)return;const status=document.getElementById('ev-ann-status');
+ if(file.size>5*1024*1024){status.textContent='Картинка должна быть не больше 5 МБ';return;}
+ evAnnBusy=true;status.textContent='Загружаю картинку…';
+ try{const image_base64=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(file);});const r=await fetch(API+'/notifications/image?x_admin_token='+encodeURIComponent(ADMIN_TOKEN),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image_base64})});const d=await r.json();if(!r.ok)throw Error(d.detail||r.status);evAnnouncementImage(d.image,d.url);status.textContent='Картинка готова. ВК-бот получит текст; остальные выбранные площадки — с картинкой. Это будет видно в предпросмотре.';}catch(e){status.textContent=e.message;}finally{evAnnBusy=false;}
+}
+async function evAnnouncementPrevious(){try{const r=await fetch(API+'/admin/event-announcements/image/'+document.getElementById('ev-cls').value+'?x_admin_token='+encodeURIComponent(ADMIN_TOKEN));const d=await r.json();if(!r.ok)throw Error(d.detail||r.status);if(!d.image)throw Error('Для этого типа занятия ещё нет отправленной картинки');evAnnouncementImage(d.image,d.url);document.getElementById('ev-ann-status').textContent='Картинка из анонса «'+d.title+'»';}catch(e){document.getElementById('ev-ann-status').textContent=e.message;}}
+async function evAnnouncementPreview(){
+ if(evAnnBusy||!evDraftReady)return;const out=document.getElementById('live-announce-out');evAnnBusy=true;evAnnPreview=null;
+ try{evAnnouncementChanged();const spec=evAnnouncementSpec();const r=await fetch(API+'/admin/event-announcements/preview?x_admin_token='+encodeURIComponent(ADMIN_TOKEN),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(spec)});const d=await r.json();if(!r.ok)throw Error(typeof d.detail==='string'?d.detail:'Проверь название, текст и площадки');evAnnPreview={id:d.preview_id,spec:JSON.stringify(spec)};
+ out.replaceChildren();for(const item of d.items){const card=document.createElement('section');card.className='card';card.style.cssText='padding:14px;margin:12px 0';const name=document.createElement('strong');name.textContent=item.name+(item.count!==undefined?' · получателей: '+item.count:'');card.append(name);if(item.image){const img=document.createElement('img');img.src=item.image;img.alt='Картинка сообщения';img.style.cssText='display:block;width:100%;max-height:160px;object-fit:contain;margin:8px 0';card.append(img);}const text=document.createElement('div');text.style.cssText='white-space:pre-wrap;margin-top:8px';text.innerHTML=sanitizeAnnouncementHtml(item.text);card.append(text);const note=document.createElement('p');note.textContent=item.note||'Без автоматической кнопки встречи';note.className='pay-meta';card.append(note);out.append(card);}const note=document.createElement('p');note.textContent=d.note+' Предпросмотр действует 15 минут.';out.append(note);out.scrollIntoView({block:'start',behavior:'smooth'});
+ }catch(e){out.textContent=e.message;}finally{evAnnBusy=false;}
+}
+async function evAnnouncementSend(){
+ if(evAnnBusy)return;const spec=evAnnouncementSpec(),out=document.getElementById('live-announce-out');
+ if(!evAnnPreview||evAnnPreview.spec!==JSON.stringify(spec)){out.textContent='Сначала открой предпросмотр текущего текста и площадок.';return;}
+ if(!confirm('Отправить '+(spec.phase==='before'?'анонс до занятия':'сообщение после занятия')+' в площадки из предпросмотра? Встреча не запустится.'))return;
+ evAnnBusy=true;try{const r=await fetch(API+'/admin/event-announcements/send?x_admin_token='+encodeURIComponent(ADMIN_TOKEN),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({preview_id:evAnnPreview.id})});const d=await r.json();if(!r.ok)throw Error(d.detail||r.status);out.replaceChildren();for(const row of Object.values(d.results)){const p=document.createElement('p');const statuses={sent:'отправлено',queued:'в очереди бота',sending:'результат не подтверждён; повторная отправка заблокирована',unconfirmed:'результат не подтверждён; проверь площадку'};p.textContent=row.name+': '+(statuses[row.status]||row.status)+(row.queued!==undefined?' '+row.queued+' · пропущено '+row.skipped+' · удержано '+row.held:'')+(row.note?' · '+row.note:'');out.append(p);}}catch(e){out.textContent='Не удалось подтвердить результат: '+e.message+'. Повторное нажатие с этим предпросмотром не создаёт новую рассылку.';}finally{evAnnBusy=false;}
+}
+
+</script>
+<script>
+async function evOpenFinishLink(){if(location.hash==='#finish-meeting' && typeof ADMIN_TOKEN!=='undefined' && ADMIN_TOKEN){await openLivePopup();evShow(2);}}
+window.addEventListener('hashchange',evOpenFinishLink);window.addEventListener('load',evOpenFinishLink);
+</script>
+<script>
+let evLiveInvitePreview='',evLiveInviteBusy=false;
+async function evLiveInvite(preview){
+ const out=document.getElementById('ev-live-invite-out');if(evLiveInviteBusy)return;
+ const ids=checkedTargetIds(),signature=JSON.stringify({id:liveAdminState?.session?.id,ids});
+ if(!liveAdminState?.active){out.textContent='Сначала запусти эфир и проверь картинку.';return;}
+ if(!ids.length){out.textContent='Выбери площадки во вкладке анонсов.';return;}
+ if(!preview && evLiveInvitePreview!==signature){out.textContent='Сначала проверь предпросмотр приглашения.';return;}
+ if(!preview && !confirm('Отправить приглашение со ссылкой на идущий эфир в площадки из предпросмотра?'))return;
+ evLiveInviteBusy=true;
+ if(!preview)evLiveInvitePreview='';
+ try{const r=await fetch(API+'/admin/live/announce?x_admin_token='+encodeURIComponent(ADMIN_TOKEN),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target_ids:ids,preview})});const d=await r.json();if(!r.ok)throw Error(d.detail||r.status);out.replaceChildren();
+ if(preview){for(const item of d.items){const p=document.createElement('p');p.style.whiteSpace='pre-wrap';p.textContent=item.name+'\n'+item.text+'\n'+(item.link||'');out.append(p);}evLiveInvitePreview=signature;}
+ else {for(const item of d.report){const p=document.createElement('p');p.textContent=item.name+': '+(item.ok?'отправлено / в очереди':'не подтверждено')+' '+(item.note||item.error||'');out.append(p);}}
+ }catch(e){out.textContent='Не удалось подтвердить результат: '+e.message;}finally{evLiveInviteBusy=false;}
+}
+</script></body>
 </html>
