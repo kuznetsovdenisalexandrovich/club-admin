@@ -3834,7 +3834,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v268';
+const BUILD_VERSION = 'admin-v269';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -8090,7 +8090,7 @@ function evShow(n){
   if (st) st.style.display = 'block';
   document.querySelectorAll('#ev-strip .ptab').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-ev') === String(n)); });
   if (n === 4) evLoadAttendees();
-  if (n === 6) evLoadReactions();
+  if (n === 6) {evLoadReactions();evLoadRecordState();}
   if (n === 5) evRenderMeetTargets();
   if (n === 1) { evRenderAnnounceHint(); evAnnouncementLoad(); }
   if (n === 2) evMeetupCheck();
@@ -8570,10 +8570,11 @@ async function clearRecordCode(){
 
 async function sendRecordCode(code){
   const box = document.getElementById('record-state');
+  if(!evRecordSessionId){box.textContent='Сначала дождись загрузки последнего завершённого эфира.';return;}
   try{
     const r = await fetch(API + '/admin/live/record?x_admin_token=' + ADMIN_TOKEN, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ code: code, free_sec: recordFreeSec(), notify: false })
+      body: JSON.stringify({ code: code, session_id: evRecordSessionId, free_sec: recordFreeSec(), notify: false })
     });
     const d = await r.json();
     if (!r.ok){ box.textContent = d.detail || 'Не получилось'; return; }
@@ -24333,6 +24334,17 @@ async function evLiveInvite(preview){
  if(preview){for(const item of d.items){const p=document.createElement('p');p.style.whiteSpace='pre-wrap';p.textContent=item.name+'\n'+item.text+'\n'+(item.link||'');out.append(p);}evLiveInvitePreview=signature;}
  else {for(const item of d.report){const p=document.createElement('p');p.textContent=item.name+': '+(item.ok?'отправлено / в очереди':'не подтверждено')+' '+(item.note||item.error||'');out.append(p);}}
  }catch(e){out.textContent='Не удалось подтвердить результат: '+e.message;}finally{evLiveInviteBusy=false;}
+}
+</script><script>
+let evRecordSessionId=null;
+async function evLoadRecordState(){
+ const box=document.getElementById('record-state');evRecordSessionId=null;box.textContent='Проверяю последнюю запись…';
+ try{await loadLiveAdminState();const last=liveAdminState?.last;if(!last?.id){box.textContent='Завершённых эфиров пока нет.';return;}evRecordSessionId=last.id;
+ const r=await fetch(API+'/live/entry?x_admin_token='+encodeURIComponent(ADMIN_TOKEN));if(!r.ok)throw Error('HTTP '+r.status);const d=await r.json();
+ box.textContent='Последний завершённый эфир: '+last.title+' · '+last.finished_at+'. ';
+ if(d.state==='record'){box.textContent+='Запись доступна в приложении.';const link=document.createElement('a');link.textContent=' Открыть запись Kinescope';link.href=d.play_url;link.target='_blank';link.rel='noopener';box.append(link);}
+ else box.textContent+='Ниже можно выбрать или заменить запись. Текущий вход в эфир: '+({live:'идёт трансляция',upcoming:'анонс ближайшего занятия',none:'записи пока нет'}[d.state]||d.state)+'.';
+ }catch(e){box.textContent='Не удалось проверить запись: '+e.message;}
 }
 </script></body>
 </html>
