@@ -24417,7 +24417,7 @@ async function guestExperimentAdminSave(stop){
  if(!guestExperimentConfig)return;const buttons=[...document.querySelectorAll('[data-ge="save"],[data-ge="stop"]')];buttons.forEach(b=>b.disabled=true);
  try{
   const ids=id=>{const values=document.getElementById(id).value.split(',').map(v=>v.trim()).filter(Boolean).map(Number);if(values.some(v=>!Number.isSafeInteger(v)||!v))throw Error('Проверь ID аккаунтов');return values;};
-  const cfg={...guestExperimentConfig,enabled:stop?false:document.getElementById('ge-enabled').checked,pilot_ids:stop?[]:ids('ge-pilots'),excluded_ids:ids('ge-excluded')};
+  const cfg={...guestExperimentConfig,enabled:stop?false:document.getElementById('ge-enabled').checked,pilot_ids:stop?[]:ids('ge-pilots'),excluded_ids:stop?guestExperimentConfig.excluded_ids:ids('ge-excluded')};
   guestExperimentConfig=await guestExperimentAdminApi('config',cfg);await guestExperimentAdminLoad();
  }catch(e){document.getElementById('ge-status').textContent=e.message+' Обнови состояние перед повтором.';}finally{buttons.forEach(b=>b.disabled=false);}
 }
