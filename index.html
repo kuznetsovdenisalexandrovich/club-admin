@@ -1399,7 +1399,11 @@ select:disabled{opacity:.55;cursor:not-allowed}
 #live-popup-overlay #ev-ann-image{margin:16px 0}
 #live-popup-overlay #ev-announce-btn{margin:0!important}
 @media(max-width:520px){#live-popup-overlay .popup-body{padding:20px 16px}#live-popup-overlay #ev-strip{gap:8px!important}#live-popup-overlay #ev-strip .ptab{flex:1 1 calc(50% - 8px);font-size:13px}#live-popup-overlay .ev-stage>div[style*="display:flex"]>.popup-save{width:100%!important}#live-popup-overlay .pay-meta{font-size:13px}}
-</style></head>
+</style><style>
+.ie-field{display:grid;gap:12px;margin:18px 0;font-size:13px;min-width:0}.ie-field input,.ie-field textarea{box-sizing:border-box;width:100%;min-width:0;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--input-bg);color:var(--text);font:inherit}.ie-field input{height:46px}.ie-field textarea{resize:vertical}.ie-step{border:1px solid var(--line);border-radius:18px;padding:18px;margin:20px 0}.ie-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}.ie-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:12px}.ie-toolbar>strong{flex:1;min-width:0;overflow-wrap:anywhere}.ie-toolbar button{min-height:46px;flex-shrink:0}.ie-check{display:flex;gap:10px;align-items:center;font-size:13px}.ie-footer{position:sticky;bottom:0;background:var(--bg);padding:16px 0}.ie-field :focus-visible{outline:2px solid #ab8aca;outline-offset:3px}@media(max-width:600px){.ie-grid{grid-template-columns:1fr}#intro-editor>.popup{padding:20px!important}.ie-toolbar>strong{flex-basis:100%}}
+
+</style>
+</head>
 
 <body>
 
@@ -1544,6 +1548,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
           <button class="action-btn" onclick="openPlacesPopup()">Каналы и группы</button>
           <button class="action-btn" onclick="openBonusPopup()">Бонусы за вступление</button>
           <button class="action-btn" onclick="openNudgesPopup()">Дожимные рассылки</button>
+          <button class="action-btn" onclick="openIntroEditor()">Знакомство: шаги и напоминания</button>
           <button class="action-btn" onclick="openOnbxPopup()">Знакомство новичка</button>
         </div>
       </div>
@@ -3834,7 +3839,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v269';
+const BUILD_VERSION = 'admin-v270';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -24346,5 +24351,44 @@ async function evLoadRecordState(){
  else box.textContent+='Ниже можно выбрать или заменить запись. Текущий вход в эфир: '+({live:'идёт трансляция',upcoming:'анонс ближайшего занятия',none:'записи пока нет'}[d.state]||d.state)+'.';
  }catch(e){box.textContent='Не удалось проверить запись: '+e.message;}
 }
-</script></body>
+</script><script>
+let introEditorConfig=null;
+function openIntroEditor(){
+  let overlay=document.getElementById('intro-editor');
+  if(!overlay){overlay=document.createElement('div');overlay.id='intro-editor';overlay.className='popup-overlay popup-centered';overlay.innerHTML='<div class="popup" style="max-width:800px;width:100%;max-height:90dvh;overflow:auto;padding:28px"><div style="display:flex;justify-content:space-between;gap:20px"><h2>Знакомство с приложением</h2><button class="scroll-btn" data-ie="close">Закрыть</button></div><div id="intro-editor-body"></div><p id="intro-editor-status" role="status"></p></div>';document.body.appendChild(overlay);}
+  overlay.classList.add('open');introEditorLoad();
+}
+async function introEditorApi(method,body){const r=await fetch(API+'/introduction/admin/config',{method,headers:{'X-Admin-Token':ADMIN_TOKEN,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});const data=await r.json();if(!r.ok)throw Error(data.detail||'Не удалось сохранить');return data;}
+async function introEditorLoad(){try{introEditorConfig=await introEditorApi('GET');introEditorRender();}catch(e){document.getElementById('intro-editor-status').textContent=e.message;}}
+function introEditorRender(){
+ const e=escapeHtmlText,c=introEditorConfig;
+ const field=(label,key,value,type='text')=>'<label class="ie-field">'+e(label)+'<input data-field="'+key+'" type="'+type+'" value="'+e(String(value??''))+'"></label>';
+ document.getElementById('intro-editor-body').innerHTML='<p class="pay-meta">Шаги необязательны и не задерживают рост уровня. Выполненные шаги не напоминаются. Изменения сохраняются с номером версии; история прохождения и начислений остаётся.</p><label class="ie-check"><input id="ie-enabled" type="checkbox" '+(c.enabled?'checked':'')+'> Включено для участников</label><label class="ie-field">Тестовые Telegram ID (через запятую)<input id="ie-pilots" value="'+e(c.pilot_ids.join(', '))+'"></label><div id="ie-steps">'+c.steps.map((s,index)=>'<section class="ie-step" data-index="'+index+'"><div class="ie-toolbar"><strong>'+e(s.title)+'</strong><button class="scroll-btn" data-ie="up">↑</button><button class="scroll-btn" data-ie="down">↓</button><button class="scroll-btn" data-ie="remove">Убрать</button></div><div class="ie-grid">'+field('Название','title',s.title)+field('Текст кнопки','button',s.button)+field('Баллы за шаг','reward',s.reward,'number')+field('Напомнить через минут после покупки (от 1440)','after_minutes',s.after_minutes,'number')+'</div><label class="ie-field">Описание<textarea data-field="description" rows="3">'+e(s.description)+'</textarea></label><label class="ie-field">Текст напоминания<textarea data-field="message" rows="4">'+e(s.message)+'</textarea></label>'+field('Раздел приложения для своего шага','target',s.target)+'<div class="ie-toolbar"><label class="ie-check"><input data-field="enabled" type="checkbox" '+(s.enabled?'checked':'')+'> Показывать шаг</label><label class="ie-check"><input data-field="reminder" type="checkbox" '+(s.reminder?'checked':'')+'> Напоминать</label></div><small class="pay-meta">Постоянный ID: '+e(s.id)+' · действие: '+e(s.action)+'</small></section>').join('')+'</div><details><summary>Действующие сообщения после покупки</summary><button class="scroll-btn" data-ic="load">Загрузить текущую цепочку</button><div id="ie-existing"></div></details><div class="ie-toolbar ie-footer"><button class="scroll-btn" data-ie="add">Добавить шаг</button><button class="action-btn" data-ie="save">Сохранить версию '+(c.revision+1)+'</button><button class="scroll-btn" data-ie="reload">Обновить</button></div>';
+ document.getElementById('intro-editor-status').textContent='Версия '+c.revision+'. Таймеры остальных сообщений сохраняются.';
+}
+function introEditorRead(){const c=introEditorConfig;c.enabled=document.getElementById('ie-enabled').checked;c.pilot_ids=document.getElementById('ie-pilots').value.split(',').map(s=>s.trim()).filter(Boolean).map(Number);if(c.pilot_ids.some(x=>!Number.isSafeInteger(x)))throw Error('Проверь Telegram ID');document.querySelectorAll('#ie-steps .ie-step').forEach(el=>{const s=c.steps[Number(el.dataset.index)];el.querySelectorAll('[data-field]').forEach(input=>{s[input.dataset.field]=input.type==='checkbox'?input.checked:input.type==='number'?Number(input.value):input.value;});});}
+async function introEditorAction(b){
+ const name=b.dataset.ie;if(name==='close'){document.getElementById('intro-editor').classList.remove('open');return;}
+ if(name==='reload')return introEditorLoad();
+ try{introEditorRead();const c=introEditorConfig,index=Number(b.closest('.ie-step')?.dataset.index);
+ if(name==='add')c.steps.push({id:'custom_'+Date.now().toString(36),action:'custom',title:'Новый шаг',description:'',button:'Открыть',reward:15,enabled:true,reminder:false,after_minutes:1440,message:'',target:''});
+ if(name==='remove')c.steps.splice(index,1);
+ if(name==='up'&&index>0)[c.steps[index-1],c.steps[index]]=[c.steps[index],c.steps[index-1]];
+ if(name==='down'&&index<c.steps.length-1)[c.steps[index+1],c.steps[index]]=[c.steps[index],c.steps[index+1]];
+ if(name==='save'){b.disabled=true;introEditorConfig=await introEditorApi('PUT',c);}
+ introEditorRender();
+ }catch(e){document.getElementById('intro-editor-status').textContent=e.message;}finally{b.disabled=false;}
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-ie]');if(b)introEditorAction(b);});
+let introChain=null;
+async function introChainLoad(){
+ const box=document.getElementById('ie-existing');box.innerHTML='Загружаю действующую цепочку…';
+ try{const r=await fetch(API+'/introduction/admin/member-chain',{headers:{'X-Admin-Token':ADMIN_TOKEN}});const d=await r.json();if(!r.ok)throw Error(d.detail||'Не удалось загрузить');introChain=d;introChainRender();}catch(e){box.textContent=e.message;}
+}
+function introChainRender(){const e=escapeHtmlText;document.getElementById('ie-existing').innerHTML='<p class="pay-meta">Действующая цепочка бота, версия '+introChain.revision+'. Сохранение меняет только эти сообщения. История отправок и постоянные ID сохраняются. Новые необязательные шаги добавляются в редакторе выше.</p>'+introChain.member_steps.map((s,i)=>'<section class="ie-step" data-chain="'+i+'"><label class="ie-field">Название<input data-chain-field="title" value="'+e(s.title)+'"></label><label class="ie-field">Текст Telegram (HTML)<textarea data-chain-field="html" rows="4">'+e(s.html)+'</textarea></label><label class="ie-field">Текст ВК (пусто — общий)<textarea data-chain-field="html_vk" rows="3">'+e(s.html_vk||'')+'</textarea></label><label class="ie-field">Задержка в минутах<input type="number" min="0" data-chain-field="delay_minutes" value="'+Number(s.delay_minutes)+'"></label><label class="ie-check"><input type="checkbox" data-chain-field="enabled" '+(s.enabled?'checked':'')+'> Сообщение включено</label><p class="pay-meta">'+e(s.id)+' · '+e({joined:'От вступления',after_previous:'После предыдущего сообщения',live_or_week:'После первого эфира или через неделю',cancelled_access:'После отмены подписки'}[s.member_trigger]||s.member_trigger)+'</p></section>').join('')+'<button class="action-btn" data-ic="save">Сохранить действующую цепочку</button>';}
+async function introChainSave(b){b.disabled=true;try{document.querySelectorAll('[data-chain]').forEach(el=>{const s=introChain.member_steps[Number(el.dataset.chain)];el.querySelectorAll('[data-chain-field]').forEach(input=>{s[input.dataset.chainField]=input.type==='checkbox'?input.checked:input.type==='number'?Number(input.value):input.value;});if(!s.html_vk)s.html_vk=null;});const r=await fetch(API+'/introduction/admin/member-chain',{method:'PUT',headers:{'X-Admin-Token':ADMIN_TOKEN,'Content-Type':'application/json'},body:JSON.stringify(introChain)});const d=await r.json();if(!r.ok)throw Error(d.detail||'Не удалось сохранить');introChain=d;introChainRender();document.getElementById('intro-editor-status').textContent='Цепочка сохранена, версия '+d.revision;}catch(e){document.getElementById('intro-editor-status').textContent=e.message;}finally{b.disabled=false;}}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-ic]');if(!b)return;if(b.dataset.ic==='load')introChainLoad();if(b.dataset.ic==='save')introChainSave(b);});
+
+</script>
+</body>
 </html>
