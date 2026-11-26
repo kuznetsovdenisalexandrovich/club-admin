@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v274 -->
+<!-- FILE_VERSION: admin-v275 -->
 <html lang="ru" data-theme="light">
 <head>
 <script src="https://kuznetsovdenisalexandrovich.github.io/club-app/card-motion.js?v=1"></script>
@@ -1556,6 +1556,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
           <button class="action-btn" onclick="openBonusPopup()">Бонусы за вступление</button>
           <button class="action-btn" onclick="openNudgesPopup()">Дожимные рассылки</button>
           <button class="action-btn" onclick="openGuestExperiment()">Четыре ветки после фильма</button>
+          <button class="action-btn" onclick="openPremiumAdmin()">Премиум: цены, акции и консультации</button>
           <button class="action-btn" onclick="openIntroEditor()">Знакомство: шаги и напоминания</button>
           <button class="action-btn" onclick="openOnbxPopup()">Знакомство новичка</button>
         </div>
@@ -2863,7 +2864,9 @@ select:disabled{opacity:.55;cursor:not-allowed}
 </details>
           <div class="section-title" style="margin:14px 0 6px;font-size:13px">Чат эфира</div>
         <div id="live-chat-reacts" class="chat-reacts"></div>
+        <div id="live-vip-questions"></div>
         <div id="live-chat-admin" class="chat-box"></div>
+        <details style="margin-top:18px"><summary onclick="loadLiveArchiveSessions()">История чатов эфиров</summary><div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0"><select id="live-archive-session" onchange="loadLiveArchive(false)" style="max-width:100%;min-width:0;flex:1" aria-label="Эфир"></select><button class="btn" onclick="exportLiveArchive()">Скачать TXT</button></div><div id="live-archive-messages" class="chat-box"></div><button class="btn" id="live-archive-more" onclick="loadLiveArchive(true)">Показать ещё</button></details>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
           <button class="action-btn" onclick="chatSetSlow()">Медленный режим</button>
           <button class="action-btn" id="chat-toggle-btn" onclick="chatToggleOpen()">Закрыть чат</button>
@@ -3847,7 +3850,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v274';
+const BUILD_VERSION = 'admin-v275';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -9636,6 +9639,28 @@ function chatMsgHtml(m, muted){
     + '</div>';
 }
 
+function renderLiveQuestions(rows){
+ const box=document.getElementById('live-vip-questions');if(!box)return;
+ box.innerHTML=rows.length?'<h3>Вопросы VIP · '+rows.length+'</h3>'+rows.map(m=>'<div class="pay-item"><div style="flex:1;min-width:0;overflow-wrap:anywhere"><b>'+escapeHtmlAdm(m.name)+'</b><p>'+escapeHtmlAdm(m.text)+'</p></div><button class="btn" onclick="answerLiveQuestion('+Number(m.id)+')">Ответил</button></div>').join(''):'';
+}
+async function answerLiveQuestion(id){
+ try{const r=await fetch(API+'/admin/live/chat/answered?x_admin_token='+encodeURIComponent(ADMIN_TOKEN),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message_id:id,answered:true})});if(!r.ok)throw Error('Не удалось сохранить отметку');await loadChatAdmin(true);}catch(e){alert(e.message);}
+}
+let liveArchiveAfter=0,liveArchiveGeneration=0;
+async function loadLiveArchiveSessions(){
+ const picker=document.getElementById('live-archive-session');if(picker.options.length)return;
+ try{const r=await fetch(API+'/admin/live/sessions?limit=100&x_admin_token='+encodeURIComponent(ADMIN_TOKEN));if(!r.ok)throw Error('Не удалось загрузить эфиры');const d=await r.json();picker.innerHTML=(d.sessions||[]).map(s=>'<option value="'+Number(s.id)+'">'+escapeHtmlAdm(s.started_at+' · '+s.title)+'</option>').join('');await loadLiveArchive(false);}catch(e){document.getElementById('live-archive-messages').textContent=e.message;}
+}
+async function loadLiveArchive(more){
+ const id=Number(document.getElementById('live-archive-session').value);if(!id)return;
+ const generation=++liveArchiveGeneration;if(!more)liveArchiveAfter=0;
+ try{const r=await fetch(API+'/admin/live/chat/archive?session_id='+id+'&after_id='+liveArchiveAfter+'&x_admin_token='+encodeURIComponent(ADMIN_TOKEN));if(!r.ok)throw Error('Не удалось загрузить историю');const d=await r.json(),box=document.getElementById('live-archive-messages');if(generation!==liveArchiveGeneration||Number(document.getElementById('live-archive-session').value)!==id)return;if(!more)box.textContent='';for(const m of d.messages){const el=document.createElement('div');el.style.cssText='padding:10px 0;overflow-wrap:anywhere;border-bottom:1px solid var(--border)';el.textContent=(m.created_at?new Date(m.created_at).toLocaleString('ru-RU',{timeZone:'Europe/Moscow'})+' · ':'')+m.name+(m.hidden?' [скрыто]':'')+(m.answered?' [ответил]':'')+' — '+m.text;box.appendChild(el);}liveArchiveAfter=d.next_id||liveArchiveAfter;document.getElementById('live-archive-more').hidden=d.messages.length<200;}catch(e){if(generation===liveArchiveGeneration)alert(e.message);}
+}
+async function exportLiveArchive(){
+ const id=Number(document.getElementById('live-archive-session').value);if(!id)return;
+ try{const r=await fetch(API+'/admin/live/chat/export?session_id='+id+'&x_admin_token='+encodeURIComponent(ADMIN_TOKEN));if(!r.ok)throw Error('Не удалось выгрузить историю');const url=URL.createObjectURL(await r.blob()),a=document.createElement('a');a.href=url;a.download='live-'+id+'-chat.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e){alert(e.message);}
+}
+
 async function loadChatAdmin(incremental){
   const box = document.getElementById('live-chat-admin');
   if (!box) return;
@@ -9645,6 +9670,7 @@ async function loadChatAdmin(incremental){
                           + '&x_admin_token=' + ADMIN_TOKEN);
     const d = await r.json();
     chatAdminState = d;
+    renderLiveQuestions(d.questions || []);
     if (!d.active){
       box.innerHTML = '<div class="pay-meta">Эфир не идёт</div>';
       renderChatReacts(null, 0);
@@ -24457,6 +24483,25 @@ async function guestExperimentAdminSave(stop){
  }catch(e){document.getElementById('ge-status').textContent=e.message+' Обнови состояние перед повтором.';}finally{buttons.forEach(b=>b.disabled=false);}
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-ge]');if(!b)return;const a=b.dataset.ge;if(a==='close')document.getElementById('guest-experiment-editor').classList.remove('open');if(a==='reload')guestExperimentAdminLoad();if(a==='save'||a==='stop')guestExperimentAdminSave(a==='stop');});
+</script>
+<script>
+/* Premium settings use the existing admin editor controls. */
+let vipAdminConfig=null;
+async function vipAdminApi(path,method='GET',body){const r=await fetch(API+'/premium/admin/'+path+'?x_admin_token='+encodeURIComponent(ADMIN_TOKEN),{method,headers:{'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});const d=await r.json();if(!r.ok)throw Error(typeof d.detail==='string'?d.detail:'Проверь настройки');return d;}
+async function openPremiumAdmin(){
+ let o=document.getElementById('premium-admin');if(!o){o=document.createElement('div');o.id='premium-admin';o.className='popup-overlay popup-centered';o.innerHTML='<div class="popup" style="max-width:800px;width:100%;max-height:90dvh;overflow:auto;padding:28px"><div class="ie-toolbar"><h2>Премиум</h2><button class="scroll-btn" onclick="document.getElementById(\'premium-admin\').classList.remove(\'open\')">Закрыть</button></div><div id="premium-admin-body"></div><p id="premium-admin-status" role="status"></p></div>';document.body.append(o);}o.classList.add('open');
+ try{vipAdminConfig=await vipAdminApi('config');renderPremiumAdmin();}catch(e){document.getElementById('premium-admin-status').textContent=e.message;}
+}
+function renderPremiumAdmin(){
+ const c=vipAdminConfig,esc=escapeHtmlAdm,fields=[['year_rubles','Год · ₽'],['forever_rubles','Навсегда · ₽'],['year_points','Год · баллы'],['forever_points','Навсегда · баллы'],['gift_points','Подарок за денежную покупку'],['cards','Карт за продление'],['legendary_weight','Вес легендарных карт'],['activity_multiplier','Множитель баллов за занятия, маршрут и продление']];
+ const local=v=>v?new Date(Date.parse(v+'Z')+3*3600000).toISOString().slice(0,16):'';
+ document.getElementById('premium-admin-body').innerHTML='<form id="premium-admin-form"><label class="ie-check" style="margin-top:20px"><input type="checkbox" name="enabled" '+(c.enabled?'checked':'')+'> Продажи включены</label><div class="ie-grid">'+fields.map(([key,label])=>'<label class="ie-field">'+label+'<input name="'+key+'" type="number" min="'+(['gift_points'].includes(key)?0:1)+'" step="'+(key.includes('weight')||key.includes('multiplier')?'.1':'1')+'" value="'+Number(c[key])+'" required></label>').join('')+'</div><label class="ie-field">Закрытая группа мастер-майндов<input name="group_url" value="'+esc(c.group_url)+'" placeholder="https://t.me/…"></label><section class="ie-step"><h3>Акция</h3><label class="ie-check" style="margin-top:16px"><input type="checkbox" name="campaign_enabled" '+(c.campaign?.enabled?'checked':'')+'> Включить по расписанию</label><div class="ie-grid"><label class="ie-field">Начало · МСК<input name="starts_at" type="datetime-local" value="'+local(c.campaign?.starts_at)+'"></label><label class="ie-field">Окончание · МСК<input name="ends_at" type="datetime-local" value="'+local(c.campaign?.ends_at)+'"></label></div><label class="ie-field">Подарок вместо обычного · баллы<input name="campaign_gift" type="number" min="0" value="'+Number(c.campaign?.gift_points??10000)+'"></label><p class="pay-meta">Только за рубли. Уже созданные заказы сохраняют свои условия. Само сохранение не запускает рассылку.</p></section><button class="action-btn" type="submit">Сохранить</button></form><details style="margin-top:24px"><summary onclick="loadPremiumConsultations()">Заявки на консультации</summary><div id="premium-consultations"></div></details>';
+ document.getElementById('premium-admin-form').onsubmit=savePremiumAdmin;
+}
+async function savePremiumAdmin(e){e.preventDefault();const f=e.target,values=new FormData(f),c={...vipAdminConfig};for(const key of ['year_rubles','forever_rubles','year_points','forever_points','gift_points','cards','legendary_weight','activity_multiplier'])c[key]=Number(values.get(key));c.enabled=values.has('enabled');c.group_url=values.get('group_url').trim();const start=values.get('starts_at'),end=values.get('ends_at');
+ try{if(values.has('campaign_enabled')&&(!start||!end))throw Error('Укажи обе даты акции');c.campaign=start&&end?{enabled:values.has('campaign_enabled'),starts_at:new Date(start+':00+03:00').toISOString().slice(0,-1),ends_at:new Date(end+':00+03:00').toISOString().slice(0,-1),gift_points:Number(values.get('campaign_gift'))}:null;f.querySelector('button[type=submit]').disabled=true;vipAdminConfig=await vipAdminApi('config','PUT',c);renderPremiumAdmin();document.getElementById('premium-admin-status').textContent='Настройки сохранены. Версия '+vipAdminConfig.revision;}catch(x){document.getElementById('premium-admin-status').textContent=x.message;}finally{if(f.isConnected)f.querySelector('button[type=submit]').disabled=false;}}
+async function loadPremiumConsultations(){try{const d=await vipAdminApi('consultations');document.getElementById('premium-consultations').innerHTML=d.items.map(x=>'<section class="ie-step"><strong>'+escapeHtmlAdm(x.name)+' · '+Number(x.telegram_id)+'</strong><p>'+escapeHtmlAdm(x.status==='requested'?'Ждёт согласования':'Ещё не записался')+'</p><p>'+escapeHtmlAdm(x.business||'')+'</p><p>'+escapeHtmlAdm(x.question||'')+'</p><p>'+escapeHtmlAdm(x.availability||'')+'</p></section>').join('')||'<p>Пока нет заявок</p>';}catch(e){document.getElementById('premium-admin-status').textContent=e.message;}}
+
 </script>
 </body>
 </html>
