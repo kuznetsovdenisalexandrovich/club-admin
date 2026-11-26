@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FILE_VERSION: admin-v275 -->
+<!-- FILE_VERSION: admin-v276 -->
 <html lang="ru" data-theme="light">
 <head>
 <script src="https://kuznetsovdenisalexandrovich.github.io/club-app/card-motion.js?v=1"></script>
@@ -810,6 +810,16 @@ input:focus,select:focus,textarea:focus,.rich-input:focus,.popup-input:focus{
 .meeting-upload{display:flex;flex-direction:column;align-items:flex-start;gap:10px;margin:16px 0}
 .meeting-upload .meeting-upload-link{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;max-width:100%;min-height:40px;padding:10px 14px;font-size:12px;font-weight:500;line-height:1.4;text-decoration:none}
 .meeting-upload .meeting-upload-hint{margin:0;font-size:11px;font-weight:400;line-height:1.5;color:var(--text-dim)}
+
+#live-popup-overlay .popup-body{color:var(--text)}
+#live-popup-overlay .pay-meta{color:var(--text-dim);font-size:13px;line-height:1.5}
+#live-popup-overlay summary{color:var(--text)}
+.event-console-actions{position:sticky;top:0;z-index:8;padding:16px;margin:14px 0;border-radius:22px;background:var(--bg);box-shadow:var(--sh-out,0 8px 24px #0002);border:1px solid var(--border)}
+.event-console-buttons{display:flex;flex-wrap:wrap;gap:10px}
+.event-console-buttons button{min-height:46px;flex:1 1 170px;margin:0;width:auto}
+#event-console-status{margin-top:10px;line-height:1.5}
+#live-chat-admin{overflow-wrap:anywhere}
+#live-popup-overlay [hidden]{display:none!important}
 </style>
 
 <style id="bp-visual-redesign-2026">
@@ -2827,7 +2837,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <div id="live-announce-targets"></div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">
           <button class="action-btn" onclick="evAnnouncementPreview()">Предпросмотр анонса</button>
-          <button class="popup-save" style="width:auto;padding:8px 14px" id="ev-announce-btn" onclick="evAnnouncementSend()">Отправить после предпросмотра</button>
+          <button class="popup-save" style="width:auto;padding:8px 14px" id="ev-announce-btn" onclick="evAnnouncementSend()">Отправить анонс</button>
           <button class="action-btn" onclick="openTargetsPopup()">Настроить площадки</button>
         </div>
         <div id="live-announce-out" class="pay-meta" style="margin:0 2px 12px"></div>
@@ -2855,7 +2865,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <div id="ev-running-box" style="display:none">
 <div class="event-primary-actions">          <button class="action-btn" onclick="evShow(3)">Закрыть только бесплатную часть…</button>
           <button class="popup-save" onclick="liveFinish()" style="background:#e8614a;margin-top:6px">Завершить эфир целиком</button></div>
-<details><summary>Отправить приглашение на идущий эфир</summary><p class="pay-meta">Это отдельная отправка со ссылкой. Площадки выбираются во вкладке анонсов; перед отправкой проверь их здесь.</p><div style="display:flex;gap:12px;flex-wrap:wrap;margin:12px 0"><button class="action-btn" onclick="evLiveInvite(true)">Предпросмотр приглашения</button><button class="action-btn" onclick="evLiveInvite(false)">Отправить ссылку на эфир</button></div><div id="ev-live-invite-out" class="pay-meta"></div></details>
+<details><summary>Отправить приглашение на идущий эфир</summary><p class="pay-meta">Это отдельная отправка со ссылкой. Выбранные площадки сохранены в блоке «Куда приглашаем». Уже обработанные приглашения повторно не отправятся.</p><div style="display:flex;gap:12px;flex-wrap:wrap;margin:12px 0"><button class="action-btn" onclick="evLiveInvite(true)">Предпросмотр приглашения</button><button class="action-btn" onclick="evLiveInvite(false)">Отправить ссылку на эфир</button></div><div id="ev-live-invite-out" class="pay-meta"></div></details>
 <details class="event-restreams"><summary>Площадки ретрансляции</summary>
           <div class="section-title" style="margin:14px 0 6px;font-size:13px">Точки ретрансляции</div>
         <div id="live-admin-restreams"></div>
@@ -3850,7 +3860,7 @@ select:disabled{opacity:.55;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // Бэкенд переехал на Timeweb (Москва), 12.08.2026
-const BUILD_VERSION = 'admin-v275';
+const BUILD_VERSION = 'admin-v276';
 const API_PRIMARY = 'https://selectel-api.youselllikeagod-magazine.ru';
 const API_RAILWAY = 'https://kuznetsovdenisalexandrovich-club-backend-3c7e.twc1.net';
 /* v191 · ДАШБОРД УХОДИТ НА ЗАПАСНОЙ. [stated] Denis 13.10: вместо переноса
@@ -8097,12 +8107,15 @@ async function loadLiveHero(){
 }
 
 async function openLivePopup(){
+  eventConsoleMount();evStage=2;evShow(2);
   document.getElementById('live-popup-overlay').classList.add('open');
   chatAdminLastId = 0;
   startChatAdminPoll();
   const sel = document.getElementById('live-admin-event');
   if (sel) sel.innerHTML = '<option value="">Загружаю трансляции…</option>';
   await evDraftLoad();
+  await eventControlRefresh();
+  clearInterval(eventControlTimer);eventControlTimer=setInterval(()=>{if(!eventControlBusy)eventControlRefresh();},15000);
   loadLiveAdminState();
   evMeetupCheck();
   loadTargets();
@@ -8115,16 +8128,108 @@ async function openLivePopup(){
 }
 
 function closeLivePopup(){
+  clearInterval(eventControlTimer);eventControlTimer=null;
   document.getElementById('live-popup-overlay').classList.remove('open');
   stopChatAdminPoll();
 }
 
+// One persistent event, with video and practice as independent phases.
+let eventControlState=null,eventControlBusy=false,eventControlRequest=null,eventControlTimer=null;
+function eventConsoleMount(){
+ if(document.getElementById('event-console-actions'))return;
+ const stage=document.getElementById('ev-stage-2');
+ const setup=document.createElement('details');setup.id='event-console-setup';setup.className='workflow-advanced';setup.open=true;
+ const summary=document.createElement('summary');summary.textContent='Подготовка занятия';setup.append(summary);
+ const prep=document.getElementById('ev-stage-0');prep.classList.remove('ev-stage');prep.style.display='block';setup.append(prep);stage.prepend(setup);
+ const audience=document.createElement('details');audience.id='event-console-audience';audience.className='workflow-advanced';audience.open=true;
+ audience.innerHTML='<summary>Куда приглашаем</summary><p class="pay-meta">В ботах — подписчики выбранного вида встреч с учётом их настроек уведомлений.</p>';
+ audience.append(document.getElementById('live-announce-targets'));setup.after(audience);
+ const ann=document.createElement('details');ann.id='event-console-announcement';ann.className='workflow-advanced';ann.innerHTML='<summary>Анонс заранее / сообщение после</summary>';
+ const old=document.getElementById('ev-stage-1');old.classList.remove('ev-stage');old.style.display='block';ann.append(old);audience.after(ann);
+ const bar=document.createElement('section');bar.id='event-console-actions';bar.className='event-console-actions';bar.innerHTML='<div class="event-console-buttons"><button class="popup-save" data-action="start" onclick="eventControlDo(\'start\')">Начать занятие и пригласить</button><button class="action-btn" data-action="close_free" onclick="eventControlDo(\'close_free\')">Закрыть открытую часть</button><button class="action-btn" data-action="telemost" onclick="eventControlDo(\'telemost\')">Пригласить в телемост</button><button class="action-btn" data-action="stop_video" onclick="eventControlDo(\'stop_video\')">Остановить видео</button><button class="action-btn" data-action="finish" onclick="eventControlDo(\'finish\')">Завершить занятие</button><button class="action-btn" onclick="eventControlRefresh()">Обновить</button></div><div id="event-console-status" class="pay-meta" role="status" aria-live="polite">Загружаю состояние занятия…</div>';
+ stage.prepend(bar);
+ const report=document.createElement('details');report.id='event-console-report';report.className='workflow-advanced';report.innerHTML='<summary>Отправки и состояние площадок</summary><div id="event-console-receipts"></div><button class="action-btn" onclick="eventControlDo(\'invite\')">Проверить / продолжить приглашение</button>';
+ const run=document.getElementById('ev-running-box');bar.after(run);run.after(report);
+ const oldInvite=run.querySelector('details:not(.event-restreams)');if(oldInvite)oldInvite.hidden=true;
+ const restreams=run.querySelector('.event-restreams');if(restreams)run.append(restreams);
+ document.querySelector('#ev-start-box>.popup-save').hidden=true;
+ document.querySelector('#ev-start-box>.pay-meta').hidden=true;
+ document.querySelector('#ev-running-box>.event-primary-actions').hidden=true;
+ document.getElementById('ev-practice-shortcut').hidden=true;
+ document.querySelectorAll('#ev-strip [data-ev="0"],#ev-strip [data-ev="1"]').forEach(x=>x.hidden=true);
+ document.querySelector('#ev-strip [data-ev="2"]').textContent='Пульт занятия';
+}
+async function eventControlApi(method,body){
+ const r=await fetch(API+'/admin/live/control?x_admin_token='+encodeURIComponent(ADMIN_TOKEN),{method,headers:{'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
+ const d=await r.json();if(!r.ok)throw Error(typeof d.detail==='string'?d.detail:'Не удалось выполнить действие (HTTP '+r.status+')');return d;
+}
+async function eventControlRefresh(){
+ try{eventControlState=await eventControlApi('GET');eventControlRender();}
+ catch(e){document.getElementById('event-console-status').textContent='Не удалось обновить состояние. '+e.message;}
+}
+function eventControlRender(){
+ const d=eventControlState||{},s=d.session||{},ev=d.event||{},active=!!d.active,video=active&&!s.finished_at;
+ const status=document.getElementById('event-console-status');
+ if(!eventControlBusy)status.textContent=active?(video?'Занятие идёт. ':'Видео остановлено. ')+(s.practice_on?'Телемост открыт.':'Телемост ещё не отправлен.'):(ev.ended_at?'Занятие завершено. Ссылка на запись остаётся в приложении.':'Готовим новое занятие.');
+ document.querySelectorAll('#event-console-actions [data-action]').forEach(b=>{
+  const a=b.dataset.action;b.hidden=a==='start'?active||evIsMeetOnly():a==='close_free'?!video||!s.free_open:a==='stop_video'?!active||ev.video_state==='stopped':!active;
+  b.disabled=eventControlBusy;
+  const next=!active?'start':s.free_open&&!s.finished_at?'close_free':!s.practice_on?'telemost':!s.finished_at?'stop_video':'finish';b.className=a===next?'popup-save':'action-btn';
+ });
+ const setup=document.getElementById('event-console-setup');if(setup.dataset.phase!==String(active)){setup.open=!active;document.getElementById('event-console-audience').open=!active;setup.dataset.phase=String(active);}
+ // Chat and VIP questions belong to the event, including the practice phase.
+ if(active){document.getElementById('ev-running-box').style.display='block';document.getElementById('ev-start-box').style.display='none';document.getElementById('ev-meeting-management').hidden=true;}
+ if(active&&s.finished_at)document.getElementById('live-admin-status').textContent=(s.title||'Занятие')+' · видео остановлено, занятие продолжается';
+ const out=document.getElementById('event-console-receipts');out.replaceChildren();
+ const labels={sent:'отправлено',queued:'в очереди бота',sending:'ожидаем подтверждения',unconfirmed:'результат не подтверждён'};
+ (d.receipts||[]).forEach(row=>{const p=document.createElement('p');p.className='pay-meta';p.textContent=row.name+' · '+(row.key.includes(':telemost:')?'телемост':'начало')+' · '+(labels[row.status]||row.status)+(row.note?' · '+row.note:'');out.append(p);});
+ [...(ev.stop_problems||[]),...(d.manual_actions||[])].forEach(t=>{const p=document.createElement('p');p.textContent=t;out.append(p);});
+ if(d.manual_actions?.length||d.cleanup_pending)document.getElementById('event-console-report').open=true;
+ if(d.cleanup_pending){const retry=document.createElement('button');retry.className='action-btn';retry.textContent='Повторить удаление приглашений телемоста';retry.onclick=()=>eventControlDo('finish');out.append(retry);}
+ const meet=document.querySelector('#event-console-actions [data-action=telemost]');meet.textContent=s.practice_on?'Проверить отправку телемоста':'Пригласить в телемост';
+ if(active && !eventControlBusy)loadChatAdmin(true);
+}
+async function eventControlDo(action){
+ if(eventControlBusy||!evDraftReady)return;
+ const d=evDraftFields(),sel=document.getElementById('live-admin-event'),opt=sel.options[sel.selectedIndex],state=eventControlState||{};
+ const ids=[...document.querySelectorAll('.ann-t:checked')].map(x=>Number(x.value));
+ if(action==='start' && (!sel.value||!d.title.trim()||!ids.length)){document.getElementById('event-console-status').textContent='Заполни название, выбери трансляцию и площадки приглашения.';return;}
+ if(action==='telemost' && !(d.meet_link||(state.session||{}).practice_url)){document.getElementById('event-console-setup').open=true;document.getElementById('ev-meet-link').focus();document.getElementById('event-console-status').textContent='Нужна ссылка телемоста в подготовке занятия.';return;}
+ const prompts={start:'Начать занятие и отправить приглашение в выбранные площадки?',close_free:'Закрыть открытую часть? Участники продолжат смотреть, гостям откроется предложение клуба.',telemost:'Отправить приглашение в телемост? Видео можно остановить до или после.',stop_video:'Остановить видеотрансляцию? Телемост и само занятие останутся открыты.',finish:'Завершить всё занятие? Телемост закроется в приложении, его приглашения будут убраны, боты вернут главное меню.'};
+ if(prompts[action]&&!confirm(prompts[action]))return;
+ eventControlBusy=true;eventControlRender();const status=document.getElementById('event-console-status');status.textContent='Выполняю. Повторно нажимать не нужно…';
+ try{
+  clearTimeout(evDraftTimer);
+  // Freeze exactly what is visible; no race with delayed autosave.
+  if(!await evDraftSave())throw Error('Настройки не сохранились. Повтори действие после восстановления связи.');
+  let operation_id='';
+  if(action==='start'){
+   try{eventControlRequest=eventControlRequest||JSON.parse(localStorage.getItem('club_live_start_request')||'null');}catch(_){}
+   if(!eventControlRequest||eventControlRequest.event_id!==sel.value||eventControlRequest.done){eventControlRequest={id:crypto.randomUUID(),event_id:sel.value};}
+   operation_id=eventControlRequest.id;try{localStorage.setItem('club_live_start_request',JSON.stringify(eventControlRequest));}catch(_){}
+  }
+  const result=await eventControlApi('POST',{action,session_id:state.active?(state.session||{}).id:action==='finish'?(state.session||{}).id:null,operation_id,live_event_id:sel.value,play_code:opt?.dataset.code||'',title:d.title,description:d.desc,cls:d.cls,points:d.points,free_part:d.free_part,meet_link:d.meet_link,target_ids:ids});
+  if(action==='start'&&result.session){eventControlRequest.done=true;try{localStorage.setItem('club_live_start_request',JSON.stringify(eventControlRequest));}catch(_){}liveRememberEvent(sel.value);}
+  await loadLiveAdminState();await eventControlRefresh();
+  status.textContent=result.ok===false?'Выполнено частично. '+(result.problems||[]).join('; ')+' Подробности в отчёте отправок.':result.note||'Готово. Состояние обновлено.';
+  if(result.ok===false)document.getElementById('event-console-report').open=true;
+ }catch(e){status.textContent=e.message+' Состояние сохранено; обнови пульт перед повтором.';await eventControlRefresh();}
+ finally{eventControlBusy=false;document.querySelectorAll('#event-console-actions button').forEach(b=>b.disabled=false);}
+}
+
 /* ══ ПУЛЬТ «СОБЫТИЕ» — этапы ══ */
+let chatAdminRequest=null,chatAdminGeneration=0;
 let evStage = -1;          // -1 — ещё не выбирали, подсказывает состояние
 let evDraftReady = false;
 let evDraft = null;        // черновик этапа 0 (admin_doc «event_draft»)
 let evDraftTimer = null;
 function evShow(n){
+  if(document.getElementById('event-console-actions') && [0,1,5].includes(n)){
+    const details=document.getElementById(n===1?'event-console-announcement':'event-console-setup');
+    if(details)details.open=true;
+    if(n===1){evAnnouncementLoad();}
+    n=2;
+  }
   evStage = n;
   updateEventGuide(n);
   document.querySelectorAll('.ev-stage').forEach(function(el){ el.style.display = 'none'; });
@@ -8162,6 +8267,7 @@ function evDraftFields(){
     cls: (document.getElementById('ev-cls') || {}).value || 'lesson',
     kind: (document.getElementById('ev-kind') || {}).value || 'live_meet',
     announcements: (evDraft && evDraft.announcements) || {},
+    target_ids: document.querySelector('.ann-t')?[...document.querySelectorAll('.ann-t:checked')].map(x=>Number(x.value)):(evDraft&&evDraft.target_ids),
     title: (document.getElementById('live-admin-title') || {}).value || '',
     desc: (document.getElementById('live-admin-desc') || {}).value || '',
     meet_link: (document.getElementById('ev-meet-link') || {}).value || '',
@@ -8206,8 +8312,8 @@ function evKindApply(){
      liveStart/liveAutoStart), выбор трансляции и кнопка анонсов — тоже.
      Идущий эфир не прячем: его надо уметь завершить в любом режиме */
   const running = !!(liveAdminState && liveAdminState.active);
-  document.getElementById('ev-meeting-management').hidden=running&&!evMeetupLive;
-  document.getElementById('ev-practice-shortcut').hidden=meetOnly&&!running;
+  document.getElementById('ev-meeting-management').hidden=!meetOnly&&!evMeetupLive;
+  document.getElementById('ev-practice-shortcut').hidden=true;
 
   const sb = document.getElementById('ev-start-box'); if (sb && !running){ sb.style.opacity = ''; sb.style.display = meetOnly ? 'none' : ''; }
   const sn = document.getElementById('ev-start-meet-note'); if (sn) sn.style.display = (meetOnly && !running) ? '' : 'none';
@@ -8243,9 +8349,11 @@ function evDraftChanged(){
   if (evDraftTimer) clearTimeout(evDraftTimer);
   evDraftTimer = setTimeout(evDraftSave, 700);
 }
+let evDraftSaveChain=Promise.resolve();
 async function evDraftSave(){
   if(!evDraftReady)return;
   const d = evDraftFields(); evDraft = d;
+  const previous=evDraftSaveChain;let release;evDraftSaveChain=new Promise(r=>release=r);await previous;
   const st = document.getElementById('ev-draft-state');
   try{
     const r = await fetch(API + '/admin/doc/event_draft?x_admin_token=' + ADMIN_TOKEN, {
@@ -8253,7 +8361,8 @@ async function evDraftSave(){
     });
     if (!r.ok) throw new Error('сервер ответил ' + r.status);
     if (st) st.textContent = 'Черновик сохранён · ' + new Date().toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit'});
-  }catch(e){ if (st) st.textContent = 'Черновик не сохранился: ' + (e.message || e); }
+    return true;
+  }catch(e){ if (st) st.textContent = 'Черновик не сохранился: ' + (e.message || e); return false; }finally{release();}
 }
 /* После старта — цена входа и ссылка телемоста из черновика уезжают в сессию */
 async function evAfterStart(){
@@ -8477,6 +8586,7 @@ async function loadLiveAdminState(){
     const d = await r.json();
     liveAdminState = d;
     renderLiveAdmin();
+    if(eventControlState)eventControlRender();
     loadLiveHero();   // состояние изменилось — обновляем и кнопку на главной
   }catch(e){
     box.innerHTML = '<div class="pay-meta" style="color:#e8614a">Нет связи с бэкендом: '
@@ -9203,8 +9313,9 @@ function renderAnnounceTargets(){
      продажники). Открытые отмечены, только если у события бесплатная часть */
   function row(t){
     const open = evTargetIsOpen(t);
-    const on = open ? freePart : true;
-    return '<label class="pay-item" style="cursor:pointer"><input type="checkbox" class="ann-t" value="' + t.id + '"' + (on ? ' checked' : '') + ' style="flex-shrink:0">'
+    const saved=evDraft&&evDraft.target_ids;
+    const on = Array.isArray(saved)?saved.includes(t.id):(open ? freePart : true);
+    return '<label class="pay-item" style="cursor:pointer"><input type="checkbox" class="ann-t" onchange="evDraftChanged()" value="' + t.id + '"' + (on ? ' checked' : '') + ' style="flex-shrink:0">'
       + '<div style="flex:1;min-width:0"><div class="pay-name">' + escapeHtmlAdm(t.name) + '</div>'
       + '<div class="pay-meta">' + escapeHtmlAdm(TARGET_METHOD_LABELS[t.method] || t.method)
       + (t.last_error ? ' · <span style="color:#e8614a">прошлый раз: ' + escapeHtmlAdm(t.last_error.slice(0, 50)) + '</span>' : '') + '</div></div></label>';
@@ -9662,13 +9773,19 @@ async function exportLiveArchive(){
 }
 
 async function loadChatAdmin(incremental){
+  if(chatAdminRequest)return;
+  const generation=chatAdminGeneration;
+  const controller=new AbortController();chatAdminRequest=controller;
+  const deadline=setTimeout(()=>controller.abort(),10000);
   const box = document.getElementById('live-chat-admin');
-  if (!box) return;
+  if (!box){clearTimeout(deadline);chatAdminRequest=null;return;}
   try{
-    const since = incremental ? chatAdminLastId : 0;
+    const since = 0;
     const r = await fetch(API + '/admin/live/chat?limit=60&since_id=' + since
-                          + '&x_admin_token=' + ADMIN_TOKEN);
+                          + '&x_admin_token=' + ADMIN_TOKEN,{signal:controller.signal});
+    if(!r.ok)throw Error('Нет связи с чатом');
     const d = await r.json();
+    if(generation!==chatAdminGeneration)return;
     chatAdminState = d;
     renderLiveQuestions(d.questions || []);
     if (!d.active){
@@ -9683,26 +9800,19 @@ async function loadChatAdmin(incremental){
     // Прокручиваем вниз, только если и так стояли внизу — иначе выдёргивали бы
     // Denis'а из чтения старых сообщений каждым новым
     const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 50;
-    if (!incremental || !chatAdminLastId){
-      box.innerHTML = msgs.map(function(m){ return chatMsgHtml(m, chatAdminMuted); }).join('')
-        || '<div class="pay-meta">Сообщений пока нет</div>';
-      box.scrollTop = box.scrollHeight;
-    } else if (msgs.length){
-      const empty = box.querySelector('.pay-meta');
-      if (empty) box.innerHTML = '';
-      box.insertAdjacentHTML('beforeend',
-        msgs.map(function(m){ return chatMsgHtml(m, chatAdminMuted); }).join(''));
-      if (atBottom) box.scrollTop = box.scrollHeight;
-    }
-    if (d.last_id) chatAdminLastId = d.last_id;
+    const oldTop=box.scrollTop;
+    const ordered=[...new Map(msgs.map(m=>[Number(m.id),m])).values()].sort((a,b)=>Number(a.id)-Number(b.id));
+    box.innerHTML=ordered.map(m=>chatMsgHtml(m,chatAdminMuted)).join('')||'<div class="pay-meta">Сообщений пока нет</div>';
+    box.scrollTop=atBottom||!chatAdminLastId?box.scrollHeight:oldTop;
+    if(d.last_id)chatAdminLastId=Math.max(chatAdminLastId,Number(d.last_id));
     const btn = document.getElementById('chat-toggle-btn');
     if (btn) btn.textContent = d.chat_open ? 'Закрыть чат' : 'Открыть чат';
   }catch(e){
     if (!incremental){
       box.innerHTML = '<div class="pay-meta" style="color:#e8614a">Не загрузился: ' + (e && e.message || e) + '</div>';
     }
-    // при автообновлении молчим: сеть моргнула, следующий круг через несколько секунд
-  }
+    document.getElementById('event-console-status').textContent='Чат переподключается. История сохранена.';
+  } finally {clearTimeout(deadline);if(chatAdminRequest===controller)chatAdminRequest=null;}
 }
 
 /* v179: реакции эфира в пульте — числа по смайлам и сколько людей жали.
@@ -9727,6 +9837,7 @@ function startChatAdminPoll(){
   chatAdminTimer = setInterval(function(){ loadChatAdmin(true); }, CHAT_ADMIN_POLL_MS);
 }
 function stopChatAdminPoll(){
+  ++chatAdminGeneration;if(chatAdminRequest)chatAdminRequest.abort();chatAdminRequest=null;
   if (chatAdminTimer){ clearInterval(chatAdminTimer); chatAdminTimer = null; }
 }
 
@@ -9915,63 +10026,7 @@ async function copyId(value, el){
   }
 }
 
-async function liveAutoStart(){
-  if(!evDraftReady){alert("Сначала дождись загрузки черновика на вкладке «Подготовка».");return;}
-  if (evMeetOnlyGuard()) return;   // v126
-  const sel = document.getElementById('live-admin-event');
-  const opt = sel.options[sel.selectedIndex];
-  const live_event_id = sel.value;
-  const play_code = (opt && opt.getAttribute('data-code')) || '';
-  const title = document.getElementById('live-admin-title').value.trim();
-  const description = document.getElementById('live-admin-desc').value.trim();
-  if (!live_event_id){ alert('Выбери трансляцию'); return; }
-  if (!play_code){ alert('У этой трансляции нет кода плеера — апп не сможет её показать'); return; }
-  if (!title){ alert('Впиши название — оно уйдёт и в приложение, и в ВК'); return; }
-
-  // ПЕРЕЧИСЛЯЕМ ПОИМЁННО, куда уйдут трансляции. Раньше предупреждение было
-  // общим («во всех настроенных сообществах»), и промахнуться было легко:
-  // Denis выбрал трансляцию с названием «Без ретрансляции» и чуть не завёл ей
-  // площадки — название описывает, как она заведена в Kinescope, а кнопка это
-  // переопределяет. Пусть решение принимается по фактам, а не по памяти
-  let where = '';
-  try {
-    const tr = await fetch(API + '/admin/live/targets?x_admin_token=' + ADMIN_TOKEN);
-    const td = await tr.json();
-    const all = (td.vk || []).map(function(t){ return '  • ' + t.label; })
-      .concat((td.tg || []).map(function(t){ return '  • ' + t.label; }));
-    where = all.length ? all.join('\n') : '  (площадок не настроено)';
-  } catch (e) { where = '  (не удалось получить список площадок)'; }
-
-  const msg = 'Трансляция: ' + (opt ? opt.textContent : '—') + '\n\n'
-    + 'Будут созданы трансляции и точки ретрансляции:\n' + where + '\n\n'
-    + 'Точки добавятся ИМЕННО К ЭТОЙ трансляции Kinescope.\n'
-    + 'Если эфир нужен только в приложении — отмени и нажми «Подключить готовую трансляцию к приложению».\n\nПродолжить?';
-  if (!confirm(msg)) return;
-  try{
-    const r = await fetch(API + '/admin/live/auto-start?x_admin_token=' + ADMIN_TOKEN, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({live_event_id, play_code, title, description,
-        free_part: !!document.getElementById('live-free-part').checked})
-    });
-    const d = await r.json();
-    if(!r.ok || (!d.session && d.ok === false)){
-      alert('Эфир не запущен: '+(d.error||d.detail||('HTTP '+r.status)));
-      loadLiveAdminState();return;
-    }
-    let msg = (d.steps || []).join('\n');
-    if (d.obs && d.obs.rtmp_link){
-      msg += '\n\nДЛЯ OBS:\nСервер: ' + d.obs.rtmp_link + '\nКлюч: ' + (d.obs.streamkey || '');
-    }
-    if ((d.links || []).length){
-      msg += '\n\nССЫЛКИ НА ТРАНСЛЯЦИИ:\n' + d.links.map(function(l){ return l.label + ': ' + l.link; }).join('\n');
-    }
-    alert((d.ok === false ? 'Сессия открыта, но часть площадок не запустилась. Проверь отчёт:\n\n' : '')+(msg || 'Сессия эфира открыта'));
-    liveRememberEvent(live_event_id);
-    await evAfterStart();      // v115: цена входа и ссылка телемоста — из черновика
-    evShow(2);                 // остаёмся у статуса, чата и кнопки остановки
-    loadLiveAdminState();
-  }catch(e){ alert('Ошибка: ' + (e && e.message || e)); }
-}
+async function liveAutoStart(){return eventControlDo('start');}
 
 async function liveShowTargets(){
   try{
@@ -24242,7 +24297,7 @@ function updateEventGuide(n){
  const text=[
   'Подготовка: выбери формат, название, трансляцию и ссылку на телемост. Черновик сохраняется автоматически; дождись подтверждения сохранения.',
   'Анонсы: выбери «До занятия» или «После занятия», напиши текст, добавь картинку и проверь предпросмотр. Отправка не запускает встречу.',
-  'Здесь запуск, чат и завершение. Закрытие бесплатной части оставляет эфир для участников. Автозавершение — через 3 часа.',
+  'Начало, чат, телемост и завершение — здесь. Телемост можно отправить до или после остановки видео.',
   'Доступ: закрытие бесплатной части оставляет продолжение участникам клуба. Открытые площадки будут остановлены. Это действие не завершает весь эфир.',
   'Участники: проверь список пришедших и баллы. Изменение баллов не запускает трансляцию и не рассылает приглашения.',
   'Телемост: проверь ссылку и площадки рассылки. Затем покажи кнопку встречи зрителям и отправь приглашение. Завершение эфира — кнопкой «Вернуться к встрече и чату».',
@@ -24375,7 +24430,7 @@ async function evAnnouncementPreview(){
 }
 async function evAnnouncementSend(){
  if(evAnnBusy)return;const spec=evAnnouncementSpec(),out=document.getElementById('live-announce-out');
- if(!evAnnPreview||evAnnPreview.spec!==JSON.stringify(spec)){out.textContent='Сначала открой предпросмотр текущего текста и площадок.';return;}
+ if(!evAnnPreview||evAnnPreview.spec!==JSON.stringify(spec)){await evAnnouncementPreview();if(!evAnnPreview)return;}
  if(!confirm('Отправить '+(spec.phase==='before'?'анонс до занятия':'сообщение после занятия')+' в площадки из предпросмотра? Встреча не запустится.'))return;
  evAnnBusy=true;try{const r=await fetch(API+'/admin/event-announcements/send?x_admin_token='+encodeURIComponent(ADMIN_TOKEN),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({preview_id:evAnnPreview.id})});const d=await r.json();if(!r.ok)throw Error(d.detail||r.status);out.replaceChildren();for(const row of Object.values(d.results)){const p=document.createElement('p');const statuses={sent:'отправлено',queued:'в очереди бота',sending:'результат не подтверждён; повторная отправка заблокирована',unconfirmed:'результат не подтверждён; проверь площадку'};p.textContent=row.name+': '+(statuses[row.status]||row.status)+(row.queued!==undefined?' '+row.queued+' · пропущено '+row.skipped+' · удержано '+row.held:'')+(row.note?' · '+row.note:'');out.append(p);}}catch(e){out.textContent='Не удалось подтвердить результат: '+e.message+'. Повторное нажатие с этим предпросмотром не создаёт новую рассылку.';}finally{evAnnBusy=false;}
 }
